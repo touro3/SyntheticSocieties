@@ -1,0 +1,78 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+*.code-workspace
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Logs / outputs
+# =========================
+*.log
+logs/
+outputs/
+results/
+
+# =========================
+# Models (IMPORTANT)
+# =========================
+models/
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+
+# =========================
+# HuggingFace cache
+# =========================
+hf_cache/
+.huggingface/
+.cache/
+transformers_cache/
+
+# =========================
+# Large datasets
+# =========================
+data/
+datasets/
+
+# =========================
+# llama.cpp build
+# =========================
+llama.cpp/build/
+llama.cpp/models/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Llamma.cpp artifacts
+# =========================
+llama.cpp/

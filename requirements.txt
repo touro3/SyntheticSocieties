@@ -1,0 +1,15 @@
+numpy==1.26.4
+torch==2.2.2
+transformers==4.44.2
+accelerate==0.33.0
+datasets==2.20.0
+safetensors==0.4.5
+sentencepiece==0.2.0
+huggingface-hub==0.24.6
+tokenizers==0.19.1
+scipy==1.11.4
+pandas==2.2.2
+tqdm==4.66.5
+rich==13.8.0
+matplotlib==3.9.2
+pyyaml==6.0.2

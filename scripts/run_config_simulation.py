@@ -15,6 +15,8 @@ from population.generator import generate_population
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
+from metrics.event_metrics import behavior_summary_from_events, load_events
+from metrics.summary import merge_behavior_summary, summarize_agents
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,10 +82,13 @@ def main() -> None:
         "network_type": config["network"]["type"],
         "network_edge_prob": config["network"].get("edge_prob"),
     }
+
     save_json(metadata, run_dir / "metadata.json")
 
     agents = generate_population(config)
+
     network_manager = build_network(config, agents)
+
     world = build_world(config, network_manager)
 
     logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
@@ -97,6 +102,12 @@ def main() -> None:
     kernel.run(num_rounds=config["simulation"]["rounds"])
 
     summary = summarize_agents(agents)
+
+    events = load_events(run_dir / "events.jsonl")
+    event_behavior = behavior_summary_from_events(events)
+
+    summary = merge_behavior_summary(summary, event_behavior)
+
     save_json(summary, run_dir / "summary.json")
 
     print(f"Experiment completed: {experiment_id}")

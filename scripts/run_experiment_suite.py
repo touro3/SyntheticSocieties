@@ -35,11 +35,16 @@ def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
     config["policy"]["type"] = experiment_spec["policy"]
     config["network"]["type"] = experiment_spec["network"]
 
+    if "k" in experiment_spec:
+        config["network"]["k"] = experiment_spec["k"]
+
+    if "rewiring_prob" in experiment_spec:
+        config["network"]["rewiring_prob"] = experiment_spec["rewiring_prob"]
+
     if "edge_prob" in experiment_spec:
         config["network"]["edge_prob"] = experiment_spec["edge_prob"]
 
     return config
-
 
 def main() -> None:
     args = parse_args()

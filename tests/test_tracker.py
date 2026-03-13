@@ -14,7 +14,11 @@ def test_build_experiment_record(tmp_path):
         {
             "environment": {
                 "public_signal": {"economy": "stable"},
-            }
+            },
+            "network": {
+                "type": "random",
+                "edge_prob": 0.3,
+            },
         },
         run_dir / "config.yaml",
     )
@@ -46,9 +50,10 @@ def test_build_experiment_record(tmp_path):
                 "mean": 2.0,
                 "variance": 0.5,
             },
-            "actions": {
+            "event_action_counts": {
                 "work": 4,
                 "save": 1,
+                "cooperate": 0,
             },
         },
         run_dir / "summary.json",
@@ -60,3 +65,5 @@ def test_build_experiment_record(tmp_path):
     assert record["wealth_gini"] == 0.1
     assert record["num_work"] == 4
     assert record["num_save"] == 1
+    assert record["num_cooperate"] == 0
+    assert record["network_type"] == "random"

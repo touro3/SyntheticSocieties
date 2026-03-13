@@ -1,15 +1,15 @@
 project:
   name: bgf
-  experiment_id: random_random_seed_42
+  experiment_id: mock_small_world_seed_42
   seed: 42
 simulation:
   rounds: 3
   population_size: 5
 policy:
-  type: random
+  type: mock
 network:
-  type: random
-  edge_prob: 0.3
+  type: small_world
+  edge_prob: 0.5
   k: 2
   rewiring_prob: 0.3
 environment:

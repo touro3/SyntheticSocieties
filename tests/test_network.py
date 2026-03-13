@@ -21,3 +21,10 @@ def test_random_graph_network():
 
     assert network.num_nodes() == 4
     assert isinstance(network.get_neighbors("a1"), list)
+
+def test_small_world_network():
+    agent_ids = ["a1", "a2", "a3", "a4", "a5"]
+    network = NetworkManager.small_world(agent_ids, k=2, rewiring_prob=0.3, seed=42)
+
+    assert network.num_nodes() == 5
+    assert isinstance(network.get_neighbors("a1"), list)

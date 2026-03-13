@@ -47,6 +47,14 @@ def build_network(config: dict, agents: list[Agent]) -> NetworkManager:
             seed=config["project"]["seed"],
         )
 
+    if network_cfg["type"] == "small_world":
+        return NetworkManager.small_world(
+            agent_ids=agent_ids,
+            k=network_cfg["k"],
+            rewiring_prob=network_cfg["rewiring_prob"],
+            seed=config["project"]["seed"],
+        )
+
     raise ValueError(f"Unsupported network type: {network_cfg['type']}")
 
 

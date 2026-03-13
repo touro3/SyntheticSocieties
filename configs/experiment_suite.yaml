@@ -1,9 +1,6 @@
 base_config_path: configs/base_config.yaml
 
 experiments:
-
-  # MOCK POLICY
-
   - experiment_id: mock_fc_seed_42
     policy: mock
     seed: 42
@@ -15,7 +12,12 @@ experiments:
     network: random
     edge_prob: 0.3
 
-  # RANDOM POLICY
+  - experiment_id: mock_small_world_seed_42
+    policy: mock
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3
 
   - experiment_id: random_fc_seed_42
     policy: random
@@ -28,7 +30,12 @@ experiments:
     network: random
     edge_prob: 0.3
 
-  # RULE BASED POLICY
+  - experiment_id: random_small_world_seed_42
+    policy: random
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3
 
   - experiment_id: rule_fc_seed_42
     policy: rule_based
@@ -40,3 +47,10 @@ experiments:
     seed: 42
     network: random
     edge_prob: 0.3
+
+  - experiment_id: rule_small_world_seed_42
+    policy: rule_based
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3

@@ -13,6 +13,8 @@ policy:
 network:
   type: random
   edge_prob: 0.5
+  k: 2
+  rewiring_prob: 0.3
 
 environment:
   public_signal:

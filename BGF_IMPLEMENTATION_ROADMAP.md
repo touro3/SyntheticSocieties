@@ -5,7 +5,7 @@ The goal is to build the system incrementally while preserving reproducibility a
 
 ---
 
-# Phase 1 — Project Infrastructure
+# Phase 1 — Project Infrastructure  Status: Completed
 
 Goal: create the technical foundation of the project.
 
@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-# Phase 3 — Population Synthesis
+# Phase 3 — Population Synthesis Status: In progress
 
 Goal: generate a synthetic population grounded in empirical distributions.
 
@@ -84,7 +84,7 @@ Deliverables:
 
 ---
 
-# Phase 5 — Simulation Kernel
+# Phase 5 — Simulation Kernel Status: completed (v0.1)
 
 Goal: implement the event-driven simulation engine.
 
@@ -142,7 +142,7 @@ Deliverables:
 
 ---
 
-# Phase 8 — Evaluation Metrics
+# Phase 8 — Evaluation Metrics Status: In progress 
 
 Goal: implement quantitative evaluation.
 
@@ -198,7 +198,7 @@ Deliverables:
 
 ---
 
-# Phase 10 — Experiments
+# Phase 10 — Experiments Status: In progress
 
 Goal: run controlled experiments.
 

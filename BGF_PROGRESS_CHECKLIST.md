@@ -7,26 +7,26 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 # Core Architecture
 
 [ ] Empirical grounding implemented  
-[ ] Population synthesis working  
-[ ] Agent architecture defined  
-[ ] Memory layer implemented  
-[ ] Social world environment implemented  
-[ ] Social network topology implemented  
+[x] Population synthesis working  
+[x] Agent architecture defined  
+[x] Memory layer implemented  
+[x] Social world environment implemented  
+[x] Social network topology implemented  
 [ ] LLM decision interface working  
-[ ] Action validation layer implemented  
-[ ] Event-driven simulation kernel implemented  
+[x] Action validation layer implemented  
+[x] Event-driven simulation kernel implemented  
 
 ---
 
 # Reproducibility & Logging
 
 [ ] Config system implemented (Hydra/YAML)  
-[ ] Random seeds controlled  
-[ ] Full event logging implemented  
+[x] Random seeds controlled  
+[x] Full event logging implemented  
 [ ] Prompt + model output logged  
-[ ] Model metadata stored  
+[x] Model metadata stored  
 [ ] Dataset version recorded  
-[ ] Experiment metadata saved  
+[x] Experiment metadata saved  
 
 ---
 
@@ -40,8 +40,8 @@ Distribution Similarity
 
 Inequality
 
-[ ] Gini coefficient  
-[ ] Lorenz curves  
+[x] Gini coefficient  
+[x] Lorenz curves  
 
 Behavioral Metrics
 
@@ -101,10 +101,10 @@ Network Metrics
 
 # Experiment Tracker
 
-[ ] Experiment metadata system  
-[ ] experiment_index.parquet  
+[x] Experiment metadata system  
+[x] experiment_index.parquet  
 [ ] DuckDB analytics queries  
-[ ] experiment comparison scripts  
+[x] experiment comparison scripts  
 
 ---
 
@@ -114,7 +114,7 @@ Network Metrics
 [ ] Experimental hypotheses defined  
 [ ] Controlled comparisons implemented  
 [ ] Multiple runs aggregated  
-[ ] Statistical summaries computed  
+[x] Statistical summaries computed  
 
 ---
 

@@ -8,15 +8,13 @@ from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from decision.mock_policy import MockPolicy
-from decision.schemas import ProposedAction
-from environment.institutions import InstitutionManager
-from environment.world_state import WorldState
+from metrics.summary import cooperation_rate
 
 
-def test_negative_amount_is_rejected():
+def build_agent(agent_id: str, last_action: str) -> Agent:
     agent = Agent(
         profile=AgentProfile(
-            agent_id="agent_1",
+            agent_id=agent_id,
             age=30,
             income=1000,
             education="college",
@@ -30,18 +28,17 @@ def test_negative_amount_is_rejected():
         memory=MemoryBuffer(max_items=5),
         policy=MockPolicy(),
     )
+    agent.state.last_action = last_action
+    return agent
 
-    manager = InstitutionManager()
-    world_state = WorldState()
 
-    action = ProposedAction(
-        action_type="work",
-        amount=-10.0,
-        reasoning_summary="invalid negative amount",
-        confidence=0.1,
-    )
+def test_cooperation_rate():
+    agents = [
+        build_agent("a1", "cooperate"),
+        build_agent("a2", "work"),
+        build_agent("a3", "cooperate"),
+        build_agent("a4", "save"),
+    ]
 
-    result = manager.validate(action, agent, world_state, {"agent_1": agent})
-
-    assert result.valid is False
-    assert result.reason == "negative_amount"
+    rate = cooperation_rate(agents)
+    assert rate == 0.5

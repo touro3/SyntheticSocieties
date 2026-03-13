@@ -23,9 +23,32 @@ def action_counts(agents: list[Agent]) -> dict[str, int]:
     return counts
 
 
+def cooperation_rate(agents: list[Agent]) -> float:
+    counts = action_counts(agents)
+    total = sum(counts.values())
+
+    if total == 0:
+        return 0.0
+
+    cooperative_actions = counts.get("cooperate", 0)
+    return cooperative_actions / total
+
+
+def defection_rate(agents: list[Agent]) -> float:
+    counts = action_counts(agents)
+    total = sum(counts.values())
+
+    if total == 0:
+        return 0.0
+
+    defect_actions = counts.get("decline_help", 0)
+    return defect_actions / total
+
+
 def summarize_agents(agents: list[Agent]) -> dict:
     wealths = extract_agent_wealths(agents)
     stress = extract_agent_stress(agents)
+    counts = action_counts(agents)
 
     return {
         "num_agents": len(agents),
@@ -47,7 +70,11 @@ def summarize_agents(agents: list[Agent]) -> dict:
             "min": minimum(stress),
             "max": maximum(stress),
         },
-        "actions": action_counts(agents),
+        "actions": counts,
+        "behavior": {
+            "cooperation_rate": cooperation_rate(agents),
+            "defection_rate": defection_rate(agents),
+        },
         "final_state": {
             agent.profile.agent_id: {
                 "wealth": agent.state.wealth,

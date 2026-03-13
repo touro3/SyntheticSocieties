@@ -6,6 +6,7 @@ class SimulationKernel:
         self.agents = agents
         self.world = world
         self.logger = logger
+        self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
 
     def run(self, num_rounds: int) -> None:
         for _ in range(num_rounds):
@@ -23,10 +24,10 @@ class SimulationKernel:
             )
 
             proposed_action = agent.decide(context=perception, round_id=round_id)
-            validation = self.world.validate_action(proposed_action, agent)
+            validation = self.world.validate_action(proposed_action, agent, self.agent_lookup)
 
             if validation.valid:
-                executed_event = self.world.execute_action(proposed_action, agent)
+                executed_event = self.world.execute_action(proposed_action, agent, self.agent_lookup)
                 agent.apply_local_update(executed_event)
 
                 agent.memory.add(

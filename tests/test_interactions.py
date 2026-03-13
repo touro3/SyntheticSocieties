@@ -13,10 +13,10 @@ from environment.institutions import InstitutionManager
 from environment.world_state import WorldState
 
 
-def test_negative_amount_is_rejected():
-    agent = Agent(
+def build_agent(agent_id: str, wealth: float) -> Agent:
+    return Agent(
         profile=AgentProfile(
-            agent_id="agent_1",
+            agent_id=agent_id,
             age=30,
             income=1000,
             education="college",
@@ -26,22 +26,31 @@ def test_negative_amount_is_rejected():
             risk_tolerance=0.5,
             social_class="middle",
         ),
-        state=AgentState(wealth=50.0),
+        state=AgentState(wealth=wealth),
         memory=MemoryBuffer(max_items=5),
         policy=MockPolicy(),
     )
 
+
+def test_cooperate_transfer_execution():
+    source = build_agent("a1", 100.0)
+    target = build_agent("a2", 50.0)
     manager = InstitutionManager()
     world_state = WorldState()
 
     action = ProposedAction(
-        action_type="work",
-        amount=-10.0,
-        reasoning_summary="invalid negative amount",
-        confidence=0.1,
+        action_type="cooperate",
+        target_agent_id="a2",
+        amount=5.0,
+        reasoning_summary="help neighbor",
+        confidence=0.8,
     )
 
-    result = manager.validate(action, agent, world_state, {"agent_1": agent})
+    result = manager.validate(action, source, world_state, {"a1": source, "a2": target})
+    assert result.valid is True
 
-    assert result.valid is False
-    assert result.reason == "negative_amount"
+    event = manager.execute(action, source, world_state, {"a1": source, "a2": target})
+
+    assert event["wealth_delta"] == -5.0
+    assert event["target_wealth_delta"] == 5.0
+    assert target.state.wealth == 55.0

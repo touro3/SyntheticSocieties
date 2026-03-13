@@ -3,7 +3,19 @@ from decision.schemas import ProposedAction
 
 class MockPolicy:
     def propose_action(self, profile, state, memory, context, round_id: int) -> ProposedAction:
-        if state.wealth > 100:
+        neighbors = context.get("network", {}).get("neighbors", [])
+
+        if neighbors and state.wealth >= 100:
+            target = neighbors[0]
+            return ProposedAction(
+                action_type="cooperate",
+                target_agent_id=target,
+                amount=5.0,
+                reasoning_summary="Agent cooperates by transferring resources to a neighbor.",
+                confidence=0.85,
+            )
+
+        if state.wealth > 60:
             return ProposedAction(
                 action_type="save",
                 amount=5.0,

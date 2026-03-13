@@ -19,11 +19,11 @@ class World:
             "neighbors": neighbors,
         }
 
-    def validate_action(self, action, agent):
-        return self.institution_manager.validate(action, agent, self.state)
+    def validate_action(self, action, agent, agent_lookup):
+        return self.institution_manager.validate(action, agent, self.state, agent_lookup)
 
-    def execute_action(self, action, agent) -> dict:
-        return self.institution_manager.execute(action, agent, self.state)
+    def execute_action(self, action, agent, agent_lookup) -> dict:
+        return self.institution_manager.execute(action, agent, self.state, agent_lookup)
 
     def apply_exogenous_updates(self) -> None:
         self.state.round_id += 1

@@ -4,12 +4,11 @@ from agents.agent import Agent
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from decision.mock_policy import MockPolicy
 from population.sampling import sample_age, sample_income
 from population.schemas import PopulationSpec
 
 
-def generate_population(config: dict) -> list[Agent]:
+def generate_population(config: dict, policy) -> list[Agent]:
     simulation_cfg = config["simulation"]
     defaults = config["agent_defaults"]
 
@@ -43,7 +42,6 @@ def generate_population(config: dict) -> list[Agent]:
         )
 
         memory = MemoryBuffer(max_items=defaults["memory_size"])
-        policy = MockPolicy()
 
         agents.append(
             Agent(

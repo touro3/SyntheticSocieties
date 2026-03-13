@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from decision.mock_policy import MockPolicy
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -30,7 +31,7 @@ def test_generate_population_from_config():
     }
 
     set_global_seed(42)
-    agents = generate_population(config)
+    agents = generate_population(config, MockPolicy())
 
     assert len(agents) == 5
     assert agents[0].profile.agent_id == "agent_0"

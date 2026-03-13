@@ -17,6 +17,9 @@ from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
 from metrics.event_metrics import behavior_summary_from_events, load_events
 from metrics.summary import merge_behavior_summary, summarize_agents
+from decision.mock_policy import MockPolicy
+from decision.random_policy import RandomPolicy
+from decision.rule_based_policy import RuleBasedPolicy
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,6 +61,20 @@ def build_world(config: dict, network_manager: NetworkManager) -> World:
         network_manager=network_manager,
     )
 
+def build_policy(config: dict):
+    policy_type = config["policy"]["type"]
+
+    if policy_type == "mock":
+        return MockPolicy()
+
+    if policy_type == "random":
+        return RandomPolicy()
+
+    if policy_type == "rule_based":
+        return RuleBasedPolicy()
+
+    raise ValueError(f"Unsupported policy type: {policy_type}")
+
 
 def main() -> None:
     args = parse_args()
@@ -85,7 +102,8 @@ def main() -> None:
 
     save_json(metadata, run_dir / "metadata.json")
 
-    agents = generate_population(config)
+    policy = build_policy(config)
+    agents = generate_population(config, policy)
 
     network_manager = build_network(config, agents)
 

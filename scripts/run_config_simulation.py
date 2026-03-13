@@ -17,7 +17,7 @@ from environment.world_state import WorldState
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
-
+from population.generator import generate_population
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a BGF simulation from config.")
@@ -102,7 +102,7 @@ def main() -> None:
     }
     save_json(metadata, run_dir / "metadata.json")
 
-    agents = build_agents(config)
+    agents = generate_population(config)
     world = build_world(config)
 
     logger = EventLogger(run_dir / "events.jsonl", overwrite=True)

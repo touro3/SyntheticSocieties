@@ -19,6 +19,10 @@ environment:
     jobs: 100.0
 
 agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
   education: college
   occupation: worker
   location: italy

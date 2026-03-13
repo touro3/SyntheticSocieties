@@ -1,15 +1,42 @@
-project:
-  name: bgf_suite
-
 base_config_path: configs/base_config.yaml
 
-sweep:
-  policy_types:
-    - mock
-    - random
-    - rule_based
+experiments:
 
-  seeds:
-    - 42
-    - 43
-    - 44
+  # MOCK POLICY
+
+  - experiment_id: mock_fc_seed_42
+    policy: mock
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: mock_random_seed_42
+    policy: mock
+    seed: 42
+    network: random
+    edge_prob: 0.3
+
+  # RANDOM POLICY
+
+  - experiment_id: random_fc_seed_42
+    policy: random
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: random_random_seed_42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+
+  # RULE BASED POLICY
+
+  - experiment_id: rule_fc_seed_42
+    policy: rule_based
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: rule_random_seed_42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3

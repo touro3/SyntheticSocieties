@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_experiment_config(base_config: dict, policy_type: str, seed: int, experiment_id: str) -> dict:
+def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
     config = dict(base_config)
 
     config["project"] = dict(base_config["project"])
@@ -30,9 +30,13 @@ def build_experiment_config(base_config: dict, policy_type: str, seed: int, expe
     config["agent_defaults"] = dict(base_config["agent_defaults"])
     config["network"] = dict(base_config["network"])
 
-    config["project"]["experiment_id"] = experiment_id
-    config["project"]["seed"] = seed
-    config["policy"]["type"] = policy_type
+    config["project"]["experiment_id"] = experiment_spec["experiment_id"]
+    config["project"]["seed"] = experiment_spec["seed"]
+    config["policy"]["type"] = experiment_spec["policy"]
+    config["network"]["type"] = experiment_spec["network"]
+
+    if "edge_prob" in experiment_spec:
+        config["network"]["edge_prob"] = experiment_spec["edge_prob"]
 
     return config
 
@@ -44,45 +48,40 @@ def main() -> None:
     base_config = load_config(suite_config["base_config_path"])
 
     generated_dir = ensure_dir("configs/generated")
+    experiments = suite_config["experiments"]
 
-    policy_types = suite_config["sweep"]["policy_types"]
-    seeds = suite_config["sweep"]["seeds"]
+    for experiment_spec in experiments:
+        experiment_id = experiment_spec["experiment_id"]
 
-    for policy_type in policy_types:
-        for seed in seeds:
-            experiment_id = f"{policy_type}_seed_{seed}"
+        config = build_experiment_config(
+            base_config=base_config,
+            experiment_spec=experiment_spec,
+        )
 
-            config = build_experiment_config(
-                base_config=base_config,
-                policy_type=policy_type,
-                seed=seed,
-                experiment_id=experiment_id,
-            )
+        config_path = generated_dir / f"{experiment_id}.yaml"
+        save_yaml(config, config_path)
 
-            config_path = generated_dir / f"{experiment_id}.yaml"
-            save_yaml(config, config_path)
+        print(f"Running experiment: {experiment_id}")
 
-            print(f"Running experiment: {experiment_id}")
+        subprocess.run(
+            [
+                sys.executable,
+                "scripts/run_config_simulation.py",
+                "--config",
+                str(config_path),
+            ],
+            check=True,
+        )
 
-            subprocess.run(
-                [
-                    sys.executable,
-                    "scripts/run_config_simulation.py",
-                    "--config",
-                    str(config_path),
-                ],
-                check=True,
-            )
-
-            subprocess.run(
-                [
-                    sys.executable,
-                    "scripts/register_experiment.py",
-                    "--run-dir",
-                    f"experiments/{experiment_id}",
-                ],
-                check=True,
-            )
+        subprocess.run(
+            [
+                sys.executable,
+                "scripts/register_experiment.py",
+                "--run-dir",
+                f"experiments/{experiment_id}",
+            ],
+            check=True,
+        )
 
     print("Experiment suite completed.")
     print("Registered all runs into tracker.")

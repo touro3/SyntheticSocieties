@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+from metrics.summary import summarize_agents
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -76,15 +77,6 @@ def build_world(config: dict) -> World:
         ),
         institution_manager=InstitutionManager(),
     )
-
-
-def summarize_agents(agents: list[Agent]) -> dict:
-    return {
-        "num_agents": len(agents),
-        "final_wealth": {agent.profile.agent_id: agent.state.wealth for agent in agents},
-        "final_stress": {agent.profile.agent_id: agent.state.stress for agent in agents},
-        "last_action": {agent.profile.agent_id: agent.state.last_action for agent in agents},
-    }
 
 
 def main() -> None:

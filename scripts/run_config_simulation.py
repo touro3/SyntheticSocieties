@@ -1,23 +1,21 @@
 import argparse
 import sys
 from pathlib import Path
-from metrics.summary import summarize_agents
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from agents.agent import Agent
-from agents.memory import MemoryBuffer
-from agents.profile import AgentProfile
-from agents.state import AgentState
 from bgf_logging.event_logger import EventLogger
-from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
+from environment.network import NetworkManager
 from environment.world import World
 from environment.world_state import WorldState
+from metrics.summary import summarize_agents
+from population.generator import generate_population
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
-from population.generator import generate_population
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a BGF simulation from config.")
@@ -30,45 +28,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_agents(config: dict) -> list[Agent]:
-    n = config["simulation"]["population_size"]
-    defaults = config["agent_defaults"]
+def build_network(config: dict, agents: list[Agent]) -> NetworkManager:
+    network_cfg = config["network"]
+    agent_ids = [agent.profile.agent_id for agent in agents]
 
-    agents = []
+    if network_cfg["type"] == "fully_connected":
+        return NetworkManager.fully_connected(agent_ids)
 
-    for i in range(n):
-        profile = AgentProfile(
-            agent_id=f"agent_{i}",
-            age=25 + i,
-            income=1000 + i * 100,
-            education=defaults["education"],
-            occupation=defaults["occupation"],
-            location=defaults["location"],
-            political_preference=defaults["political_preference"],
-            risk_tolerance=defaults["risk_tolerance"],
-            social_class=defaults["social_class"],
+    if network_cfg["type"] == "random":
+        return NetworkManager.random_graph(
+            agent_ids=agent_ids,
+            edge_prob=network_cfg["edge_prob"],
+            seed=config["project"]["seed"],
         )
 
-        state = AgentState(
-            wealth=defaults["initial_wealth"] + i * defaults["wealth_step"]
-        )
-
-        memory = MemoryBuffer(max_items=defaults["memory_size"])
-        policy = MockPolicy()
-
-        agents.append(
-            Agent(
-                profile=profile,
-                state=state,
-                memory=memory,
-                policy=policy,
-            )
-        )
-
-    return agents
+    raise ValueError(f"Unsupported network type: {network_cfg['type']}")
 
 
-def build_world(config: dict) -> World:
+def build_world(config: dict, network_manager: NetworkManager) -> World:
     return World(
         state=WorldState(
             public_signal=config["environment"]["public_signal"],
@@ -76,6 +53,7 @@ def build_world(config: dict) -> World:
             resources=config["environment"]["resources"],
         ),
         institution_manager=InstitutionManager(),
+        network_manager=network_manager,
     )
 
 
@@ -99,11 +77,14 @@ def main() -> None:
         "policy_type": config["policy"]["type"],
         "population_size": config["simulation"]["population_size"],
         "rounds": config["simulation"]["rounds"],
+        "network_type": config["network"]["type"],
+        "network_edge_prob": config["network"].get("edge_prob"),
     }
     save_json(metadata, run_dir / "metadata.json")
 
     agents = generate_population(config)
-    world = build_world(config)
+    network_manager = build_network(config, agents)
+    world = build_world(config, network_manager)
 
     logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
 

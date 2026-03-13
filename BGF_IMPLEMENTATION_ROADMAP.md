@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-# Phase 3 — Population Synthesis Status: In progress
+# Phase 3 — Population Synthesis Status: completed (v0.1)
 
 Goal: generate a synthetic population grounded in empirical distributions.
 
@@ -64,7 +64,7 @@ Deliverables:
 
 ---
 
-# Phase 4 — Agent Architecture
+# Phase 4 — Agent Architecture Status: completed (v0.1)
 
 Goal: implement the internal structure of agents.
 
@@ -122,7 +122,7 @@ Deliverables:
 
 ---
 
-# Phase 7 — Logging & Reproducibility
+# Phase 7 — Logging & Reproducibility Status: completed (v0.1)
 
 Goal: guarantee full reproducibility.
 
@@ -174,7 +174,7 @@ Deliverables:
 
 ---
 
-# Phase 9 — Baselines & Ablations
+# Phase 9 — Baselines & Ablations Status: In progres 
 
 Goal: create comparison agents and ablation conditions.
 
@@ -218,7 +218,7 @@ Deliverables:
 
 ---
 
-# Phase 11 — Experiment Tracker
+# Phase 11 — Experiment Tracker Status: In progress
 
 Goal: monitor and analyze all simulation runs.
 

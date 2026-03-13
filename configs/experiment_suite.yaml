@@ -1,0 +1,15 @@
+project:
+  name: bgf_suite
+
+base_config_path: configs/base_config.yaml
+
+sweep:
+  policy_types:
+    - mock
+    - random
+    - rule_based
+
+  seeds:
+    - 42
+    - 43
+    - 44

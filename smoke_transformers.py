@@ -20,7 +20,7 @@ model = AutoModelForCausalLM.from_pretrained(
 
 messages = [
     {"role": "system", "content": "You are a concise assistant."},
-    {"role": "user", "content": "Write 3 bullet points explaining what a synthetic society is. Use clear, concise language."},
+    {"role": "user", "content": "Explain what a synthetic society is. Use clear, concise language."},
 ]
 
 prompt = tokenizer.apply_chat_template(

@@ -58,6 +58,9 @@ transformers_cache/
 # Large datasets
 # =========================
 data/
+data/raw/
+data/processed/
+data/synthetic/
 datasets/
 
 # =========================
@@ -76,3 +79,19 @@ Thumbs.db
 # Llamma.cpp artifacts
 # =========================
 llama.cpp/
+
+# =========================
+# Misc
+# =========================
+
+nohup.out
+experiments/
+tracker/*.parquet
+tracker/*.db
+paper/build/
+
+# =========================
+# Temporary
+# =========================
+tmp/
+temp/

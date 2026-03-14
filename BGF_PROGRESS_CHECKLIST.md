@@ -83,7 +83,7 @@ Network Metrics
 [ ] Prompt perturbation experiments  
 [ ] Model family comparison  
 [ ] Temperature sensitivity tests  
-[ ] Population size sweep  
+[x] Population size sweep  
 [ ] Simulation horizon sweep  
 [x] Network topology sweep  
 

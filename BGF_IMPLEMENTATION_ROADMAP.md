@@ -27,7 +27,7 @@ Deliverables:
 
 ---
 
-# Phase 2 — Empirical Grounding
+# Phase 2 — Empirical Grounding Status: Pending
 
 Goal: connect the simulation to real-world socio-economic data.
 
@@ -103,7 +103,7 @@ Deliverables:
 
 ---
 
-# Phase 6 — LLM Decision Interface
+# Phase 6 — LLM Decision Interface Status: Pending 
 
 Goal: integrate LLM reasoning into agent decisions.
 
@@ -236,7 +236,7 @@ Deliverables:
 
 ---
 
-# Phase 12 — Paper Writing
+# Phase 12 — Paper Writing Status: Pending
 
 Goal: transform results into a research paper.
 

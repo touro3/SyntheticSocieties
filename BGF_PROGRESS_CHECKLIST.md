@@ -45,7 +45,7 @@ Inequality
 
 Behavioral Metrics
 
-[ ] Cooperation rate  
+[x] Cooperation rate  
 [ ] Defection rate  
 [ ] Temporal stability  
 
@@ -59,8 +59,8 @@ Network Metrics
 
 # Baselines
 
-[ ] Random constrained agents  
-[ ] Rule-based utility agents  
+[x] Random constrained agents  
+[x] Rule-based utility agents  
 [ ] Template behavior agents  
 [ ] Ablated LLM agents  
 
@@ -85,7 +85,7 @@ Network Metrics
 [ ] Temperature sensitivity tests  
 [ ] Population size sweep  
 [ ] Simulation horizon sweep  
-[ ] Network topology sweep  
+[x] Network topology sweep  
 
 ---
 
@@ -93,7 +93,7 @@ Network Metrics
 
 [ ] Subgroup analysis  
 [ ] Persona drift detection  
-[ ] Invalid action analysis  
+[x] Invalid action analysis  
 [ ] Response diversity check  
 [ ] Alignment bias detection  
 
@@ -112,8 +112,8 @@ Network Metrics
 
 [ ] Calibration vs evaluation separation  
 [ ] Experimental hypotheses defined  
-[ ] Controlled comparisons implemented  
-[ ] Multiple runs aggregated  
+[x] Controlled comparisons implemented  
+[x] Multiple runs aggregated  
 [x] Statistical summaries computed  
 
 ---

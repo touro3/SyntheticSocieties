@@ -44,7 +44,14 @@ def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
     if "edge_prob" in experiment_spec:
         config["network"]["edge_prob"] = experiment_spec["edge_prob"]
 
+    if "population_size" in experiment_spec:
+        config["simulation"]["population_size"] = experiment_spec["population_size"]
+
+    if "rounds" in experiment_spec:
+        config["simulation"]["rounds"] = experiment_spec["rounds"]
+
     return config
+
 
 def main() -> None:
     args = parse_args()

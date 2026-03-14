@@ -4,7 +4,7 @@ project:
   seed: 42
 simulation:
   rounds: 3
-  population_size: 5
+  population_size: 100
 policy:
   type: random
 network:

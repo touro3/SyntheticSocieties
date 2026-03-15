@@ -182,7 +182,7 @@ Baselines:
 
 - random constrained agents
 - rule-based utility agents
-- template behavior agents
+- socioeconomically grounded behavioral agents
 
 Ablations:
 

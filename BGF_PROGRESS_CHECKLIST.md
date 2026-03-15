@@ -6,7 +6,7 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 
 # Core Architecture
 
-[ ] Empirical grounding implemented  
+[x] Empirical grounding implemented  
 [x] Population synthesis working  
 [x] Agent architecture defined  
 [x] Memory layer implemented  
@@ -20,12 +20,12 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 
 # Reproducibility & Logging
 
-[ ] Config system implemented (Hydra/YAML)  
+[x] Config system implemented (Hydra/YAML)  
 [x] Random seeds controlled  
 [x] Full event logging implemented  
 [ ] Prompt + model output logged  
 [x] Model metadata stored  
-[ ] Dataset version recorded  
+[x] Dataset version recorded  
 [x] Experiment metadata saved  
 
 ---

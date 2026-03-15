@@ -39,7 +39,6 @@ results/
 # =========================
 # Models (IMPORTANT)
 # =========================
-models/
 *.gguf
 *.bin
 *.pt
@@ -57,7 +56,10 @@ transformers_cache/
 # =========================
 # Large datasets
 # =========================
-data/
+data/*.csv
+data/*.parquet
+data/*.json
+data/behavior/
 data/raw/
 data/processed/
 data/synthetic/

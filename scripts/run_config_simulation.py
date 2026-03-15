@@ -11,7 +11,7 @@ from environment.network import NetworkManager
 from environment.world import World
 from environment.world_state import WorldState
 from metrics.summary import summarize_agents
-from population.generator import generate_population
+from population.generator import generate_population, generate_empirical_population
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
@@ -20,6 +20,8 @@ from metrics.summary import merge_behavior_summary, summarize_agents
 from decision.mock_policy import MockPolicy
 from decision.random_policy import RandomPolicy
 from decision.rule_based_policy import RuleBasedPolicy
+from decision.data_driven_policy import DataDrivenPolicy
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,6 +83,9 @@ def build_policy(config: dict):
     if policy_type == "rule_based":
         return RuleBasedPolicy()
 
+    if policy_type == "data_driven":
+        return DataDrivenPolicy()
+
     raise ValueError(f"Unsupported policy type: {policy_type}")
 
 
@@ -111,7 +116,14 @@ def main() -> None:
     save_json(metadata, run_dir / "metadata.json")
 
     policy = build_policy(config)
-    agents = generate_population(config, policy)
+    pop_source = config.get("population", {}).get("source", "synthetic")
+
+    if pop_source == "empirical":
+        agents = generate_empirical_population(config, policy)
+        print(f"Generated empirical population: {len(agents)} agents from ESS data")
+    else:
+        agents = generate_population(config, policy)
+        print(f"Generated synthetic population: {len(agents)} agents")
 
     network_manager = build_network(config, agents)
 

@@ -10,6 +10,16 @@ simulation:
 policy:
   type: mock
 
+population:
+  source: synthetic       # "synthetic" (v0.1 defaults) or "empirical" (ESS-grounded)
+
+data:
+  ess_interview_path: data/ESS11INTe04_1.csv
+  ess_main_path: data/ESS11MD_e01_2.csv
+  ess_clean_path: data/ess_clean.parquet
+  distributions_path: data/empirical_distributions.json
+  sample_mode: resample   # "resample" (with replacement) or "subsample"
+
 network:
   type: random
   edge_prob: 0.5

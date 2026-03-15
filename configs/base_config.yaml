@@ -11,7 +11,7 @@ policy:
   type: mock
 
 population:
-  source: synthetic       # "synthetic" (v0.1 defaults) or "empirical" (ESS-grounded)
+  source: empirical       # "synthetic" (v0.1 defaults) or "empirical" (ESS-grounded)
 
 data:
   ess_interview_path: data/ESS11INTe04_1.csv

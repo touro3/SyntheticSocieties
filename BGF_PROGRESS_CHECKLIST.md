@@ -34,9 +34,9 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 
 Distribution Similarity
 
-[ ] Jensen–Shannon divergence  
-[ ] KL divergence  
-[ ] Wasserstein distance  
+[x] Jensen–Shannon divergence  
+[x] KL divergence  
+[x] Wasserstein distance  
 
 Inequality
 
@@ -46,14 +46,14 @@ Inequality
 Behavioral Metrics
 
 [x] Cooperation rate  
-[ ] Defection rate  
-[ ] Temporal stability  
+[x] Defection rate  
+[x] Temporal stability  
 
 Network Metrics
 
-[ ] Assortativity  
-[ ] Modularity  
-[ ] Diffusion speed  
+[x] Assortativity  
+[x] Modularity  
+[x] Diffusion speed  
 
 ---
 

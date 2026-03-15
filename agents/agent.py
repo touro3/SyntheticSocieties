@@ -22,11 +22,10 @@ class Agent:
         }
 
     def decide(self, context: dict, round_id: int):
-        recent_memory = self.memory.get_recent()
         return self.policy.propose_action(
             profile=self.profile,
             state=self.state,
-            memory=recent_memory,
+            memory=self.memory,
             context=context,
             round_id=round_id,
         )

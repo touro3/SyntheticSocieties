@@ -30,6 +30,12 @@ def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
     config["agent_defaults"] = dict(base_config["agent_defaults"])
     config["network"] = dict(base_config["network"])
 
+    # Copy llm and ablation sections if present
+    if "llm" in base_config:
+        config["llm"] = dict(base_config["llm"])
+    if "ablation" in base_config:
+        config["ablation"] = dict(base_config["ablation"])
+
     config["project"]["experiment_id"] = experiment_spec["experiment_id"]
     config["project"]["seed"] = experiment_spec["seed"]
     config["policy"]["type"] = experiment_spec["policy"]
@@ -49,6 +55,18 @@ def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
 
     if "rounds" in experiment_spec:
         config["simulation"]["rounds"] = experiment_spec["rounds"]
+
+    # Ablation mode override
+    if "ablation" in experiment_spec:
+        if "ablation" not in config:
+            config["ablation"] = {}
+        config["ablation"]["mode"] = experiment_spec["ablation"]
+
+    # Temperature override
+    if "temperature" in experiment_spec:
+        if "llm" not in config:
+            config["llm"] = {}
+        config["llm"]["temperature"] = experiment_spec["temperature"]
 
     return config
 

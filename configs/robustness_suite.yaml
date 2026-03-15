@@ -1,0 +1,101 @@
+# Robustness Experiment Suite
+# Seed sweeps, temperature sensitivity, and simulation horizon sweeps
+
+base_config_path: configs/base_config.yaml
+
+experiments:
+  # ── Seed sweep (LLM policy, 5 seeds) ──
+  - experiment_id: llm_seed_1
+    policy: llm
+    seed: 1
+    network: random
+    edge_prob: 0.3
+  - experiment_id: llm_seed_2
+    policy: llm
+    seed: 2
+    network: random
+    edge_prob: 0.3
+  - experiment_id: llm_seed_42
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: llm_seed_123
+    policy: llm
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: llm_seed_999
+    policy: llm
+    seed: 999
+    network: random
+    edge_prob: 0.3
+
+  # ── Temperature sensitivity (4 levels) ──
+  - experiment_id: llm_temp_0.1
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    temperature: 0.1
+  - experiment_id: llm_temp_0.5
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    temperature: 0.5
+  - experiment_id: llm_temp_0.7
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    temperature: 0.7
+  - experiment_id: llm_temp_1.0
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    temperature: 1.0
+
+  # ── Simulation horizon sweep (4 durations) ──
+  - experiment_id: llm_horizon_5
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    rounds: 5
+  - experiment_id: llm_horizon_10
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    rounds: 10
+  - experiment_id: llm_horizon_20
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    rounds: 20
+  - experiment_id: llm_horizon_50
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    rounds: 50
+
+  # ── Seed sweep template baseline (for comparison) ──
+  - experiment_id: template_seed_1
+    policy: template
+    seed: 1
+    network: random
+    edge_prob: 0.3
+  - experiment_id: template_seed_42
+    policy: template
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: template_seed_123
+    policy: template
+    seed: 123
+    network: random
+    edge_prob: 0.3

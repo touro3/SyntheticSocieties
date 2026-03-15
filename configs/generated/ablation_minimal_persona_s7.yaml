@@ -1,25 +1,20 @@
 project:
   name: bgf
-  experiment_id: exp_0001
-  seed: 42
-
+  experiment_id: ablation_minimal_persona_s7
+  seed: 7
 simulation:
   rounds: 3
   population_size: 5
-
 policy:
-  type: mock
-
+  type: ablated_llm
 population:
-  source: empirical       # "synthetic" (v0.1 defaults) or "empirical" (ESS-grounded)
-
+  source: empirical
 data:
   ess_interview_path: data/ESS11INTe04_1.csv
   ess_main_path: data/ESS11MD_e01_2.csv
   ess_clean_path: data/ess_clean.parquet
   distributions_path: data/empirical_distributions.json
-  sample_mode: resample   # "resample" (with replacement) or "subsample"
-
+  sample_mode: resample
 llm:
   model_id: mistralai/Mistral-7B-Instruct-v0.3
   cache_dir: /mnt/raid/workspace/lucastourinho/models
@@ -29,13 +24,11 @@ llm:
   max_new_tokens: 256
   memory_window: 5
   max_retries: 2
-
 network:
   type: random
-  edge_prob: 0.5
+  edge_prob: 0.3
   k: 2
   rewiring_prob: 0.3
-
 environment:
   public_signal:
     economy: stable
@@ -43,7 +36,6 @@ environment:
     food: 1.0
   resources:
     jobs: 100.0
-
 agent_defaults:
   min_age: 25
   max_age: 60
@@ -58,3 +50,5 @@ agent_defaults:
   initial_wealth: 50.0
   wealth_step: 10.0
   memory_size: 10
+ablation:
+  mode: minimal_persona

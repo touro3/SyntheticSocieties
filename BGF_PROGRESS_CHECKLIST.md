@@ -12,7 +12,7 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 [x] Memory layer implemented  
 [x] Social world environment implemented  
 [x] Social network topology implemented  
-[ ] LLM decision interface working  
+[x] LLM decision interface working  
 [x] Action validation layer implemented  
 [x] Event-driven simulation kernel implemented  
 
@@ -23,7 +23,7 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 [x] Config system implemented (Hydra/YAML)  
 [x] Random seeds controlled  
 [x] Full event logging implemented  
-[ ] Prompt + model output logged  
+[x] Prompt + model output logged  
 [x] Model metadata stored  
 [x] Dataset version recorded  
 [x] Experiment metadata saved  
@@ -61,41 +61,41 @@ Network Metrics
 
 [x] Random constrained agents  
 [x] Rule-based utility agents  
-[ ] Template behavior agents  
-[ ] Ablated LLM agents  
+[x] Template behavior agents  
+[x] Ablated LLM agents  
 
 ---
 
 # Ablation Experiments
 
-[ ] No persona condition  
-[ ] Minimal persona condition  
-[ ] Rich persona condition  
-[ ] No memory condition  
-[ ] No network condition  
-[ ] No institutions condition  
+[x] No persona condition  
+[x] Minimal persona condition  
+[x] Rich persona condition  
+[x] No memory condition  
+[x] No network condition  
+[x] No institutions condition  
 
 ---
 
 # Robustness Harness
 
-[ ] Seed sweep experiments  
+[x] Seed sweep experiments  
 [ ] Prompt perturbation experiments  
 [ ] Model family comparison  
-[ ] Temperature sensitivity tests  
+[x] Temperature sensitivity tests  
 [x] Population size sweep  
-[ ] Simulation horizon sweep  
+[x] Simulation horizon sweep  
 [x] Network topology sweep  
 
 ---
 
 # Bias & Failure Diagnostics
 
-[ ] Subgroup analysis  
-[ ] Persona drift detection  
+[x] Subgroup analysis  
+[x] Persona drift detection  
 [x] Invalid action analysis  
-[ ] Response diversity check  
-[ ] Alignment bias detection  
+[x] Response diversity check  
+[x] Alignment bias detection  
 
 ---
 
@@ -103,7 +103,7 @@ Network Metrics
 
 [x] Experiment metadata system  
 [x] experiment_index.parquet  
-[ ] DuckDB analytics queries  
+[x] DuckDB analytics queries  
 [x] experiment comparison scripts  
 
 ---
@@ -111,7 +111,7 @@ Network Metrics
 # Scientific Methodology
 
 [ ] Calibration vs evaluation separation  
-[ ] Experimental hypotheses defined  
+[x] Experimental hypotheses defined  
 [x] Controlled comparisons implemented  
 [x] Multiple runs aggregated  
 [x] Statistical summaries computed  

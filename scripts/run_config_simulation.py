@@ -24,7 +24,7 @@ from decision.data_driven_policy import DataDrivenPolicy
 
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args():
     parser = argparse.ArgumentParser(description="Run a BGF simulation from config.")
     parser.add_argument(
         "--config",
@@ -32,7 +32,41 @@ def parse_args() -> argparse.Namespace:
         default="configs/base_config.yaml",
         help="Path to YAML config file.",
     )
-    return parser.parse_args()
+    # Capture any unknown arguments for dot-notation overrides
+    args, overrides = parser.parse_known_args()
+    return args, overrides
+
+
+def apply_overrides(config: dict, overrides: list[str]) -> dict:
+    """Apply dot-notation overrides (e.g., 'policy.type=llm') to config dict."""
+    for override in overrides:
+        if "=" not in override:
+            continue
+        key_path, value = override.split("=", 1)
+        
+        # Try to parse value as int, float, or bool
+        if value.lower() == "true":
+            value = True
+        elif value.lower() == "false":
+            value = False
+        else:
+            try:
+                if "." in value:
+                    value = float(value)
+                else:
+                    value = int(value)
+            except ValueError:
+                pass # Keep as string
+        
+        # Traverse and set
+        parts = key_path.split(".")
+        curr = config
+        for i, part in enumerate(parts[:-1]):
+            if part not in curr:
+                curr[part] = {}
+            curr = curr[part]
+        curr[parts[-1]] = value
+    return config
 
 
 def build_network(config: dict, agents: list[Agent]) -> NetworkManager:
@@ -86,12 +120,82 @@ def build_policy(config: dict):
     if policy_type == "data_driven":
         return DataDrivenPolicy()
 
+    if policy_type == "llm":
+        from decision.llm_backend import LLMBackend
+        from decision.llm_policy import LLMPolicy
+        from bgf_logging.prompt_logger import PromptLogger
+
+        llm_cfg = config.get("llm", {})
+        experiment_id = config["project"]["experiment_id"]
+
+        backend = LLMBackend.get_instance(
+            model_id=llm_cfg.get("model_id", "mistralai/Mistral-7B-Instruct-v0.3"),
+            dtype=llm_cfg.get("dtype", "float16"),
+            device_map=llm_cfg.get("device_map", "auto"),
+            max_new_tokens=llm_cfg.get("max_new_tokens", 256),
+            temperature=llm_cfg.get("temperature", 0.7),
+            cache_dir=llm_cfg.get("cache_dir"),
+        )
+        backend.load()
+
+        prompt_logger = PromptLogger(
+            output_path=Path("experiments") / experiment_id / "prompts.jsonl"
+        )
+
+        return LLMPolicy(
+            backend=backend,
+            memory_window=llm_cfg.get("memory_window", 5),
+            temperature=llm_cfg.get("temperature", 0.7),
+            max_retries=llm_cfg.get("max_retries", 2),
+            prompt_logger=prompt_logger,
+        )
+
+    if policy_type == "template":
+        from decision.template_policy import TemplatePolicy
+        return TemplatePolicy()
+
+    if policy_type == "ablated_llm":
+        from decision.llm_backend import LLMBackend
+        from decision.ablated_llm_policy import AblatedLLMPolicy
+        from bgf_logging.prompt_logger import PromptLogger
+
+        llm_cfg = config.get("llm", {})
+        ablation_cfg = config.get("ablation", {})
+        experiment_id = config["project"]["experiment_id"]
+
+        backend = LLMBackend.get_instance(
+            model_id=llm_cfg.get("model_id", "mistralai/Mistral-7B-Instruct-v0.3"),
+            dtype=llm_cfg.get("dtype", "float16"),
+            device_map=llm_cfg.get("device_map", "auto"),
+            max_new_tokens=llm_cfg.get("max_new_tokens", 256),
+            temperature=llm_cfg.get("temperature", 0.7),
+            cache_dir=llm_cfg.get("cache_dir"),
+        )
+        backend.load()
+
+        prompt_logger = PromptLogger(
+            output_path=Path("experiments") / experiment_id / "prompts.jsonl"
+        )
+
+        return AblatedLLMPolicy(
+            backend=backend,
+            ablation=ablation_cfg.get("mode", "no_persona"),
+            memory_window=llm_cfg.get("memory_window", 5),
+            temperature=llm_cfg.get("temperature", 0.7),
+            max_retries=llm_cfg.get("max_retries", 2),
+            prompt_logger=prompt_logger,
+        )
+
     raise ValueError(f"Unsupported policy type: {policy_type}")
 
 
 def main() -> None:
-    args = parse_args()
+    args, overrides = parse_args()
     config = load_config(args.config)
+    
+    if overrides:
+        config = apply_overrides(config, overrides)
+        print(f"Applied CLI overrides: {overrides}")
 
     experiment_id = config["project"]["experiment_id"]
     seed = config["project"]["seed"]

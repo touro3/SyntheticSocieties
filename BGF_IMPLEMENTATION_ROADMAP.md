@@ -27,7 +27,7 @@ Deliverables:
 
 ---
 
-# Phase 2 — Empirical Grounding Status: Pending
+# Phase 2 — Empirical Grounding Status: Completed
 
 Goal: connect the simulation to real-world socio-economic data.
 
@@ -103,7 +103,7 @@ Deliverables:
 
 ---
 
-# Phase 6 — LLM Decision Interface Status: Pending 
+# Phase 6 — LLM Decision Interface Status: Completed
 
 Goal: integrate LLM reasoning into agent decisions.
 
@@ -142,7 +142,7 @@ Deliverables:
 
 ---
 
-# Phase 8 — Evaluation Metrics Status: In progress 
+# Phase 8 — Evaluation Metrics Status: Completed
 
 Goal: implement quantitative evaluation.
 
@@ -174,7 +174,7 @@ Deliverables:
 
 ---
 
-# Phase 9 — Baselines & Ablations Status: In progres 
+# Phase 9 — Baselines & Ablations Status: Completed
 
 Goal: create comparison agents and ablation conditions.
 
@@ -218,7 +218,7 @@ Deliverables:
 
 ---
 
-# Phase 11 — Experiment Tracker Status: In progress
+# Phase 11 — Experiment Tracker Status: Completed
 
 Goal: monitor and analyze all simulation runs.
 

@@ -79,9 +79,24 @@ def main() -> None:
 
     generated_dir = ensure_dir("configs/generated")
     experiments = suite_config["experiments"]
+    total = len(experiments)
+    completed = 0
+    skipped = 0
 
-    for experiment_spec in experiments:
+    print(f"{'=' * 60}")
+    print(f"Experiment Suite: {total} experiments")
+    print(f"{'=' * 60}")
+
+    for i, experiment_spec in enumerate(experiments, 1):
         experiment_id = experiment_spec["experiment_id"]
+
+        # Skip if already completed
+        summary_path = Path("experiments") / experiment_id / "summary.json"
+        if summary_path.exists():
+            print(f"[{i}/{total}] SKIP (exists): {experiment_id}")
+            skipped += 1
+            completed += 1
+            continue
 
         config = build_experiment_config(
             base_config=base_config,
@@ -91,7 +106,7 @@ def main() -> None:
         config_path = generated_dir / f"{experiment_id}.yaml"
         save_yaml(config, config_path)
 
-        print(f"Running experiment: {experiment_id}")
+        print(f"[{i}/{total}] Running: {experiment_id} (policy={experiment_spec['policy']})")
 
         subprocess.run(
             [
@@ -113,8 +128,14 @@ def main() -> None:
             check=True,
         )
 
-    print("Experiment suite completed.")
-    print("Registered all runs into tracker.")
+        completed += 1
+        print(f"  ✓ {experiment_id} done ({completed}/{total})")
+
+    print()
+    print(f"{'=' * 60}")
+    print(f"Suite COMPLETE: {completed}/{total} experiments")
+    print(f"  Ran: {completed - skipped}, Skipped: {skipped}")
+    print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":

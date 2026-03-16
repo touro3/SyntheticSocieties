@@ -80,7 +80,7 @@ Network Metrics
 # Robustness Harness
 
 [x] Seed sweep experiments  
-[ ] Prompt perturbation experiments  
+[x] Prompt perturbation experiments  
 [ ] Model family comparison  
 [x] Temperature sensitivity tests  
 [x] Population size sweep  
@@ -110,7 +110,7 @@ Network Metrics
 
 # Scientific Methodology
 
-[ ] Calibration vs evaluation separation  
+[x] Calibration vs evaluation separation  
 [x] Experimental hypotheses defined  
 [x] Controlled comparisons implemented  
 [x] Multiple runs aggregated  
@@ -120,12 +120,12 @@ Network Metrics
 
 # Paper
 
-[ ] Abstract written  
-[ ] Introduction written  
-[ ] Related Work written  
-[ ] Methodology written  
-[ ] Experimental Setup written  
-[ ] Results written  
-[ ] Discussion written  
-[ ] Limitations written  
-[ ] Conclusion written  
+[x] Abstract written  
+[x] Introduction written  
+[x] Related Work written  
+[x] Methodology written  
+[x] Experimental Setup written  
+[x] Results written  
+[x] Discussion written  
+[x] Limitations written  
+[x] Conclusion written  

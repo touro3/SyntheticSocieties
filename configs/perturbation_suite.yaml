@@ -1,0 +1,84 @@
+# Prompt Perturbation Suite
+# Tests LLM sensitivity to prompt phrasing
+# 3 modes × 3 seeds = 9 experiments
+
+base_config_path: configs/base_config.yaml
+
+experiments:
+  # ── Rephrase (same semantics, different words) ──
+  - experiment_id: pert_rephrase_s42
+    policy: llm
+    seed: 42
+    perturbation_mode: rephrase
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_rephrase_s123
+    policy: llm
+    seed: 123
+    perturbation_mode: rephrase
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_rephrase_s7
+    policy: llm
+    seed: 7
+    perturbation_mode: rephrase
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+
+  # ── Shuffle (randomize attribute order) ──
+  - experiment_id: pert_shuffle_s42
+    policy: llm
+    seed: 42
+    perturbation_mode: shuffle
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_shuffle_s123
+    policy: llm
+    seed: 123
+    perturbation_mode: shuffle
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_shuffle_s7
+    policy: llm
+    seed: 7
+    perturbation_mode: shuffle
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+
+  # ── Noise (inject distractor sentences) ──
+  - experiment_id: pert_noise_s42
+    policy: llm
+    seed: 42
+    perturbation_mode: noise
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_noise_s123
+    policy: llm
+    seed: 123
+    perturbation_mode: noise
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: pert_noise_s7
+    policy: llm
+    seed: 7
+    perturbation_mode: noise
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10

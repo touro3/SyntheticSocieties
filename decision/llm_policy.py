@@ -31,12 +31,14 @@ class LLMPolicy:
         temperature: float = 0.7,
         max_retries: int = 2,
         prompt_logger=None,
+        perturbation_mode: Optional[str] = None,
     ):
         self.backend = backend
         self.memory_window = memory_window
         self.temperature = temperature
         self.max_retries = max_retries
         self.prompt_logger = prompt_logger
+        self.perturbation_mode = perturbation_mode
 
     def propose_action(
         self,
@@ -67,6 +69,12 @@ class LLMPolicy:
             round_id=round_id,
             memory_window=self.memory_window,
         )
+
+        # Apply prompt perturbation if configured
+        if self.perturbation_mode:
+            from decision.prompt_perturbation import apply_perturbation
+            seed = hash((round_id, profile.agent_id)) % (2**31)
+            messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
         # Try generation with retries
         action = None

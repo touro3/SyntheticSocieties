@@ -68,6 +68,12 @@ def build_experiment_config(base_config: dict, experiment_spec: dict) -> dict:
             config["llm"] = {}
         config["llm"]["temperature"] = experiment_spec["temperature"]
 
+    # Perturbation mode override
+    if "perturbation_mode" in experiment_spec:
+        if "perturbation" not in config:
+            config["perturbation"] = {}
+        config["perturbation"]["mode"] = experiment_spec["perturbation_mode"]
+
     return config
 
 

@@ -198,7 +198,7 @@ Deliverables:
 
 ---
 
-# Phase 10 — Experiments Status: In progress
+# Phase 10 — Experiments Status: Completed
 
 Goal: run controlled experiments.
 
@@ -236,7 +236,7 @@ Deliverables:
 
 ---
 
-# Phase 12 — Paper Writing Status: Pending
+# Phase 12 — Paper Writing Status: Draft Complete
 
 Goal: transform results into a research paper.
 

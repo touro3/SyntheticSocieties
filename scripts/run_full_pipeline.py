@@ -30,6 +30,7 @@ import subprocess
 import sys
 import time
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -150,11 +151,56 @@ def run_experiments(args) -> list[str]:
         print(f"  ⚠  {n_llm} LLM experiments (~5-8 min each, ~{n_llm * 6} min total)")
     print(f"{'─' * 60}")
 
-    for i, (prefix, policy, seed, extra) in enumerate(experiments, 1):
+    # Separate baseline (parallelizable) and LLM (sequential) experiments
+    baseline_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1)
+                     if pol != "llm"]
+    llm_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1)
+                if pol == "llm"]
+
+    # Run baselines in parallel (no GPU needed)
+    if baseline_exps:
+        to_run = []
+        for i, prefix, policy, seed, extra in baseline_exps:
+            exp_prefix = POLICY_PREFIX.get(policy, policy)
+            exp_id = f"{prefix}{exp_prefix}_s{seed}"
+            if args.skip_existing and experiment_exists(exp_id):
+                print(f"  [{i}/{total}] SKIP: {exp_id}")
+                skipped += 1
+                exp_ids.append(exp_id)
+            else:
+                to_run.append((i, prefix, policy, seed, extra, exp_id))
+
+        if to_run:
+            n_workers = min(len(to_run), 8)  # Up to 8 parallel baseline experiments
+            print(f"  ⚡ Running {len(to_run)} baselines in parallel ({n_workers} workers)")
+            t0_parallel = time.time()
+
+            with ProcessPoolExecutor(max_workers=n_workers) as executor:
+                futures = {}
+                for i, prefix, policy, seed, extra, exp_id in to_run:
+                    future = executor.submit(
+                        run_single_experiment, policy, seed, args.rounds, args.agents, prefix, extra
+                    )
+                    futures[future] = (i, exp_id, policy)
+
+                for future in as_completed(futures):
+                    i, exp_id, policy = futures[future]
+                    try:
+                        future.result()
+                        completed += 1
+                        print(f"  [{i}/{total}] ✓ {exp_id}")
+                    except Exception as e:
+                        print(f"  [{i}/{total}] ✗ {exp_id}: {str(e)[:100]}")
+                    exp_ids.append(exp_id)
+
+            parallel_elapsed = time.time() - t0_parallel
+            print(f"  ⚡ Baselines done in {parallel_elapsed:.1f}s (parallel)")
+
+    # Run LLM experiments sequentially (GPU bound)
+    for i, prefix, policy, seed, extra in llm_exps:
         exp_prefix = POLICY_PREFIX.get(policy, policy)
         exp_id = f"{prefix}{exp_prefix}_s{seed}"
         if extra:
-            # Add perturbation mode to experiment ID
             for o in extra:
                 if "perturbation.mode=" in o:
                     mode = o.split("=")[1]
@@ -167,7 +213,7 @@ def run_experiments(args) -> list[str]:
             continue
 
         t0 = time.time()
-        print(f"  [{i}/{total}] Running: {exp_id} (policy={policy})...", end="", flush=True)
+        print(f"  [{i}/{total}] Running: {exp_id} (LLM)...", end="", flush=True)
 
         try:
             run_single_experiment(policy, seed, args.rounds, args.agents, prefix, extra)
@@ -175,14 +221,12 @@ def run_experiments(args) -> list[str]:
             run_times.append(elapsed)
             completed += 1
 
-            # ETA for remaining LLM experiments
-            remaining_llm = sum(1 for (_, p, s, _) in experiments[i:] if p == "llm"
-                                and not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}"))
-            if remaining_llm > 0 and policy == "llm":
-                llm_times = [t for t in run_times if t > 30]  # only LLM-like times
-                avg = np.mean(llm_times) if llm_times else elapsed
+            remaining_llm = sum(1 for (_, _, p, s, _) in llm_exps
+                                if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}"))
+            if remaining_llm > 0:
+                avg = np.mean(run_times) if run_times else elapsed
                 eta_min = remaining_llm * avg / 60
-                print(f" ✓ ({elapsed:.1f}s) — ETA for {remaining_llm} remaining LLM: ~{eta_min:.0f} min")
+                print(f" ✓ ({elapsed:.1f}s) — ETA: ~{eta_min:.0f} min")
             else:
                 print(f" ✓ ({elapsed:.1f}s)")
         except subprocess.CalledProcessError as e:
@@ -205,11 +249,16 @@ def run_plots():
         sys.executable, "scripts/plot_policy_comparison_full.py"
     ], check=True)
 
+    # Publication analytics plots
+    subprocess.run([
+        sys.executable, "scripts/plot_all_analytics.py"
+    ], check=True)
+
     # Also run the empirical analysis plots
     subprocess.run([
         sys.executable, "scripts/plot_empirical_analysis.py"
     ], check=True, capture_output=True, text=True)
-    print("  ✓ Empirical analysis plots regenerated")
+    print("  ✓ All plot suites generated")
 
 
 def run_analytics():

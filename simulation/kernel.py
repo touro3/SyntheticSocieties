@@ -36,6 +36,9 @@ class SimulationKernel:
                 local_network={"neighbors": world_context.get("neighbors", [])},
             )
 
+            # RAG context for sequential mode (not actually used by agent.decide yet 
+            # as it delegates to policy, but we'll ensure policy has access)
+            
             proposed_action = agent.decide(context=perception, round_id=round_id)
             validation = self.world.validate_action(proposed_action, agent, self.agent_lookup)
 
@@ -52,6 +55,15 @@ class SimulationKernel:
                         outcome=executed_event,
                     )
                 )
+                
+                # Update GraphRAG if policy has one
+                if hasattr(agent.policy, "graph_rag") and agent.policy.graph_rag:
+                    if proposed_action.action_type == "cooperate" and proposed_action.target_agent_id:
+                        agent.policy.graph_rag.graph.add_edge(
+                            agent.profile.agent_id, 
+                            proposed_action.target_agent_id,
+                            weight=1.0, round=round_id, type="cooperate"
+                        )
             else:
                 executed_event = {
                     "agent_id": agent.profile.agent_id,
@@ -76,6 +88,7 @@ class SimulationKernel:
                     },
                 }
             )
+
 
     def run_round_batched(self) -> None:
         """
@@ -113,6 +126,17 @@ class SimulationKernel:
                 local_network={"neighbors": world_context.get("neighbors", [])},
             )
 
+            # Fetch RAG contexts
+            social_context = None
+            if hasattr(policy, "graph_rag") and policy.graph_rag:
+                social_context = policy.graph_rag.get_social_context(agent.profile.agent_id)
+                
+            pop_context = None
+            if hasattr(policy, "sql_rag") and policy.sql_rag:
+                pop_context = policy.sql_rag.get_peer_group_context(
+                    age=agent.profile.age, gender=agent.profile.gender, country=agent.profile.country
+                )
+
             messages = build_prompt(
                 profile=agent.profile,
                 state=agent.state,
@@ -120,6 +144,8 @@ class SimulationKernel:
                 context=perception,
                 round_id=round_id,
                 memory_window=policy.memory_window,
+                social_context=social_context,
+                population_context=pop_context,
             )
 
             # Apply perturbation if configured
@@ -133,6 +159,8 @@ class SimulationKernel:
                 "perception": perception,
                 "messages": messages,
                 "neighbors": world_context.get("neighbors", []),
+                "social_context": social_context,
+                "pop_context": pop_context,
             })
             messages_list.append(messages)
 
@@ -147,6 +175,8 @@ class SimulationKernel:
             agent = agent_data[i]["agent"]
             perception = agent_data[i]["perception"]
             neighbors = agent_data[i]["neighbors"]
+            social_ctx = agent_data[i]["social_context"]
+            pop_ctx = agent_data[i].get("pop_context")
 
             action, parse_meta = parse_llm_output(raw_text, neighbors)
 
@@ -159,7 +189,10 @@ class SimulationKernel:
                 prompt_text = build_prompt_text(
                     agent.profile, agent.state, agent.memory, perception,
                     round_id, policy.memory_window,
+                    social_context=social_ctx,
+                    population_context=pop_ctx,
                 )
+
                 policy.prompt_logger.log(
                     round_id=round_id,
                     agent_id=agent.profile.agent_id,
@@ -186,6 +219,16 @@ class SimulationKernel:
                         outcome=executed_event,
                     )
                 )
+                
+                # Update GraphRAG if policy has one
+                if hasattr(policy, "graph_rag") and policy.graph_rag:
+                    if proposed_action.action_type == "cooperate" and proposed_action.target_agent_id:
+                        policy.graph_rag.graph.add_edge(
+                            agent.profile.agent_id, 
+                            proposed_action.target_agent_id,
+                            weight=1.0, round=round_id, type="cooperate"
+                        )
+
             else:
                 executed_event = {
                     "agent_id": agent.profile.agent_id,

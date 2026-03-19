@@ -4,9 +4,10 @@ import math
 from typing import Optional
 
 from agents.agent import Agent
-from agents.memory import MemoryBuffer
+from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
+
 from population.sampling import sample_age, sample_income, sample_empirical_rows
 from population.schemas import PopulationSpec
 
@@ -45,7 +46,8 @@ def generate_population(config: dict, policy) -> list[Agent]:
             wealth=spec.initial_wealth + i * spec.wealth_step
         )
 
-        memory = MemoryBuffer(max_items=defaults["memory_size"])
+        memory = HierarchicalMemory(max_recent=defaults["memory_size"])
+
 
         agents.append(
             Agent(
@@ -163,7 +165,8 @@ def generate_empirical_population(
         ) * defaults.get("wealth_step", 10.0) * 10
 
         state = AgentState(wealth=wealth)
-        memory = MemoryBuffer(max_items=defaults.get("memory_size", 10))
+        memory = HierarchicalMemory(max_recent=defaults.get("memory_size", 10))
+
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 

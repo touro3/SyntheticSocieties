@@ -68,7 +68,8 @@ def parse_args():
                         help="Include prompt perturbation experiments")
     parser.add_argument("--plots-only", action="store_true",
                         help="Skip experiments, just regenerate plots")
-    parser.add_argument("--skip-existing", action="store_true", default=True,
+    parser.add_argument("--skip-existing", action="store_true", default=False,
+
                         help="Skip experiments that already have summary.json")
     return parser.parse_args()
 
@@ -106,13 +107,8 @@ def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
     else:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-    # Register experiment
-    subprocess.run([
-        sys.executable, "scripts/register_experiment.py",
-        "--run-dir", f"experiments/{exp_id}",
-    ], check=True, capture_output=True, text=True)
-
     return exp_id
+
 
 
 def run_experiments(args) -> list[str]:
@@ -187,11 +183,17 @@ def run_experiments(args) -> list[str]:
                     i, exp_id, policy = futures[future]
                     try:
                         future.result()
+                        # Register sequentially to avoid race condition in tracker/experiment_index.parquet
+                        subprocess.run([
+                            sys.executable, "scripts/register_experiment.py",
+                            "--run-dir", f"experiments/{exp_id}",
+                        ], check=True, capture_output=True, text=True)
                         completed += 1
                         print(f"  [{i}/{total}] ✓ {exp_id}")
                     except Exception as e:
                         print(f"  [{i}/{total}] ✗ {exp_id}: {str(e)[:100]}")
                     exp_ids.append(exp_id)
+
 
             parallel_elapsed = time.time() - t0_parallel
             print(f"  ⚡ Baselines done in {parallel_elapsed:.1f}s (parallel)")
@@ -217,9 +219,16 @@ def run_experiments(args) -> list[str]:
 
         try:
             run_single_experiment(policy, seed, args.rounds, args.agents, prefix, extra)
+            # Register sequentially
+            subprocess.run([
+                sys.executable, "scripts/register_experiment.py",
+                "--run-dir", f"experiments/{exp_id}",
+            ], check=True, capture_output=True, text=True)
+            
             elapsed = time.time() - t0
             run_times.append(elapsed)
             completed += 1
+
 
             remaining_llm = sum(1 for (_, _, p, s, _) in llm_exps
                                 if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}"))
@@ -239,7 +248,7 @@ def run_experiments(args) -> list[str]:
     return exp_ids
 
 
-def run_plots():
+def run_plots(args):
     """Generate all comparison diagrams."""
     print(f"\n{'─' * 60}")
     print(f"  STAGE 2: Generating Diagrams")
@@ -253,6 +262,13 @@ def run_plots():
     subprocess.run([
         sys.executable, "scripts/plot_all_analytics.py"
     ], check=True)
+
+    # Advanced Trajectory Plots (Phase 13)
+    seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
+    subprocess.run([
+        sys.executable, "scripts/plot_trajectories_full.py", "--seeds", seeds_arg
+    ], check=True)
+
 
     # Also run the empirical analysis plots
     subprocess.run([
@@ -370,7 +386,8 @@ def main():
     else:
         print("\n  Skipping experiments (--plots-only)")
 
-    run_plots()
+    run_plots(args)
+
     run_analytics()
     print_quick_comparison(args.seeds)
 

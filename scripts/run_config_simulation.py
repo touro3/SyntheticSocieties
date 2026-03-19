@@ -142,6 +142,12 @@ def build_policy(config: dict):
             output_path=Path("experiments") / experiment_id / "prompts.jsonl"
         )
 
+        from decision.graph_rag import GraphRAG
+        from decision.sql_rag import SQLRAG
+
+        graph_rag = GraphRAG()
+        sql_rag = SQLRAG(data_path="data/ess_clean.parquet")
+
         return LLMPolicy(
             backend=backend,
             memory_window=llm_cfg.get("memory_window", 5),
@@ -149,7 +155,11 @@ def build_policy(config: dict):
             max_retries=llm_cfg.get("max_retries", 2),
             prompt_logger=prompt_logger,
             perturbation_mode=config.get("perturbation", {}).get("mode"),
+            graph_rag=graph_rag,
+            sql_rag=sql_rag,
         )
+
+
 
     if policy_type == "template":
         from decision.template_policy import TemplatePolicy
@@ -178,6 +188,12 @@ def build_policy(config: dict):
             output_path=Path("experiments") / experiment_id / "prompts.jsonl"
         )
 
+        from decision.graph_rag import GraphRAG
+        from decision.sql_rag import SQLRAG
+
+        graph_rag = GraphRAG()
+        sql_rag = SQLRAG(data_path="data/ess_clean.parquet")
+
         return AblatedLLMPolicy(
             backend=backend,
             ablation=ablation_cfg.get("mode", "no_persona"),
@@ -185,7 +201,11 @@ def build_policy(config: dict):
             temperature=llm_cfg.get("temperature", 0.7),
             max_retries=llm_cfg.get("max_retries", 2),
             prompt_logger=prompt_logger,
+            graph_rag=graph_rag,
+            sql_rag=sql_rag,
         )
+
+
 
     raise ValueError(f"Unsupported policy type: {policy_type}")
 
@@ -229,6 +249,7 @@ def main() -> None:
     else:
         agents = generate_population(config, policy)
         print(f"Generated synthetic population: {len(agents)} agents")
+
 
     network_manager = build_network(config, agents)
 

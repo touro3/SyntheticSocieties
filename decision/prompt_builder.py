@@ -175,6 +175,8 @@ def build_prompt(
     context: dict,
     round_id: int,
     memory_window: int = 5,
+    social_context: Optional[str] = None,
+    population_context: Optional[str] = None,
 ) -> list[dict]:
     """
     Build a complete chat-format prompt for the LLM.
@@ -187,17 +189,16 @@ def build_prompt(
     memory_desc = build_memory_block(memory, window=memory_window)
     context_desc = build_context_block(context)
 
-    user_content = f"""Round {round_id}.
+    user_content = f"Round {round_id}.\n\n{persona}\n\n{state_desc}\n\n"
+    
+    if population_context:
+        user_content += f"General Population Trends:\n{population_context}\n\n"
+        
+    if social_context:
+        user_content += f"Social Network Context:\n{social_context}\n\n"
 
-{persona}
-
-{state_desc}
-
-{memory_desc}
-
-{context_desc}
-
-What action do you take this round? Respond with ONLY the JSON."""
+    user_content += f"{memory_desc}\n\n{context_desc}\n\n"
+    user_content += "What action do you take this round? Respond with ONLY the JSON."
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -214,11 +215,16 @@ def build_prompt_text(
     context: dict,
     round_id: int,
     memory_window: int = 5,
+    social_context: Optional[str] = None,
+    population_context: Optional[str] = None,
 ) -> str:
     """
     Build a plain-text version of the prompt (for logging/debugging).
     """
-    messages = build_prompt(profile, state, memory, context, round_id, memory_window)
+    messages = build_prompt(
+        profile, state, memory, context, round_id, memory_window,
+        social_context=social_context, population_context=population_context
+    )
     parts = []
     for msg in messages:
         parts.append(f"[{msg['role'].upper()}]\n{msg['content']}")

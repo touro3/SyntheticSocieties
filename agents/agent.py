@@ -1,10 +1,10 @@
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import MemoryBuffer
+from agents.memory import HierarchicalMemory
 
 
 class Agent:
-    def __init__(self, profile: AgentProfile, state: AgentState, memory: MemoryBuffer, policy) -> None:
+    def __init__(self, profile: AgentProfile, state: AgentState, memory: HierarchicalMemory, policy) -> None:
         self.profile = profile
         self.state = state
         self.memory = memory

@@ -32,6 +32,8 @@ class LLMPolicy:
         max_retries: int = 2,
         prompt_logger=None,
         perturbation_mode: Optional[str] = None,
+        graph_rag=None,
+        sql_rag=None,
     ):
         self.backend = backend
         self.memory_window = memory_window
@@ -39,6 +41,9 @@ class LLMPolicy:
         self.max_retries = max_retries
         self.prompt_logger = prompt_logger
         self.perturbation_mode = perturbation_mode
+        self.graph_rag = graph_rag
+        self.sql_rag = sql_rag
+
 
     def propose_action(
         self,
@@ -60,6 +65,17 @@ class LLMPolicy:
         """
         neighbors = context.get("network", {}).get("neighbors", [])
 
+        # Fetch RAG contexts
+        social_context = None
+        if self.graph_rag:
+            social_context = self.graph_rag.get_social_context(profile.agent_id)
+            
+        pop_context = None
+        if self.sql_rag:
+            pop_context = self.sql_rag.get_peer_group_context(
+                age=profile.age, gender=profile.gender, country=profile.country
+            )
+
         # Build prompt
         messages = build_prompt(
             profile=profile,
@@ -68,7 +84,10 @@ class LLMPolicy:
             context=context,
             round_id=round_id,
             memory_window=self.memory_window,
+            social_context=social_context,
+            population_context=pop_context,
         )
+
 
         # Apply prompt perturbation if configured
         if self.perturbation_mode:
@@ -106,8 +125,11 @@ class LLMPolicy:
         # Log prompt + output
         if self.prompt_logger is not None:
             prompt_text = build_prompt_text(
-                profile, state, memory, context, round_id, self.memory_window
+                profile, state, memory, context, round_id, self.memory_window,
+                social_context=social_context,
+                population_context=pop_context,
             )
+
             self.prompt_logger.log(
                 round_id=round_id,
                 agent_id=profile.agent_id,

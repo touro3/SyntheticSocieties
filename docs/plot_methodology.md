@@ -89,7 +89,19 @@ to generate each publication figure in `analysis/figures/`.
 
 ---
 
-## 8. `results_dashboard.png` — Comprehensive Dashboard
+## 8. `ladder_ablation.png` — V0-V5 Prompt Ablation Ladder
+
+| Metric | Source | Formula |
+|--------|--------|---------|
+| Action Proportion | `summary.json → event_action_counts` | `count / total_actions` for {work, save, cooperate} |
+| Gini | `summary.json → wealth.values` | `gini_coefficient(wealth)` |
+
+**Data**: `abl_v{0..5}_llm_s{42,123,7}/summary.json`
+**Description**: Tracks the effectiveness of a cumulative prompt engineering ladder (adding stress warnings, cooperation incentives, trust memory, neutral phrasing, and higher temperature) to recover behavioral diversity.
+
+---
+
+## 9. `results_dashboard.png` — Comprehensive Dashboard
 
 Combines panels A-F from all above into single 2×3 figure.
 

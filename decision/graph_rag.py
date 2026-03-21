@@ -73,10 +73,17 @@ class GraphRAG:
         centrality = nx.degree_centrality(self.graph)
         score = centrality.get(agent_id, 0)
         
+        # Advanced Topology Analytics: Structural Holes
+        betweenness = nx.betweenness_centrality(self.graph)
+        b_score = betweenness.get(agent_id, 0)
+        
         if score > 0.5:
             social_summary.append("You are a central figure in this community.")
         elif score > 0.1:
             social_summary.append("You have established several social ties.")
+            
+        if b_score > 0.1:
+            social_summary.append("You act as a crucial bridge connecting different social groups.")
         
         # k-hop context (Phase 15 addition)
         if k_neighbors > 1:

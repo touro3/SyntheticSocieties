@@ -148,7 +148,7 @@ def robustness_summary(index_path: str = DEFAULT_INDEX) -> dict[str, pd.DataFram
             STDDEV(wealth_mean) / NULLIF(AVG(wealth_mean), 0) as cv_wealth,
             STDDEV(wealth_gini) / NULLIF(AVG(wealth_gini), 0) as cv_gini
         FROM experiments
-        WHERE experiment_id LIKE 'llm_seed_%' OR experiment_id LIKE 'template_seed_%'
+        WHERE experiment_id LIKE 'cmp_%'
         GROUP BY policy_type
     """).fetchdf()
 

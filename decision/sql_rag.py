@@ -69,7 +69,9 @@ class SQLRAG:
         SELECT 
             AVG(trust_people) * 10 AS avg_trust,
             AVG(political_interest) * 10 AS avg_interest,
-            AVG(income_decile) AS avg_income_decile
+            AVG(income_decile) AS avg_income_decile,
+            AVG(risk_taking) * 10 AS avg_risk,
+            AVG(life_satisfaction) * 10 AS avg_satisfaction
         FROM population
         WHERE {' AND '.join(where_clauses)}
         """
@@ -81,8 +83,9 @@ class SQLRAG:
             
             row = res.iloc[0]
             # Scaling note: ESS trust_people is normalized 0-1, so * 10 provides a 0-10 scale for prompts.
-            return (f"Context: People in your age/gender bracket have an average "
-                    f"trust level of {row['avg_trust']:.1f}/10 and income decile {row['avg_income_decile']:.1f}.")
+            return (f"Context: People in your demographic brackets have an average "
+                    f"trust level of {row['avg_trust']:.1f}/10, income decile {row['avg_income_decile']:.1f}, "
+                    f"risk tolerance of {row['avg_risk']:.1f}/10, and life satisfaction of {row['avg_satisfaction']:.1f}/10.")
         except Exception as e:
             return f"Data retrieval error: {str(e)}"
 

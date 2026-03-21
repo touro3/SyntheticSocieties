@@ -191,7 +191,11 @@ def main():
     parser.add_argument("--out-dir", type=str, default="analysis/figures", help="Output dir")
     args = parser.parse_args()
     
-    seeds = [int(s) for s in args.seeds.split(",")]
+    if "," in args.seeds:
+        seeds = [int(s.strip()) for s in args.seeds.split(",")]
+    else:
+        val = int(args.seeds)
+        seeds = [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     

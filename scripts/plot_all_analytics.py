@@ -647,7 +647,78 @@ def plot_perturbation_robustness():
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# PLOT 8: COMPREHENSIVE RESULTS DASHBOARD
+# PLOT 8: V0-V5 PROMPT ABLATION LADDER (LLM BEHAVIOR RECOVERY)
+# ══════════════════════════════════════════════════════════════════════════
+
+def plot_ladder_ablation():
+    """Show the effect of the V0->V5 structured ablation ladder on LLM behavior collapse."""
+    levels = list(range(6))
+    labels = ["V0: Base", "V1: Stress\nSalience", "V2: Coop\nIncentives", "V3: Trust\nMemory", "V4: Balanced\nPhrasing", "V5: T=0.7\nDecoder"]
+    
+    ginis = []
+    coop_rates = []
+    work_rates = []
+    save_rates = []
+    
+    data_found = False
+    for lvl in levels:
+        wealth = []
+        actions = Counter()
+        for s in SEEDS:
+            sm = load_summary(f"abl_v{lvl}_llm_s{s}")
+            if sm:
+                data_found = True
+                wealth.extend(sm.get("wealth", {}).get("values", []))
+                actions.update(sm.get("event_action_counts", {}))
+        
+        ginis.append(gini_coefficient(wealth) if wealth else 0)
+        tot = max(sum(actions.values()), 1)
+        coop_rates.append(actions.get("cooperate", 0) / tot)
+        work_rates.append(actions.get("work", 0) / tot)
+        save_rates.append(actions.get("save", 0) / tot)
+    
+    if not data_found:
+        print("  ⚠ No V0-V5 ablation ladder data found, skipping plot")
+        return None
+        
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig.suptitle("V0-V5 Ablation Ladder: Resolving Action Collapse", fontsize=14, fontweight="bold")
+    
+    # Action Rates (Stacked Bar)
+    ax = axes[0]
+    x = np.arange(len(levels))
+    
+    ax.bar(x, work_rates, label="Work", color="#e94560", edgecolor="white", linewidth=0.5)
+    ax.bar(x, save_rates, bottom=work_rates, label="Save", color="#0f3460", edgecolor="white", linewidth=0.5)
+    ax.bar(x, coop_rates, bottom=np.array(work_rates)+np.array(save_rates), label="Cooperate", color="#16c79a", edgecolor="white", linewidth=0.5)
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
+    ax.set_ylabel("Action Proportion")
+    ax.set_title("A. Action Distribution Recovery")
+    ax.legend()
+    
+    # Equality
+    ax = axes[1]
+    ax.plot(x, ginis, marker="o", color="#50c4ed", linewidth=2, markersize=8)
+    for i, g in enumerate(ginis):
+        ax.text(i, g + 0.01, f"{g:.3f}", ha="center", va="bottom", fontsize=9, color="#e8e8e8")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
+    ax.set_ylabel("Gini Coefficient")
+    ax.set_title("B. Wealth Inequality Dynamics")
+    ax.set_ylim(0, max(ginis)*1.2 if max(ginis) > 0 else 1)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.93])
+    out = OUTPUT_DIR / "ladder_ablation.png"
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  ✓ {out}")
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# PLOT 9: COMPREHENSIVE RESULTS DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════
 
 def plot_results_dashboard():
@@ -801,7 +872,10 @@ def main():
     print("\n7. Perturbation Robustness...")
     figures.append(plot_perturbation_robustness())
 
-    print("\n8. Results Dashboard...")
+    print("\n8. V0-V5 Ablation Ladder...")
+    figures.append(plot_ladder_ablation())
+
+    print("\n9. Results Dashboard...")
     figures.append(plot_results_dashboard())
 
     generated = [f for f in figures if f is not None]

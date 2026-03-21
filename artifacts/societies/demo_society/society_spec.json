@@ -1,0 +1,15 @@
+{
+  "narrative": "Uma sociedade envelhecida, urbana, desconfiada e com baixa confiança institucional",
+  "countries": null,
+  "age_profile": "elderly",
+  "urbanization": "urban",
+  "trust_people_band": "low",
+  "trust_institutions_band": "low",
+  "social_activity_band": null,
+  "religiosity_band": null,
+  "political_orientation_band": null,
+  "risk_tolerance_band": null,
+  "competitiveness_band": null,
+  "target_population_size": 20,
+  "notes": []
+}

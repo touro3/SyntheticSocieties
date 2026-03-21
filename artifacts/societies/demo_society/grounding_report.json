@@ -1,0 +1,70 @@
+{
+  "dataset_name": "ESS11",
+  "selected_datasets": [
+    "ESS11"
+  ],
+  "matched_rows": 80,
+  "base_rows": 866,
+  "min_cohort_size": 30,
+  "requested_filters": {
+    "age_profile": "elderly",
+    "urbanization": "urban",
+    "trust_people_band": "low",
+    "trust_institutions_band": "low"
+  },
+  "active_filters": {
+    "age_profile": "elderly(age>=50)",
+    "urbanization": "urban:[1, 2, 3]",
+    "trust_people_band": "low[0.00,0.60)",
+    "trust_institutions_band": "low[0.00,0.60)"
+  },
+  "variable_summaries": {
+    "age_mean": 67.7375,
+    "trust_people_mean": 0.38125,
+    "trust_institutions_mean": 0.40458333333333324,
+    "social_activity_mean": 0.6291666666666668,
+    "risk_tolerance_mean": 0.26041666666666663,
+    "competitiveness_mean": 0.7979166666666666,
+    "life_satisfaction_mean": 0.7325,
+    "happiness_mean": 0.75625,
+    "income_decile_mean": 4.569230769230769,
+    "country_mode": "AT"
+  },
+  "evidence_snippets": [
+    "ESS cohort size: 80 respondents.",
+    "Final cohort obtained with widened filter bands (widen_more).",
+    "Average age is 67.7.",
+    "Average interpersonal trust is 3.8/10.",
+    "Average institutional trust is 4.0/10.",
+    "Average social activity is 6.3/10.",
+    "Average risk tolerance is 2.6/10.",
+    "Average income decile is 4.6."
+  ],
+  "relaxation_trace": [
+    {
+      "step": "strict",
+      "matched_rows": 3,
+      "numeric_padding": 0.0,
+      "urban_slack": 0,
+      "age_slack": 0,
+      "drop_filters": []
+    },
+    {
+      "step": "widen_numeric",
+      "matched_rows": 19,
+      "numeric_padding": 0.1,
+      "urban_slack": 1,
+      "age_slack": 5,
+      "drop_filters": []
+    },
+    {
+      "step": "widen_more",
+      "matched_rows": 80,
+      "numeric_padding": 0.2,
+      "urban_slack": 1,
+      "age_slack": 10,
+      "drop_filters": []
+    }
+  ],
+  "warnings": []
+}

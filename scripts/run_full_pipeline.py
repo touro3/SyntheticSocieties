@@ -29,17 +29,16 @@ import json
 import subprocess
 import sys
 import time
+import numpy as np
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-import numpy as np
-
 from utils.config import load_config
 from utils.io import ensure_dir, save_yaml, set_global_seed
-
+from scripts.run_config_simulation import run_simulation
 
 POLICIES_BASELINE = ["template", "rule_based", "random"]
 POLICIES_LLM = ["llm"]
@@ -69,8 +68,11 @@ def parse_args():
     parser.add_argument("--plots-only", action="store_true",
                         help="Skip experiments, just regenerate plots")
     parser.add_argument("--skip-existing", action="store_true", default=False,
-
                         help="Skip experiments that already have summary.json")
+    parser.add_argument("--llm-ablation-level", type=int, default=5,
+                        help="Prompt ablation level (0-5) for base LLM experiments")
+    parser.add_argument("--run-ablation-ladder", action="store_true",
+                        help="Run full V0-V5 ablation ladder suite")
     return parser.parse_args()
 
 
@@ -96,15 +98,14 @@ def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
     if extra_overrides:
         overrides.extend(extra_overrides)
 
-    cmd = [
-        sys.executable, "scripts/run_config_simulation.py",
-        "--config", base_config,
-    ] + overrides
-
-    # Show live output for LLM experiments (they take minutes)
-    if policy == "llm":
-        subprocess.run(cmd, check=True)
+    if policy == "llm" or "ablation_level" in str(extra_overrides):
+        # Run in-process to retain the LLMBackend singleton across seeds!
+        run_simulation(base_config, list(overrides))
     else:
+        cmd = [
+            sys.executable, "scripts/run_config_simulation.py",
+            "--config", base_config,
+        ] + list(overrides)
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
     return exp_id
@@ -113,23 +114,39 @@ def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
 
 def run_experiments(args) -> list[str]:
     """Run all experiments and return list of experiment IDs."""
-    seeds = [int(s) for s in args.seeds.split(",")]
+    if "," in args.seeds:
+        seeds = [int(s.strip()) for s in args.seeds.split(",")]
+    else:
+        val = int(args.seeds)
+        seeds = [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
     policies = POLICIES_BASELINE.copy()
-    if args.include_llm:
-        policies.extend(POLICIES_LLM)
-
+    
     experiments = []
+    # Regular baselines
     for policy in policies:
         for seed in seeds:
             experiments.append(("cmp_", policy, seed, []))
 
+    if args.include_llm and not args.run_ablation_ladder:
+        for seed in seeds:
+            experiments.append(("cmp_", "llm", seed, [f"llm.ablation_level={args.llm_ablation_level}"]))
+
+    # Full V0-V5 Sweep
+    if args.run_ablation_ladder:
+        for lvl in range(6):
+            for seed in seeds:
+                extra = [f"llm.ablation_level={lvl}"]
+                if lvl >= 5:
+                    extra.append("llm.temperature=0.7")
+                experiments.append((f"abl_v{lvl}_", "llm", seed, extra))
+
     # Perturbation experiments
-    if args.include_perturbation and args.include_llm:
+    if args.include_perturbation and (args.include_llm or args.run_ablation_ladder):
         for mode in PERTURBATION_MODES:
             for seed in seeds:
                 experiments.append((
                     "pert_", "llm", seed,
-                    [f"perturbation.mode={mode}"]
+                    [f"perturbation.mode={mode}", f"llm.ablation_level={args.llm_ablation_level}"]
                 ))
 
     total = len(experiments)
@@ -207,6 +224,11 @@ def run_experiments(args) -> list[str]:
                 if "perturbation.mode=" in o:
                     mode = o.split("=")[1]
                     exp_id = f"pert_{mode}_s{seed}"
+                
+                # Use ablation prefix if doing the ladder sweep
+                if "llm.ablation_level=" in o and prefix.startswith("abl_v"):
+                    lvl = o.split("=")[1]
+                    exp_id = f"abl_v{lvl}_{exp_prefix}_s{seed}"
 
         if args.skip_existing and experiment_exists(exp_id):
             print(f"  [{i}/{total}] SKIP: {exp_id}")
@@ -254,8 +276,9 @@ def run_plots(args):
     print(f"  STAGE 2: Generating Diagrams")
     print(f"{'─' * 60}")
 
+    seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
     subprocess.run([
-        sys.executable, "scripts/plot_policy_comparison_full.py"
+        sys.executable, "scripts/plot_policy_comparison_full.py", "--seeds", seeds_arg
     ], check=True)
 
     # Publication analytics plots

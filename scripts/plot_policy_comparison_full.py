@@ -17,6 +17,7 @@ Prerequisite:
     python scripts/run_experiment_suite.py --suite-config configs/comparison_suite.yaml
 """
 
+import argparse
 import json
 import sys
 from collections import Counter, defaultdict
@@ -528,6 +529,17 @@ def plot_radar_summary(policy_data: dict):
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    global SEEDS
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seeds", type=str, default="42,123,7,1,2", help="Comma-sep seeds or count")
+    args = parser.parse_args()
+    
+    if "," in args.seeds:
+        SEEDS = [int(s.strip()) for s in args.seeds.split(",")]
+    else:
+        val = int(args.seeds)
+        SEEDS = [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     set_global_seed(42)
 

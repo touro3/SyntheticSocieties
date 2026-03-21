@@ -22,12 +22,13 @@ from typing import Optional
 from decision.llm_backend import LLMBackend
 from decision.output_parser import parse_llm_output
 from decision.prompt_builder import (
-    SYSTEM_PROMPT,
+    BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
     build_context_block,
     build_memory_block,
     build_persona_block,
     build_state_block,
 )
+
 from decision.schemas import ProposedAction
 
 
@@ -68,6 +69,8 @@ class AblatedLLMPolicy:
         temperature: float = 0.7,
         max_retries: int = 2,
         prompt_logger=None,
+        graph_rag=None,
+        sql_rag=None,
     ):
         if ablation not in self.VALID_ABLATIONS:
             raise ValueError(
@@ -80,6 +83,8 @@ class AblatedLLMPolicy:
         self.temperature = temperature
         self.max_retries = max_retries
         self.prompt_logger = prompt_logger
+        self.graph_rag = graph_rag
+        self.sql_rag = sql_rag
 
     def propose_action(
         self,

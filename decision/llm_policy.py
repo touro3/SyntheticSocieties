@@ -34,6 +34,7 @@ class LLMPolicy:
         perturbation_mode: Optional[str] = None,
         graph_rag=None,
         sql_rag=None,
+        ablation_level: int = 5,
     ):
         self.backend = backend
         self.memory_window = memory_window
@@ -43,6 +44,7 @@ class LLMPolicy:
         self.perturbation_mode = perturbation_mode
         self.graph_rag = graph_rag
         self.sql_rag = sql_rag
+        self.ablation_level = ablation_level
 
 
     def propose_action(
@@ -86,6 +88,7 @@ class LLMPolicy:
             memory_window=self.memory_window,
             social_context=social_context,
             population_context=pop_context,
+            ablation_level=self.ablation_level,
         )
 
 
@@ -128,6 +131,7 @@ class LLMPolicy:
                 profile, state, memory, context, round_id, self.memory_window,
                 social_context=social_context,
                 population_context=pop_context,
+                ablation_level=self.ablation_level,
             )
 
             self.prompt_logger.log(

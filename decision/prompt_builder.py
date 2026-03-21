@@ -12,7 +12,7 @@ import json
 from typing import Optional
 
 
-SYSTEM_PROMPT = """You are a person living in a simulated society. You must decide what action to take this round based on your personal characteristics, your current situation, your memories of past interactions, and the world around you.
+BASE_SYSTEM_PROMPT = """You are a person living in a simulated society. You must decide what action to take this round based on your personal characteristics, your current situation, your memories of past interactions, and the world around you.
 
 You MUST respond with ONLY a JSON object in the following format:
 {
@@ -33,6 +33,30 @@ Rules:
 - If you choose "cooperate", you MUST specify a target_agent_id from your neighbors list.
 - Your reasoning should reflect your personality and situation.
 - Respond with ONLY the JSON, no other text."""
+
+# V4: Balanced Generic Action Phrasing (Removes default "work" bias)
+BALANCED_SYSTEM_PROMPT = """You are a living participant in a simulated society. Every round, you must actively balance your immediate financial needs against your mental well-being and long-term social capital. Continually selecting the same action often leads to negative consequences like burnout or social isolation.
+
+You MUST respond with ONLY a JSON object in the following format:
+{
+  "action_type": "<work|save|cooperate>",
+  "target_agent_id": "<neighbor_id or null>",
+  "amount": <number>,
+  "reasoning_summary": "<brief explanation of your choice>",
+  "confidence": <0.0 to 1.0>
+}
+
+Valid actions (all are equally crucial depending on context):
+- "work": Earn immediate income. Recommended when wealth is dangerously low, but frequently increases stress. amount = effort (5-15).
+- "save": Rest and secure your future. Automatically relieves stress and builds a personal safety net against shocks. amount = (5-10).
+- "cooperate": Invest in your community. Costs immediate resources but builds powerful trust ties and social capital, which buffers against stress long-term. amount = (5-10). target_agent_id = a neighbor's ID.
+
+Rules:
+- You MUST choose exactly one action. Maintain a healthy rotation based on your shifting state.
+- If you choose "cooperate", you MUST specify a target_agent_id from your neighbors list.
+- Your reasoning should explicitly weigh wealth vs. stress vs. social consequences.
+- Respond with ONLY the JSON, no other text."""
+
 
 
 def build_persona_block(profile) -> str:
@@ -108,14 +132,28 @@ def build_persona_block(profile) -> str:
     return " ".join(lines)
 
 
-def build_state_block(state) -> str:
-    """Build state description from AgentState."""
-    return (
+def build_state_block(state, ablation_level: int = 5) -> str:
+    """Build state description from AgentState, subject to ablation testing."""
+    base = (
         f"Current situation: "
         f"wealth={state.wealth:.1f}, "
         f"stress={state.stress:.2f}, "
         f"satisfaction={state.satisfaction:.2f}."
     )
+    
+    # V1: Explicit Stress Salience Penalties
+    if ablation_level >= 1 and state.stress >= 0.7:
+        base += "\n[WARNING: Your stress is CRITICAL. Working will increase it further and risk burnout. Resting (save) or Cooperating may reduce it.]"
+    
+    # V3: Surface Agent Trust Dictionary directly in state
+    if ablation_level >= 3 and hasattr(state, "trust_network") and state.trust_network:
+        # Only show neighbors where trust > 0
+        active_trust = {k: round(v, 2) for k, v in state.trust_network.items() if v > 0}
+        if active_trust:
+            base += f"\n[Your internal trust toward specific neighbors based on their past help: {active_trust}]"
+            
+    return base
+
 
 
 def build_memory_block(memory, window: int = 5) -> str:
@@ -177,15 +215,18 @@ def build_prompt(
     memory_window: int = 5,
     social_context: Optional[str] = None,
     population_context: Optional[str] = None,
+    ablation_level: int = 5,
 ) -> list[dict]:
     """
-    Build a complete chat-format prompt for the LLM.
-
-    Returns a list of message dicts compatible with transformers
-    chat template format: [{"role": "...", "content": "..."}].
+    Build a complete chat-format prompt for the LLM based on ablation level.
+    V0: Baseline prompt
+    V1: Add explicit stress salience penalties
+    V2: Add explicit cooperation incentives
+    V3: Surface trust/memory in state
+    V4: Re-balance generic action phrasing
     """
     persona = build_persona_block(profile)
-    state_desc = build_state_block(state)
+    state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window)
     context_desc = build_context_block(context)
 
@@ -198,14 +239,22 @@ def build_prompt(
         user_content += f"Social Network Context:\n{social_context}\n\n"
 
     user_content += f"{memory_desc}\n\n{context_desc}\n\n"
+    
+    # V2: Explicit Cooperation Incentives
+    if ablation_level >= 2:
+        user_content += "HINT: Continually choosing 'work' increases your stress and alienates neighbors. Periodically mixing 'save' (rest) and 'cooperate' (mutual aid) is highly recommended to maintain long-term stability.\n\n"
+        
     user_content += "What action do you take this round? Respond with ONLY the JSON."
 
+    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= 4 else BASE_SYSTEM_PROMPT
+
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_text},
         {"role": "user", "content": user_content},
     ]
 
     return messages
+
 
 
 def build_prompt_text(
@@ -217,13 +266,15 @@ def build_prompt_text(
     memory_window: int = 5,
     social_context: Optional[str] = None,
     population_context: Optional[str] = None,
+    ablation_level: int = 5,
 ) -> str:
     """
     Build a plain-text version of the prompt (for logging/debugging).
     """
     messages = build_prompt(
         profile, state, memory, context, round_id, memory_window,
-        social_context=social_context, population_context=population_context
+        social_context=social_context, population_context=population_context,
+        ablation_level=ablation_level
     )
     parts = []
     for msg in messages:

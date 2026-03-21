@@ -23,17 +23,29 @@ PERSONA_SENSITIVITY_ORDER = [
 DISPLAY_NAMES = {
     "auditable_random_ess_persona": "Auditable Random\n(ESS Persona)",
     "pure_llm_ess_persona": "Pure LLM\n(ESS Persona)",
-    "grounded_llm_ess_persona": "LLM + ESS\n(ESS Persona)",
+    "grounded_llm_ess_persona": "Grounded LLM\n(ESS Persona)",
     "pure_llm_synth_persona": "Pure LLM\n(Synth Persona)",
-    "grounded_llm_synth_persona": "LLM + ESS\n(Synth Persona)",
+    "grounded_llm_synth_persona": "Grounded LLM\n(Synth Persona)",
 }
 
-COLORS = {
+CONDITION_COLORS = {
     "auditable_random_ess_persona": "#4C78A8",
     "pure_llm_ess_persona": "#8F63D2",
     "grounded_llm_ess_persona": "#E45756",
     "pure_llm_synth_persona": "#72B7B2",
     "grounded_llm_synth_persona": "#F58518",
+}
+
+ACTION_COLORS = {
+    "work_rate": "#4C78A8",
+    "save_rate": "#F2A541",
+    "cooperation_rate": "#2CB1A1",
+}
+
+ACTION_LABELS = {
+    "work_rate": "Work",
+    "save_rate": "Save",
+    "cooperation_rate": "Cooperate",
 }
 
 
@@ -71,6 +83,8 @@ def load_metrics(registry_path: Path) -> tuple[pd.DataFrame, list[dict]]:
                 "policy_family": entry["policy_family"],
                 "persona_source": entry["persona_source"],
                 "use_population_context": entry["use_population_context"],
+                "use_social_context": entry["use_social_context"],
+                "use_memory_context": entry["use_memory_context"],
                 "wealth_mean": wealth["mean"],
                 "wealth_gini": wealth["gini"],
                 "stress_mean": stress["mean"],
@@ -151,46 +165,48 @@ def _condition_values(summary_df: pd.DataFrame, condition_order: list[str], metr
         means.append(float(row.iloc[0][metric]))
         stds.append(float(row.iloc[0][metric_std]))
         labels.append(DISPLAY_NAMES.get(key, key))
-        colors.append(COLORS.get(key, "#6B7280"))
+        colors.append(CONDITION_COLORS.get(key, "#6B7280"))
     return means, stds, labels, colors
 
 
 def plot_primary_action_rates(summary_df: pd.DataFrame, out_path: Path) -> None:
     _style()
     fig, ax = plt.subplots(figsize=(11, 6))
-    metrics = [
-        ("work_rate", "work_rate_std", "Work"),
-        ("save_rate", "save_rate_std", "Save"),
-        ("cooperation_rate", "cooperation_rate_std", "Cooperate"),
-    ]
-    condition_order = PRIMARY_ORDER
 
-    x = range(len(condition_order))
+    available_conditions = [k for k in PRIMARY_ORDER if k in set(summary_df["condition_key"])]
+    labels = [DISPLAY_NAMES[k] for k in available_conditions]
+
+    x = list(range(len(available_conditions)))
     width = 0.22
-    offsets = [-width, 0, width]
+    metrics = [
+        ("work_rate", "work_rate_std"),
+        ("save_rate", "save_rate_std"),
+        ("cooperation_rate", "cooperation_rate_std"),
+    ]
+    offsets = [-width, 0.0, width]
 
-    for offset, (metric, metric_std, label) in zip(offsets, metrics):
-        means, stds, _, colors = _condition_values(summary_df, condition_order, metric, metric_std)
+    for offset, (metric, metric_std) in zip(offsets, metrics):
+        means, stds, _, _ = _condition_values(summary_df, available_conditions, metric, metric_std)
         ax.bar(
-            [i + offset for i in range(len(means))],
+            [i + offset for i in x],
             means,
             width=width,
             yerr=stds,
-            label=label,
-            color=colors,
-            alpha=0.9,
+            color=ACTION_COLORS[metric],
+            label=ACTION_LABELS[metric],
+            alpha=0.92,
             capsize=4,
             edgecolor="white",
+            linewidth=1.0,
         )
 
-    labels = [DISPLAY_NAMES[k] for k in condition_order if k in set(summary_df["condition_key"])]
-    ax.set_xticks(list(range(len(labels))))
+    ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.set_ylim(0, 1.0)
     ax.set_ylabel("Rate")
     ax.set_title("Primary Comparison: Action Mix")
     ax.grid(axis="y", linestyle="--", alpha=0.25)
-    ax.legend()
+    ax.legend(title="Action")
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
@@ -206,7 +222,7 @@ def plot_primary_key_metrics(summary_df: pd.DataFrame, out_path: Path) -> None:
     ]
 
     labels = [DISPLAY_NAMES[k] for k in PRIMARY_ORDER if k in set(summary_df["condition_key"])]
-    colors = [COLORS[k] for k in PRIMARY_ORDER if k in set(summary_df["condition_key"])]
+    colors = [CONDITION_COLORS[k] for k in PRIMARY_ORDER if k in set(summary_df["condition_key"])]
 
     for ax, (metric, metric_std, title) in zip(axes, panels):
         means, stds, _, _ = _condition_values(summary_df, PRIMARY_ORDER, metric, metric_std)
@@ -223,7 +239,7 @@ def plot_primary_key_metrics(summary_df: pd.DataFrame, out_path: Path) -> None:
 
 def plot_persona_sensitivity(summary_df: pd.DataFrame, out_path: Path) -> None:
     _style()
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     panels = [
         ("work_rate", "work_rate_std", "Work Rate"),
         ("cooperation_rate", "cooperation_rate_std", "Cooperation Rate"),
@@ -231,7 +247,7 @@ def plot_persona_sensitivity(summary_df: pd.DataFrame, out_path: Path) -> None:
     ]
 
     labels = [DISPLAY_NAMES[k] for k in PERSONA_SENSITIVITY_ORDER if k in set(summary_df["condition_key"])]
-    colors = [COLORS[k] for k in PERSONA_SENSITIVITY_ORDER if k in set(summary_df["condition_key"])]
+    colors = [CONDITION_COLORS[k] for k in PERSONA_SENSITIVITY_ORDER if k in set(summary_df["condition_key"])]
 
     for ax, (metric, metric_std, title) in zip(axes, panels):
         means, stds, _, _ = _condition_values(summary_df, PERSONA_SENSITIVITY_ORDER, metric, metric_std)
@@ -263,7 +279,7 @@ def plot_lorenz_supplement(summary_df: pd.DataFrame, lorenz_records: list[dict],
             chosen["population_share"],
             chosen["value_share"],
             label=f"{DISPLAY_NAMES.get(condition_key, condition_key)} (G={chosen['gini']:.3f})",
-            color=COLORS.get(condition_key, "#6B7280"),
+            color=CONDITION_COLORS.get(condition_key, "#6B7280"),
             linewidth=2.5,
         )
 
@@ -278,15 +294,46 @@ def plot_lorenz_supplement(summary_df: pd.DataFrame, lorenz_records: list[dict],
     plt.close(fig)
 
 
+def _metric(summary_df: pd.DataFrame, key: str, metric: str) -> float:
+    row = summary_df[summary_df["condition_key"] == key]
+    if row.empty:
+        return float("nan")
+    return float(row.iloc[0][metric])
+
+
 def write_markdown_report(summary_df: pd.DataFrame, out_path: Path) -> None:
     primary_df = summary_df[summary_df["condition_key"].isin(PRIMARY_ORDER)].copy()
     primary_df["label"] = primary_df["condition_key"].map(DISPLAY_NAMES)
 
+    random_work = _metric(summary_df, "auditable_random_ess_persona", "work_rate")
+    pure_work = _metric(summary_df, "pure_llm_ess_persona", "work_rate")
+    grounded_work = _metric(summary_df, "grounded_llm_ess_persona", "work_rate")
+
+    random_save = _metric(summary_df, "auditable_random_ess_persona", "save_rate")
+    pure_save = _metric(summary_df, "pure_llm_ess_persona", "save_rate")
+    grounded_save = _metric(summary_df, "grounded_llm_ess_persona", "save_rate")
+
+    random_coop = _metric(summary_df, "auditable_random_ess_persona", "cooperation_rate")
+    pure_coop = _metric(summary_df, "pure_llm_ess_persona", "cooperation_rate")
+    grounded_coop = _metric(summary_df, "grounded_llm_ess_persona", "cooperation_rate")
+
+    pure_wealth = _metric(summary_df, "pure_llm_ess_persona", "wealth_mean")
+    grounded_wealth = _metric(summary_df, "grounded_llm_ess_persona", "wealth_mean")
+    random_wealth = _metric(summary_df, "auditable_random_ess_persona", "wealth_mean")
+
+    pure_gini = _metric(summary_df, "pure_llm_ess_persona", "wealth_gini")
+    grounded_gini = _metric(summary_df, "grounded_llm_ess_persona", "wealth_gini")
+    random_gini = _metric(summary_df, "auditable_random_ess_persona", "wealth_gini")
+
+    pure_stress = _metric(summary_df, "pure_llm_ess_persona", "stress_mean")
+    grounded_stress = _metric(summary_df, "grounded_llm_ess_persona", "stress_mean")
+    random_stress = _metric(summary_df, "auditable_random_ess_persona", "stress_mean")
+
     lines = [
         "# Grounding Comparison Report",
         "",
-        "Main figures intentionally focus on `Auditable Random`, `Pure LLM`, and `LLM + ESS`.",
-        "Template and rule-based baselines are omitted from the main figures because prior comparisons showed weak separation and limited explanatory value.",
+        "Main figures focus on `Auditable Random`, `Pure LLM`, and `Grounded LLM`.",
+        "Template and rule-based baselines are omitted from the main figures because earlier comparisons showed weak separation and limited explanatory value.",
         "",
         "## Primary Summary",
         "",
@@ -294,9 +341,20 @@ def write_markdown_report(summary_df: pd.DataFrame, out_path: Path) -> None:
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
-    for _, row in primary_df.iterrows():
+    ordered_rows = [
+        "auditable_random_ess_persona",
+        "pure_llm_ess_persona",
+        "grounded_llm_ess_persona",
+    ]
+
+    for key in ordered_rows:
+        row = summary_df[summary_df["condition_key"] == key]
+        if row.empty:
+            continue
+        row = row.iloc[0]
+        label = DISPLAY_NAMES.get(key, key).replace("\n", " ")
         lines.append(
-            f"| {row['label']} | {int(row['seeds'])} | "
+            f"| {label} | {int(row['seeds'])} | "
             f"{row['wealth_mean']:.3f} | {row['wealth_gini']:.3f} | {row['stress_mean']:.3f} | "
             f"{row['work_rate']:.3f} | {row['save_rate']:.3f} | {row['cooperation_rate']:.3f} |"
         )
@@ -304,11 +362,21 @@ def write_markdown_report(summary_df: pd.DataFrame, out_path: Path) -> None:
     lines.extend(
         [
             "",
-            "## Notes",
+            "## Interpretation",
             "",
+            f"The main behavioral shift is not in work propensity. Work remains in a relatively narrow band across the primary conditions: `Auditable Random={random_work:.3f}`, `Pure LLM={pure_work:.3f}`, and `Grounded LLM={grounded_work:.3f}`.",
+            "",
+            f"The strongest difference appears in how non-work behavior is allocated between saving and cooperation. `Pure LLM` strongly favors saving (`save_rate={pure_save:.3f}`) and nearly eliminates cooperation (`cooperation_rate={pure_coop:.3f}`). By contrast, `Grounded LLM` sharply reduces saving (`save_rate={grounded_save:.3f}`) and increases cooperation (`cooperation_rate={grounded_coop:.3f}`). `Auditable Random` remains behaviorally mixed, with `save_rate={random_save:.3f}` and `cooperation_rate={random_coop:.3f}`.",
+            "",
+            f"In short-horizon economic terms, `Pure LLM` currently performs best on mean wealth (`{pure_wealth:.3f}`) and lowest inequality (`Gini={pure_gini:.3f}`). `Grounded LLM` is more cooperative, but that increase in cooperation does not yet convert into lower inequality or lower stress over 5 rounds (`wealth_mean={grounded_wealth:.3f}`, `Gini={grounded_gini:.3f}`, `stress_mean={grounded_stress:.3f}`). `Auditable Random` remains the lowest-stress baseline (`stress_mean={random_stress:.3f}`) while preserving a balanced action mix.",
+            "",
+            "These results suggest that, in the current environment, cooperation is behaviorally meaningful but not yet rewarded quickly enough to outperform self-preserving strategies on short-horizon wealth and stress metrics.",
+            "",
+            "## Caveats",
+            "",
+            "- These comparisons are based on 3 seeds, so uncertainty estimates are still coarse.",
             "- `Pure LLM` here means no population grounding, no social context, no memory context, and no balancing hint.",
-            "- `LLM + ESS` includes ESS-derived population grounding plus social context and memory.",
-            "- `Auditable Random` is a weighted stochastic baseline with deterministic seeds and per-step audit logs.",
+            "- `Grounded LLM` includes ESS-derived population grounding plus social context and memory, so it should not be interpreted as an ESS-only effect.",
             "- Lorenz curves are generated as supplementary material only.",
         ]
     )

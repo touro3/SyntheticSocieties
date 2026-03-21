@@ -1,0 +1,14 @@
+society_prompt: "quero personas para uma sociedade europeia envelhecida, desconfiada e politicamente estruturada, com benchmark de fidelidade baseado em survey"
+registry_path: data/dataset_registry.json
+dataset_id: null
+top_k: 3
+output_root: artifacts/persona_fidelity
+min_support: 30
+max_depth: 3
+replications: 10
+base_seed: 42
+model_id: mistralai/Mistral-7B-Instruct-v0.3
+temperature: 1.0
+top_p: 0.9 
+include_justification: false
+skip_llm: false

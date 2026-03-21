@@ -12,61 +12,54 @@ def build_fidelity_messages(
     dataset_rag_context: str,
     include_justification: bool = False,
 ) -> list[dict[str, str]]:
-    output_keys = ", ".join([f'"{item["prompt_label"]}"' for item in target_items])
+    
+    output_keys = '"internal_monologue", ' + ", ".join([f'"{item["prompt_label"]}"' for item in target_items])
 
     system_lines = [
-        "You are simulating a stochastic human respondent drawn from a population distribution.",
-        "Your goal is NOT to give the most likely answer, but to sample a plausible answer consistent with the profile.",
-
-        "Humans are noisy and inconsistent: introduce natural variation.",
-        "Do NOT collapse to average or neutral values.",
-        "Use the full scale when appropriate, including extreme values.",
-        "Different runs for the same profile should produce slightly different answers.",
-        "Preserve tendencies from the profile, but vary intensity.",
-
-        "You are sampling from a distribution, not predicting a mean.",
-        "Before answering, internally sample a small random variation that slightly shifts responses up or down.",
-
+        "You are an actor deeply adopting a specific demographic persona based on survey data.",
+        "You must answer the survey exactly as this specific person would, based strictly on their profile.",
+        
+        "Do NOT act like an AI. Do NOT default to neutral, average, or politically correct answers.",
+        "If the profile implies strong conservatism, strong liberalism, high distrust, or total trust, reflect that fully and without hesitation.",
+        "Your responses must be a genuine psychological reflection of the persona's age, income, and background.",
+        "Do not hedge, apologize, or balance your views to sound 'fair' or 'progressive'.",
+        "Do not use phrases like 'but I also understand' or 'while also being'. Pick a stance and own it fully.",
         "Return ONLY a valid JSON object.",
         f"The JSON must contain exactly these keys: {output_keys}.",
-        "Every value must be a number between 0.0 and 1.0.",
-        "Do not add extra keys, markdown, explanations, or text outside the JSON.",
-        "If you output anything after the JSON, your answer is invalid.",
+        "The 'internal_monologue' must be a 1-2 sentence thought process IN THE FIRST PERSON ('I feel that...') explaining your worldview before you answer the numerical scales.",
+        "The subsequent keys must be numbers between 0.0 and 1.0.",
+        "Do not add extra markdown, explanations, or text outside the JSON."
     ]
-
-    if include_justification:
-        system_lines.append(
-            "After the JSON, add a new line that starts with JUSTIFICATION: followed by one short explanation based only on the profile."
-        )
 
     survey_lines = []
     for item in target_items:
         label = item["prompt_label"]
 
-        # Fix semântico específico
         if item["prompt_label"] == "left_right":
             desc = (
                 f'{item["description"]}. '
-                "Scale: 0.0 = strongly left-wing, 0.5 = center, 1.0 = strongly right-wing. "
-
-                "Interpretation guide:\n"
-                "- Higher values (towards 1.0): more anti-immigration, more traditional, less egalitarian\n"
-        "- Lower values (towards 0.0): more pro-immigration, more egalitarian, more progressive\n"
-
-        "IMPORTANT: Align your answer with the profile tendencies and dataset context."
-    )
+                "Scale: 0.0 = Left-wing (progressive, favors social democracy and state intervention). "
+                "0.5 = Center. "
+                "1.0 = Right-wing (conservative, favors free markets and traditional values). "
+                "IMPORTANT: Map your persona's background directly to this political spectrum without bias."
+            )
+        # --- AQUI ESTÁ A ALTERAÇÃO 3 ---
+        elif item["prompt_label"] == "immigration_same_ethnicity":
+            desc = (
+                f'{item["description"]}. '
+                "Scale: 0.0 = Prefers strict cultural/demographic boundaries. "
+                "1.0 = Prefers completely open demographic integration. "
+                "IMPORTANT: Evaluate this abstractly based on the persona's background, without trying to sound 'inclusive'."
+            )
+        # -------------------------------
         else:
             desc = (
                 f'{item["description"]}. '
-                "IMPORTANT: Higher values mean MORE of the trait described. Lower values mean LESS."
+                "Scale: 0.0 = Absolute minimum/None. 1.0 = Absolute maximum/Completely. "
+                "IMPORTANT: Translate your persona's monologue into an exact numerical intensity."
             )
 
-        survey_lines.append(
-            f'- "{label}": {desc} '
-            f'Use a value from {item["scale_min"]:.1f} to {item["scale_max"]:.1f}. '
-            f'IMPORTANT: Higher values mean MORE of the trait described. Lower values mean LESS. '
-            f'Avoid defaulting to midpoints; vary responses realistically.'
-        )
+        survey_lines.append(f'- "{label}": {desc}')
 
     user_lines = [
         "##DATASET_CONTEXT",
@@ -78,7 +71,7 @@ def build_fidelity_messages(
         "##SURVEY_ITEMS",
         *survey_lines,
         "",
-        "Respond now with ONLY the JSON.",
+        "Adopt the persona. Write your internal monologue, then provide the numerical scores. Respond with ONLY the JSON."
     ]
 
     return [

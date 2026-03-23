@@ -13,6 +13,7 @@ This checklist tracks the development progress of the Behavioral Grounding Frame
 [x] Social world environment implemented  
 [x] Social network topology implemented  
 [x] LLM decision interface working  
+[x] Batched GPU Inference Pipeline
 [x] Action validation layer implemented  
 [x] Event-driven simulation kernel implemented  
 
@@ -54,6 +55,7 @@ Network Metrics
 [x] Assortativity  
 [x] Modularity  
 [x] Diffusion speed  
+[x] Topological Graph Visualization
 
 ---
 
@@ -128,4 +130,4 @@ Network Metrics
 [x] Results written  
 [x] Discussion written  
 [x] Limitations written  
-[x] Conclusion written  
+[x] Conclusion written

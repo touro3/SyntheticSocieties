@@ -46,7 +46,7 @@ Deliverables:
 
 ---
 
-# Phase 3 — Population Synthesis Status: completed (v0.1)
+# Phase 3 — Population Synthesis Status: Completed
 
 Goal: generate a synthetic population grounded in empirical distributions.
 
@@ -64,7 +64,7 @@ Deliverables:
 
 ---
 
-# Phase 4 — Agent Architecture Status: completed (v0.1)
+# Phase 4 — Agent Architecture Status: Completed
 
 Goal: implement the internal structure of agents.
 
@@ -84,7 +84,7 @@ Deliverables:
 
 ---
 
-# Phase 5 — Simulation Kernel Status: completed (v0.1)
+# Phase 5 — Simulation Kernel Status: Completed
 
 Goal: implement the event-driven simulation engine.
 
@@ -95,11 +95,12 @@ Tasks:
 - environment updates
 - interaction handling
 - round management
+- batched GPU inference processing
 
 Deliverables:
 
 - event-driven kernel
-- round execution pipeline
+- high-scale round execution pipeline
 
 ---
 
@@ -122,13 +123,13 @@ Deliverables:
 
 ---
 
-# Phase 7 — Logging & Reproducibility Status: completed (v0.1)
+# Phase 7 — Logging & Reproducibility Status: Completed
 
 Goal: guarantee full reproducibility.
 
 Tasks:
 
-- JSONL event logs
+- JSONL/Parquet event logs
 - prompt logging
 - model output logging
 - seed management
@@ -161,6 +162,7 @@ Network structure
 - assortativity
 - modularity
 - diffusion speed
+- topological graph rendering
 
 Behavior
 - cooperation rate
@@ -170,6 +172,7 @@ Behavior
 Deliverables:
 
 - metrics module
+- topological visualizer
 - analysis-ready outputs
 
 ---
@@ -236,7 +239,7 @@ Deliverables:
 
 ---
 
-# Phase 12 — Paper Writing Status: Draft Complete
+# Phase 12 — Paper Writing Status: Completed
 
 Goal: transform results into a research paper.
 

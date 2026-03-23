@@ -1,0 +1,331 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-03-22">
+    <creator>NetworkX 3.3</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="node">
+      <attribute id="0" title="final_wealth" type="double" />
+    </attributes>
+    <nodes>
+      <node id="agent_0031" label="agent_0031">
+        <attvalues>
+          <attvalue for="0" value="259.9189271467753" />
+        </attvalues>
+      </node>
+      <node id="agent_0006" label="agent_0006">
+        <attvalues>
+          <attvalue for="0" value="423.5687182708194" />
+        </attvalues>
+      </node>
+      <node id="agent_0001" label="agent_0001">
+        <attvalues>
+          <attvalue for="0" value="45.100043020890666" />
+        </attvalues>
+      </node>
+      <node id="agent_0029" label="agent_0029">
+        <attvalues>
+          <attvalue for="0" value="113.41490412546756" />
+        </attvalues>
+      </node>
+      <node id="agent_0050" label="agent_0050">
+        <attvalues>
+          <attvalue for="0" value="54.48072386846753" />
+        </attvalues>
+      </node>
+      <node id="agent_0040" label="agent_0040">
+        <attvalues>
+          <attvalue for="0" value="160.8182873448597" />
+        </attvalues>
+      </node>
+      <node id="agent_0010" label="agent_0010">
+        <attvalues>
+          <attvalue for="0" value="54.87455189921441" />
+        </attvalues>
+      </node>
+      <node id="agent_0020" label="agent_0020">
+        <attvalues>
+          <attvalue for="0" value="55.223277007331234" />
+        </attvalues>
+      </node>
+      <node id="agent_0017" label="agent_0017">
+        <attvalues>
+          <attvalue for="0" value="15.857062735503632" />
+        </attvalues>
+      </node>
+      <node id="agent_0033" label="agent_0033">
+        <attvalues>
+          <attvalue for="0" value="51.89246305591748" />
+        </attvalues>
+      </node>
+      <node id="agent_0036" label="agent_0036">
+        <attvalues>
+          <attvalue for="0" value="84.81761865701198" />
+        </attvalues>
+      </node>
+      <node id="agent_0012" label="agent_0012">
+        <attvalues>
+          <attvalue for="0" value="209.10614387873545" />
+        </attvalues>
+      </node>
+      <node id="agent_0032" label="agent_0032">
+        <attvalues>
+          <attvalue for="0" value="273.1449123658188" />
+        </attvalues>
+      </node>
+      <node id="agent_0024" label="agent_0024">
+        <attvalues>
+          <attvalue for="0" value="50.82885228882712" />
+        </attvalues>
+      </node>
+      <node id="agent_0022" label="agent_0022">
+        <attvalues>
+          <attvalue for="0" value="87.86100206607196" />
+        </attvalues>
+      </node>
+      <node id="agent_0046" label="agent_0046">
+        <attvalues>
+          <attvalue for="0" value="0.9040057176389169" />
+        </attvalues>
+      </node>
+      <node id="agent_0034" label="agent_0034">
+        <attvalues>
+          <attvalue for="0" value="1.5141375088334144" />
+        </attvalues>
+      </node>
+      <node id="agent_0028" label="agent_0028">
+        <attvalues>
+          <attvalue for="0" value="10.38997746538984" />
+        </attvalues>
+      </node>
+      <node id="agent_0049" label="agent_0049">
+        <attvalues>
+          <attvalue for="0" value="4.459328715880339" />
+        </attvalues>
+      </node>
+      <node id="agent_0023" label="agent_0023">
+        <attvalues>
+          <attvalue for="0" value="1.621917999247124" />
+        </attvalues>
+      </node>
+      <node id="agent_0037" label="agent_0037">
+        <attvalues>
+          <attvalue for="0" value="70.47407900945699" />
+        </attvalues>
+      </node>
+      <node id="agent_0019" label="agent_0019">
+        <attvalues>
+          <attvalue for="0" value="4.025995038712246" />
+        </attvalues>
+      </node>
+      <node id="agent_0007" label="agent_0007">
+        <attvalues>
+          <attvalue for="0" value="60.34775533051766" />
+        </attvalues>
+      </node>
+      <node id="agent_0003" label="agent_0003">
+        <attvalues>
+          <attvalue for="0" value="56.89284295259529" />
+        </attvalues>
+      </node>
+      <node id="agent_0009" label="agent_0009">
+        <attvalues>
+          <attvalue for="0" value="44.11918887775228" />
+        </attvalues>
+      </node>
+      <node id="agent_0013" label="agent_0013">
+        <attvalues>
+          <attvalue for="0" value="19.295350602746595" />
+        </attvalues>
+      </node>
+      <node id="agent_0038" label="agent_0038">
+        <attvalues>
+          <attvalue for="0" value="14.446827601243115" />
+        </attvalues>
+      </node>
+      <node id="agent_0026" label="agent_0026">
+        <attvalues>
+          <attvalue for="0" value="99.8709833735206" />
+        </attvalues>
+      </node>
+      <node id="agent_0002" label="agent_0002">
+        <attvalues>
+          <attvalue for="0" value="4.100117273476478" />
+        </attvalues>
+      </node>
+      <node id="agent_0027" label="agent_0027">
+        <attvalues>
+          <attvalue for="0" value="56.38686550733385" />
+        </attvalues>
+      </node>
+      <node id="agent_0008" label="agent_0008">
+        <attvalues>
+          <attvalue for="0" value="1.6876872787410804" />
+        </attvalues>
+      </node>
+      <node id="agent_0004" label="agent_0004">
+        <attvalues>
+          <attvalue for="0" value="95.94588485665605" />
+        </attvalues>
+      </node>
+      <node id="agent_0021" label="agent_0021">
+        <attvalues>
+          <attvalue for="0" value="2.7925575799529057" />
+        </attvalues>
+      </node>
+      <node id="agent_0015" label="agent_0015">
+        <attvalues>
+          <attvalue for="0" value="70.17976592241287" />
+        </attvalues>
+      </node>
+      <node id="agent_0048" label="agent_0048">
+        <attvalues>
+          <attvalue for="0" value="3.542737777057603" />
+        </attvalues>
+      </node>
+      <node id="agent_0025" label="agent_0025">
+        <attvalues>
+          <attvalue for="0" value="74.3463781804505" />
+        </attvalues>
+      </node>
+      <node id="agent_0030" label="agent_0030">
+        <attvalues>
+          <attvalue for="0" value="25.22851309309752" />
+        </attvalues>
+      </node>
+      <node id="agent_0047" label="agent_0047">
+        <attvalues>
+          <attvalue for="0" value="67.11189441244036" />
+        </attvalues>
+      </node>
+      <node id="agent_0016" label="agent_0016">
+        <attvalues>
+          <attvalue for="0" value="1.881762488162785" />
+        </attvalues>
+      </node>
+      <node id="agent_0035" label="agent_0035">
+        <attvalues>
+          <attvalue for="0" value="113.70816252509292" />
+        </attvalues>
+      </node>
+      <node id="agent_0011" label="agent_0011">
+        <attvalues>
+          <attvalue for="0" value="40.52142115241345" />
+        </attvalues>
+      </node>
+      <node id="agent_0041" label="agent_0041">
+        <attvalues>
+          <attvalue for="0" value="1.1832975346226462" />
+        </attvalues>
+      </node>
+      <node id="agent_0039" label="agent_0039">
+        <attvalues>
+          <attvalue for="0" value="29.809408581027043" />
+        </attvalues>
+      </node>
+      <node id="agent_0005" label="agent_0005">
+        <attvalues>
+          <attvalue for="0" value="0.7067979496916479" />
+        </attvalues>
+      </node>
+      <node id="agent_0042" label="agent_0042">
+        <attvalues>
+          <attvalue for="0" value="2.91159310260619" />
+        </attvalues>
+      </node>
+      <node id="agent_0044" label="agent_0044">
+        <attvalues>
+          <attvalue for="0" value="4.319167907694506" />
+        </attvalues>
+      </node>
+      <node id="agent_0045" label="agent_0045">
+        <attvalues>
+          <attvalue for="0" value="4.931163545444122" />
+        </attvalues>
+      </node>
+      <node id="agent_0018" label="agent_0018">
+        <attvalues>
+          <attvalue for="0" value="1.237721826711308" />
+        </attvalues>
+      </node>
+      <node id="agent_0043" label="agent_0043">
+        <attvalues>
+          <attvalue for="0" value="0.15755185440843178" />
+        </attvalues>
+      </node>
+      <node id="agent_0014" label="agent_0014">
+        <attvalues>
+          <attvalue for="0" value="3.599537751118092" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="agent_0031" target="agent_0006" id="0" weight="29.0" />
+      <edge source="agent_0006" target="agent_0031" id="1" weight="29.0" />
+      <edge source="agent_0001" target="agent_0031" id="2" weight="29.0" />
+      <edge source="agent_0029" target="agent_0006" id="3" weight="29.0" />
+      <edge source="agent_0050" target="agent_0001" id="4" weight="29.0" />
+      <edge source="agent_0040" target="agent_0029" id="5" weight="29.0" />
+      <edge source="agent_0010" target="agent_0050" id="6" weight="29.0" />
+      <edge source="agent_0020" target="agent_0040" id="7" weight="29.0" />
+      <edge source="agent_0017" target="agent_0040" id="8" weight="27.0" />
+      <edge source="agent_0033" target="agent_0020" id="9" weight="29.0" />
+      <edge source="agent_0036" target="agent_0032" id="10" weight="20.0" />
+      <edge source="agent_0036" target="agent_0017" id="11" weight="9.0" />
+      <edge source="agent_0012" target="agent_0037" id="12" weight="2.0" />
+      <edge source="agent_0012" target="agent_0033" id="13" weight="27.0" />
+      <edge source="agent_0032" target="agent_0036" id="14" weight="29.0" />
+      <edge source="agent_0024" target="agent_0032" id="15" weight="29.0" />
+      <edge source="agent_0022" target="agent_0030" id="16" weight="3.0" />
+      <edge source="agent_0022" target="agent_0032" id="17" weight="26.0" />
+      <edge source="agent_0046" target="agent_0022" id="18" weight="29.0" />
+      <edge source="agent_0034" target="agent_0022" id="19" weight="27.0" />
+      <edge source="agent_0028" target="agent_0034" id="20" weight="2.0" />
+      <edge source="agent_0028" target="agent_0006" id="21" weight="27.0" />
+      <edge source="agent_0049" target="agent_0037" id="22" weight="3.0" />
+      <edge source="agent_0049" target="agent_0034" id="23" weight="26.0" />
+      <edge source="agent_0023" target="agent_0028" id="24" weight="29.0" />
+      <edge source="agent_0037" target="agent_0012" id="25" weight="29.0" />
+      <edge source="agent_0019" target="agent_0007" id="26" weight="1.0" />
+      <edge source="agent_0019" target="agent_0023" id="27" weight="28.0" />
+      <edge source="agent_0007" target="agent_0037" id="28" weight="29.0" />
+      <edge source="agent_0003" target="agent_0010" id="29" weight="29.0" />
+      <edge source="agent_0009" target="agent_0007" id="30" weight="29.0" />
+      <edge source="agent_0013" target="agent_0003" id="31" weight="29.0" />
+      <edge source="agent_0038" target="agent_0009" id="32" weight="29.0" />
+      <edge source="agent_0026" target="agent_0038" id="33" weight="8.0" />
+      <edge source="agent_0026" target="agent_0013" id="34" weight="21.0" />
+      <edge source="agent_0002" target="agent_0038" id="35" weight="29.0" />
+      <edge source="agent_0027" target="agent_0002" id="36" weight="1.0" />
+      <edge source="agent_0027" target="agent_0026" id="37" weight="28.0" />
+      <edge source="agent_0008" target="agent_0029" id="38" weight="29.0" />
+      <edge source="agent_0004" target="agent_0027" id="39" weight="29.0" />
+      <edge source="agent_0021" target="agent_0004" id="40" weight="29.0" />
+      <edge source="agent_0015" target="agent_0025" id="41" weight="1.0" />
+      <edge source="agent_0015" target="agent_0004" id="42" weight="27.0" />
+      <edge source="agent_0048" target="agent_0026" id="43" weight="29.0" />
+      <edge source="agent_0025" target="agent_0047" id="44" weight="1.0" />
+      <edge source="agent_0025" target="agent_0015" id="45" weight="28.0" />
+      <edge source="agent_0030" target="agent_0025" id="46" weight="3.0" />
+      <edge source="agent_0030" target="agent_0024" id="47" weight="26.0" />
+      <edge source="agent_0047" target="agent_0025" id="48" weight="29.0" />
+      <edge source="agent_0016" target="agent_0035" id="49" weight="2.0" />
+      <edge source="agent_0016" target="agent_0030" id="50" weight="27.0" />
+      <edge source="agent_0035" target="agent_0047" id="51" weight="29.0" />
+      <edge source="agent_0011" target="agent_0035" id="52" weight="15.0" />
+      <edge source="agent_0011" target="agent_0016" id="53" weight="13.0" />
+      <edge source="agent_0041" target="agent_0039" id="54" weight="2.0" />
+      <edge source="agent_0041" target="agent_0035" id="55" weight="27.0" />
+      <edge source="agent_0039" target="agent_0005" id="56" weight="3.0" />
+      <edge source="agent_0039" target="agent_0011" id="57" weight="26.0" />
+      <edge source="agent_0005" target="agent_0044" id="58" weight="1.0" />
+      <edge source="agent_0005" target="agent_0041" id="59" weight="28.0" />
+      <edge source="agent_0042" target="agent_0039" id="60" weight="29.0" />
+      <edge source="agent_0044" target="agent_0012" id="61" weight="28.0" />
+      <edge source="agent_0045" target="agent_0042" id="62" weight="29.0" />
+      <edge source="agent_0018" target="agent_0044" id="63" weight="29.0" />
+      <edge source="agent_0043" target="agent_0031" id="64" weight="29.0" />
+      <edge source="agent_0014" target="agent_0006" id="65" weight="29.0" />
+    </edges>
+  </graph>
+</gexf>

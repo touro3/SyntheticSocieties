@@ -11,7 +11,7 @@ set -e
 set -o pipefail
 
 echo "======================================================"
-echo "🚀 INICIANDO PIPELINE FASE D (ESCALA MÁXIMA)"
+echo " INICIANDO PIPELINE FASE D (ESCALA MÁXIMA)"
 echo "======================================================"
 
 # 1. Ativa o ambiente virtual e configura o PYTHONPATH

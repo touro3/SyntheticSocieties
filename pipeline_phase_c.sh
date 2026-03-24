@@ -7,7 +7,7 @@
 set -e
 
 echo "======================================================"
-echo "📊 INICIANDO PIPELINE FASE C (COMPARAÇÃO DE BASELINES)"
+echo " INICIANDO PIPELINE FASE C (COMPARAÇÃO DE BASELINES)"
 echo "======================================================"
 
 source venv/bin/activate

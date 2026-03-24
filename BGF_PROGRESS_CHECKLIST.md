@@ -91,6 +91,14 @@ Network Metrics
 
 ---
 
+# Advanced Stress Tests (Complex Systems Dynamics)
+
+[ ] Adversarial Injection (The Bad Apple / Social Immunity Test)
+[ ] Exogenous Macroeconomic Shock (Global Crisis Resilience)
+[ ] Topological Dictatorship (Fully Connected vs Small-World Echo Chambers)
+
+---
+
 # Bias & Failure Diagnostics
 
 [x] Subgroup analysis  

@@ -8,7 +8,7 @@ class NetworkManager:
         self.graph = graph
 
     @classmethod
-    def fully_connected(cls, agent_ids: list[str]) -> "NetworkManager":
+    def fully_connected(cls, agent_ids: list[str]) -> NetworkManager:
         graph = nx.Graph()
         graph.add_nodes_from(agent_ids)
 
@@ -19,16 +19,9 @@ class NetworkManager:
         return cls(graph)
 
     @classmethod
-    def random_graph(cls, agent_ids: list[str], edge_prob: float, seed: int | None = None) -> "NetworkManager":
+    def random_graph(cls, agent_ids: list[str], edge_prob: float, seed: int | None = None) -> NetworkManager:
         graph = nx.erdos_renyi_graph(n=len(agent_ids), p=edge_prob, seed=seed)
-
-        relabeled = nx.Graph()
-        mapping = {i: agent_ids[i] for i in range(len(agent_ids))}
-
-        relabeled.add_nodes_from(agent_ids)
-        for u, v in graph.edges():
-            relabeled.add_edge(mapping[u], mapping[v])
-
+        relabeled = cls._relabel_graph(graph, agent_ids)
         return cls(relabeled)
 
     @classmethod
@@ -38,22 +31,21 @@ class NetworkManager:
         k: int,
         rewiring_prob: float,
         seed: int | None = None,
-    ) -> "NetworkManager":
+    ) -> NetworkManager:
         graph = nx.watts_strogatz_graph(
             n=len(agent_ids),
             k=k,
             p=rewiring_prob,
             seed=seed,
         )
-
-        relabeled = nx.Graph()
-        mapping = {i: agent_ids[i] for i in range(len(agent_ids))}
-
-        relabeled.add_nodes_from(agent_ids)
-        for u, v in graph.edges():
-            relabeled.add_edge(mapping[u], mapping[v])
-
+        relabeled = cls._relabel_graph(graph, agent_ids)
         return cls(relabeled)
+
+    @staticmethod
+    def _relabel_graph(graph: nx.Graph, agent_ids: list[str]) -> nx.Graph:
+        """Relabel integer-indexed NetworkX graph to use agent_id strings."""
+        mapping = {i: agent_ids[i] for i in range(len(agent_ids))}
+        return nx.relabel_nodes(graph, mapping)
 
     def get_neighbors(self, agent_id: str) -> list[str]:
         if agent_id not in self.graph:

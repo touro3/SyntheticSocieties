@@ -7,6 +7,19 @@ import re
 import polars as pl
 from pathlib import Path
 import concurrent.futures
+#LEMBRAR DE INSERIR ISSO NO CODIGO DEPOIS DE RODAR O SCRIPT NO TMUX
+# Future look at your simplified run_bad_apple.py
+#        from environment.economy import EconomyEngine
+#        engine = EconomyEngine()
+
+        # ... inside the round loop ...
+#        responses = backend.generate_batch(prompts, batch_size=16)
+        
+        # The engine does all the parsing, math, and state updating instantly
+#        round_logs = engine.process_round(agents, responses, round_id)
+        
+#        for log in round_logs:
+#            logger.log_event(log)
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 
@@ -89,13 +102,13 @@ def run_simulation(name, profiles, policy, backend, args, out_path, is_ablated=F
         
         # 1. Generate Prompts
         prompts = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
             futures = [executor.submit(policy.build_prompt, agent, world.get_agent_context(agent.profile.agent_id), round_id) for agent in agents]
             for f in concurrent.futures.as_completed(futures):
                 prompts.append(f.result())
 
         # 2. Get LLM Responses
-        responses = backend.generate_batch(prompts, batch_size=32)
+        responses = backend.generate_batch(prompts, batch_size=16)
         
         # 3. Parse Actions with Regex (Ignores Hallucinations)
         actions = {}

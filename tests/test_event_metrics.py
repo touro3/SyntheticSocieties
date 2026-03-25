@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from metrics.event_metrics import (
     action_counts_from_events,
     action_rate,

@@ -16,38 +16,25 @@ Ablation modes:
 
 from __future__ import annotations
 
-import warnings
 from typing import Optional
 
 from decision.llm_backend import LLMBackend
-from decision.output_parser import parse_llm_output
+from decision.llm_policy_base import LLMPolicyBase
 from decision.prompt_builder import (
-    BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
     build_context_block,
     build_memory_block,
     build_persona_block,
     build_state_block,
 )
+from decision.system_prompts import (
+    BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
+    SYSTEM_PROMPT_NO_INSTITUTIONS,
+)
 
 from decision.schemas import ProposedAction
 
 
-# System prompt without action constraints (for no_institutions ablation)
-SYSTEM_PROMPT_NO_INSTITUTIONS = """You are a person living in a simulated society. You must decide what action to take this round based on your situation.
-
-You MUST respond with ONLY a JSON object in the following format:
-{
-  "action_type": "<your choice>",
-  "target_agent_id": "<neighbor_id or null>",
-  "amount": <number>,
-  "reasoning_summary": "<brief explanation>",
-  "confidence": <0.0 to 1.0>
-}
-
-You can do anything you want. Respond with ONLY the JSON."""
-
-
-class AblatedLLMPolicy:
+class AblatedLLMPolicy(LLMPolicyBase):
     """
     LLM policy with ablated prompt components for controlled experiments.
     """
@@ -99,45 +86,21 @@ class AblatedLLMPolicy:
             profile, state, memory, context, round_id
         )
 
-        action = None
-        raw_text = ""
-        latency = 0.0
-        parse_meta = {}
-
-        for attempt in range(self.max_retries + 1):
-            try:
-                raw_text, latency = self.backend.generate(
-                    messages=messages,
-                    temperature=self.temperature,
-                )
-                action, parse_meta = parse_llm_output(raw_text, neighbors)
-                if action is not None:
-                    break
-            except Exception as e:
-                warnings.warn(f"Ablated LLM failed (attempt {attempt+1}): {e}")
-                parse_meta = {"parse_error": str(e), "parse_success": False}
+        action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
         if action is None:
-            action = self._fallback(state, neighbors)
+            action = self._fallback_action(state, neighbors)
             parse_meta["fallback"] = True
 
-        # Log
-        if self.prompt_logger is not None:
-            prompt_text = "\n".join(
-                f"[{m['role'].upper()}]\n{m['content']}" for m in messages
-            )
-            self.prompt_logger.log(
-                round_id=round_id,
-                agent_id=profile.agent_id,
-                prompt=prompt_text,
-                raw_output=raw_text,
-                parsed_action=action.model_dump() if action else None,
-                latency_ms=latency * 1000,
-                parse_metadata={
-                    **parse_meta,
-                    "ablation": self.ablation,
-                },
-            )
+        prompt_text = "\n".join(
+            f"[{m['role'].upper()}]\n{m['content']}" for m in messages
+        )
+        self._log_prompt(
+            round_id=round_id, agent_id=profile.agent_id,
+            prompt_text=prompt_text, raw_text=raw_text,
+            action=action, latency=latency, parse_meta=parse_meta,
+            extra_meta={"ablation": self.ablation},
+        )
 
         return action
 
@@ -195,25 +158,3 @@ class AblatedLLMPolicy:
             {"role": "user", "content": user_content},
         ]
 
-    def _fallback(self, state, neighbors: list[str]) -> ProposedAction:
-        if state.wealth < 70:
-            return ProposedAction(
-                action_type="work",
-                amount=10.0,
-                reasoning_summary=f"[Ablated LLM fallback ({self.ablation}): work]",
-                confidence=0.5,
-            )
-        if neighbors and state.wealth >= 100:
-            return ProposedAction(
-                action_type="cooperate",
-                target_agent_id=neighbors[0],
-                amount=5.0,
-                reasoning_summary=f"[Ablated LLM fallback ({self.ablation}): cooperate]",
-                confidence=0.5,
-            )
-        return ProposedAction(
-            action_type="save",
-            amount=5.0,
-            reasoning_summary=f"[Ablated LLM fallback ({self.ablation}): save]",
-            confidence=0.5,
-        )

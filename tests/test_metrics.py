@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from metrics.inequality import gini_coefficient, lorenz_curve
 from metrics.descriptive import mean, median, variance
 

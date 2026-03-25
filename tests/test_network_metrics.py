@@ -1,12 +1,9 @@
 """Tests for network structure metrics."""
 
-import sys
 from pathlib import Path
 
 import networkx as nx
 import pytest
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from metrics.network_metrics import assortativity, modularity, diffusion_speed, network_summary
 

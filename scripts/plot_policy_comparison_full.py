@@ -78,19 +78,9 @@ POLICY_EXP_PREFIX = {
 }
 
 
-# ── Correct Gini ─────────────────────────────────────────────────────────────
+# ── Gini (canonical) ─────────────────────────────────────────────────────────
 
-def gini_coefficient(values: list[float]) -> float:
-    """
-    Proper Gini coefficient: G = Σ_i Σ_j |x_i - x_j| / (2 * n^2 * x̄)
-    """
-    arr = np.array(values, dtype=float)
-    arr = arr[arr >= 0]  # filter negatives
-    if len(arr) < 2 or arr.sum() == 0:
-        return 0.0
-    n = len(arr)
-    diff_sum = sum(abs(arr[i] - arr[j]) for i in range(n) for j in range(n))
-    return float(diff_sum / (2 * n * n * arr.mean()))
+from metrics.inequality import gini_coefficient
 
 
 # ── Data Loading ─────────────────────────────────────────────────────────────

@@ -1,112 +1,147 @@
-# Master Guide: SyntheticSocieties
+# SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
-This document provides a comprehensive command-line reference for running simulations, generating research plots, and verifying the system.
+**Can LLMs grounded in real census data produce more realistic synthetic personas than pure LLMs?**
 
----
-
-## 1. Running Simulations
-
-The primary entry point is `run_full_pipeline.py`. It handles experiment registration, data tracking, and plotting.
-
-### Standard Baseline (Fast, No LLM)
-Runs 5 rounds with 10 agents to verify the engine:
-
-```bash
-venv/bin/python3 scripts/run_full_pipeline.py
-```
-
-### LLM-Grounded Research Run (Requires GPU)
-Runs a single-seed experiment with Mistral-7B, RAG, and Memory enabled:
-
-```bash
-venv/bin/python3 scripts/run_full_pipeline.py --include-llm --rounds 10 --agents 5
-```
-
-### Large-Scale Statistical Sweep
-Run multiple seeds sequentially to generate confidence intervals:
-
-```bash
-venv/bin/python3 scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
-```
+SyntheticSocieties is an agent-based simulation framework that tests whether Large Language Models conditioned on empirical socio-economic data (European Social Survey) generate more faithful behavioral proxies of real populations than ungrounded LLMs. The core finding: without empirical anchoring, RLHF-aligned LLMs default to hyper-cooperative, risk-blind behavior — producing utopian societies that bear no resemblance to reality.
 
 ---
 
-## 2. Plotting & Analytics
+## Key Results
 
-We use a two-stage plotting system for both individual runs and aggregated trends.
+| Metric | Pure LLM (Condition A) | Grounded LLM (Condition B) |
+|--------|----------------------|---------------------------|
+| Gini coefficient | ~0.0 (perfect equality) | 0.25–0.40 (empirically plausible) |
+| Cooperation rate | ~95% (uniform) | 40–60% (selective, trust-dependent) |
+| Network topology | Hyper-connected blob | Fragmented clusters with echo chambers |
+| Behavioral entropy | Low (mode collapse) | High (diverse strategies) |
 
-### Generate Multi-Seed Trajectories
-Extracts data from `events.jsonl` across all seeds and plots Mean ± 1σ:
+## Architecture
 
-```bash
-# Validates wealth, stress, action frequencies, and social diversity
-venv/bin/python3 scripts/plot_trajectories_full.py --seeds 5
+```
+ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel → Metrics & Analysis
+     │                  │                    │                  │                    │
+ data/            population/           agents/          simulation/           metrics/
+                                        decision/        environment/          analysis/
 ```
 
-### Regenerate All Individual Run Plots
-If you have existing data but want new graphics:
+### Core Modules
+
+| Module | Purpose |
+|--------|---------|
+| `population/` | Synthesizes agent populations from ESS survey distributions |
+| `agents/` | Agent class with profile, state, hierarchical memory |
+| `decision/` | Pluggable policy system: random, template, rule-based, LLM, LLM+RAG |
+| `environment/` | Economic engine (work/save/cooperate), network topology, institutions |
+| `simulation/` | Event-driven kernel with batched GPU inference |
+| `metrics/` | 15+ evaluation dimensions: Gini, JSD, entropy, calibration, network metrics |
+| `bgf_logging/` | JSONL event and prompt logging for full reproducibility |
+| `tracker/` | DuckDB-based experiment registry and cross-experiment analytics |
+
+### Experimental Conditions
+
+- **Condition A (Ablated)** — LLM agents with environment rules but no ESS persona conditioning
+- **Condition B (Grounded)** — LLM agents conditioned on full ESS profiles (trust, risk tolerance, demographics)
+
+## Quick Start
 
 ```bash
-venv/bin/python3 scripts/run_full_pipeline.py --plots-only
+# Install
+python -m venv venv && source venv/bin/activate
+pip install -e ".[dev]"
+
+# Run baseline (no GPU, fast verification)
+python scripts/run_full_pipeline.py
+
+# Run with LLM grounding (GPU required: Mistral-7B-Instruct-v0.3)
+python scripts/run_full_pipeline.py --include-llm --rounds 10 --agents 5
+
+# Multi-seed statistical sweep
+python scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
+
+# Run tests (104+ tests)
+pytest tests/ -v
 ```
 
-### Calibration Report
-Verify how well the synthetic population matches the European Social Survey (ESS):
+## Experiment Pipelines
 
 ```bash
-venv/bin/python3 metrics/calibration.py
+bash pipeline_bad_apple.sh      # 5% adversarial agent injection
+bash pipeline_macro_shock.sh    # 50% wealth shock at round 15
+bash pipeline_topology.sh       # Network topology comparison
+bash pipeline_phase_d.sh        # Large-scale 500-agent simulation
+bash run_all_experiments.sh     # Full paper reproduction
 ```
 
----
-
-## 3. Testing & Verification
-
-### Full Suite (104+ Tests)
-Verifies memory, kernel, RAG, and policy logic:
+## Plotting & Analysis
 
 ```bash
-venv/bin/python3 -m pytest tests/ -v
+# Multi-seed trajectory plots (Mean ± 1σ)
+python scripts/plot_trajectories_full.py --seeds 5
+
+# Regenerate plots from existing data
+python scripts/run_full_pipeline.py --plots-only
+
+# ESS calibration validation
+python metrics/calibration.py
 ```
 
-### RAG-Specific Verification
-Run these to see the "social context" and SQL injection protection in action:
+## Experiment Outputs
 
-```bash
-# Manual showcase
-venv/bin/python3 scripts/test_rag_features.py
+Each run produces a directory under `experiments/<exp_id>/`:
 
-# Automated RAG tests
-venv/bin/python3 -m pytest tests/test_rag.py -v
+```
+experiments/<exp_id>/
+├── config.yaml      # Run configuration snapshot
+├── metadata.json    # Experiment metadata
+├── events.jsonl     # Round-level agent decisions and states
+├── prompts.jsonl    # LLM prompts (when applicable)
+└── summary.json     # Aggregate metrics
 ```
 
----
+Visualizations land in `analysis/figures/`; network exports for Gephi in `analysis/networks/`.
 
-## 4. How to Evaluate Results
+## Research Hypotheses
 
-### Behavioral Diversity (Entropy)
-Check `analysis/figures/diversity_collapse.png`.
+| ID | Hypothesis | Metric |
+|----|-----------|--------|
+| H1 | Empirical grounding improves realism | JSD(LLM, ESS) < JSD(baseline, ESS) |
+| H2 | Persona conditioning affects cooperation | Cooperation rate correlates with trust |
+| H3 | Memory improves temporal stability | JSD variance decreases with memory |
+| H4 | Network topology modulates inequality | Small-world → higher Gini |
+| H5 | LLM decisions are robust across seeds | CV(wealth) < 0.15 |
+| H6 | Temperature controls decision diversity | Higher temp → higher entropy |
 
-- Low Entropy: Agents have converged to a single behavior (e.g., all "save")
-- High Entropy: Agents are experimenting with different strategies
+## Technology Stack
 
-### Social Stability (Gini Coefficient)
-Check `analysis/figures/wealth_trajectories.png`.
+- **LLM**: Mistral-7B-Instruct-v0.3 (batched inference via HuggingFace Transformers)
+- **Data**: European Social Survey Round 11, stored as Parquet
+- **RAG**: SQL-based and graph-based retrieval for empirical context injection
+- **Simulation**: Event-driven kernel, Hydra config, DuckDB experiment tracking
+- **Visualization**: Matplotlib, Seaborn, NetworkX (Fruchterman-Reingold layout)
 
-- A rising Gini curve indicates wealth concentration (inequality)
-- RAG Goal: Grounded agents (SQL/Graph) should ideally show more informed cooperation that buffers against extreme inequality
+## Project Structure
 
-### LLM Prompt Inspection
-View `analysis/experiments/<experiment_id>/prompts.jsonl` to inspect what context the LLM received. Look for:
-
-- Social Network Context: Who has helped whom
-- General Population Trends: ESS peer group trust levels
-
----
-
-## Project Structure Reference
-
-- `/agents`: Memory, State, and Persona logic
-- `/decision`: RAG (SQL/Graph) and LLM backend
-- `/metrics`: Trajectory extraction and Gini/Entropy calculation
-- `/scripts`: High-level automation and plotting
-- `/data`: ESS parquet datasets
+```
+SyntheticSocieties/
+├── agents/          # Agent architecture (profile, state, memory)
+├── bgf_logging/     # Event and prompt logging
+├── configs/         # Hydra YAML configurations
+├── data/            # ESS datasets and derived distributions
+├── decision/        # Policy system (random, template, LLM, RAG)
+├── docs/            # Paper draft, hypotheses, evaluation protocol
+├── environment/     # Economy engine, network topology, institutions
+├── experiments/     # 105 completed experiment runs
+├── metrics/         # Evaluation metrics (15+ dimensions)
+├── models/          # Behavioral modeling
+├── population/      # ESS-grounded population synthesis
+├── scripts/         # Pipeline scripts and plotting
+├── simulation/      # Event-driven simulation kernel
+├── tests/           # Test suite (104+ tests)
+├── tracker/         # DuckDB experiment registry
+├── utils/           # Configuration and I/O utilities
+└── analysis/
+    ├── figures/     # 69 generated visualizations
+    ├── reports/     # Persona fidelity and comparison reports
+    ├── networks/    # GEXF graph exports for Gephi
+    └── tables/      # Statistical summary tables
+```

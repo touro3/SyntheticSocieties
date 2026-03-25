@@ -8,3 +8,5 @@ class WorldState:
     public_signal: Dict[str, str] = field(default_factory=dict)
     prices: Dict[str, float] = field(default_factory=dict)
     resources: Dict[str, float] = field(default_factory=dict)
+    shock_active: bool = False
+    shock_magnitude: float = 0.0

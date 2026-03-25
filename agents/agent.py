@@ -1,10 +1,20 @@
+from __future__ import annotations
+
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from agents.memory import HierarchicalMemory
+from decision.policy_protocol import PolicyProtocol
+from decision.schemas import ProposedAction
 
 
 class Agent:
-    def __init__(self, profile: AgentProfile, state: AgentState, memory: HierarchicalMemory, policy) -> None:
+    def __init__(
+        self,
+        profile: AgentProfile,
+        state: AgentState,
+        memory: HierarchicalMemory,
+        policy: PolicyProtocol,
+    ) -> None:
         self.profile = profile
         self.state = state
         self.memory = memory
@@ -21,7 +31,7 @@ class Agent:
             },
         }
 
-    def decide(self, context: dict, round_id: int):
+    def decide(self, context: dict, round_id: int) -> ProposedAction:
         return self.policy.propose_action(
             profile=self.profile,
             state=self.state,
@@ -34,3 +44,4 @@ class Agent:
         self.state.wealth += float(executed_event.get("wealth_delta", 0.0))
         self.state.stress += float(executed_event.get("stress_delta", 0.0))
         self.state.last_action = executed_event.get("action_type", self.state.last_action)
+        self.state.clamp()

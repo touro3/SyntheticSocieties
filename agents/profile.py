@@ -1,6 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
+_NORMALIZED_FIELDS = (
+    "trust_people", "trust_institutions", "political_orientation",
+    "life_satisfaction", "happiness", "immigration_attitude",
+    "social_activity", "competitiveness", "leadership_preference",
+    "health_status", "religiosity",
+)
+
 
 @dataclass
 class AgentProfile:
@@ -53,6 +60,22 @@ class AgentProfile:
     # Health & wellbeing
     health_status: Optional[float] = None          # 0=poor, 1=excellent
     religiosity: Optional[float] = None            # 0-1
+
+    def __post_init__(self) -> None:
+        # Validate gender
+        if self.gender is not None and self.gender not in (1, 2):
+            raise ValueError(f"gender must be 1 (Male) or 2 (Female), got {self.gender}")
+        # Validate education level (ES-ISCED 1-7)
+        if self.education_level is not None and not (1 <= self.education_level <= 7):
+            raise ValueError(f"education_level must be 1-7, got {self.education_level}")
+        # Validate income_decile (1-10)
+        if self.income_decile is not None and not (1 <= self.income_decile <= 10):
+            raise ValueError(f"income_decile must be 1-10, got {self.income_decile}")
+        # Validate all [0,1] normalized fields
+        for attr in _NORMALIZED_FIELDS:
+            val = getattr(self, attr, None)
+            if val is not None and not (0.0 <= val <= 1.0):
+                raise ValueError(f"{attr} must be in [0.0, 1.0], got {val}")
 
     def to_persona_dict(self) -> dict:
         """Return a dict describing the agent persona for LLM prompt building."""

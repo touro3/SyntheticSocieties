@@ -60,10 +60,10 @@ def compute_metrics(exp_ids: list[str]) -> dict:
     arr = np.array(all_wealth)
     n = len(arr)
 
-    # Gini
+    # Gini — delegate to canonical implementation
+    from metrics.inequality import gini_coefficient as _gini
     if n > 1 and arr.sum() > 0:
-        diff_sum = sum(abs(arr[i] - arr[j]) for i in range(n) for j in range(n))
-        gini = float(diff_sum / (2 * n * n * arr.mean()))
+        gini = _gini(arr)
     else:
         gini = 0.0
 

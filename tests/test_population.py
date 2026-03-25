@@ -1,8 +1,5 @@
-import sys
 from pathlib import Path
 from decision.mock_policy import MockPolicy
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from population.generator import generate_population
 from utils.io import set_global_seed

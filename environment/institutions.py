@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 from decision.schemas import ProposedAction
+from environment.payoffs import GamePayoffs, DEFAULT_PAYOFFS
 
 
 class ValidationResult(BaseModel):
@@ -9,6 +10,9 @@ class ValidationResult(BaseModel):
 
 
 class InstitutionManager:
+    def __init__(self, payoffs: GamePayoffs | None = None) -> None:
+        self.payoffs = payoffs or DEFAULT_PAYOFFS
+
     def validate(self, action: ProposedAction, agent, world_state, agent_lookup) -> ValidationResult:
         if action.amount is not None and action.amount < 0:
             return ValidationResult(valid=False, reason="negative_amount")
@@ -44,22 +48,19 @@ class InstitutionManager:
         }
 
         if action.action_type == "work":
-            event["wealth_delta"] = float(action.amount or 10.0)
-            event["stress_delta"] = 1.0
+            event["wealth_delta"] = float(action.amount or self.payoffs.work_income)
+            event["stress_delta"] = self.payoffs.work_stress_increase
 
         elif action.action_type == "save":
-            event["wealth_delta"] = 0.0
-            event["stress_delta"] = -0.2
+            event["wealth_delta"] = self.payoffs.save_wealth_delta
+            event["stress_delta"] = self.payoffs.save_stress_relief
 
         elif action.action_type == "cooperate":
             amount = float(action.amount or 0.0)
-            target_agent = agent_lookup[action.target_agent_id]
 
             event["wealth_delta"] = -amount
             event["target_wealth_delta"] = amount
-            event["stress_delta"] = -0.1
+            event["stress_delta"] = self.payoffs.cooperate_stress_relief
             event["interaction_type"] = "cooperation"
-
-            target_agent.state.wealth += amount
 
         return event

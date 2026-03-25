@@ -1,0 +1,115 @@
+"""RoundProcessor — validates, executes, and records a single agent action.
+
+Extracted from SimulationKernel to eliminate the code duplication between
+run_round() and run_round_batched(). The kernel retains only orchestration;
+this class owns the validate → execute → update → log sequence.
+"""
+
+from __future__ import annotations
+
+from agents.agent import Agent
+from agents.memory import MemoryItem
+from decision.schemas import ProposedAction
+
+
+class RoundProcessor:
+    def __init__(self, world, agent_lookup: dict[str, Agent], logger) -> None:
+        self.world = world
+        self.agent_lookup = agent_lookup
+        self.logger = logger
+
+    def process_agent_action(
+        self,
+        agent: Agent,
+        proposed_action: ProposedAction,
+        round_id: int,
+        perception: dict | None = None,
+    ) -> dict:
+        """Validate, execute, update state, record memory, and log one action.
+
+        Returns the executed event dict (or rejection dict).
+        """
+        validation = self.world.validate_action(
+            proposed_action, agent, self.agent_lookup
+        )
+
+        if validation.valid:
+            executed_event = self.world.execute_action(
+                proposed_action, agent, self.agent_lookup
+            )
+            agent.apply_local_update(executed_event)
+            self._apply_target_delta(executed_event)
+            self._record_memory(agent, proposed_action, executed_event, round_id)
+            self._update_graph_rag(agent.policy, agent, proposed_action, round_id)
+        else:
+            executed_event = {
+                "agent_id": agent.profile.agent_id,
+                "action_type": "rejected",
+                "reason": validation.reason,
+                "round_id": round_id,
+            }
+
+        self._log_event(
+            round_id=round_id,
+            agent=agent,
+            perception=perception or {},
+            proposed_action=proposed_action,
+            validation=validation,
+            executed_event=executed_event,
+        )
+
+        return executed_event
+
+    def _apply_target_delta(self, executed_event: dict) -> None:
+        target_id = executed_event.get("target_agent_id")
+        target_delta = executed_event.get("target_wealth_delta", 0.0)
+        if target_id and target_delta and target_id in self.agent_lookup:
+            target = self.agent_lookup[target_id]
+            target.state.wealth += target_delta
+            target.state.clamp()
+
+    def _record_memory(
+        self, agent: Agent, proposed_action: ProposedAction,
+        executed_event: dict, round_id: int,
+    ) -> None:
+        agent.memory.add(
+            MemoryItem(
+                round_id=round_id,
+                partner_id=proposed_action.target_agent_id,
+                event_type=proposed_action.action_type,
+                content=proposed_action.reasoning_summary,
+                outcome=executed_event,
+            )
+        )
+
+    def _update_graph_rag(
+        self, policy, agent: Agent, proposed_action: ProposedAction, round_id: int,
+    ) -> None:
+        graph_rag = getattr(policy, "graph_rag", None)
+        if graph_rag is None:
+            return
+        if proposed_action.action_type != "cooperate" or not proposed_action.target_agent_id:
+            return
+        graph_rag.add_event(
+            {
+                "round_id": round_id,
+                "agent_id": agent.profile.agent_id,
+                "action": proposed_action.model_dump(),
+            }
+        )
+
+    def _log_event(
+        self, round_id: int, agent: Agent, perception: dict,
+        proposed_action: ProposedAction, validation, executed_event: dict,
+    ) -> None:
+        self.logger.log_event(
+            {
+                "round_id": round_id,
+                "agent_id": agent.profile.agent_id,
+                "perception": perception,
+                "action": proposed_action.model_dump(),
+                "validation": validation.model_dump(),
+                "result": executed_event,
+                "state_after": agent.state.snapshot(),
+            }
+        )

@@ -1,0 +1,85 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synthetic-societies"
+version = "1.0.0"
+description = "Behavioral Grounding Framework (BGF) — LLM-based agent simulations grounded in empirical socio-economic data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Lucas Tourinho"},
+]
+keywords = [
+    "agent-based-model",
+    "llm",
+    "social-simulation",
+    "computational-social-science",
+    "european-social-survey",
+    "synthetic-population",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pandas>=2.2",
+    "polars>=1.8",
+    "pyarrow>=17.0",
+    "duckdb>=1.1",
+    "orjson>=3.10",
+    "torch>=2.2",
+    "transformers>=4.44",
+    "accelerate>=0.33",
+    "datasets>=2.20",
+    "safetensors>=0.4",
+    "sentencepiece>=0.2",
+    "huggingface-hub>=0.24",
+    "tokenizers>=0.19",
+    "pydantic>=2.8",
+    "networkx>=3.3",
+    "hydra-core>=1.3",
+    "pyyaml>=6.0",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+    "tqdm>=4.66",
+    "rich>=13.8",
+    "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "jupyter>=1.1",
+    "ipykernel>=6.29",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "agents*",
+    "bgf_logging*",
+    "decision*",
+    "environment*",
+    "metrics*",
+    "models*",
+    "population*",
+    "simulation*",
+    "tracker*",
+    "utils*",
+    "configs*",
+    "scripts*",
+    "data*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

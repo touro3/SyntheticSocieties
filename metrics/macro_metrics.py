@@ -2,27 +2,27 @@ import polars as pl
 import numpy as np
 import json
 
+from metrics.inequality import gini_coefficient as _canonical_gini
+
+
 class SocietyMacroMetrics:
     """Calculates macro-level emergent properties from simulation logs."""
-    
+
     @staticmethod
     def calculate_gini(wealth_array: np.ndarray) -> float:
-        """Calculates the Gini coefficient of a wealth distribution."""
-        wealth_array = np.array(wealth_array, dtype=float)
-        wealth_array = wealth_array[~np.isnan(wealth_array)]
-        
-        if len(wealth_array) == 0:
+        """Calculates the Gini coefficient of a wealth distribution.
+
+        Delegates to the canonical implementation in metrics.inequality.
+        """
+        arr = np.array(wealth_array, dtype=float)
+        arr = arr[~np.isnan(arr)]
+        if len(arr) == 0:
             return 0.0
-            
-        sorted_wealth = np.sort(wealth_array)
-        n = len(wealth_array)
-        index = np.arange(1, n + 1)
-        
-        sum_wealth = np.sum(sorted_wealth)
-        if sum_wealth == 0:
+        # Filter negatives to match legacy behavior
+        arr = arr[arr >= 0]
+        if len(arr) == 0 or arr.sum() == 0:
             return 0.0
-            
-        return float((np.sum((2 * index - n  - 1) * sorted_wealth)) / (n * sum_wealth))
+        return _canonical_gini(arr)
 
     @staticmethod
     def analyze_trajectory(events_parquet_path: str) -> pl.DataFrame:

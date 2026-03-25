@@ -1,12 +1,9 @@
 """Tests for distribution similarity metrics."""
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from metrics.distribution import jensen_shannon_divergence, kl_divergence, wasserstein_distance
 

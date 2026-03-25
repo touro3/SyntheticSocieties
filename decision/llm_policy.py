@@ -1,28 +1,17 @@
-"""
-LLM-based decision policy for agent action selection.
-
-Ties together prompt building, LLM inference, and output parsing
-into the standard policy interface.
-"""
+"""LLM-based decision policy for agent action selection."""
 
 from __future__ import annotations
 
-import warnings
 from typing import Optional
 
 from decision.llm_backend import LLMBackend
-from decision.output_parser import parse_llm_output
+from decision.llm_policy_base import LLMPolicyBase
 from decision.prompt_builder import build_prompt, build_prompt_text
 from decision.schemas import ProposedAction
 
 
-class LLMPolicy:
-    """
-    Policy that uses an LLM to decide agent actions.
-
-    Implements the same propose_action() interface as MockPolicy,
-    RandomPolicy, RuleBasedPolicy, and DataDrivenPolicy.
-    """
+class LLMPolicy(LLMPolicyBase):
+    """Policy that uses an LLM to decide agent actions."""
 
     def __init__(
         self,
@@ -46,32 +35,16 @@ class LLMPolicy:
         self.sql_rag = sql_rag
         self.ablation_level = ablation_level
 
-
     def propose_action(
-        self,
-        profile,
-        state,
-        memory,
-        context: dict,
-        round_id: int,
+        self, profile, state, memory, context: dict, round_id: int,
     ) -> ProposedAction:
-        """
-        Use the LLM to propose an action for the agent.
-
-        Flow:
-          1. Build persona-conditioned prompt
-          2. Send to LLM for generation
-          3. Parse structured output
-          4. Fallback to rule-based if parsing fails
-          5. Log prompt + output
-        """
         neighbors = context.get("network", {}).get("neighbors", [])
 
         # Fetch RAG contexts
         social_context = None
         if self.graph_rag:
             social_context = self.graph_rag.get_social_context(profile.agent_id)
-            
+
         pop_context = None
         if self.sql_rag:
             pop_context = self.sql_rag.get_peer_group_context(
@@ -80,94 +53,35 @@ class LLMPolicy:
 
         # Build prompt
         messages = build_prompt(
-            profile=profile,
-            state=state,
-            memory=memory,
-            context=context,
-            round_id=round_id,
-            memory_window=self.memory_window,
-            social_context=social_context,
-            population_context=pop_context,
+            profile=profile, state=state, memory=memory, context=context,
+            round_id=round_id, memory_window=self.memory_window,
+            social_context=social_context, population_context=pop_context,
             ablation_level=self.ablation_level,
         )
 
-
-        # Apply prompt perturbation if configured
+        # Apply perturbation if configured
         if self.perturbation_mode:
             from decision.prompt_perturbation import apply_perturbation
             seed = hash((round_id, profile.agent_id)) % (2**31)
             messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
-        # Try generation with retries
-        action = None
-        raw_text = ""
-        latency = 0.0
-        parse_meta = {}
+        # Generate with retries (shared logic from LLMPolicyBase)
+        action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
-        for attempt in range(self.max_retries + 1):
-            try:
-                raw_text, latency = self.backend.generate(
-                    messages=messages,
-                    temperature=self.temperature,
-                )
-
-                action, parse_meta = parse_llm_output(raw_text, neighbors)
-
-                if action is not None:
-                    break
-
-            except Exception as e:
-                warnings.warn(f"LLM generation failed (attempt {attempt+1}): {e}")
-                parse_meta = {"parse_error": str(e), "parse_success": False}
-
-        # Fallback if all attempts failed
         if action is None:
             action = self._fallback_action(state, neighbors)
             parse_meta["fallback"] = True
 
-        # Log prompt + output
-        if self.prompt_logger is not None:
-            prompt_text = build_prompt_text(
-                profile, state, memory, context, round_id, self.memory_window,
-                social_context=social_context,
-                population_context=pop_context,
-                ablation_level=self.ablation_level,
-            )
-
-            self.prompt_logger.log(
-                round_id=round_id,
-                agent_id=profile.agent_id,
-                prompt=prompt_text,
-                raw_output=raw_text,
-                parsed_action=action.model_dump() if action else None,
-                latency_ms=latency * 1000,
-                parse_metadata=parse_meta,
-            )
+        # Log
+        prompt_text = build_prompt_text(
+            profile, state, memory, context, round_id, self.memory_window,
+            social_context=social_context, population_context=pop_context,
+            ablation_level=self.ablation_level,
+        )
+        self._log_prompt(
+            round_id=round_id, agent_id=profile.agent_id,
+            prompt_text=prompt_text, raw_text=raw_text,
+            action=action, latency=latency, parse_meta=parse_meta,
+        )
 
         return action
-
-    def _fallback_action(self, state, neighbors: list[str]) -> ProposedAction:
-        """Rule-based fallback when LLM fails."""
-        if state.wealth < 70:
-            return ProposedAction(
-                action_type="work",
-                amount=10.0,
-                reasoning_summary="[LLM fallback: working due to low wealth]",
-                confidence=0.5,
-            )
-
-        if neighbors and state.wealth >= 100:
-            return ProposedAction(
-                action_type="cooperate",
-                target_agent_id=neighbors[0],
-                amount=5.0,
-                reasoning_summary="[LLM fallback: cooperating with high wealth]",
-                confidence=0.5,
-            )
-
-        return ProposedAction(
-            action_type="save",
-            amount=5.0,
-            reasoning_summary="[LLM fallback: saving as default]",
-            confidence=0.5,
-        )

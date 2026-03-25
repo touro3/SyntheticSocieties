@@ -146,16 +146,16 @@ def generate_empirical_population(
             country=row.get("country"),
             education_level=_safe_int(row.get("education_level")),
             income_decile=_safe_int(row.get("income_decile")),
-            trust_people=_safe_float(row.get("trust_people")),
-            trust_institutions=trust_inst,
-            political_orientation=_safe_float(row.get("left_right")),
-            life_satisfaction=_safe_float(row.get("life_satisfaction")),
-            happiness=_safe_float(row.get("happiness")),
-            immigration_attitude=_safe_float(row.get("immigration_same_ethnicity")),
-            social_activity=_safe_float(row.get("social_meeting_freq")),
-            competitiveness=_safe_float(row.get("competitiveness")),
-            leadership_preference=_safe_float(row.get("leadership_preference")),
-            health_status=_safe_float(row.get("self_rated_health")),
+            trust_people=_clamp01(_safe_float(row.get("trust_people"))),
+            trust_institutions=_clamp01(trust_inst),
+            political_orientation=_clamp01(_safe_float(row.get("left_right"))),
+            life_satisfaction=_clamp01(_safe_float(row.get("life_satisfaction"))),
+            happiness=_clamp01(_safe_float(row.get("happiness"))),
+            immigration_attitude=_clamp01(_safe_float(row.get("immigration_same_ethnicity"))),
+            social_activity=_clamp01(_safe_float(row.get("social_meeting_freq"))),
+            competitiveness=_clamp01(_safe_float(row.get("competitiveness"))),
+            leadership_preference=_clamp01(_safe_float(row.get("leadership_preference"))),
+            health_status=_safe_normalized_float(row.get("self_rated_health"), 5.0, 1.0),
             religiosity=1.0 if row.get("religious_belonging") == 1 else 0.0 if row.get("religious_belonging") == 2 else None,
         )
 
@@ -199,6 +199,22 @@ def _safe_int(val, default: int = None) -> Optional[int]:
         return int(f)
     except (ValueError, TypeError):
         return default
+
+
+def _clamp01(val: Optional[float]) -> Optional[float]:
+    """Clamp a value to [0, 1] or return None."""
+    if val is None:
+        return None
+    return max(0.0, min(1.0, val))
+
+
+def _safe_normalized_float(val, scale_min: float, scale_max: float, default: float = None) -> Optional[float]:
+    """Convert a value from [scale_min, scale_max] to [0, 1]. Clamps result."""
+    f = _safe_float(val, default=None)
+    if f is None:
+        return default
+    normalized = (f - scale_min) / (scale_max - scale_min)
+    return max(0.0, min(1.0, normalized))
 
 
 def _safe_mean(values: list) -> Optional[float]:

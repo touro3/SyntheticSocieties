@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import warnings
 from typing import Optional
 
 from decision.experimental_prompt_builder import (
@@ -8,11 +7,11 @@ from decision.experimental_prompt_builder import (
     build_experimental_prompt_text,
 )
 from decision.llm_backend import LLMBackend
-from decision.output_parser import parse_llm_output
+from decision.llm_policy_base import LLMPolicyBase
 from decision.schemas import ProposedAction
 
 
-class ConditionedLLMPolicy:
+class ConditionedLLMPolicy(LLMPolicyBase):
     ACTION_BOUNDS = {
         "work": (5.0, 15.0),
         "save": (5.0, 10.0),
@@ -77,23 +76,7 @@ class ConditionedLLMPolicy:
             extra_guidance=self.extra_guidance,
         )
 
-        action = None
-        raw_text = ""
-        latency = 0.0
-        parse_meta = {}
-
-        for attempt in range(self.max_retries + 1):
-            try:
-                raw_text, latency = self.backend.generate(
-                    messages=messages,
-                    temperature=self.temperature,
-                )
-                action, parse_meta = parse_llm_output(raw_text, neighbors)
-                if action is not None:
-                    break
-            except Exception as exc:
-                warnings.warn(f"Conditioned LLM generation failed (attempt {attempt + 1}): {exc}")
-                parse_meta = {"parse_error": str(exc), "parse_success": False}
+        action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
         if action is None:
             action = self._fallback_action(state, neighbors)
@@ -102,40 +85,35 @@ class ConditionedLLMPolicy:
         action, correction_meta = self._sanitize_action(action, neighbors, state)
         parse_meta.update(correction_meta)
 
-        if self.prompt_logger is not None:
-            prompt_text = build_experimental_prompt_text(
-                profile=profile,
-                state=state,
-                memory=memory,
-                context=context,
-                round_id=round_id,
-                memory_window=self.memory_window,
-                social_context=social_context,
-                population_context=population_context,
-                use_memory_context=self.use_memory_context,
-                use_social_context=self.use_social_context,
-                use_population_context=self.use_population_context,
-                system_prompt_mode=self.system_prompt_mode,
-                include_balancing_hint=self.include_balancing_hint,
-                extra_guidance=self.extra_guidance,
-            )
-            self.prompt_logger.log(
-                round_id=round_id,
-                agent_id=profile.agent_id,
-                prompt=prompt_text,
-                raw_output=raw_text,
-                parsed_action=action.model_dump() if action else None,
-                latency_ms=latency * 1000,
-                parse_metadata={
-                    **parse_meta,
-                    "condition_name": self.condition_name,
-                    "use_population_context": self.use_population_context,
-                    "use_social_context": self.use_social_context,
-                    "use_memory_context": self.use_memory_context,
-                    "system_prompt_mode": self.system_prompt_mode,
-                    "include_balancing_hint": self.include_balancing_hint,
-                },
-            )
+        prompt_text = build_experimental_prompt_text(
+            profile=profile,
+            state=state,
+            memory=memory,
+            context=context,
+            round_id=round_id,
+            memory_window=self.memory_window,
+            social_context=social_context,
+            population_context=population_context,
+            use_memory_context=self.use_memory_context,
+            use_social_context=self.use_social_context,
+            use_population_context=self.use_population_context,
+            system_prompt_mode=self.system_prompt_mode,
+            include_balancing_hint=self.include_balancing_hint,
+            extra_guidance=self.extra_guidance,
+        )
+        self._log_prompt(
+            round_id=round_id, agent_id=profile.agent_id,
+            prompt_text=prompt_text, raw_text=raw_text,
+            action=action, latency=latency, parse_meta=parse_meta,
+            extra_meta={
+                "condition_name": self.condition_name,
+                "use_population_context": self.use_population_context,
+                "use_social_context": self.use_social_context,
+                "use_memory_context": self.use_memory_context,
+                "system_prompt_mode": self.system_prompt_mode,
+                "include_balancing_hint": self.include_balancing_hint,
+            },
+        )
 
         return action
 

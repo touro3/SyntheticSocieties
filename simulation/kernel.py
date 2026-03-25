@@ -1,4 +1,13 @@
-from agents.memory import MemoryItem
+"""Event-driven simulation kernel.
+
+Orchestrates round execution by gathering agent proposals (sequentially or
+batched) and delegating processing to RoundProcessor. The kernel owns only
+orchestration; RoundProcessor owns validate → execute → update → log.
+"""
+
+from __future__ import annotations
+
+from simulation.round_processor import RoundProcessor
 
 
 class SimulationKernel:
@@ -7,6 +16,9 @@ class SimulationKernel:
         self.world = world
         self.logger = logger
         self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
+        self._processor = RoundProcessor(
+            world=world, agent_lookup=self.agent_lookup, logger=logger,
+        )
 
     def run(self, num_rounds: int) -> None:
         for _ in range(num_rounds):
@@ -28,51 +40,6 @@ class SimulationKernel:
         backend = getattr(policy, "backend", None)
         return isinstance(policy, LLMPolicy) and hasattr(backend, "generate_batch")
 
-    def _record_memory(self, agent, proposed_action, executed_event, round_id: int) -> None:
-        agent.memory.add(
-            MemoryItem(
-                round_id=round_id,
-                partner_id=proposed_action.target_agent_id,
-                event_type=proposed_action.action_type,
-                content=proposed_action.reasoning_summary,
-                outcome=executed_event,
-            )
-        )
-
-    def _update_graph_rag(self, policy, agent, proposed_action, round_id: int) -> None:
-        graph_rag = getattr(policy, "graph_rag", None)
-        if graph_rag is None:
-            return
-
-        if proposed_action.action_type != "cooperate" or not proposed_action.target_agent_id:
-            return
-
-        graph_rag.add_event(
-            {
-                "round_id": round_id,
-                "agent_id": agent.profile.agent_id,
-                "action": proposed_action.model_dump(),
-            }
-        )
-
-    def _log_event(self, round_id: int, agent, perception, proposed_action, validation, executed_event) -> None:
-        self.logger.log_event(
-            {
-                "round_id": round_id,
-                "agent_id": agent.profile.agent_id,
-                "perception": perception,
-                "action": proposed_action.model_dump(),
-                "validation": validation.model_dump(),
-                "result": executed_event,
-                "state_after": {
-                    "wealth": agent.state.wealth,
-                    "stress": agent.state.stress,
-                    "satisfaction": agent.state.satisfaction,
-                    "last_action": agent.state.last_action,
-                },
-            }
-        )
-
     def run_round(self) -> None:
         self.world.apply_exogenous_updates()
         round_id = self.world.state.round_id
@@ -85,28 +52,8 @@ class SimulationKernel:
             )
 
             proposed_action = agent.decide(context=perception, round_id=round_id)
-            validation = self.world.validate_action(proposed_action, agent, self.agent_lookup)
-
-            if validation.valid:
-                executed_event = self.world.execute_action(proposed_action, agent, self.agent_lookup)
-                agent.apply_local_update(executed_event)
-                self._record_memory(agent, proposed_action, executed_event, round_id)
-                self._update_graph_rag(agent.policy, agent, proposed_action, round_id)
-            else:
-                executed_event = {
-                    "agent_id": agent.profile.agent_id,
-                    "action_type": "rejected",
-                    "reason": validation.reason,
-                    "round_id": round_id,
-                }
-
-            self._log_event(
-                round_id=round_id,
-                agent=agent,
-                perception=perception,
-                proposed_action=proposed_action,
-                validation=validation,
-                executed_event=executed_event,
+            self._processor.process_agent_action(
+                agent, proposed_action, round_id, perception=perception,
             )
 
     def run_round_batched(self) -> None:
@@ -214,27 +161,6 @@ class SimulationKernel:
                     parse_metadata=parse_meta,
                 )
 
-            proposed_action = action
-            validation = self.world.validate_action(proposed_action, agent, self.agent_lookup)
-
-            if validation.valid:
-                executed_event = self.world.execute_action(proposed_action, agent, self.agent_lookup)
-                agent.apply_local_update(executed_event)
-                self._record_memory(agent, proposed_action, executed_event, round_id)
-                self._update_graph_rag(policy, agent, proposed_action, round_id)
-            else:
-                executed_event = {
-                    "agent_id": agent.profile.agent_id,
-                    "action_type": "rejected",
-                    "reason": validation.reason,
-                    "round_id": round_id,
-                }
-
-            self._log_event(
-                round_id=round_id,
-                agent=agent,
-                perception=perception,
-                proposed_action=proposed_action,
-                validation=validation,
-                executed_event=executed_event,
+            self._processor.process_agent_action(
+                agent, action, round_id, perception=perception,
             )

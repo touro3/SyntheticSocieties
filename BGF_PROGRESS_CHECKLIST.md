@@ -93,9 +93,9 @@ Network Metrics
 
 # Advanced Stress Tests (Complex Systems Dynamics)
 
-[ ] Adversarial Injection (The Bad Apple / Social Immunity Test)
-[ ] Exogenous Macroeconomic Shock (Global Crisis Resilience)
-[ ] Topological Dictatorship (Fully Connected vs Small-World Echo Chambers)
+[x] Adversarial Injection (The Bad Apple / Social Immunity Test)
+[x] Exogenous Macroeconomic Shock (Global Crisis Resilience)
+[x] Topological Dictatorship (Fully Connected vs Small-World Echo Chambers)
 
 ---
 

@@ -1,10 +1,4 @@
 """Tests for prompt builder — no GPU required."""
-
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from agents.memory import MemoryBuffer, MemoryItem

@@ -1,8 +1,3 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 from utils.io import ensure_dir, save_json, save_yaml
 from utils.tracker import build_experiment_record
 

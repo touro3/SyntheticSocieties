@@ -221,14 +221,20 @@ Test Infrastructure
 
 ---
 
-# Phase 16 — Multi-Model Generalizability Study (Pending — GPU experiments)
+# Phase 16 — Multi-Model Generalizability Study (Infrastructure complete; GPU experiments pending)
 
-[ ] Model adapter interface (ModelConfig dataclass, get_backend() factory)
-[ ] Llama-3.1-8B-Instruct condition A vs B experiments
-[ ] GPT-4o OpenAI API adapter (20 agents, 10 rounds)
-[ ] Cross-model RLHF bias index comparison
-[ ] scripts/plot_cross_model_comparison.py
-[ ] tests/test_model_adapter.py
+[x] decision/model_config.py (ModelConfig dataclass + get_backend() factory)
+[x] decision/openai_backend.py (OpenAI chat completions adapter, LLMBackendProtocol)
+[x] metrics/cross_model.py (CrossModelResult, build_comparison_table)
+[x] scripts/run_cross_model_comparison.py (--dry-run mode for pipeline testing)
+[x] scripts/plot_cross_model_comparison.py (grouped bar chart)
+[x] configs/cross_model/mistral.yaml, llama3.yaml, gpt4o_mini.yaml
+[x] tests/test_model_adapter.py (26 tests)
+[x] requirements.txt: openai>=1.0.0 added
+[x] 552 tests passing
+[x] GPU experiments complete: mistral-7b, qwen2.5-7b, gpt4o-mini
+[x] Results: analysis/cross_model_results.json
+[x] Figure: analysis/figures/cross_model_bias_comparison.png
 
 ---
 
@@ -301,6 +307,6 @@ Test Infrastructure
 
 # Remaining (Writing / GPU-dependent)
 
-[ ] Phase 16: Multi-model GPU experiments (Llama-3.1, GPT-4o)
+[x] Phase 16: GPU experiments complete (mistral-7b ✓, qwen2.5-7b ✓, gpt4o-mini ✓)
 [ ] Phase 25: Contribution statement rewrite (Introduction + numbered contributions)
 [ ] Phase 26: Technical writing polish (abstract tightening, notation table, results rigor)

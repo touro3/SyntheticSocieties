@@ -1,0 +1,56 @@
+[
+  {
+    "model_id": "mistral-7b",
+    "condition": "A",
+    "cooperation_rate": 0.9,
+    "gini": 0.253,
+    "rlhf_bias_index": 0.567,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  {
+    "model_id": "mistral-7b",
+    "condition": "B",
+    "cooperation_rate": 0.8,
+    "gini": 0.153,
+    "rlhf_bias_index": 0.467,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  {
+    "model_id": "qwen2.5-7b",
+    "condition": "A",
+    "cooperation_rate": 0.54,
+    "gini": 0.0467,
+    "rlhf_bias_index": 0.3333,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  {
+    "model_id": "qwen2.5-7b",
+    "condition": "B",
+    "cooperation_rate": 0.345,
+    "gini": 0.1405,
+    "rlhf_bias_index": 0.2333,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  {
+    "model_id": "gpt4o-mini",
+    "condition": "A",
+    "cooperation_rate": 0.495,
+    "gini": 0.309,
+    "rlhf_bias_index": 0.2233,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  {
+    "model_id": "gpt4o-mini",
+    "condition": "B",
+    "cooperation_rate": 0.59,
+    "gini": 0.204,
+    "rlhf_bias_index": 0.3133,
+    "n_agents": 20,
+    "n_rounds": 10
+  }
+]

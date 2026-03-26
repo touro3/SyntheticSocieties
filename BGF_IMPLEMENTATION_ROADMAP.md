@@ -430,24 +430,34 @@ Deliverables:
 
 ---
 
-# Phase 16 — Multi-Model Generalizability Study  Status: Pending (GPU experiments)
+# Phase 16 — Multi-Model Generalizability Study  Status: Completed (infrastructure + dry-run; GPU experiments pending)
 
 Goal: validate that the RLHF cooperative bias is a general phenomenon across LLM families,
 not a Mistral-7B artifact.
 
 Tasks:
 
-- Abstract `ModelConfig` dataclass and `get_backend()` factory in `decision/llm_backend.py`
-- Run Condition A vs B on Llama-3.1-8B-Instruct
-- Run Condition A vs B on GPT-4o (20 agents, 10 rounds via OpenAI API)
-- Cross-model comparison: RLHF bias index per model × condition
-- `scripts/plot_cross_model_comparison.py` — grouped bar chart
+- `decision/model_config.py` — `ModelConfig` dataclass (model_id, backend_type, dtype,
+  quantization, cache_dir, max_agents, max_rounds) + `get_backend()` factory
+  Returns `LLMBackend` for HuggingFace, `OpenAIBackend` for OpenAI API.
+- Named constructors: `ModelConfig.mistral_7b()`, `ModelConfig.llama3_8b()`, `ModelConfig.gpt4o_mini()`
+- `decision/openai_backend.py` — OpenAI chat completions adapter conforming to `LLMBackendProtocol`
+  Uses `gpt-4o-mini` by default; reads `OPENAI_API_KEY` from environment
+- `metrics/cross_model.py` — `CrossModelResult`, `compute_cross_model_result()`,
+  `build_comparison_table()` producing Table 2 with bias reduction percentages
+- `scripts/run_cross_model_comparison.py` — runs A vs B for each model; `--dry-run` mode
+  for pipeline validation without GPU; saves `analysis/cross_model_results.json`
+- `scripts/plot_cross_model_comparison.py` — grouped bar chart: bias index + coop rate per model × condition
+- `configs/cross_model/mistral.yaml`, `llama3.yaml`, `gpt4o_mini.yaml`
+- `requirements.txt`: added `openai>=1.0.0`
 
 Deliverables:
 
-- Cross-model result table (Table 2 in paper)
+- `decision/model_config.py` + `decision/openai_backend.py` (26 tests)
+- `metrics/cross_model.py`
 - `tests/test_model_adapter.py`
 - Figure: `analysis/figures/cross_model_bias_comparison.png`
+- GPU experiments: run `python scripts/run_cross_model_comparison.py` with GPU available
 
 ---
 

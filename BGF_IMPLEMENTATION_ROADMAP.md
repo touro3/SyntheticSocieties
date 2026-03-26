@@ -632,3 +632,53 @@ Deliverables:
 - `metrics/persona_decay.py` (12 tests)
 - `tests/test_persona_decay.py`
 - Updated Limitations section in paper addressing 6 documented failure modes
+
+---
+
+# Phase 25 — Contribution Statement Rewrite  Status: Completed
+
+Goal: reframe the paper narrative around a single falsifiable central claim with clearly
+numbered contributions backed by specific experiments — thesis-quality positioning for
+top CS/AI programs.
+
+Tasks completed:
+
+- Abstract rewritten to ~185 words (finding-first structure, cross-model result integrated)
+- Summary of Contributions box expanded to 7 items, each citing specific section/table
+- Introduction central claim updated to honest cross-model framing:
+  "bias reduction confirmed in 2/3 LLM families; GPT-4o-mini exhibits inverse effect"
+- Numbered contributions expanded: contribution 4 (cross-model generalizability) added
+- RQ6 added: "Is the RLHF cooperative bias universal or moderated by alignment methodology?"
+- All 7 contributions cross-referenced between Summary box, Introduction, and Conclusion
+
+Deliverables:
+
+- Updated `docs/paper.md` (abstract, Introduction, contributions, Conclusion)
+- Updated `docs/hypotheses.md` (H7: cross-model generalizability, H8: trust gradient)
+
+---
+
+# Phase 26 — Technical Writing Polish  Status: Completed
+
+Goal: bring writing quality to published ML paper standard — notation consistency,
+results rigor, abbreviation discipline, academic register throughout.
+
+Tasks completed:
+
+- Notation table added after Section 3.1 (25+ symbols with domain and definition)
+- Section 4.3 added: cross-model validation experimental setup (scale constraints documented)
+- Section 5.6 added: cross-model generalizability results with Table 3 (all 6 data points)
+  - GPT-4o-mini inverse effect documented as honest null result with 3 candidate explanations
+- Discussion 6.1 updated: "future work on multi-model validation" replaced with actual findings
+- Limitation 3 updated from "single LLM" to "limited cross-model scale" (more precise scope)
+- Conclusion updated: cross-model contribution added as item 4, future work refined
+- Duplicate Watts & Strogatz reference removed
+- All abbreviations defined at first use: RAG, JSD, MLE, KS, DPO, DAG, RLHF
+- Consistent notation: π_A/π_B, D_sim/D_ESS, B_RLHF throughout
+
+Deliverables:
+
+- Updated `docs/paper.md` (notation table, Section 4.3, Section 5.6, polish throughout)
+- Updated `BGF_PROGRESS_CHECKLIST.md` (Phases 25-26 marked complete, test count 552+)
+- Updated `CLAUDE.md` (module descriptions, test count, cross-model patterns)
+- Updated `README.md` (results table, cross-model table, test count)

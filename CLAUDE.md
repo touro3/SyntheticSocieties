@@ -71,17 +71,20 @@ ESS Data → Population synthesis → Agent creation → Simulation kernel → M
 
 **`simulation/kernel.py`** — Event-driven main loop with batched GPU inference. Coordinates policy calls, economy processing, state updates, and metric collection per round.
 
-**`metrics/`** — 15+ evaluation dimensions: `inequality.py` (Gini coefficient), `calibration.py` (ESS comparison), `distribution.py`, `network_metrics.py`, `persona_fidelity.py`, `trajectories.py`, `macro_metrics.py`.
+**`metrics/`** — 20+ evaluation dimensions: `inequality.py` (Gini coefficient), `calibration.py` (ESS comparison), `distribution.py`, `network_metrics.py`, `persona_fidelity.py`, `trajectories.py`, `macro_metrics.py`, `behavioral_realism.py` (BRM + B_RLHF), `persona_decay.py` (per-round fidelity), `mediation.py` (2×2 factorial decomposition), `complexity.py` (phase transitions + power laws), `trust_gradient.py` (Spearman rank validation), `cross_model.py` (multi-family comparison).
 
 **`tracker/`** — DuckDB-based experiment registry (`experiment_index.parquet`). `analytics.py` enables SQL queries across all experiments.
 
 ### Configuration
 
 Hydra-based configs in `configs/`. The default is `configs/base_config.yaml`:
-- `policy.type`: `mock | random | template | rule_based | llm`
+- `policy.type`: `mock | random | template | rule_based | llm | generative_agents`
 - `population.source`: `empirical` (ESS) or `synthetic`
 - `llm.model_id`: defaults to `mistralai/Mistral-7B-Instruct-v0.3`, cached at `/mnt/raid/workspace/lucastourinho/models`
+- `llm.backend_type`: `huggingface` (local GPU) or `openai` (API)
 - `network.type`: `random | small_world`
+- Cross-model configs: `configs/cross_model/mistral.yaml`, `qwen2.5-7b.yaml`, `gpt4o_mini.yaml`
+- Condition C config: `configs/condition_c.yaml` (Generative Agents proxy)
 
 ### Experiment Outputs
 
@@ -104,7 +107,7 @@ Plots land in `analysis/figures/`; network exports for Gephi in `analysis/networ
 - **RAG**: `sql_rag.py` and `graph_rag.py` provide SQL and graph-based retrieval for empirical context injection, enabling agents to access real-world socio-economic data.
 - **Experiment Tracking**: `tracker/` uses DuckDB to store experiment metadata and results, enabling SQL-based analytics across all runs.
 - **Progress Tracking**: `BGF_PROGRESS_CHECKLIST.md` tracks the project's progress against the original research plan, including advanced stress tests for robustness.
-- **Testing**: `tests/` contains 104+ unit and integration tests, including RAG-specific tests and pytest fixtures in `conftest.py`.
+- **Testing**: `tests/` contains 552+ unit and integration tests, including RAG-specific tests, cross-model adapter tests, metric validation tests, and shared pytest fixtures in `conftest.py`.
 - **Configuration**: `configs/` uses Hydra for flexible configuration management, with `base_config.yaml` as the default and multiple experiment-specific configs.
 - **Documentation**: `docs/` contains the paper draft, hypotheses, evaluation protocol, and other research artifacts.
 - **Network Analysis**: `analysis/networks/` contains network exports for Gephi and other network analysis tools.
@@ -118,6 +121,8 @@ Plots land in `analysis/figures/`; network exports for Gephi in `analysis/networ
 
 ## Key engineering decisions
 
-- **TDD**: Test-Driven Development is used throughout the codebase, with 104+ tests in `tests/` and pytest fixtures in `conftest.py`.
-- **Modular Design**: The codebase is modular, with clear separation of concerns between layers. This makes it easy to modify or replace individual components without affecting the rest of the system.
+- **Condition C**: `decision/generative_agents_policy.py` implements a fictional-persona LLM policy (Park et al. 2023 proxy) with no ESS grounding or RAG — enables direct Generative Agents comparison.
+- **Cross-model backends**: `decision/model_config.py` (ModelConfig dataclass + `get_backend()` factory) and `decision/openai_backend.py` (OpenAI responses.create API with caching and retry).
+- **TDD**: Test-Driven Development throughout — 552+ tests in `tests/` with pytest fixtures in `conftest.py`.
+- **Modular Design**: Clear separation between layers. Individual components (policies, metrics, RAG backends) can be swapped without affecting the rest of the system.
 

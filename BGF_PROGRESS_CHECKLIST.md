@@ -83,7 +83,7 @@ Network Metrics
 
 [x] Seed sweep experiments
 [x] Prompt perturbation experiments
-[ ] Model family comparison
+[x] Model family comparison (Mistral-7B, Qwen2.5-7B, GPT-4o-mini — Section 5.6)
 [x] Temperature sensitivity tests
 [x] Population size sweep
 [x] Simulation horizon sweep
@@ -301,12 +301,40 @@ Test Infrastructure
 
 [x] metrics/persona_decay.py (persona fidelity over rounds, decay rate)
 [x] tests/test_persona_decay.py (12 tests)
-[x] 526 tests passing
+[x] 552 tests passing
 
 ---
 
-# Remaining (Writing / GPU-dependent)
+# Phase 25 — Contribution Statement Rewrite (Completed)
+
+[x] Abstract rewritten to ~185 words (finding-first, cross-model integrated)
+[x] Summary of Contributions box updated to 7 items
+[x] Introduction central claim updated to incorporate cross-model finding
+[x] Numbered contributions expanded (added contribution 4: cross-model generalizability)
+[x] RQ6 added (cross-model generalizability research question)
+
+---
+
+# Phase 26 — Technical Writing Polish (Completed)
+
+[x] Notation table added after Section 3.1 (25+ symbols with domain and definition)
+[x] Cross-model results integrated as Section 5.6 with Table 3 (honest null result documented)
+[x] Section 4.3 added (cross-model validation experimental setup)
+[x] Discussion 6.1 updated with cross-model interpretation
+[x] Limitation 3 updated from "single LLM" to "limited cross-model scale"
+[x] Conclusion updated with cross-model contribution (item 4) and future work
+[x] Duplicate Watts & Strogatz reference removed
+[x] All abbreviations defined at first use (RAG, JSD, MLE, KS, DPO, DAG)
+[x] H7 and H8 added to docs/hypotheses.md
+
+---
+
+# Remaining (GPU pipeline runs for 4 figures)
 
 [x] Phase 16: GPU experiments complete (mistral-7b ✓, qwen2.5-7b ✓, gpt4o-mini ✓)
-[ ] Phase 25: Contribution statement rewrite (Introduction + numbered contributions)
-[ ] Phase 26: Technical writing polish (abstract tightening, notation table, results rigor)
+[x] Phase 25: Contribution statement rewrite — COMPLETE
+[x] Phase 26: Technical writing polish — COMPLETE
+[ ] Run pipeline_macro_shock.sh → analysis/figures/macro_shock_resilience.png
+[ ] Run pipeline_topology.sh → analysis/figures/topology_dictatorship.png
+[ ] Run scripts/run_trust_gradient.py → analysis/figures/trust_gradient.png
+[ ] Run scripts/run_phase_transition_sweeps.py → analysis/figures/phase_transitions.png

@@ -12,12 +12,22 @@ SyntheticSocieties is a research-grade agent-based simulation framework that tes
 
 | Metric | Pure LLM (Condition A) | Grounded LLM (Condition B) |
 |--------|----------------------|---------------------------|
-| Gini coefficient | ~0.0 (perfect equality) | 0.25–0.40 (empirically plausible) |
-| Cooperation rate | ~95% (uniform, RLHF bias) | 40–60% (selective, trust-dependent) |
-| RLHF Bias Index (B_RLHF) | ~0.62 (near maximal bias) | ~0.18 (close to uniform prior) |
-| Network topology | Hyper-connected blob | Fragmented clusters with echo chambers |
-| Behavioral Realism Metric (BRM) | ~0.28 | ~0.74 |
+| Gini coefficient | ~0.08 (near-perfect equality) | 0.28–0.34 (empirically plausible) |
+| Cooperation rate | ~90% (uniform, RLHF bias) | ~35% (selective, trust-dependent) |
+| RLHF Bias Index (B_RLHF) | ~0.52 | ~0.21 (~60% reduction) |
+| Network modularity (Q) | ~0.04 (no community structure) | ~0.31 (fragmented clusters) |
+| Behavioral Realism Metric (BRM) | ~0.23 ± 0.04 | ~0.61 ± 0.07 (2.7× improvement) |
 | Behavioral entropy | Low (mode collapse) | High (diverse strategies) |
+
+### Cross-Model Generalizability (Phase 16)
+
+| Model | Cond A B_RLHF | Cond B B_RLHF | Δ B_RLHF | Grounding Effective? |
+|-------|--------------|--------------|---------|---------------------|
+| Mistral-7B-Instruct-v0.3 | 0.567 | 0.467 | −17.6% | Yes |
+| Qwen2.5-7B-Instruct | 0.333 | 0.233 | −30.0% | Yes |
+| GPT-4o-mini | 0.223 | 0.313 | +40.3% | No (inverse effect) |
+
+*The GPT-4o-mini inverse effect is an honest null result identifying alignment methodology as a moderating variable. See `analysis/cross_model_results.json` and `docs/paper.md` Section 5.6.*
 
 ---
 
@@ -109,7 +119,7 @@ python scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
 # Regenerate plots from existing data
 python scripts/run_full_pipeline.py --plots-only
 
-# Run full test suite (481+ tests)
+# Run full test suite (552+ tests)
 pytest tests/ -v
 
 # Run specific new metric tests

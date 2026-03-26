@@ -133,6 +133,7 @@ experiments/
 tracker/*.parquet
 tracker/*.db
 analysis/networks/
+analysis/figures/
 
 # =========================
 # Build artifacts

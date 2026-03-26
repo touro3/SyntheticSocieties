@@ -12,6 +12,7 @@ import json
 from typing import Optional
 
 from decision.system_prompts import BASE_SYSTEM_PROMPT, BALANCED_SYSTEM_PROMPT
+from decision.token_budget import trim_to_budget
 
 
 
@@ -113,16 +114,31 @@ def build_state_block(state, ablation_level: int = 5) -> str:
 
 
 def build_memory_block(memory, window: int = 5) -> str:
-    """Build memory context from recent interactions."""
+    """Build memory context from recent interactions, prefixed by a reflection.
+
+    The reflection summarizes long-term history (full archive) while recent
+    events provide episodic detail. Together they give the LLM a compressed
+    view of the agent's full career without exhausting the context window.
+    """
     if hasattr(memory, "get_recent"):
         recent = memory.get_recent(window)
     else:
-        # Fallback if memory is already a list
         recent = memory[-window:] if isinstance(memory, list) else []
-    if not recent:
-        return "You have no memories of past interactions yet."
 
-    lines = ["Your recent memories:"]
+    lines = []
+
+    # Reflection: compressed summary of full history (recent + archive).
+    if hasattr(memory, "generate_reflection"):
+        reflection = memory.generate_reflection()
+        if reflection:
+            lines.append(f"[Memory summary] {reflection}")
+
+    if not recent:
+        if not lines:
+            return "You have no memories of past interactions yet."
+        return "\n".join(lines)
+
+    lines.append("Your recent memories:")
     for item in recent:
         line = f"  Round {item.round_id}: you chose '{item.event_type}'"
         if item.partner_id:
@@ -185,31 +201,46 @@ def build_prompt(
     state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window)
     context_desc = build_context_block(context)
-
-    user_content = f"Round {round_id}.\n\n{persona}\n\n{state_desc}\n\n"
-    
-    if population_context:
-        user_content += f"General Population Trends:\n{population_context}\n\n"
-        
-    if social_context:
-        user_content += f"Social Network Context:\n{social_context}\n\n"
-
-    user_content += f"{memory_desc}\n\n{context_desc}\n\n"
-    
-    # V2: Explicit Cooperation Incentives
-    if ablation_level >= 2:
-        user_content += "HINT: Continually choosing 'work' increases your stress and alienates neighbors. Periodically mixing 'save' (rest) and 'cooperate' (mutual aid) is highly recommended to maintain long-term stability.\n\n"
-        
-    user_content += "What action do you take this round? Respond with ONLY the JSON."
-
     system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= 4 else BASE_SYSTEM_PROMPT
 
-    messages = [
-        {"role": "system", "content": system_text},
+    extra = None
+    if ablation_level >= 2:
+        extra = "HINT: Continually choosing 'work' increases your stress and alienates neighbors. Periodically mixing 'save' (rest) and 'cooperate' (mutual aid) is highly recommended to maintain long-term stability."
+
+    # Trim optional sections to stay within the model's context window.
+    trimmed = trim_to_budget(
+        system=system_text,
+        persona=persona,
+        state=state_desc,
+        memory=memory_desc,
+        context=context_desc,
+        population_context=population_context,
+        social_context=social_context,
+        extra=extra,
+    )
+
+    parts = [f"Round {round_id}.", trimmed["persona"], trimmed["state"]]
+
+    if trimmed["population_context"]:
+        parts.append(f"General Population Trends:\n{trimmed['population_context']}")
+
+    if trimmed["social_context"]:
+        parts.append(f"Social Network Context:\n{trimmed['social_context']}")
+
+    parts.append(trimmed["memory"])
+    parts.append(trimmed["context"])
+
+    if trimmed["extra"]:
+        parts.append(trimmed["extra"])
+
+    parts.append("What action do you take this round? Respond with ONLY the JSON.")
+
+    user_content = "\n\n".join(p for p in parts if p)
+
+    return [
+        {"role": "system", "content": trimmed["system"]},
         {"role": "user", "content": user_content},
     ]
-
-    return messages
 
 
 

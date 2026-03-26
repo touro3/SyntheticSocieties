@@ -7,6 +7,7 @@ Provides structured queries for analyzing experiment results:
   - Ablation comparison
   - LLM vs baseline comparison
   - Robustness summary
+  - Statistical significance (Mann-Whitney U, Cohen's d, confidence intervals)
 """
 
 from __future__ import annotations
@@ -15,7 +16,9 @@ from pathlib import Path
 from typing import Optional
 
 import duckdb
+import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
 
 
 DEFAULT_INDEX = "tracker/experiment_index.parquet"
@@ -157,6 +160,121 @@ def robustness_summary(index_path: str = DEFAULT_INDEX) -> dict[str, pd.DataFram
         "horizon_sweep": horizon,
         "seed_variance": seed_var,
     }
+
+
+# ── Statistical Significance ─────────────────────────────────────────────────
+
+
+def cohens_d(group_a: np.ndarray, group_b: np.ndarray) -> float:
+    """Compute Cohen's d effect size between two groups.
+
+    Uses pooled standard deviation. Returns 0.0 when both groups have
+    zero variance to avoid division by zero.
+    """
+    group_a = np.asarray(group_a, dtype=float)
+    group_b = np.asarray(group_b, dtype=float)
+    n_a, n_b = len(group_a), len(group_b)
+    if n_a < 2 or n_b < 2:
+        return 0.0
+    var_a = group_a.var(ddof=1)
+    var_b = group_b.var(ddof=1)
+    pooled_std = np.sqrt(((n_a - 1) * var_a + (n_b - 1) * var_b) / (n_a + n_b - 2))
+    if pooled_std == 0:
+        return 0.0
+    return float((group_a.mean() - group_b.mean()) / pooled_std)
+
+
+def mann_whitney_test(
+    group_a: np.ndarray, group_b: np.ndarray
+) -> dict[str, float]:
+    """Run a two-sided Mann-Whitney U test.
+
+    Returns dict with keys: U_statistic, p_value.
+    Returns p_value=1.0 for degenerate inputs.
+    """
+    group_a = np.asarray(group_a, dtype=float)
+    group_b = np.asarray(group_b, dtype=float)
+    if len(group_a) < 1 or len(group_b) < 1:
+        return {"U_statistic": 0.0, "p_value": 1.0}
+    u_stat, p_val = scipy_stats.mannwhitneyu(
+        group_a, group_b, alternative="two-sided"
+    )
+    return {"U_statistic": float(u_stat), "p_value": float(p_val)}
+
+
+def bootstrap_ci(
+    data: np.ndarray,
+    statistic_fn=np.mean,
+    confidence: float = 0.95,
+    n_bootstrap: int = 10000,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Compute a bootstrap confidence interval for a statistic.
+
+    Returns dict with keys: estimate, ci_lower, ci_upper, confidence.
+    """
+    data = np.asarray(data, dtype=float)
+    if len(data) == 0:
+        return {"estimate": 0.0, "ci_lower": 0.0, "ci_upper": 0.0, "confidence": confidence}
+    rng = np.random.RandomState(seed)
+    estimate = float(statistic_fn(data))
+    if len(data) == 1:
+        return {"estimate": estimate, "ci_lower": estimate, "ci_upper": estimate, "confidence": confidence}
+    boot_stats = np.array([
+        statistic_fn(rng.choice(data, size=len(data), replace=True))
+        for _ in range(n_bootstrap)
+    ])
+    alpha = 1.0 - confidence
+    ci_lower = float(np.percentile(boot_stats, 100 * alpha / 2))
+    ci_upper = float(np.percentile(boot_stats, 100 * (1 - alpha / 2)))
+    return {
+        "estimate": estimate,
+        "ci_lower": ci_lower,
+        "ci_upper": ci_upper,
+        "confidence": confidence,
+    }
+
+
+def pairwise_significance(
+    df: pd.DataFrame,
+    metric_col: str = "wealth_mean",
+    group_col: str = "policy_type",
+    reference_group: str = "llm",
+) -> pd.DataFrame:
+    """Compare each group against a reference group with Mann-Whitney U + Cohen's d.
+
+    Parameters
+    ----------
+    df : DataFrame with per-experiment rows (one row per seed/run).
+    metric_col : Column to compare.
+    group_col : Column identifying groups.
+    reference_group : The group to compare all others against.
+
+    Returns
+    -------
+    DataFrame with columns: group, ref_mean, group_mean, cohens_d, U_statistic, p_value, significant_005.
+    """
+    ref_vals = df.loc[df[group_col] == reference_group, metric_col].values
+    if len(ref_vals) == 0:
+        return pd.DataFrame()
+
+    rows = []
+    for group_name, group_df in df.groupby(group_col):
+        if group_name == reference_group:
+            continue
+        group_vals = group_df[metric_col].values
+        mw = mann_whitney_test(ref_vals, group_vals)
+        d = cohens_d(ref_vals, group_vals)
+        rows.append({
+            "group": group_name,
+            "ref_mean": float(np.mean(ref_vals)),
+            "group_mean": float(np.mean(group_vals)),
+            "cohens_d": d,
+            "U_statistic": mw["U_statistic"],
+            "p_value": mw["p_value"],
+            "significant_005": mw["p_value"] < 0.05,
+        })
+    return pd.DataFrame(rows)
 
 
 def run_all_queries(

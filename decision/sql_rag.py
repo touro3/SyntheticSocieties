@@ -19,18 +19,25 @@ class SQLRAG:
         self.conn = None
         self._initialized = False
 
-    def _connect(self):
+    def _connect(self) -> None:
+        """Lazily open a DuckDB connection and register the population view.
+
+        Idempotent — safe to call multiple times.
+        Raises on failure so callers don't silently get wrong results.
+        """
         if self.conn is None:
             self.conn = duckdb.connect()
-            self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
+            self.conn.execute(
+                f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')"
+            )
             self._initialized = True
-        return True
-
 
     def query_population_trends(self, query: str) -> str:
         """Execute a SELECT query against the population database."""
-        if not self._connect():
-            return "Population database not available."
+        try:
+            self._connect()
+        except Exception as e:
+            return f"Population database not available: {e}"
             
         # Security: Enforce SELECT-only
         if not query.strip().upper().startswith("SELECT"):
@@ -45,11 +52,11 @@ class SQLRAG:
             return f"Query error: {str(e)}"
 
     def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None) -> str:
-        """
-        Grounded query: How do peers (age/gender/country) usually behave?
-        """
-        if not self._connect(): 
-            return "Population database not available."
+        """Grounded query: How do peers (age/gender/country) usually behave?"""
+        try:
+            self._connect()
+        except Exception as e:
+            return f"Population database not available: {e}"
         
         # Robust gender mapping
         if isinstance(gender, int):

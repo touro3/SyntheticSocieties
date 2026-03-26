@@ -120,3 +120,4 @@ Plots land in `analysis/figures/`; network exports for Gephi in `analysis/networ
 
 - **TDD**: Test-Driven Development is used throughout the codebase, with 104+ tests in `tests/` and pytest fixtures in `conftest.py`.
 - **Modular Design**: The codebase is modular, with clear separation of concerns between layers. This makes it easy to modify or replace individual components without affecting the rest of the system.
+

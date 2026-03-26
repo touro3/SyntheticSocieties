@@ -139,6 +139,8 @@ def aggregate_seeds(policy: str, seeds: list[int], experiments_root: str | Path 
         "stress_mean": np.mean(pool_stress, axis=1),
         "stress_std": np.std(pool_stress, axis=1),
         "action_freqs": mean_actions, # [Rounds, 3]
-        "action_labels": ["work", "save", "cooperate"]
+        "action_labels": ["work", "save", "cooperate"],
+        "pool_wealth": pool_wealth,   # [Rounds x (Agents * Seeds)]
+        "pool_stress": pool_stress,   # [Rounds x (Agents * Seeds)]
     }
 

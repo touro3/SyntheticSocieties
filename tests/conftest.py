@@ -1,8 +1,11 @@
 """Shared test fixtures for the BGF test suite."""
 
+import sys
 from pathlib import Path
 
 # Ensure project root is on sys.path for all tests.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import pytest
 from agents.agent import Agent
 from agents.memory import HierarchicalMemory, MemoryBuffer
@@ -16,7 +19,7 @@ from environment.world_state import WorldState
 
 
 # ── Reusable factory helpers ──────────────────────────────────────────────
-
+# how to run: pytest tests/conftest.py -v
 
 def make_profile(**overrides) -> AgentProfile:
     """Create an AgentProfile with sensible defaults; override any field."""

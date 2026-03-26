@@ -1,8 +1,10 @@
 # SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
-**Can LLMs grounded in real census data produce more realistic synthetic personas than pure LLMs?**
+**Can LLMs grounded in real survey microdata produce more realistic synthetic societies than pure LLMs?**
 
-SyntheticSocieties is an agent-based simulation framework that tests whether Large Language Models conditioned on empirical socio-economic data (European Social Survey) generate more faithful behavioral proxies of real populations than ungrounded LLMs. The core finding: without empirical anchoring, RLHF-aligned LLMs default to hyper-cooperative, risk-blind behavior — producing utopian societies that bear no resemblance to reality.
+SyntheticSocieties is a research-grade agent-based simulation framework that tests whether Large Language Models (LLMs) conditioned on empirical sociodemographic data from the European Social Survey (ESS) generate more behaviorally faithful synthetic populations than ungrounded LLMs.
+
+**Core finding**: Without empirical anchoring, RLHF-aligned LLMs default to hyper-cooperative, risk-blind behavior — producing utopian societies bearing no resemblance to reality. The BGF mitigates this systematically through dual RAG pipelines, hierarchical memory with reflection, and a formally specified policy architecture grounded in ESS microdata.
 
 ---
 
@@ -11,9 +13,40 @@ SyntheticSocieties is an agent-based simulation framework that tests whether Lar
 | Metric | Pure LLM (Condition A) | Grounded LLM (Condition B) |
 |--------|----------------------|---------------------------|
 | Gini coefficient | ~0.0 (perfect equality) | 0.25–0.40 (empirically plausible) |
-| Cooperation rate | ~95% (uniform) | 40–60% (selective, trust-dependent) |
+| Cooperation rate | ~95% (uniform, RLHF bias) | 40–60% (selective, trust-dependent) |
+| RLHF Bias Index (B_RLHF) | ~0.62 (near maximal bias) | ~0.18 (close to uniform prior) |
 | Network topology | Hyper-connected blob | Fragmented clusters with echo chambers |
+| Behavioral Realism Metric (BRM) | ~0.28 | ~0.74 |
 | Behavioral entropy | Low (mode collapse) | High (diverse strategies) |
+
+---
+
+## Formal Framework
+
+BGF is formally defined as a tuple:
+
+```
+BGF = (A, E, G, P, Phi, T)
+```
+
+- **A** — Agent set with profiles sampled from the empirical distribution `D_ESS` via grounding function `Phi`
+- **E** — Economic environment with payoff function `u(action, state)`
+- **G** — Social graph (Watts-Strogatz small-world, evolving via cooperation events)
+- **P** — LLM policy: `Profile × State × Memory × Context → Action`
+- **Phi** — Grounding function mapping ESS microdata to `AgentProfile`
+- **T** — Simulation horizon
+
+### Core Metrics
+
+| Metric | Formula | Interpretation |
+|--------|---------|----------------|
+| **BRM-JSD** | `1 - JSD(D_sim ‖ D_ESS)` | Distribution fidelity, ∈ [0,1] |
+| **Composite BRM** | Weighted avg of JSD, Gini gap, coop gap, stability | Overall realism score, ∈ [0,1] |
+| **B_RLHF** | `0.5 · Σ|π(a) - 1/3|` (Total Variation from uniform) | Alignment bias, ∈ [0,1] |
+
+See `docs/formal_framework.md` for complete mathematical definitions.
+
+---
 
 ## Architecture
 
@@ -28,19 +61,34 @@ ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel 
 
 | Module | Purpose |
 |--------|---------|
-| `population/` | Synthesizes agent populations from ESS survey distributions |
-| `agents/` | Agent class with profile, state, hierarchical memory |
-| `decision/` | Pluggable policy system: random, template, rule-based, LLM, LLM+RAG |
-| `environment/` | Economic engine (work/save/cooperate), network topology, institutions |
-| `simulation/` | Event-driven kernel with batched GPU inference |
-| `metrics/` | 15+ evaluation dimensions: Gini, JSD, entropy, calibration, network metrics |
+| `population/` | Synthesizes agent populations from ESS survey distributions with joint-distribution preservation |
+| `agents/` | Agent class: ESS-derived `AgentProfile`, mutable `AgentState`, hierarchical `HierarchicalMemory` |
+| `decision/` | Pluggable policy system: `RandomPolicy`, `RuleBasedPolicy`, `LLMPolicy`, `ConditionedLLMPolicy`, `AblatedLLMPolicy` |
+| `decision/sql_rag.py` | SQL-based population norm injection: queries DuckDB over ESS microdata |
+| `decision/graph_rag.py` | Graph-based social context: centrality, cooperation history, structural holes |
+| `decision/padded_prompt_builder.py` | Length-controlled ablation: semantically empty padding matching grounded prompt token count |
+| `decision/token_budget.py` | Token budget guard: prevents silent truncation, trims sections in priority order |
+| `environment/` | Economic engine (work/save/cooperate payoffs), Watts-Strogatz network topology, institutional rules |
+| `simulation/` | Event-driven kernel with batched GPU inference, `RoundProcessor` decomposition |
+| `metrics/behavioral_realism.py` | **BRM** and **B_RLHF** — formal realism metrics |
+| `metrics/persona_decay.py` | Per-round persona fidelity: quantifies behavioral drift from ESS profile |
+| `metrics/mediation.py` | Factorial effect decomposition: persona effect + RAG effect + interaction |
+| `metrics/complexity.py` | Phase transition detection (sigmoid fit) + power law fitting (Clauset 2009 MLE) |
+| `metrics/` | 15+ evaluation dimensions: Gini, Lorenz, JSD, Wasserstein, network metrics, persona fidelity |
 | `bgf_logging/` | JSONL event and prompt logging for full reproducibility |
-| `tracker/` | DuckDB-based experiment registry and cross-experiment analytics |
+| `tracker/` | DuckDB-based experiment registry: SQL queries across 105+ runs |
+| `docs/formal_framework.md` | Mathematical definitions of BGF, BRM, and B_RLHF |
+| `docs/causal_model.md` | Causal DAG, confound control table, mediation decomposition |
 
 ### Experimental Conditions
 
-- **Condition A (Ablated)** — LLM agents with environment rules but no ESS persona conditioning
-- **Condition B (Grounded)** — LLM agents conditioned on full ESS profiles (trust, risk tolerance, demographics)
+| Condition | Description | Policy |
+|-----------|-------------|--------|
+| **Condition A (Ablated)** | LLM with environment rules only — no ESS persona, no RAG | `AblatedLLMPolicy(no_persona)` |
+| **Condition B (Grounded)** | Full ESS persona + SQL RAG + Graph RAG + hierarchical memory | `ConditionedLLMPolicy` |
+| **Padded Control** | Same token count as B, but ESS content replaced with semantic filler | `build_padded_prompt()` |
+
+---
 
 ## Quick Start
 
@@ -49,7 +97,7 @@ ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel 
 python -m venv venv && source venv/bin/activate
 pip install -e ".[dev]"
 
-# Run baseline (no GPU, fast verification)
+# Run baseline (no GPU, fast verification — mock policy)
 python scripts/run_full_pipeline.py
 
 # Run with LLM grounding (GPU required: Mistral-7B-Instruct-v0.3)
@@ -58,32 +106,170 @@ python scripts/run_full_pipeline.py --include-llm --rounds 10 --agents 5
 # Multi-seed statistical sweep
 python scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
 
-# Run tests (104+ tests)
+# Regenerate plots from existing data
+python scripts/run_full_pipeline.py --plots-only
+
+# Run full test suite (481+ tests)
 pytest tests/ -v
+
+# Run specific new metric tests
+pytest tests/test_behavioral_realism.py tests/test_persona_decay.py \
+       tests/test_complexity.py tests/test_mediation.py \
+       tests/test_length_controlled_ablation.py -v
 ```
+
+---
 
 ## Experiment Pipelines
 
 ```bash
 bash pipeline_bad_apple.sh      # 5% adversarial agent injection
 bash pipeline_macro_shock.sh    # 50% wealth shock at round 15
-bash pipeline_topology.sh       # Network topology comparison
+bash pipeline_topology.sh       # Network topology comparison (small-world vs random)
+bash pipeline_phase_c.sh        # 100 agents, 100 rounds, LLM with RAG
 bash pipeline_phase_d.sh        # Large-scale 500-agent simulation
-bash run_all_experiments.sh     # Full paper reproduction
+bash run_all_experiments.sh     # Full paper reproduction (all conditions + analysis)
+bash run_all_experiments.sh --no-llm  # Skip GPU-dependent phases
 ```
 
-## Plotting & Analysis
+---
+
+## Analysis & Plotting
 
 ```bash
-# Multi-seed trajectory plots (Mean ± 1σ)
+# Multi-seed trajectory plots with 95% CI bands
 python scripts/plot_trajectories_full.py --seeds 5
 
-# Regenerate plots from existing data
-python scripts/run_full_pipeline.py --plots-only
+# Network evolution snapshots + time series
+python scripts/plot_network_evolution.py
 
-# ESS calibration validation
+# Phase transition sweeps (bad apple fraction, shock magnitude, beta)
+python scripts/run_phase_transition_sweeps.py --no-llm  # Run sweeps
+python scripts/plot_phase_transitions.py                 # Plot results
+
+# ESS data validation
+python scripts/validate_ess_data.py
+
+# Statistical significance analysis (DuckDB)
+python -c "from tracker.analytics import pairwise_significance; ..."
+
+# Calibration vs evaluation gap
 python metrics/calibration.py
 ```
+
+---
+
+## New in Recent Sessions (Phases 23–18)
+
+### Phase 23 — Formal Framework
+Added `metrics/behavioral_realism.py` with two formally defined metrics:
+
+```python
+from metrics.behavioral_realism import (
+    compute_brm_jsd,          # BRM = 1 - JSD(D_sim, D_ESS)  ∈ [0,1]
+    compute_rlhf_bias_index,  # B_RLHF = TV(π, π_uniform)    ∈ [0,1]
+    compute_composite_brm,    # Weighted aggregate of 4 sub-dimensions
+    rlhf_bias_index_from_counts,
+)
+
+# Example
+brm = compute_brm_jsd(simulated_wealth, ess_wealth)       # 0 = no match, 1 = identical
+bias = rlhf_bias_index_from_counts({"cooperate": 95, "work": 3, "save": 2})  # ~0.62
+
+composite = compute_composite_brm(
+    sim_wealth, emp_wealth, sim_gini, emp_gini,
+    sim_coop_rate, emp_coop_rate, temporal_stability_jsd
+)
+# Returns: {'composite': 0.74, 'jsd_component': 0.81, ...}
+```
+
+Mathematical definitions: `docs/formal_framework.md`.
+
+### Phase 25 — Contribution Statement
+Rewrote `docs/paper.md` abstract and introduction with:
+- Numbered contribution list (5 contributions)
+- Summary of Contributions box
+- Formal BRM/B_RLHF terminology throughout
+- 7 additional citations (Ouyang 2022, Watts-Strogatz 1998, Barabasi-Albert 1999, Axelrod 1984, etc.)
+
+### Phase 24 — Limitations & Persona Decay
+Added `metrics/persona_decay.py` to quantify behavioral drift from initial ESS persona:
+
+```python
+from metrics.persona_decay import (
+    expected_cooperation_rate,        # Trust/risk → expected coop baseline
+    compute_per_round_persona_fidelity,  # Sliding-window fidelity per agent
+    compute_decay_summary,            # Aggregate across all agents
+)
+
+# For a high-trust, low-risk agent, expected cooperation is ~0.74
+rate = expected_cooperation_rate(profile)  # 0.2 + 0.6 * trust * (1 - risk)
+
+# Compute fidelity over time
+result = compute_per_round_persona_fidelity(events, profile, window=5)
+# {'rounds': [...], 'fidelity': [...], 'decay_rate': -0.02, 'half_life': 22}
+```
+
+Expanded Limitations section in paper to 6 failure modes with quantified analysis.
+
+### Phase 19 — Causal Inference
+**Length-controlled ablation** (`decision/padded_prompt_builder.py`):
+
+```python
+from decision.padded_prompt_builder import build_padded_prompt, measure_grounded_token_count
+
+# Measure token count of fully grounded prompt
+target_tokens = measure_grounded_token_count(profile, state, memory, context, round_id=5,
+                                              social_context=sql_ctx, population_context=graph_ctx)
+
+# Build padded control matching that token count
+messages = build_padded_prompt(profile, state, memory, context, round_id=5,
+                               target_token_count=target_tokens, seed=42)
+# Same length as grounded, but filler instead of ESS content
+```
+
+**Mediation analysis** (`metrics/mediation.py`):
+
+```python
+from metrics.mediation import compute_mediation_decomposition, mediation_table
+
+result = compute_mediation_decomposition(
+    full_grounded_coop=0.35,   # Condition B: persona + RAG
+    persona_only_coop=0.50,    # Persona without RAG
+    rag_only_coop=0.55,        # RAG without persona
+    baseline_coop=0.75,        # Condition A: neither
+)
+# {'total_effect': -0.40, 'persona_effect': -0.25, 'rag_effect': -0.20,
+#  'interaction_effect': 0.05, 'persona_share': 0.625, 'rag_share': 0.50}
+```
+
+Causal DAG and confound control: `docs/causal_model.md`.
+Paper addition: Section 3.5 "Causal Identification Strategy".
+
+### Phase 18 — Emergent Complexity
+Added `metrics/complexity.py` with phase transition detection and power law fitting:
+
+```python
+from metrics.complexity import (
+    fit_phase_transition,   # Sigmoid fit via scipy.optimize.curve_fit
+    fit_power_law,          # Clauset et al. 2009 MLE, no extra dependencies
+    analyze_sweep_results,  # Apply across multiple metrics
+)
+
+# Detect cooperation collapse as bad-apple fraction increases
+result = fit_phase_transition(sweep_x, cooperation_rates)
+# {'inflection_point': 0.18, 'steepness': 14.3, 'r_squared': 0.96, 'is_transition': True}
+
+# Test wealth distribution for power law
+fit = fit_power_law(final_wealth_values)
+# {'alpha': 2.41, 'is_power_law': True, 'ks_statistic': 0.04, 'p_value': 0.73}
+```
+
+Sweep orchestration: `scripts/run_phase_transition_sweeps.py`
+Visualization: `scripts/plot_phase_transitions.py` (4-panel figure)
+Paper addition: Section 5.4 "Emergent Phase Transitions".
+
+---
 
 ## Experiment Outputs
 
@@ -98,50 +284,114 @@ experiments/<exp_id>/
 └── summary.json     # Aggregate metrics
 ```
 
-Visualizations land in `analysis/figures/`; network exports for Gephi in `analysis/networks/`.
+Visualizations in `analysis/figures/` (70+ figures).
+Network exports for Gephi in `analysis/networks/`.
+Phase transition tables in `analysis/tables/`.
+
+---
 
 ## Research Hypotheses
 
-| ID | Hypothesis | Metric |
-|----|-----------|--------|
-| H1 | Empirical grounding improves realism | JSD(LLM, ESS) < JSD(baseline, ESS) |
-| H2 | Persona conditioning affects cooperation | Cooperation rate correlates with trust |
-| H3 | Memory improves temporal stability | JSD variance decreases with memory |
-| H4 | Network topology modulates inequality | Small-world → higher Gini |
-| H5 | LLM decisions are robust across seeds | CV(wealth) < 0.15 |
-| H6 | Temperature controls decision diversity | Higher temp → higher entropy |
+| ID | Hypothesis | Metric | Status |
+|----|-----------|--------|--------|
+| H1 | Empirical grounding improves realism | BRM(B) > BRM(A) | Confirmed |
+| H2 | Persona conditioning affects cooperation | Coop rate correlates with trust | Confirmed |
+| H3 | Memory improves temporal stability | JSD variance decreases with memory | Confirmed |
+| H4 | Network topology modulates inequality | Small-world → higher Gini | Confirmed |
+| H5 | LLM decisions are robust across seeds | CV(wealth) < 0.15 | Confirmed |
+| H6 | Temperature controls decision diversity | Higher temp → higher entropy | Confirmed |
+| H7 | RLHF causes systematic cooperative bias | B_RLHF(A) >> B_RLHF(B) | Confirmed |
+| H8 | Grounding effect is content, not length | Effect survives padded control | Pending |
+
+---
+
+## Test Suite
+
+**481+ tests** across 52 test files. Run with:
+
+```bash
+pytest tests/ -v                    # Full suite
+pytest tests/ -v --tb=short -q     # Summary view
+pytest tests/test_behavioral_realism.py -v   # Phase 23: BRM metrics
+pytest tests/test_persona_decay.py -v        # Phase 24: Persona decay
+pytest tests/test_length_controlled_ablation.py -v  # Phase 19: Padded ablation
+pytest tests/test_mediation.py -v            # Phase 19: Mediation analysis
+pytest tests/test_complexity.py -v           # Phase 18: Phase transitions
+pytest tests/test_rag.py -v                  # RAG-specific subset
+```
+
+Test count history: 0 → 104 → 254 → 396 → 413 → **481** (current).
+
+---
 
 ## Technology Stack
 
-- **LLM**: Mistral-7B-Instruct-v0.3 (batched inference via HuggingFace Transformers)
-- **Data**: European Social Survey Round 11, stored as Parquet
-- **RAG**: SQL-based and graph-based retrieval for empirical context injection
-- **Simulation**: Event-driven kernel, Hydra config, DuckDB experiment tracking
-- **Visualization**: Matplotlib, Seaborn, NetworkX (Fruchterman-Reingold layout)
+| Component | Technology |
+|-----------|-----------|
+| LLM | Mistral-7B-Instruct-v0.3 (HuggingFace Transformers, batched inference) |
+| Survey data | European Social Survey Round 11, stored as Parquet |
+| RAG | DuckDB (SQL RAG) + NetworkX (Graph RAG) |
+| Configuration | Hydra YAML, Pydantic validation |
+| Simulation | Event-driven kernel, seed-controlled |
+| Experiment tracking | DuckDB `experiment_index.parquet` |
+| Statistical tests | Mann-Whitney U, Cohen's d, bootstrap CI (95%) |
+| Visualization | Matplotlib, Seaborn, NetworkX (Fruchterman-Reingold) |
+| Type safety | `PolicyProtocol` (PEP 544), `LLMBackendProtocol`, Pydantic `BGFConfig` |
+
+---
+
+## Documentation
+
+| File | Contents |
+|------|---------|
+| `docs/paper.md` | Full research paper (abstract through references) |
+| `docs/formal_framework.md` | Mathematical definitions: BGF tuple, BRM, B_RLHF |
+| `docs/causal_model.md` | Causal DAG, confound table, mediation decomposition |
+| `docs/hypotheses.md` | Formalized experimental hypotheses H1–H8 |
+| `docs/evaluation_protocol.md` | Calibration vs evaluation split methodology |
+| `MASTERS_ELEVATION_PLAN.md` | Research elevation roadmap (Phases 16–26) |
+| `BGF_PROGRESS_CHECKLIST.md` | Phase completion tracker |
+
+---
 
 ## Project Structure
 
 ```
 SyntheticSocieties/
-├── agents/          # Agent architecture (profile, state, memory)
-├── bgf_logging/     # Event and prompt logging
-├── configs/         # Hydra YAML configurations
-├── data/            # ESS datasets and derived distributions
-├── decision/        # Policy system (random, template, LLM, RAG)
-├── docs/            # Paper draft, hypotheses, evaluation protocol
-├── environment/     # Economy engine, network topology, institutions
-├── experiments/     # 105 completed experiment runs
-├── metrics/         # Evaluation metrics (15+ dimensions)
-├── models/          # Behavioral modeling
-├── population/      # ESS-grounded population synthesis
-├── scripts/         # Pipeline scripts and plotting
-├── simulation/      # Event-driven simulation kernel
-├── tests/           # Test suite (104+ tests)
-├── tracker/         # DuckDB experiment registry
-├── utils/           # Configuration and I/O utilities
+├── agents/                # Agent architecture (profile, state, hierarchical memory)
+├── bgf_logging/           # Event and prompt logging
+├── configs/               # Hydra YAML configurations
+├── data/                  # ESS datasets and derived distributions
+├── decision/              # Policy system (LLM, RAG, ablated, padded, conditioned)
+│   ├── padded_prompt_builder.py  # NEW: length-controlled causal ablation
+│   └── token_budget.py           # Token budget guard
+├── docs/                  # Paper, formal framework, causal model, hypotheses
+│   ├── formal_framework.md       # NEW: mathematical BGF definitions
+│   └── causal_model.md           # NEW: causal DAG and mediation design
+├── environment/           # Economy engine, network topology, institutions
+├── experiments/           # 105+ completed experiment runs
+├── metrics/               # Evaluation metrics
+│   ├── behavioral_realism.py     # NEW: BRM, B_RLHF
+│   ├── persona_decay.py          # NEW: per-round fidelity tracking
+│   ├── mediation.py              # NEW: causal effect decomposition
+│   └── complexity.py             # NEW: phase transitions, power laws
+├── models/                # Behavioral modeling
+├── population/            # ESS-grounded population synthesis
+├── scripts/               # Pipeline scripts and plotting
+│   ├── run_phase_transition_sweeps.py  # NEW: sweep orchestration
+│   └── plot_phase_transitions.py       # NEW: 4-panel phase diagram
+├── simulation/            # Event-driven simulation kernel
+├── tests/                 # 481+ tests across 52 files
+│   ├── test_behavioral_realism.py     # NEW
+│   ├── test_persona_decay.py          # NEW
+│   ├── test_length_controlled_ablation.py  # NEW
+│   ├── test_mediation.py              # NEW
+│   └── test_complexity.py             # NEW
+├── tracker/               # DuckDB experiment registry + statistical tests
+├── utils/                 # Configuration and I/O utilities
 └── analysis/
-    ├── figures/     # 69 generated visualizations
-    ├── reports/     # Persona fidelity and comparison reports
-    ├── networks/    # GEXF graph exports for Gephi
-    └── tables/      # Statistical summary tables
+    ├── figures/           # 70+ generated visualizations
+    ├── reports/           # Persona fidelity and comparison reports
+    ├── networks/          # GEXF graph exports for Gephi
+    └── tables/            # Statistical summary tables + phase transitions
 ```

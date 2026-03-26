@@ -1,0 +1,35 @@
+# Condition C — Generative Agents proxy (fictional persona, no ESS grounding, no RAG)
+#
+# Phase 21: Three-condition comparison
+#   Condition A: pure LLM, no persona  (ablation_suite.yaml, no_persona)
+#   Condition B: BGF grounded          (grounding_comparison.yaml, llm_grounded)
+#   Condition C: fictional persona     (this file)
+#
+# Expected result: Condition C RLHF bias index is closer to A than B,
+# validating that ESS empirical grounding (not just having a persona) reduces
+# the alignment tax.
+
+defaults:
+  - base_config
+
+project:
+  name: bgf_condition_c
+  experiment_id: condition_c_001
+  seed: 42
+
+simulation:
+  rounds: 10
+  population_size: 20
+
+policy:
+  type: generative_agents
+
+population:
+  source: empirical    # still generate ESS agents, but their profiles won't be used in prompts
+
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2

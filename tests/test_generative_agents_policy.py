@@ -61,6 +61,7 @@ def test_backstory_seed_overrides_agent_hash():
 # ── propose_action — fallback when backend is None ────────────────────────────
 
 
+@pytest.mark.filterwarnings("ignore::UserWarning")
 def test_propose_action_fallback_no_backend():
     policy = GenerativeAgentsPolicy(backend=None)
     profile = make_profile(agent_id="agent_0")

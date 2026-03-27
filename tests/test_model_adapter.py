@@ -314,3 +314,27 @@ def test_compute_cross_model_result(tmp_path):
     assert 0.0 <= result.cooperation_rate <= 1.0
     assert 0.0 <= result.rlhf_bias_index <= 1.0
     assert 0.0 <= result.gini <= 1.0
+
+
+# ── ModelConfig.prompt_budget ─────────────────────────────────────────────────
+
+
+class TestModelConfigPromptBudget:
+    """Per-model prompt budget is derived automatically from model_id."""
+
+    def test_mistral_prompt_budget(self):
+        assert ModelConfig.mistral_7b().prompt_budget == 4096
+
+    def test_qwen_prompt_budget(self):
+        assert ModelConfig.qwen2_5_7b().prompt_budget == 6144
+
+    def test_gpt4o_mini_prompt_budget(self):
+        assert ModelConfig.gpt4o_mini().prompt_budget == 8192
+
+    def test_unknown_model_prompt_budget_defaults(self):
+        cfg = ModelConfig(model_id="unknown/some-model")
+        assert cfg.prompt_budget == 3072  # DEFAULT_MAX_TOKENS
+
+    def test_explicit_override_respected(self):
+        cfg = ModelConfig(model_id="unknown/some-model", prompt_budget=2048)
+        assert cfg.prompt_budget == 2048

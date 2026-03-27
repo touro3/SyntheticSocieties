@@ -52,49 +52,61 @@ class SQLRAG:
             return f"Query error: {str(e)}"
 
     def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None) -> str:
-        """Grounded query: How do peers (age/gender/country) usually behave?"""
+        """Grounded query: How do peers (age/gender/country) usually behave?
+
+        Attempts a narrow match (±5 years, same gender, same country if given).
+        Falls back to a ±15-year window, then to a population-wide average, so the
+        LLM always receives meaningful grounding rather than an empty string.
+        """
         try:
             self._connect()
         except Exception as e:
             return f"Population database not available: {e}"
-        
+
         # Robust gender mapping
         if isinstance(gender, int):
             g_val = gender
         else:
             g_val = self._GENDER_ENCODING.get(str(gender).lower(), 1)
-        
-        # Base query components
-        where_clauses = ["age BETWEEN ? AND ?", "gender = ?"]
-        params = [age - 5, age + 5, g_val]
-        
-        if country:
-            where_clauses.append("country = ?")
-            params.append(country)
 
-        q = f"""
-        SELECT 
-            AVG(trust_people) * 10 AS avg_trust,
-            AVG(political_interest) * 10 AS avg_interest,
-            AVG(income_decile) AS avg_income_decile,
-            AVG(risk_taking) * 10 AS avg_risk,
-            AVG(life_satisfaction) * 10 AS avg_satisfaction
-        FROM population
-        WHERE {' AND '.join(where_clauses)}
-        """
-        
-        try:
-            res = self.conn.execute(q, params).fetchdf()
-            if res.empty or pd.isna(res.iloc[0]['avg_trust']):
-                return "No peer group data found for this demographic."
-            
-            row = res.iloc[0]
-            # Scaling note: ESS trust_people is normalized 0-1, so * 10 provides a 0-10 scale for prompts.
-            return (f"Context: People in your demographic brackets have an average "
-                    f"trust level of {row['avg_trust']:.1f}/10, income decile {row['avg_income_decile']:.1f}, "
-                    f"risk tolerance of {row['avg_risk']:.1f}/10, and life satisfaction of {row['avg_satisfaction']:.1f}/10.")
-        except Exception as e:
-            return f"Data retrieval error: {str(e)}"
+        def _run_query(age_window: int, include_country: bool) -> Optional[str]:
+            where_clauses = ["age BETWEEN ? AND ?", "gender = ?"]
+            params: list = [age - age_window, age + age_window, g_val]
+            if include_country and country:
+                where_clauses.append("country = ?")
+                params.append(country)
+            q = f"""
+            SELECT
+                AVG(trust_people) * 10 AS avg_trust,
+                AVG(political_interest) * 10 AS avg_interest,
+                AVG(income_decile) AS avg_income_decile,
+                AVG(risk_taking) * 10 AS avg_risk,
+                AVG(life_satisfaction) * 10 AS avg_satisfaction
+            FROM population
+            WHERE {' AND '.join(where_clauses)}
+            """
+            try:
+                res = self.conn.execute(q, params).fetchdf()
+                if res.empty or pd.isna(res.iloc[0]["avg_trust"]):
+                    return None
+                row = res.iloc[0]
+                return (
+                    f"Context: People in your demographic brackets have an average "
+                    f"trust level of {row['avg_trust']:.1f}/10, "
+                    f"income decile {row['avg_income_decile']:.1f}, "
+                    f"risk tolerance of {row['avg_risk']:.1f}/10, "
+                    f"and life satisfaction of {row['avg_satisfaction']:.1f}/10."
+                )
+            except Exception:
+                return None
+
+        # Try narrow match → wider window → population-wide fallback
+        for window, use_country in [(5, True), (15, True), (15, False)]:
+            result = _run_query(window, use_country)
+            if result:
+                return result
+
+        return "No peer group data found for this demographic."
 
     def close(self):
         """Release DuckDB resources."""

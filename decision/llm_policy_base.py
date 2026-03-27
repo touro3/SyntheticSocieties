@@ -87,7 +87,10 @@ class LLMPolicyBase:
         if self.prompt_logger is None:
             return
         meta = {**parse_meta}
+        rag_context = None
         if extra_meta:
+            # rag_context is a structured audit field — keep it separate from parse_metadata
+            rag_context = extra_meta.pop("rag_context", None)
             meta.update(extra_meta)
         self.prompt_logger.log(
             round_id=round_id,
@@ -97,4 +100,5 @@ class LLMPolicyBase:
             parsed_action=action.model_dump() if action else None,
             latency_ms=latency * 1000,
             parse_metadata=meta,
+            rag_context=rag_context,
         )

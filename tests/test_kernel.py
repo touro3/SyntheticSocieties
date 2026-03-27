@@ -5,6 +5,7 @@ from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from bgf_logging.event_logger import EventLogger
+from decision.ablated_llm_policy import AblatedLLMPolicy
 from decision.llm_policy import LLMPolicy
 from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
@@ -106,3 +107,37 @@ def test_batched_mode_respects_ablation_level(tmp_path):
     assert all(
         level == 2 for level in captured_calls
     ), f"Expected ablation_level=2 for all agents, got: {captured_calls}"
+
+
+def test_ablated_policy_runs_via_sequential_path(tmp_path):
+    """AblatedLLMPolicy is not an LLMPolicy subclass so it always uses run_round().
+
+    kernel._can_use_batched_mode gates on isinstance(policy, LLMPolicy).
+    This test verifies that AblatedLLMPolicy completes a full round correctly
+    via the sequential path, and that ablation_level=2 is set for no_network.
+    """
+    agents = build_test_agents()
+
+    fake_backend = MagicMock()
+    fake_backend.generate.return_value = (
+        '{"action_type": "work", "amount": 8, "reasoning_summary": "t", "confidence": 0.9}',
+        0.1,
+    )
+
+    policy = AblatedLLMPolicy(backend=fake_backend, ablation="no_network")
+    assert policy.ablation_level == 2, "no_network must set ablation_level=2"
+
+    for agent in agents:
+        agent.policy = policy
+
+    world = _make_world()
+    logger = EventLogger(tmp_path / "events.jsonl", overwrite=True)
+    kernel = SimulationKernel(agents=agents, world=world, logger=logger)
+
+    # run_round_batched must NOT use the batched code path for AblatedLLMPolicy —
+    # it should fall back to run_round() since AblatedLLMPolicy is not LLMPolicy.
+    assert not kernel._can_use_batched_mode(), (
+        "AblatedLLMPolicy must not trigger batched mode — it uses sequential run_round()"
+    )
+    kernel.run_round()
+    assert world.state.round_id == 1

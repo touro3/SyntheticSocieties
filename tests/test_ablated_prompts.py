@@ -1,6 +1,8 @@
 """Tests for ablated prompt construction — each of the 6 ablation modes."""
 
 import pytest
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from agents.memory import HierarchicalMemory, MemoryItem
 from agents.profile import AgentProfile
@@ -228,3 +230,135 @@ class TestCrossCutting:
     def test_all_modes_include_state(self, backend, profile, state, memory, context, mode):
         msgs = _build(mode, backend, profile, state, memory, context)
         assert "wealth=" in msgs[1]["content"]
+
+    @pytest.mark.parametrize("mode", AblatedLLMPolicy.VALID_ABLATIONS)
+    def test_ablation_level_attribute_set(self, backend, mode):
+        """kernel.run_round_batched reads policy.ablation_level — must always be present."""
+        policy = AblatedLLMPolicy(backend=backend, ablation=mode)
+        assert hasattr(policy, "ablation_level")
+        if mode == "no_network":
+            assert policy.ablation_level == 2
+        else:
+            assert policy.ablation_level == 5
+
+
+# ── RAG integration ──────────────────────────────────────────────────────────
+
+
+class TestRAGIntegration:
+    """Verify that graph_rag and sql_rag are correctly injected / suppressed."""
+
+    def test_no_network_does_not_call_graph_rag(self, backend, profile, state, memory, context):
+        """no_network ablation must suppress GraphRAG — social context IS network info."""
+        mock_graph_rag = MagicMock()
+        mock_graph_rag.get_social_context.return_value = "SHOULD_NOT_APPEAR"
+
+        policy = AblatedLLMPolicy(backend=backend, ablation="no_network", graph_rag=mock_graph_rag)
+        msgs = policy._build_ablated_prompt(profile, state, memory, context, round_id=1)
+
+        mock_graph_rag.get_social_context.assert_not_called()
+        assert "SHOULD_NOT_APPEAR" not in msgs[1]["content"]
+
+    def test_other_ablations_call_graph_rag(self, backend, profile, state, memory, context):
+        """Non-network ablations must include GraphRAG social context."""
+        mock_graph_rag = MagicMock()
+        mock_graph_rag.get_social_context.return_value = "GRAPH_CONTEXT_PRESENT"
+
+        for mode in ("no_persona", "no_memory", "rich_persona", "no_institutions"):
+            mock_graph_rag.reset_mock()
+            policy = AblatedLLMPolicy(backend=backend, ablation=mode, graph_rag=mock_graph_rag)
+            msgs = policy._build_ablated_prompt(profile, state, memory, context, round_id=1)
+
+            mock_graph_rag.get_social_context.assert_called_once()
+            assert "GRAPH_CONTEXT_PRESENT" in msgs[1]["content"], f"Graph RAG missing for ablation={mode}"
+
+    def test_sql_rag_called_and_injected(self, backend, profile, state, memory, context):
+        """sql_rag.get_peer_group_context must be called and its output in the prompt."""
+        mock_sql_rag = MagicMock()
+        mock_sql_rag.get_peer_group_context.return_value = "POPULATION_CONTEXT_PRESENT"
+
+        policy = AblatedLLMPolicy(backend=backend, ablation="rich_persona", sql_rag=mock_sql_rag)
+        msgs = policy._build_ablated_prompt(profile, state, memory, context, round_id=1)
+
+        mock_sql_rag.get_peer_group_context.assert_called_once()
+        assert "POPULATION_CONTEXT_PRESENT" in msgs[1]["content"]
+
+    def test_no_network_still_includes_sql_rag(self, backend, profile, state, memory, context):
+        """SQL RAG is demographic, not social — must appear even in no_network ablation."""
+        mock_sql_rag = MagicMock()
+        mock_sql_rag.get_peer_group_context.return_value = "DEMOGRAPHIC_CONTEXT"
+
+        policy = AblatedLLMPolicy(backend=backend, ablation="no_network", sql_rag=mock_sql_rag)
+        msgs = policy._build_ablated_prompt(profile, state, memory, context, round_id=1)
+
+        mock_sql_rag.get_peer_group_context.assert_called_once()
+        assert "DEMOGRAPHIC_CONTEXT" in msgs[1]["content"]
+
+    def test_no_network_state_block_suppresses_trust_network(self, backend, profile, memory, context):
+        """no_network must use ablation_level=2 so trust_network is not shown in state."""
+        # Build a state object that has trust_network (not standard AgentState,
+        # but the branch in build_state_block uses hasattr so a SimpleNamespace works).
+        state_with_trust = SimpleNamespace(
+            wealth=100.0, stress=0.8, satisfaction=0.6,
+            trust_network={"agent_5": 0.9},
+        )
+
+        policy = AblatedLLMPolicy(backend=backend, ablation="no_network")
+        msgs = policy._build_ablated_prompt(profile, state_with_trust, memory, context, round_id=1)
+        assert "internal trust" not in msgs[1]["content"]
+
+    def test_rich_persona_state_block_includes_trust_network(self, backend, profile, memory, context):
+        """rich_persona uses ablation_level=5, so trust_network IS shown when present."""
+        state_with_trust = SimpleNamespace(
+            wealth=100.0, stress=0.8, satisfaction=0.6,
+            trust_network={"agent_5": 0.9},
+        )
+
+        policy = AblatedLLMPolicy(backend=backend, ablation="rich_persona")
+        msgs = policy._build_ablated_prompt(profile, state_with_trust, memory, context, round_id=1)
+        assert "internal trust" in msgs[1]["content"]
+
+
+# ── Perturbation integration ──────────────────────────────────────────────────
+
+
+class TestPerturbationMode:
+    """Verify perturbation_mode is applied during propose_action."""
+
+    def test_perturbation_applied_during_propose_action(self, profile, state, memory, context):
+        fake_backend = MagicMock()
+        fake_backend.generate.return_value = (
+            '{"action_type": "work", "amount": 8, "reasoning_summary": "test", "confidence": 0.9}',
+            0.1,
+        )
+
+        policy = AblatedLLMPolicy(
+            backend=fake_backend,
+            ablation="rich_persona",
+            perturbation_mode="shuffle",
+        )
+
+        with patch("decision.prompt_perturbation.apply_perturbation") as mock_perturb:
+            mock_perturb.side_effect = lambda msgs, **kw: msgs  # pass-through
+            policy.propose_action(profile, state, memory, context, round_id=1)
+
+        mock_perturb.assert_called_once()
+        assert mock_perturb.call_args[1]["mode"] == "shuffle"
+
+    def test_no_perturbation_when_mode_is_none(self, profile, state, memory, context):
+        fake_backend = MagicMock()
+        fake_backend.generate.return_value = (
+            '{"action_type": "work", "amount": 8, "reasoning_summary": "test", "confidence": 0.9}',
+            0.1,
+        )
+
+        policy = AblatedLLMPolicy(
+            backend=fake_backend,
+            ablation="rich_persona",
+            perturbation_mode=None,
+        )
+
+        with patch("decision.prompt_perturbation.apply_perturbation") as mock_perturb:
+            policy.propose_action(profile, state, memory, context, round_id=1)
+
+        mock_perturb.assert_not_called()

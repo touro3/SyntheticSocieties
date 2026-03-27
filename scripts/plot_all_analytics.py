@@ -123,6 +123,8 @@ def load_ablation_wealth(mode: str, seeds=SEEDS) -> list[float]:
 # PLOT 1: LLM-ALONE VS ESS-GROUNDED (PRIORITY)
 # ══════════════════════════════════════════════════════════════════════════
 
+# how to fix: 
+
 def plot_llm_grounding_comparison():
     """Compare LLM with no persona (ungrounded) vs LLM with ESS personas."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -256,7 +258,7 @@ def plot_llm_grounding_comparison():
     ax.set_title("D. Key Metrics by Grounding Level")
     ax.legend(fontsize=7, loc="upper right")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.subplots_adjust(rect=[0, 0, 1, 0.95])
     out = OUTPUT_DIR / "llm_grounding_comparison.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)
@@ -588,7 +590,7 @@ def plot_perturbation_robustness():
         if mode in pert_data:
             all_data.append((label, pert_data[mode]["wealth"], COLORS.get(mode, "#999")))
 
-    bp = ax.boxplot([d[1] for d in all_data if d[1]], labels=[d[0] for d in all_data if d[1]],
+    bp = ax.boxplot([d[1] for d in all_data if d[1]], tick_labels=[d[0] for d in all_data if d[1]],
                     patch_artist=True, medianprops=dict(color="white", linewidth=2))
     for patch, (_, _, color) in zip(bp["boxes"], [d for d in all_data if d[1]]):
         patch.set_facecolor(color)

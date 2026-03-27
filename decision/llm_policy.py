@@ -23,6 +23,7 @@ class LLMPolicy(LLMPolicyBase):
         graph_rag=None,
         sql_rag=None,
         ablation_level: int = 5,
+        prompt_budget: Optional[int] = None,
     ):
         self.backend = backend
         self.memory_window = memory_window
@@ -33,6 +34,7 @@ class LLMPolicy(LLMPolicyBase):
         self.graph_rag = graph_rag
         self.sql_rag = sql_rag
         self.ablation_level = ablation_level
+        self.prompt_budget = prompt_budget
 
     def propose_action(
         self, profile, state, memory, context: dict, round_id: int,
@@ -56,6 +58,7 @@ class LLMPolicy(LLMPolicyBase):
             round_id=round_id, memory_window=self.memory_window,
             social_context=social_context, population_context=pop_context,
             ablation_level=self.ablation_level,
+            max_tokens=self.prompt_budget,
         )
 
         # Apply perturbation if configured
@@ -76,11 +79,18 @@ class LLMPolicy(LLMPolicyBase):
             profile, state, memory, context, round_id, self.memory_window,
             social_context=social_context, population_context=pop_context,
             ablation_level=self.ablation_level,
+            max_tokens=self.prompt_budget,
         )
         self._log_prompt(
             round_id=round_id, agent_id=profile.agent_id,
             prompt_text=prompt_text, raw_text=raw_text,
             action=action, latency=latency, parse_meta=parse_meta,
+            extra_meta={
+                "rag_context": {
+                    "sql_rag_present": bool(pop_context),
+                    "graph_rag_present": bool(social_context),
+                }
+            },
         )
 
         return action

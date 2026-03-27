@@ -97,6 +97,40 @@ def _make_agent(agent_id: str, policy) -> Agent:
     return Agent(profile=profile, state=state, memory=memory, policy=policy)
 
 
+def test_graph_rag_context_changes_after_cooperation_event():
+    """After a cooperation edge is added, get_social_context must reflect it."""
+    rag = GraphRAG()
+    ctx_before = rag.get_social_context("agent_0")
+    # Before any event: agent is not in graph at all
+    assert "no recorded interactions" in ctx_before.lower() or "not yet initialized" in ctx_before.lower()
+
+    rag.add_event({
+        "agent_id": "agent_1",
+        "action": {"action_type": "cooperate", "target_agent_id": "agent_0"},
+        "round_id": 1,
+    })
+
+    ctx_after = rag.get_social_context("agent_0")
+    assert ctx_after != ctx_before
+    assert "agent_1" in ctx_after
+
+
+def test_sql_rag_different_demographics_yield_different_context():
+    """ESS data must produce distinct peer-group contexts for different age cohorts."""
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    ctx_young = rag.get_peer_group_context(age=25, gender=1)
+    ctx_old = rag.get_peer_group_context(age=70, gender=1)
+
+    # Both should return real data (not "No peer group data found")
+    if "No peer group data found" in ctx_young or "No peer group data found" in ctx_old:
+        pytest.skip("ESS data does not have sufficient coverage for both cohorts")
+
+    assert ctx_young != ctx_old, (
+        "SQL RAG must return cohort-specific data — identical output for age 25 vs 70 "
+        "suggests the query is returning global averages or ignoring the age filter."
+    )
+
+
 def test_graph_rag_initialized_by_kernel_execution(tmp_path):
     policy = CooperativePolicy()
     agents = [

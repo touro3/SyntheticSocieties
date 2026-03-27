@@ -176,3 +176,18 @@ class TestComputeTrustRecoveryCorrelation:
                    "B": {"coop_rate": 0.60, "gini": 0.3, "mean_wealth": 50.0}}
         out = compute_trust_recovery_correlation(results, cultural_groups=custom)
         assert out["n_groups"] == 2
+
+
+# ── compute_trust_gradient edge cases ────────────────────────────────────────
+
+
+class TestComputeTrustGradientEdgeCases:
+    def test_empty_group_results_raises_value_error(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            compute_trust_gradient({})
+
+    def test_missing_group_raises_key_error(self):
+        # Providing only one of the four canonical groups should raise KeyError.
+        partial = {"Low-Trust": {"coop_rate": 0.2, "gini": 0.3, "mean_wealth": 50.0}}
+        with pytest.raises(KeyError):
+            compute_trust_gradient(partial)

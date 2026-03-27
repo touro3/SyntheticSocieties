@@ -34,3 +34,5 @@ ipykernel==6.29.5
 
 scikit-learn==1.5.2
 openai>=1.0.0
+
+pyparsing==3.1

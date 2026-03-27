@@ -12,7 +12,7 @@ import json
 from typing import Optional
 
 from decision.system_prompts import BASE_SYSTEM_PROMPT, BALANCED_SYSTEM_PROMPT
-from decision.token_budget import trim_to_budget
+from decision.token_budget import trim_to_budget, DEFAULT_MAX_TOKENS
 
 
 
@@ -188,6 +188,7 @@ def build_prompt(
     social_context: Optional[str] = None,
     population_context: Optional[str] = None,
     ablation_level: int = 5,
+    max_tokens: Optional[int] = None,
 ) -> list[dict]:
     """
     Build a complete chat-format prompt for the LLM based on ablation level.
@@ -217,6 +218,7 @@ def build_prompt(
         population_context=population_context,
         social_context=social_context,
         extra=extra,
+        max_tokens=max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS,
     )
 
     parts = [f"Round {round_id}.", trimmed["persona"], trimmed["state"]]
@@ -254,6 +256,7 @@ def build_prompt_text(
     social_context: Optional[str] = None,
     population_context: Optional[str] = None,
     ablation_level: int = 5,
+    max_tokens: Optional[int] = None,
 ) -> str:
     """
     Build a plain-text version of the prompt (for logging/debugging).
@@ -261,7 +264,7 @@ def build_prompt_text(
     messages = build_prompt(
         profile, state, memory, context, round_id, memory_window,
         social_context=social_context, population_context=population_context,
-        ablation_level=ablation_level
+        ablation_level=ablation_level, max_tokens=max_tokens,
     )
     parts = []
     for msg in messages:

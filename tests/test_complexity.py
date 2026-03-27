@@ -148,3 +148,30 @@ class TestAnalyzeSweepResults:
         result = analyze_sweep_results(x, metrics)
         assert "cooperation_rate" in result
         assert "gini" in result
+
+    def test_flat_metric_produces_no_transition(self):
+        # A perfectly flat metric has no phase transition.
+        x = np.linspace(0, 1, 30)
+        flat = np.full(30, 0.5)
+        result = analyze_sweep_results(x, {"flat_metric": flat})
+        assert result["flat_metric"]["is_transition"] is False
+
+
+# ── fit_phase_transition edge cases ──────────────────────────────────────────
+
+
+class TestFitPhaseTransitionEdgeCases:
+    def test_too_few_points_returns_nan_inflection(self):
+        # < 5 points should return the degenerate sentinel dict.
+        x = np.array([0.1, 0.2, 0.3])
+        y = np.array([0.4, 0.5, 0.6])
+        result = fit_phase_transition(x, y)
+        assert np.isnan(result["inflection_point"])
+        assert result["is_transition"] is False
+
+    def test_flat_input_returns_no_transition(self):
+        # Flat y-values → y_range < 1e-10 → no transition detected.
+        x = np.linspace(0, 1, 20)
+        y = np.full(20, 0.42)
+        result = fit_phase_transition(x, y)
+        assert result["is_transition"] is False

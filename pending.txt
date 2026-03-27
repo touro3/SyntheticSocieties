@@ -2,3 +2,101 @@ bash pipeline_macro_shock.sh          # → macro_shock_resilience.png
 bash pipeline_topology.sh             # → topology_dictatorship.png                                               
 python scripts/run_trust_gradient.py  # → trust_gradient.png
 python scripts/run_phase_transition_sweeps.py  # → phase_transitions.png  
+
+  Plots that will change
+
+  - ladder_ablation.png — built from abl_v*                                                                         
+  - ablation_effect.png — built from ablation_*
+  - grafo_A_ablated.png — network from ablated run                                                                  
+                                                                                                                    
+  ---                                                                                                               
+  Testing checklist (all CPU, no GPU)                                                                               
+                                                                                                                    
+  # 1. Full test suite — must be 579 passed
+  source venv/bin/activate && pytest tests/ -q                                                                      
+                                                                                                                  
+  # 2. Non-LLM pipeline end-to-end                                                                                  
+  python scripts/run_full_pipeline.py --rounds 5 --agents 10 --seeds 42,123                                       
+                                                                                                                    
+  # 3. Regenerate non-LLM figures from existing data                                                                
+  python scripts/run_full_pipeline.py --plots-only                                                                  
+                                                                                                                    
+  Both already pass above. ✓                                                                                        
+   
+  ---                                                                                                               
+  tmux commands for GPU re-runs                                                                                   
+                                                                                                                    
+  These sessions survive closing the notebook and switching wifi:
+                                                                                                                    
+  # ── Session 1: re-run ablation_* experiments (AblatedLLMPolicy, fast) ──────                                   
+  tmux new-session -d -s bgf_ablation \                                                                             
+    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
+     source venv/bin/activate && \                                                                                  
+     for MODE in no_persona minimal_persona rich_persona no_memory no_network no_institutions; do \                 
+       for SEED in 42 123 7; do \                                                                                   
+         python scripts/run_config_simulation.py \
+           --config configs/base_config.yaml \                                                                      
+           policy.type=ablated_llm \                                                                              
+           ablation.mode=\$MODE \                                                                                   
+           project.experiment_id=ablation_\${MODE}_s\${SEED} \                                                      
+           project.seed=\$SEED \                                                                                    
+           simulation.rounds=10 \                                                                                   
+           simulation.population_size=20; \                                                                         
+       done; \                                                                                                      
+     done 2>&1 | tee logs/ablation_run.log; echo '=== DONE ==='"
+                                                                                                                    
+  # ── Session 2: re-run abl_v* ablation ladder (LLMPolicy V0–V5) ─────────────                                     
+  tmux new-session -d -s bgf_ladder \                                                                               
+    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
+     source venv/bin/activate && \                                                                                  
+     python scripts/run_full_pipeline.py \
+       --include-llm --run-ablation-ladder \                                                                        
+       --seeds 42,123,7 --rounds 10 --agents 20 \                                                                   
+       2>&1 | tee logs/ladder_run.log; echo '=== DONE ==='"                                                         
+                                                                                                                    
+  # ── Session 3: re-run standard cmp_llm_* (LLMPolicy, Condition A/B) ────────                                     
+  tmux new-session -d -s bgf_cmp \                                                                                
+    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
+     source venv/bin/activate && \                                                                                
+     python scripts/run_full_pipeline.py \                                                                          
+       --include-llm \
+       --seeds 42,123,7 --rounds 10 --agents 20 \                                                                   
+       2>&1 | tee logs/cmp_run.log; echo '=== DONE ==='"                                                          
+                                                                                                                    
+  # ── Session 4: regenerate all figures after all runs complete ───────────────                                    
+  tmux new-session -d -s bgf_plots \                                                                                
+    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
+     source venv/bin/activate && \                                                                                
+     python scripts/run_full_pipeline.py --plots-only \                                                             
+       2>&1 | tee logs/plots.log; echo '=== DONE ==='"
+                                                                                                                    
+  To monitor any session:                                                                                         
+  tmux attach -t bgf_ablation   # watch session 1                                                                   
+  tmux attach -t bgf_ladder     # watch session 2                                                                 
+  # Ctrl+B then D to detach without killing                                                                         
+                                           
+  To check if a session finished without attaching:                                                                 
+  tmux ls                                          # list running sessions                                          
+  tail -20 /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/logs/ablation_run.log                               
+  tail -20 /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/logs/ladder_run.log                                 
+                                                                                                                    
+  ---                                                                                                               
+  Recommended order:                                                                                                
+  1. Run sessions 1 + 2 in parallel (they use different experiment IDs, no conflict)                                
+  2. Wait for both to finish (=== DONE === in logs)                                                               
+  3. Run session 3 (cmp_llm)                                                                                        
+  4. Run session 4 (plots) last, after all experiments complete                                                     
+                                                                                                                    
+  Sessions 1 and 2 are very fast with GPU (5-agent / 1-agent runs). Session 3 is the longest (20 agents × 10 rounds 
+  × 3 seeds × LLM inference).                                                                                       
+                               
+
+  # Session 1 + 2 in parallel (ablation and ladder)
+  bash pipeline_bad_apple.sh   # or your ablation pipeline                                                          
+  bash pipeline_phase_c.sh     # or your ladder pipeline                                                            
+                                                                                                                    
+  # Session 3 after both finish                                                                                     
+  # cmp_llm_* runs                                          
+                                                                                                                    
+  # Session 4 last                                          
+  python scripts/plot_trajectories_full.py --seeds 5

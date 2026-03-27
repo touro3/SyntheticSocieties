@@ -1,0 +1,29 @@
+# Cross-cultural validation — Nordic cluster (NO, SE, FI, DK)
+# Phase 17: Uses trust_people_band=high to approximate Nordic high-trust profile.
+# ESS-11 reference mean trust: 0.673 (normalized 0-1).
+# Only AT microdata in local parquet; trust band used as cluster proxy.
+
+project:
+  name: cross_cultural_nordic
+  seed: 42
+
+simulation:
+  rounds: 10
+  population_size: 20
+
+policy:
+  type: mock
+
+population:
+  source: empirical
+
+society_spec:
+  trust_people_band: high
+  age_profile: mixed
+  urbanization: mixed
+  narrative: "Nordic-style high-trust cooperative community"
+
+network:
+  type: small_world
+  k: 4
+  rewiring_prob: 0.1

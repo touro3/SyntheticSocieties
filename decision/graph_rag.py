@@ -34,7 +34,14 @@ class GraphRAG:
     # ── Graph construction ────────────────────────────────────────────────────
 
     def build_from_events(self, events_path: str | Path) -> None:
-        """Construct the social graph from interaction events. Resets existing state."""
+        """Construct the social graph from a saved events file. Resets existing state.
+
+        Not used in the live simulation pipeline — the graph is built incrementally
+        via add_event() called from RoundProcessor._update_graph_rag() after each
+        round. This method is reserved for checkpoint replay: if a long run is
+        interrupted, the graph can be reconstructed from the saved events.jsonl
+        before resuming.
+        """
         self.graph = nx.MultiDiGraph()
         self._initialized = False
         self._invalidate_cache()

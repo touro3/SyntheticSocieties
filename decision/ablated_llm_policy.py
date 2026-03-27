@@ -74,6 +74,9 @@ class AblatedLLMPolicy(LLMPolicyBase):
         self.graph_rag = graph_rag
         self.sql_rag = sql_rag
         self.perturbation_mode = perturbation_mode
+        # Used by kernel.run_round_batched via getattr(policy, "ablation_level", 5).
+        # no_network must use level 2 to suppress trust_network from the state block.
+        self.ablation_level = 2 if ablation == "no_network" else 5
 
     def propose_action(
         self,
@@ -106,7 +109,13 @@ class AblatedLLMPolicy(LLMPolicyBase):
             round_id=round_id, agent_id=profile.agent_id,
             prompt_text=prompt_text, raw_text=raw_text,
             action=action, latency=latency, parse_meta=parse_meta,
-            extra_meta={"ablation": self.ablation},
+            extra_meta={
+                "ablation": self.ablation,
+                "rag_context": {
+                    "sql_rag_present": bool(self.sql_rag),
+                    "graph_rag_present": bool(self.graph_rag) and self.ablation != "no_network",
+                },
+            },
         )
 
         return action

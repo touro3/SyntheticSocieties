@@ -215,3 +215,20 @@ class TestCompositeBRM:
             temporal_stability_jsd=0.5,
         )
         assert good["composite"] > bad["composite"]
+
+
+# ── Edge cases ────────────────────────────────────────────────────────────────
+
+
+class TestBehavioralRealismEdgeCases:
+    def test_brm_jsd_identical_distributions_near_one(self):
+        # Identical distributions → JSD = 0 → BRM_JSD ≈ 1.0.
+        values = list(range(1, 101))
+        result = compute_brm_jsd(values, values)
+        assert result == pytest.approx(1.0, abs=0.05)
+
+    def test_rlhf_bias_index_uniform_is_zero(self):
+        # Perfectly uniform action distribution → no bias → B_RLHF = 0.
+        uniform = {"work": 1 / 3, "save": 1 / 3, "cooperate": 1 / 3}
+        result = compute_rlhf_bias_index(uniform)
+        assert result == pytest.approx(0.0, abs=1e-9)

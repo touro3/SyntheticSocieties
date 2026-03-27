@@ -124,3 +124,75 @@ def test_level_word():
     assert _level_word(0.5) == "moderate"
     assert _level_word(0.7) == "high"
     assert _level_word(0.9) == "very high"
+
+
+# ── max_tokens parameter ──────────────────────────────────────────────────────
+
+
+class TestBuildPromptMaxTokens:
+    """build_prompt and build_prompt_text accept and thread max_tokens correctly."""
+
+    def _profile(self):
+        return _make_profile()
+
+    def _state(self):
+        return _make_state()
+
+    def _memory(self):
+        return _make_memory()
+
+    def _context(self):
+        return _make_context()
+
+    def test_max_tokens_accepted(self):
+        msgs = build_prompt(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1, max_tokens=4096,
+        )
+        assert isinstance(msgs, list)
+        assert len(msgs) >= 2
+
+    def test_max_tokens_none_uses_default(self):
+        msgs_default = build_prompt(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1,
+        )
+        msgs_none = build_prompt(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1, max_tokens=None,
+        )
+        # Both paths should produce the same structure
+        assert len(msgs_default) == len(msgs_none)
+
+    def test_large_budget_preserves_rag_contexts(self):
+        msgs = build_prompt(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1,
+            population_context="ESS population context: high trust in Austria.",
+            social_context="Agent cooperated with neighbors recently.",
+            max_tokens=4096,
+        )
+        full_text = " ".join(m["content"] for m in msgs)
+        assert "ESS population context" in full_text
+        assert "cooperated with neighbors" in full_text
+
+    def test_build_prompt_text_max_tokens_threaded(self):
+        text = build_prompt_text(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1,
+            population_context="Population: high trust cohort.",
+            max_tokens=4096,
+        )
+        assert isinstance(text, str)
+        assert "Population: high trust cohort." in text
+
+    def test_all_optional_fields_none_still_valid(self):
+        msgs = build_prompt(
+            self._profile(), self._state(), self._memory(), self._context(),
+            round_id=1,
+            social_context=None,
+            population_context=None,
+            max_tokens=4096,
+        )
+        assert isinstance(msgs, list)
+        assert all("role" in m and "content" in m for m in msgs)

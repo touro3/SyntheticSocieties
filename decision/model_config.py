@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from decision.token_budget import budget_for_model, DEFAULT_MAX_TOKENS
+
 
 @dataclass
 class ModelConfig:
@@ -37,6 +39,9 @@ class ModelConfig:
         temperature: Sampling temperature.
         max_agents: Max population size for this model (for cost/memory control).
         max_rounds: Max simulation rounds for this model.
+        prompt_budget: Maximum prompt tokens passed to trim_to_budget().
+            Balances RAG context richness against inference speed. Set
+            per-model via budget_for_model(); override here if needed.
     """
 
     model_id: str
@@ -49,16 +54,27 @@ class ModelConfig:
     temperature: float = 0.7
     max_agents: int = 50
     max_rounds: int = 20
+    prompt_budget: int = DEFAULT_MAX_TOKENS
+
+    def __post_init__(self) -> None:
+        # Auto-derive budget from model_id when the caller used the default.
+        if self.prompt_budget == DEFAULT_MAX_TOKENS:
+            self.prompt_budget = budget_for_model(self.model_id)
 
     @classmethod
     def mistral_7b(cls, cache_dir: str | None = None) -> "ModelConfig":
-        """Mistral-7B-Instruct-v0.3 — primary BGF model."""
+        """Mistral-7B-Instruct-v0.3 — primary BGF model.
+
+        prompt_budget=4096: quality sweet spot for 7B attention heads; leaves
+        ample GPU headroom while fitting full RAG context in most prompts.
+        """
         return cls(
             model_id="mistralai/Mistral-7B-Instruct-v0.3",
             backend_type="huggingface",
             context_length=32768,
             dtype="float16",
             cache_dir=cache_dir or "/mnt/raid/workspace/lucastourinho/models",
+            prompt_budget=4096,
         )
 
     @classmethod
@@ -67,6 +83,9 @@ class ModelConfig:
 
         Non-gated alternative to meta-llama/Llama-3.1-8B-Instruct, comparable in
         scale and RLHF training. Freely accessible without HF approval.
+
+        prompt_budget=6144: Qwen2.5 handles long contexts reliably; richer
+        population_context and social_context improve ESS grounding quality.
         """
         return cls(
             model_id="Qwen/Qwen2.5-7B-Instruct",
@@ -74,11 +93,16 @@ class ModelConfig:
             context_length=131072,
             dtype="float16",
             cache_dir=cache_dir or "/mnt/raid/workspace/lucastourinho/models",
+            prompt_budget=6144,
         )
 
     @classmethod
     def gpt4o_mini(cls) -> "ModelConfig":
-        """GPT-4o-mini — external validation via OpenAI API (small-scale only)."""
+        """GPT-4o-mini — external validation via OpenAI API (small-scale only).
+
+        prompt_budget=8192: API cost is bounded by max_agents=20; maximising
+        context window gives the richest RAG injection for the fewest runs.
+        """
         return cls(
             model_id="gpt-4o-mini",
             backend_type="openai",
@@ -87,6 +111,7 @@ class ModelConfig:
             temperature=0.7,
             max_agents=20,
             max_rounds=10,
+            prompt_budget=8192,
         )
 
 

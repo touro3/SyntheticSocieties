@@ -29,8 +29,15 @@ class PromptLogger:
         parsed_action: Optional[dict],
         latency_ms: float,
         parse_metadata: Optional[dict] = None,
+        rag_context: Optional[dict] = None,
     ):
-        """Append one prompt/output record to the JSONL file."""
+        """Append one prompt/output record to the JSONL file.
+
+        Args:
+            rag_context: Optional dict with RAG presence flags, e.g.
+                {"sql_rag_present": True, "graph_rag_present": False}.
+                Enables post-hoc verification that grounding was active.
+        """
         record = {
             "round_id": round_id,
             "agent_id": agent_id,
@@ -42,6 +49,7 @@ class PromptLogger:
                 k: v for k, v in (parse_metadata or {}).items()
                 if k != "raw_text"  # avoid duplication
             },
+            "rag_context": rag_context,
         }
 
         with self.output_path.open("a", encoding="utf-8") as f:

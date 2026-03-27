@@ -188,3 +188,14 @@ class TestCalibrationReport:
         monkeypatch.setattr("metrics.calibration.EXPERIMENTS_DIR", tmp_path)
         report = calibration_report(policies=["template"])
         assert "N/A" in report or "(no data)" in report
+
+
+# ── compute_metrics edge cases ────────────────────────────────────────────────
+
+
+class TestComputeMetricsEdgeCases:
+    def test_empty_experiment_list_returns_zero_sentinel(self):
+        # compute_metrics([]) must return the zero-sentinel dict, never raise.
+        result = compute_metrics([])
+        assert isinstance(result, dict)
+        assert result.get("n_agents", 0) == 0

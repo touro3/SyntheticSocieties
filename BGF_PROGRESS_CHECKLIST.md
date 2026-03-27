@@ -329,11 +329,29 @@ Test Infrastructure
 
 ---
 
-# Remaining (GPU pipeline runs for 4 figures)
+# Phase 27 — True Cross-Cultural ESS Validation (Completed)
+
+[x] data/cross_cultural_benchmarks.json (ESS-11 published cluster trust norms: nordic=0.673, southern=0.463, eastern=0.421)
+[x] population/country_clusters.py (CountryCluster dataclass, load_clusters(), CANONICAL_CLUSTER_ORDER)
+[x] metrics/cross_cultural.py (ClusterSimResult, CrossCulturalResult, Pearson r + Spearman ρ, format_cross_cultural_table)
+[x] configs/cross_cultural/{nordic,southern,eastern}.yaml
+[x] scripts/run_cross_cultural.py (3-cluster simulation runner, --dry-run / --include-llm)
+[x] scripts/plot_cross_cultural_validation.py (scatter: ESS trust vs simulated cooperation)
+[x] pipeline_cross_cultural.sh
+[x] tests/test_cross_cultural.py (30 tests)
+[x] 636 tests passing
+[x] Dry-run result: Spearman ρ = 1.000 (p = 0.000) — gradient fully recovered
+[ ] Run pipeline_cross_cultural.sh --include-llm → analysis/figures/cross_cultural_validation.png (GPU run)
+[ ] Record Pearson r and Spearman ρ from GPU run → fill paper Section 5.X
+
+---
+
+# Remaining (GPU pipeline runs)
 
 [x] Phase 16: GPU experiments complete (mistral-7b ✓, qwen2.5-7b ✓, gpt4o-mini ✓)
 [x] Phase 25: Contribution statement rewrite — COMPLETE
 [x] Phase 26: Technical writing polish — COMPLETE
+[x] Phase 27: Cross-cultural infrastructure — COMPLETE (GPU experiment pending)
 [ ] Run pipeline_macro_shock.sh → analysis/figures/macro_shock_resilience.png
 [ ] Run pipeline_topology.sh → analysis/figures/topology_dictatorship.png
 [ ] Run scripts/run_trust_gradient.py → analysis/figures/trust_gradient.png

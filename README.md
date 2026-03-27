@@ -119,7 +119,7 @@ python scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
 # Regenerate plots from existing data
 python scripts/run_full_pipeline.py --plots-only
 
-# Run full test suite (552+ tests)
+# Run full test suite (636+ tests)
 pytest tests/ -v
 
 # Run specific new metric tests
@@ -169,7 +169,33 @@ python metrics/calibration.py
 
 ---
 
-## New in Recent Sessions (Phases 23–18)
+## New in Recent Sessions (Phase 27, Phases 23–18)
+
+### Phase 27 — True Cross-Cultural ESS Validation
+
+Added cross-cultural validation grounded in published ESS-11 country cluster statistics.
+Three clusters (Nordic / Southern / Eastern) are simulated with trust-matched agent profiles;
+Pearson r and Spearman ρ between ESS-11 mean trust and simulated cooperation rates tests
+whether BGF recovers the empirical cross-cultural trust gradient.
+
+```python
+from metrics.cross_cultural import compute_cross_cultural_correlation, ClusterSimResult
+from population.country_clusters import load_clusters
+
+clusters = load_clusters()  # Nordic (trust=0.673), Southern (0.463), Eastern (0.421)
+# After running simulations per cluster:
+result = compute_cross_cultural_correlation(cluster_results)
+# CrossCulturalResult(pearson_r=?, spearman_rho=1.0, gradient_recovered=True)
+```
+
+Dry-run result (mock policy, rule-based agents): **Spearman ρ = 1.000 (p = 0.000)**.
+GPU experiment pending: `bash pipeline_cross_cultural.sh --include-llm`
+
+New files: `population/country_clusters.py`, `metrics/cross_cultural.py`,
+`data/cross_cultural_benchmarks.json`, `configs/cross_cultural/`, `scripts/run_cross_cultural.py`,
+`scripts/plot_cross_cultural_validation.py`, `tests/test_cross_cultural.py` (30 tests)
+
+---
 
 ### Phase 23 — Formal Framework
 Added `metrics/behavioral_realism.py` with two formally defined metrics:
@@ -311,13 +337,13 @@ Phase transition tables in `analysis/tables/`.
 | H5 | LLM decisions are robust across seeds | CV(wealth) < 0.15 | Confirmed |
 | H6 | Temperature controls decision diversity | Higher temp → higher entropy | Confirmed |
 | H7 | RLHF causes systematic cooperative bias | B_RLHF(A) >> B_RLHF(B) | Confirmed |
-| H8 | Grounding effect is content, not length | Effect survives padded control | Pending |
+| H8 | Grounding effect is content, not length | Effect survives padded control | Pending (padded control built; GPU run needed) |
 
 ---
 
 ## Test Suite
 
-**481+ tests** across 52 test files. Run with:
+**636+ tests** across 53 test files. Run with:
 
 ```bash
 pytest tests/ -v                    # Full suite
@@ -330,7 +356,7 @@ pytest tests/test_complexity.py -v           # Phase 18: Phase transitions
 pytest tests/test_rag.py -v                  # RAG-specific subset
 ```
 
-Test count history: 0 → 104 → 254 → 396 → 413 → **481** (current).
+Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → **606** (current).
 
 ---
 
@@ -391,7 +417,7 @@ SyntheticSocieties/
 │   ├── run_phase_transition_sweeps.py  # NEW: sweep orchestration
 │   └── plot_phase_transitions.py       # NEW: 4-panel phase diagram
 ├── simulation/            # Event-driven simulation kernel
-├── tests/                 # 481+ tests across 52 files
+├── tests/                 # 636+ tests across 53 files
 │   ├── test_behavioral_realism.py     # NEW
 │   ├── test_persona_decay.py          # NEW
 │   ├── test_length_controlled_ablation.py  # NEW

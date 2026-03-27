@@ -103,6 +103,7 @@ class SimulationKernel:
                 memory_window=policy.memory_window,
                 social_context=social_context,
                 population_context=pop_context,
+                ablation_level=getattr(policy, "ablation_level", 5),
             )
 
             if policy.perturbation_mode:
@@ -150,6 +151,7 @@ class SimulationKernel:
                     policy.memory_window,
                     social_context=social_ctx,
                     population_context=pop_ctx,
+                    ablation_level=getattr(policy, "ablation_level", 5),
                 )
                 policy.prompt_logger.log(
                     round_id=round_id,

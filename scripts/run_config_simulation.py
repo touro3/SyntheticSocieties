@@ -205,6 +205,7 @@ def build_policy(config: dict):
             "temperature": llm_cfg.get("temperature", 0.7),
             "max_retries": llm_cfg.get("max_retries", 2),
             "prompt_logger": prompt_logger,
+            "perturbation_mode": config.get("perturbation", {}).get("mode"),
         }
         policy_kwargs = _attach_optional_rag_kwargs(
             AblatedLLMPolicy,

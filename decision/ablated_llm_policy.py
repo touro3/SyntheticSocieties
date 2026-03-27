@@ -58,6 +58,7 @@ class AblatedLLMPolicy(LLMPolicyBase):
         prompt_logger=None,
         graph_rag=None,
         sql_rag=None,
+        perturbation_mode: Optional[str] = None,
     ):
         if ablation not in self.VALID_ABLATIONS:
             raise ValueError(
@@ -72,6 +73,7 @@ class AblatedLLMPolicy(LLMPolicyBase):
         self.prompt_logger = prompt_logger
         self.graph_rag = graph_rag
         self.sql_rag = sql_rag
+        self.perturbation_mode = perturbation_mode
 
     def propose_action(
         self,
@@ -85,6 +87,11 @@ class AblatedLLMPolicy(LLMPolicyBase):
         messages = self._build_ablated_prompt(
             profile, state, memory, context, round_id
         )
+
+        if self.perturbation_mode:
+            from decision.prompt_perturbation import apply_perturbation
+            seed = hash((round_id, profile.agent_id)) % (2**31)
+            messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
         action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
@@ -127,8 +134,10 @@ class AblatedLLMPolicy(LLMPolicyBase):
             # rich_persona, no_memory, no_network, no_institutions all get full persona
             persona = build_persona_block(profile)
 
-        # State
-        state_desc = build_state_block(state)
+        # State — suppress trust_network for no_network ablation to avoid leaking
+        # neighbour-relationship data into a condition that is supposed to strip it.
+        state_ablation_level = 2 if self.ablation == "no_network" else 5
+        state_desc = build_state_block(state, ablation_level=state_ablation_level)
 
         # Memory block
         if self.ablation == "no_memory":
@@ -145,7 +154,26 @@ class AblatedLLMPolicy(LLMPolicyBase):
         else:
             context_desc = build_context_block(context)
 
+        # RAG context — SQL RAG is always agent-demographic (not network-related).
+        # Graph RAG is social-network context; suppress it for no_network ablation.
+        social_context = None
+        if self.ablation != "no_network" and self.graph_rag:
+            social_context = self.graph_rag.get_social_context(profile.agent_id)
+
+        population_context = None
+        if self.sql_rag:
+            population_context = self.sql_rag.get_peer_group_context(
+                age=profile.age, gender=profile.gender, country=profile.country
+            )
+
         parts = [f"Round {round_id}.", persona, state_desc]
+
+        if population_context:
+            parts.append(f"General Population Trends:\n{population_context}")
+
+        if social_context:
+            parts.append(f"Social Network Context:\n{social_context}")
+
         if memory_desc:
             parts.append(memory_desc)
         parts.append(context_desc)

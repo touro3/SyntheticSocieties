@@ -20,6 +20,8 @@ Priority order (highest → lowest):
 
 from __future__ import annotations
 
+import warnings
+
 # Conservative estimate: 4 characters per token for English prose.
 _CHARS_PER_TOKEN = 4
 
@@ -81,6 +83,12 @@ def trim_to_budget(
         if sections.get(key):
             budget += estimate_tokens(sections[key] or "")
             sections[key] = None
+            if key in ("social_context", "population_context"):
+                warnings.warn(
+                    f"token_budget: dropped '{key}' to fit within {max_tokens}-token limit. "
+                    "RAG context will be absent from this prompt.",
+                    stacklevel=3,
+                )
 
     # If memory still too large, halve it (drop older lines)
     if sections["memory"] and estimate_tokens(sections["memory"]) > budget:

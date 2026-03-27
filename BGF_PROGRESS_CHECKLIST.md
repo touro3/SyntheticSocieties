@@ -332,16 +332,22 @@ Test Infrastructure
 # Phase 27 — True Cross-Cultural ESS Validation (Completed)
 
 [x] data/cross_cultural_benchmarks.json (ESS-11 published cluster trust norms: nordic=0.673, southern=0.463, eastern=0.421)
+[x] data/cross_cultural_benchmarks_expanded.json (6 clusters: eastern/southern/western/anglo/northern/nordic with WVS Wave 7 %)
 [x] population/country_clusters.py (CountryCluster dataclass, load_clusters(), CANONICAL_CLUSTER_ORDER)
-[x] metrics/cross_cultural.py (ClusterSimResult, CrossCulturalResult, Pearson r + Spearman ρ, format_cross_cultural_table)
+[x] metrics/cross_cultural.py (ClusterSimResult, ClusterMultiSeedResult, CrossCulturalResult, Pearson r + Spearman ρ, 95% CI, format_cross_cultural_table)
 [x] configs/cross_cultural/{nordic,southern,eastern}.yaml
 [x] scripts/run_cross_cultural.py (3-cluster simulation runner, --dry-run / --include-llm)
-[x] scripts/plot_cross_cultural_validation.py (scatter: ESS trust vs simulated cooperation)
+[x] scripts/run_cross_cultural_expanded.py (6-cluster multi-seed runner: 20 seeds/cluster, robustness sweep by agent count)
+[x] scripts/plot_cross_cultural_validation.py (3-cluster scatter: ESS trust vs simulated cooperation)
+[x] scripts/plot_cross_cultural_expanded.py (6-cluster scatter: error bars, OLS+CI band, WVS inset, --wvs flag)
 [x] pipeline_cross_cultural.sh
 [x] tests/test_cross_cultural.py (30 tests)
 [x] 636 tests passing
-[x] Dry-run result: Spearman ρ = 1.000 (p = 0.000) — gradient fully recovered
-[ ] Run pipeline_cross_cultural.sh --include-llm → analysis/figures/cross_cultural_validation.png (GPU run)
+[x] Dry-run result (3-cluster): Spearman ρ = 1.000 (p = 0.000) — gradient fully recovered
+[x] Dry-run result (6-cluster): Pearson r = +0.998, Spearman ρ = +1.000 (p = 0.000)
+[x] Figure: analysis/figures/cross_cultural_expanded.png (6 clusters, 95% CI, WVS inset)
+[ ] Run scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 → GPU results for paper
+[ ] Run pipeline_cross_cultural.sh --include-llm → analysis/figures/cross_cultural_validation.png (3-cluster GPU run)
 [ ] Record Pearson r and Spearman ρ from GPU run → fill paper Section 5.X
 
 ---

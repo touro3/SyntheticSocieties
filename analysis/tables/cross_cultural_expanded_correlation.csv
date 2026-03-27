@@ -1,0 +1,7 @@
+cluster,ess_mean_trust,wvs_trust_pct,mean_coop,ci_lower,ci_upper,std_coop,n_seeds,mean_gini,n_agents,pearson_r,spearman_rho,gradient_recovered
+eastern,0.418,24.0,0.1031,0.0743,0.1318,0.0116,3,0.1653,5,0.998,1.0,True
+southern,0.455,29.0,0.1169,0.0612,0.1726,0.0224,3,0.1563,5,0.998,1.0,True
+western,0.504,37.0,0.1527,0.1203,0.1851,0.013,3,0.1623,5,0.998,1.0,True
+anglo,0.565,43.0,0.1801,0.1702,0.1901,0.004,3,0.1683,5,0.998,1.0,True
+northern,0.634,55.0,0.2214,0.1466,0.2962,0.0301,3,0.1726,5,0.998,1.0,True
+nordic,0.689,68.0,0.2585,0.197,0.32,0.0248,3,0.165,5,0.998,1.0,True

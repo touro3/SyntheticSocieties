@@ -1,7 +1,12 @@
+TOP PRIORITY:
+python scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 --agents 100 --rounds 50
+python scripts/plot_cross_cultural_expanded.py --wvs
 bash pipeline_macro_shock.sh          # → macro_shock_resilience.png
 bash pipeline_topology.sh             # → topology_dictatorship.png                                               
 python scripts/run_trust_gradient.py  # → trust_gradient.png
 python scripts/run_phase_transition_sweeps.py  # → phase_transitions.png  
+
+=================================================================================================
 
   Plots that will change
 

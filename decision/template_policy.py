@@ -14,6 +14,7 @@ random but weaker than LLM or data-driven policies.
 
 from __future__ import annotations
 
+from decision.prompt_builder import get_neighbors
 from decision.schemas import ProposedAction
 
 
@@ -30,7 +31,7 @@ class TemplatePolicy:
 
     def propose_action(self, profile, state, memory, context, round_id: int) -> ProposedAction:
         template = self._classify_template(profile)
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
 
         if template == "cooperator":
             return self._cooperator_action(state, neighbors)

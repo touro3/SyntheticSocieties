@@ -14,14 +14,22 @@ The ``AblationLevel`` class documents exactly what each grounding level adds.
 from __future__ import annotations
 
 import json
+from enum import IntEnum
 from typing import Optional
 
 from decision.constants import STRESS_CRITICAL
 from decision.system_prompts import BASE_SYSTEM_PROMPT, BALANCED_SYSTEM_PROMPT
 from decision.token_budget import trim_to_budget, DEFAULT_MAX_TOKENS
 
+from typing import TYPE_CHECKING
 
-class AblationLevel:
+if TYPE_CHECKING:
+    from agents.memory import HierarchicalMemory
+    from agents.profile import AgentProfile
+    from agents.state import AgentState
+
+
+class AblationLevel(IntEnum):
     """BGF prompt ablation levels — each adds one grounding component.
 
     Used throughout build_prompt() and build_state_block() to control
@@ -34,16 +42,16 @@ class AblationLevel:
         BALANCED       (4) — + balanced system-prompt phrasing
         FULL           (5) — all components (default for Condition B)
 
-    Because the values are plain ints, existing ``ablation_level >= N``
+    Because IntEnum inherits from int, existing ``ablation_level >= N``
     comparisons continue to work unchanged.
     """
 
-    BASELINE: int = 0        # No grounding — equivalent to Condition A
-    STRESS_AWARE: int = 1    # Adds: stress salience warning
-    COOPERATION: int = 2     # Adds: cooperation-incentive hint
-    TRUST_SURFACED: int = 3  # Adds: trust network surfaced in state
-    BALANCED: int = 4        # Adds: balanced system-prompt phrasing
-    FULL: int = 5            # Full grounding — default for Condition B
+    BASELINE = 0          # No grounding — equivalent to Condition A
+    STRESS_AWARE = 1      # Adds: stress salience warning
+    COOPERATION = 2       # Adds: cooperation-incentive hint
+    TRUST_SURFACED = 3    # Adds: trust network surfaced in state
+    BALANCED = 4          # Adds: balanced system-prompt phrasing
+    FULL = 5              # Full grounding — default for Condition B
 
 
 def get_neighbors(context: dict) -> list[str]:
@@ -62,7 +70,7 @@ def get_neighbors(context: dict) -> list[str]:
 
 
 
-def build_persona_block(profile) -> str:
+def build_persona_block(profile: AgentProfile) -> str:
     """Build a natural-language persona description from AgentProfile."""
     lines = [f"You are {profile.agent_id}, age {profile.age}."]
 
@@ -135,7 +143,7 @@ def build_persona_block(profile) -> str:
     return " ".join(lines)
 
 
-def build_state_block(state, ablation_level: int = 5) -> str:
+def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
     """Build state description from AgentState, subject to ablation testing."""
     base = (
         f"Current situation: "
@@ -144,9 +152,9 @@ def build_state_block(state, ablation_level: int = 5) -> str:
         f"satisfaction={state.satisfaction:.2f}."
     )
     
-    # V1: Explicit Stress Salience Penalties
+    # Neutral stress observation (no action recommendations)
     if ablation_level >= AblationLevel.STRESS_AWARE and state.stress >= STRESS_CRITICAL:
-        base += "\n[WARNING: Your stress is CRITICAL. Working will increase it further and risk burnout. Resting (save) or Cooperating may reduce it.]"
+        base += "\n[Your stress level is critically high ({:.2f}).]" .format(state.stress)
 
     # V3: Surface Agent Trust Dictionary directly in state
     if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
@@ -159,7 +167,7 @@ def build_state_block(state, ablation_level: int = 5) -> str:
 
 
 
-def build_memory_block(memory, window: int = 5) -> str:
+def build_memory_block(memory: HierarchicalMemory, window: int = 5) -> str:
     """Build memory context from recent interactions, prefixed by a reflection.
 
     The reflection summarizes long-term history (full archive) while recent
@@ -225,9 +233,9 @@ def build_context_block(context: dict) -> str:
 
 
 def build_prompt(
-    profile,
-    state,
-    memory,
+    profile: AgentProfile,
+    state: AgentState,
+    memory: HierarchicalMemory,
     context: dict,
     round_id: int,
     memory_window: int = 5,
@@ -250,9 +258,8 @@ def build_prompt(
     context_desc = build_context_block(context)
     system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
 
+    # No extra guidance — prompt must not bias toward specific actions.
     extra = None
-    if ablation_level >= AblationLevel.COOPERATION:
-        extra = "HINT: Continually choosing 'work' increases your stress and alienates neighbors. Periodically mixing 'save' (rest) and 'cooperate' (mutual aid) is highly recommended to maintain long-term stability."
 
     # Trim optional sections to stay within the model's context window.
     trimmed = trim_to_budget(

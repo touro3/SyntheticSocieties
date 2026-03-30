@@ -5,7 +5,7 @@ from typing import Optional
 
 from decision.llm_backend import LLMBackend
 from decision.llm_policy_base import LLMPolicyBase
-from decision.prompt_builder import build_prompt, build_prompt_text
+from decision.prompt_builder import build_prompt, build_prompt_text, get_neighbors
 from decision.schemas import ProposedAction
 
 
@@ -39,7 +39,7 @@ class LLMPolicy(LLMPolicyBase):
     def propose_action(
         self, profile, state, memory, context: dict, round_id: int,
     ) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
 
         # Fetch RAG contexts
         social_context = None
@@ -49,7 +49,10 @@ class LLMPolicy(LLMPolicyBase):
         pop_context = None
         if self.sql_rag:
             pop_context = self.sql_rag.get_peer_group_context(
-                age=profile.age, gender=profile.gender, country=profile.country
+                age=profile.age, gender=profile.gender, country=profile.country,
+                agent_trust=getattr(profile, "trust_people", None),
+                agent_risk=getattr(profile, "risk_tolerance", None),
+                agent_satisfaction=getattr(profile, "life_satisfaction", None),
             )
 
         # Build prompt

@@ -25,6 +25,7 @@ from decision.prompt_builder import (
     build_memory_block,
     build_persona_block,
     build_state_block,
+    get_neighbors,
 )
 from decision.system_prompts import (
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
@@ -86,7 +87,7 @@ class AblatedLLMPolicy(LLMPolicyBase):
         context: dict,
         round_id: int,
     ) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
         messages = self._build_ablated_prompt(
             profile, state, memory, context, round_id
         )

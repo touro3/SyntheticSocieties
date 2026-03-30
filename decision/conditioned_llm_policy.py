@@ -8,6 +8,7 @@ from decision.experimental_prompt_builder import (
 )
 from decision.llm_backend import LLMBackend
 from decision.llm_policy_base import LLMPolicyBase
+from decision.prompt_builder import get_neighbors
 from decision.schemas import ProposedAction
 
 
@@ -51,7 +52,7 @@ class ConditionedLLMPolicy(LLMPolicyBase):
         self.condition_name = condition_name
 
     def propose_action(self, profile, state, memory, context: dict, round_id: int) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
 
         social_context = None
         if self.use_social_context and self.graph_rag:

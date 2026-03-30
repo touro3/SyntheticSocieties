@@ -1,9 +1,10 @@
+from decision.prompt_builder import get_neighbors
 from decision.schemas import ProposedAction
 
 
 class MockPolicy:
     def propose_action(self, profile, state, memory, context, round_id: int) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
 
         if neighbors and state.wealth >= 100:
             target = neighbors[0]

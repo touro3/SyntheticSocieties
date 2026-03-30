@@ -6,6 +6,7 @@ import random
 from pathlib import Path
 from typing import Optional
 
+from decision.prompt_builder import get_neighbors
 from decision.schemas import ProposedAction
 
 
@@ -32,7 +33,7 @@ class AuditableRandomPolicy:
             self.audit_path.parent.mkdir(parents=True, exist_ok=True)
 
     def propose_action(self, profile, state, memory, context: dict, round_id: int) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
         rng = random.Random(self._derive_seed(profile.agent_id, round_id))
 
         weights, adjustments = self._compute_weights(state=state, neighbors=neighbors)

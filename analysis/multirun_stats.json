@@ -1,0 +1,215 @@
+{
+  "ablated": {
+    "per_seed": [
+      {
+        "seed": 42,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 43,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 44,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 45,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 46,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 47,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 48,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 49,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 50,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      },
+      {
+        "seed": 51,
+        "coop_rate": 0.0,
+        "gini": 0.203153
+      }
+    ],
+    "coop_rate": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "n": 10
+    },
+    "gini": {
+      "mean": 0.203153,
+      "std": 0.0,
+      "ci_low": 0.203153,
+      "ci_high": 0.203153,
+      "n": 10
+    },
+    "n_seeds": 10,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  "persona": {
+    "per_seed": [
+      {
+        "seed": 42,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 43,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 44,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 45,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 46,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 47,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 48,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 49,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 50,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 51,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      }
+    ],
+    "coop_rate": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "n": 10
+    },
+    "gini": {
+      "mean": 0.187168,
+      "std": 0.0,
+      "ci_low": 0.187168,
+      "ci_high": 0.187168,
+      "n": 10
+    },
+    "n_seeds": 10,
+    "n_agents": 20,
+    "n_rounds": 10
+  },
+  "grounded": {
+    "per_seed": [
+      {
+        "seed": 42,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 43,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 44,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 45,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 46,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 47,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 48,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 49,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 50,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      },
+      {
+        "seed": 51,
+        "coop_rate": 0.0,
+        "gini": 0.187168
+      }
+    ],
+    "coop_rate": {
+      "mean": 0.0,
+      "std": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "n": 10
+    },
+    "gini": {
+      "mean": 0.187168,
+      "std": 0.0,
+      "ci_low": 0.187168,
+      "ci_high": 0.187168,
+      "n": 10
+    },
+    "n_seeds": 10,
+    "n_agents": 20,
+    "n_rounds": 10
+  }
+}

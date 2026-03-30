@@ -1,109 +1,227 @@
-TOP PRIORITY:
-python scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 --agents 100 --rounds 50
-python scripts/plot_cross_cultural_expanded.py --wvs
-bash pipeline_macro_shock.sh          # → macro_shock_resilience.png
-bash pipeline_topology.sh             # → topology_dictatorship.png                                               
-python scripts/run_trust_gradient.py  # → trust_gradient.png
-python scripts/run_phase_transition_sweeps.py  # → phase_transitions.png  
-python scripts/run_policy_sweep.py --rule cooperation_bonus
-CUDA_VISIBLE_DEVICES=0,1,2 python3 scripts/run_full_pipeline.py --include-llm --rounds 20 --agents 500
+# BGF Pending Simulations — Priority Queue
+# Server: 4× P100 (16 GB each), 2 CPUs, Mistral-7B-Instruct-v0.3
+#
+# Time basis: Mistral-7B on 4×P100 batched ≈ 0.3–0.5 s/agent-decision.
+# CPU-only runs (no --include-llm) finish in seconds–minutes regardless of size.
+# All estimates assume no other GPU workloads running in parallel.
+# ─────────────────────────────────────────────────────────────────────────────
 
-=================================================================================================
 
-  Plots that will change
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TIER 1 — CRITICAL FOR PAPER (primary LLM evidence, figures will change)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  - ladder_ablation.png — built from abl_v*                                                                         
-  - ablation_effect.png — built from ablation_*
-  - grafo_A_ablated.png — network from ablated run                                                                  
-                                                                                                                    
-  ---                                                                                                               
-  Testing checklist (all CPU, no GPU)                                                                               
-                                                                                                                    
-  # 1. Full test suite — must be 579 passed
-  source venv/bin/activate && pytest tests/ -q                                                                      
-                                                                                                                  
-  # 2. Non-LLM pipeline end-to-end                                                                                  
-  python scripts/run_full_pipeline.py --rounds 5 --agents 10 --seeds 42,123                                       
-                                                                                                                    
-  # 3. Regenerate non-LLM figures from existing data                                                                
-  python scripts/run_full_pipeline.py --plots-only                                                                  
-                                                                                                                    
-  Both already pass above. ✓                                                                                        
-   
-  ---                                                                                                               
-  tmux commands for GPU re-runs                                                                                   
-                                                                                                                    
-  These sessions survive closing the notebook and switching wifi:
-                                                                                                                    
-  # ── Session 1: re-run ablation_* experiments (AblatedLLMPolicy, fast) ──────                                   
-  tmux new-session -d -s bgf_ablation \                                                                             
-    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
-     source venv/bin/activate && \                                                                                  
-     for MODE in no_persona minimal_persona rich_persona no_memory no_network no_institutions; do \                 
-       for SEED in 42 123 7; do \                                                                                   
-         python scripts/run_config_simulation.py \
-           --config configs/base_config.yaml \                                                                      
-           policy.type=ablated_llm \                                                                              
-           ablation.mode=\$MODE \                                                                                   
-           project.experiment_id=ablation_\${MODE}_s\${SEED} \                                                      
-           project.seed=\$SEED \                                                                                    
-           simulation.rounds=10 \                                                                                   
-           simulation.population_size=20; \                                                                         
-       done; \                                                                                                      
-     done 2>&1 | tee logs/ablation_run.log; echo '=== DONE ==='"
-                                                                                                                    
-  # ── Session 2: re-run abl_v* ablation ladder (LLMPolicy V0–V5) ─────────────                                     
-  tmux new-session -d -s bgf_ladder \                                                                               
-    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
-     source venv/bin/activate && \                                                                                  
-     python scripts/run_full_pipeline.py \
-       --include-llm --run-ablation-ladder \                                                                        
-       --seeds 42,123,7 --rounds 10 --agents 20 \                                                                   
-       2>&1 | tee logs/ladder_run.log; echo '=== DONE ==='"                                                         
-                                                                                                                    
-  # ── Session 3: re-run standard cmp_llm_* (LLMPolicy, Condition A/B) ────────                                     
-  tmux new-session -d -s bgf_cmp \                                                                                
-    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
-     source venv/bin/activate && \                                                                                
-     python scripts/run_full_pipeline.py \                                                                          
-       --include-llm \
-       --seeds 42,123,7 --rounds 10 --agents 20 \                                                                   
-       2>&1 | tee logs/cmp_run.log; echo '=== DONE ==='"                                                          
-                                                                                                                    
-  # ── Session 4: regenerate all figures after all runs complete ───────────────                                    
-  tmux new-session -d -s bgf_plots \                                                                                
-    "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \                                                   
-     source venv/bin/activate && \                                                                                
-     python scripts/run_full_pipeline.py --plots-only \                                                             
-       2>&1 | tee logs/plots.log; echo '=== DONE ==='"
-                                                                                                                    
-  To monitor any session:                                                                                         
-  tmux attach -t bgf_ablation   # watch session 1                                                                   
-  tmux attach -t bgf_ladder     # watch session 2                                                                 
-  # Ctrl+B then D to detach without killing                                                                         
-                                           
-  To check if a session finished without attaching:                                                                 
-  tmux ls                                          # list running sessions                                          
-  tail -20 /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/logs/ablation_run.log                               
-  tail -20 /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/logs/ladder_run.log                                 
-                                                                                                                    
-  ---                                                                                                               
-  Recommended order:                                                                                                
-  1. Run sessions 1 + 2 in parallel (they use different experiment IDs, no conflict)                                
-  2. Wait for both to finish (=== DONE === in logs)                                                               
-  3. Run session 3 (cmp_llm)                                                                                        
-  4. Run session 4 (plots) last, after all experiments complete                                                     
-                                                                                                                    
-  Sessions 1 and 2 are very fast with GPU (5-agent / 1-agent runs). Session 3 is the longest (20 agents × 10 rounds 
-  × 3 seeds × LLM inference).                                                                                       
-                               
+[1] Ablation re-runs (Sessions 1 + 2 in parallel — run these FIRST)
+    # Session 1: ablation_* (6 modes × 3 seeds × 20 agents × 10 rounds)
+    tmux new-session -d -s bgf_ablation \
+      "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \
+       source venv/bin/activate && \
+       for MODE in no_persona minimal_persona rich_persona no_memory no_network no_institutions; do \
+         for SEED in 42 123 7; do \
+           python scripts/run_config_simulation.py \
+             --config configs/base_config.yaml \
+             policy.type=ablated_llm \
+             ablation.mode=\$MODE \
+             project.experiment_id=ablation_\${MODE}_s\${SEED} \
+             project.seed=\$SEED \
+             simulation.rounds=10 \
+             simulation.population_size=20; \
+         done; \
+       done 2>&1 | tee logs/ablation_run.log; echo '=== DONE ==='"
 
-  # Session 1 + 2 in parallel (ablation and ladder)
-  bash pipeline_bad_apple.sh   # or your ablation pipeline                                                          
-  bash pipeline_phase_c.sh     # or your ladder pipeline                                                            
-                                                                                                                    
-  # Session 3 after both finish                                                                                     
-  # cmp_llm_* runs                                          
-                                                                                                                    
-  # Session 4 last                                          
-  python scripts/plot_trajectories_full.py --seeds 5
+    # Session 2: abl_v* ablation ladder (V0–V5 × 3 seeds × 20 agents × 10 rounds)
+    tmux new-session -d -s bgf_ladder \
+      "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \
+       source venv/bin/activate && \
+       python scripts/run_full_pipeline.py \
+         --include-llm --run-ablation-ladder \
+         --seeds 42,123,7 --rounds 10 --agents 20 \
+         2>&1 | tee logs/ladder_run.log; echo '=== DONE ==='"
+
+    WHY FIRST: Needed to regenerate ladder_ablation.png, ablation_effect.png,
+               and grafo_A_ablated.png — explicitly flagged as "plots that will change."
+    LOAD:      6 modes × 3 seeds × 200 agent-decisions = 3,600 decisions (Session 1)
+               6 levels × 3 seeds × 200 decisions = 3,600 decisions (Session 2)
+    ESTIMATE:  ~25–40 min each (run in parallel → wall-clock ~35 min)
+
+
+[2] Standard cmp_llm runs (after Sessions 1+2 finish)
+    # Session 3: Condition A vs B, 3 seeds × 20 agents × 10 rounds
+    tmux new-session -d -s bgf_cmp \
+      "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \
+       source venv/bin/activate && \
+       python scripts/run_full_pipeline.py \
+         --include-llm \
+         --seeds 42,123,7 --rounds 10 --agents 20 \
+         2>&1 | tee logs/cmp_run.log; echo '=== DONE ==='"
+
+    WHY: Generates cmp_llm_* experiments — source for grafo_A_ablated.png
+         and the core Condition A/B comparison figures.
+    LOAD:  3 seeds × 200 decisions = 600 decisions
+    ESTIMATE:  ~5–10 min
+
+
+[3] Figure regeneration (after Sessions 1–3 complete)
+    # Session 4
+    tmux new-session -d -s bgf_plots \
+      "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \
+       source venv/bin/activate && \
+       python scripts/run_full_pipeline.py --plots-only \
+         2>&1 | tee logs/plots.log; echo '=== DONE ==='"
+    python scripts/plot_trajectories_full.py --seeds 5
+
+    WHY: Regenerates all figures from updated experiment data. No-GPU; fast.
+    ESTIMATE:  ~2–5 min (CPU only)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TIER 2 — IMPORTANT SUPPLEMENTARY RESULTS (robustness + scalability)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[4] 500-agent Phase D run (scalability demonstration)
+    CUDA_VISIBLE_DEVICES=0,1,2,3 python3 scripts/run_full_pipeline.py \
+      --include-llm --rounds 20 --agents 500
+
+    WHY: Phase D scalability result. 500 agents × 20 rounds = 10,000 decisions.
+         Demonstrates the framework works at societal scale.
+         Note: use all 4 GPUs; batching 500 agents is very efficient.
+    LOAD:  10,000 agent-decisions
+    ESTIMATE:  ~30–60 min
+    NOTE:  Use CUDA_VISIBLE_DEVICES=0,1,2,3 (all 4 P100s, not 0,1,2 as in pending)
+
+
+[5] Trust gradient validation
+    python scripts/run_trust_gradient.py --rounds 15 --agents 100 --seeds 42,123,7
+    # Then:
+    # trust_gradient.png is generated automatically
+
+    WHY: Tests the core BGF hypothesis (high-trust ESS cohorts → higher coop).
+         Spearman ρ = 1.0 in dry-run; LLM run confirms with real inference.
+         3 trust cohorts × 3 seeds × 100 agents × 15 rounds = 13,500 decisions.
+    LOAD:  ~13,500 agent-decisions
+    ESTIMATE:  ~45–90 min
+    NOTE:  CPU-only (uses RuleBasedPolicy, no --include-llm). Runs in minutes:
+           python scripts/run_trust_gradient.py  (default: 60 agents, 10 rounds)
+           Add --include-llm if you want the LLM version (~45–90 min).
+
+
+[6] Phase transition sweeps (3 sweeps: bad_apple, shock, beta)
+    python scripts/run_phase_transition_sweeps.py
+
+    WHAT: Runs 3 parameter sweeps:
+          - bad_apple fraction: 21 points (0.00–0.40 in 0.02 steps)
+          - shock magnitude:    11 points (0.0–1.0)
+          - network beta:       11 points (0.0–1.0)
+          Each uses run_full_pipeline.py defaults: 20 agents × 10 rounds.
+          Total: 43 sub-runs.
+
+    CPU-only version (fast baseline, recommended first):
+    python scripts/run_phase_transition_sweeps.py --no-llm
+    ESTIMATE (no-llm):  ~5–10 min
+
+    LLM version (full evidence):
+    python scripts/run_phase_transition_sweeps.py
+    LOAD:  43 runs × 200 decisions = 8,600 decisions
+    ESTIMATE (LLM):  ~45–75 min
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TIER 3 — ROBUSTNESS CHECKS (important but not blocking paper submission)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[7] Macro shock resilience
+    bash pipeline_macro_shock.sh          # → macro_shock_resilience.png
+
+    WHAT: 500 agents × 30 rounds, 50% wealth shock at round 15.
+          Uses LLM backend (see run_macro_shock.py).
+    LOAD:  500 agents × 30 rounds = 15,000 agent-decisions
+    ESTIMATE:  ~45–90 min
+    NOTE:  Pipeline does NOT set CUDA_VISIBLE_DEVICES — export first:
+           export CUDA_VISIBLE_DEVICES=0,1,2,3 && bash pipeline_macro_shock.sh
+
+
+[8] Network topology comparison
+    bash pipeline_topology.sh             # → topology_dictatorship.png
+
+    WHAT: 500 agents × 30 rounds, compares small-world vs random topologies.
+          Tests whether network structure changes BGF behavioral outcomes.
+    LOAD:  2 conditions × 15,000 decisions = 30,000 decisions
+    ESTIMATE:  ~90–150 min
+    NOTE:  export CUDA_VISIBLE_DEVICES=0,1,2,3 && bash pipeline_topology.sh
+           Can run in same tmux session as macro_shock sequentially.
+
+
+[9] Cross-cultural expanded (large-scale, long runtime — schedule separately)
+    python scripts/run_cross_cultural_expanded.py \
+      --include-llm --n-seeds 20 --agents 100 --rounds 50
+    python scripts/plot_cross_cultural_expanded.py --wvs
+
+    WHY: 20-seed statistical validation of Nordic/Southern/Eastern ESS-11 clusters.
+         Current data has only 3 seeds at small scale. This is the definitive run.
+    LOAD:  20 seeds × 3 clusters × 100 agents × 50 rounds = 300,000 decisions
+    ESTIMATE:  ~8–14 hours (overnight run recommended)
+    NOTE:  Run in a persistent tmux session:
+           tmux new-session -d -s bgf_cross_cultural \
+             "cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties && \
+              source venv/bin/activate && \
+              python scripts/run_cross_cultural_expanded.py \
+                --include-llm --n-seeds 20 --agents 100 --rounds 50 \
+                2>&1 | tee logs/cross_cultural_expanded.log; echo '=== DONE ==='"
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TIER 4 — CPU-ONLY RUNS (fast, no GPU needed, run any time)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[10] Policy sweep (cooperation_bonus rule)
+     python scripts/run_policy_sweep.py --rule cooperation_bonus
+     ESTIMATE:  ~1–2 min
+
+[11] Trust gradient CPU baseline
+     python scripts/run_trust_gradient.py   # default: 60 agents, 10 rounds, 3 seeds
+     ESTIMATE:  ~30 sec
+
+[12] Phase transition sweeps CPU baseline
+     python scripts/run_phase_transition_sweeps.py --no-llm
+     ESTIMATE:  ~5–10 min
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ RECOMMENDED EXECUTION ORDER (one session at a time on the server)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Day 1 (morning, ~2 h total GPU):
+  Step 1a: Launch bgf_ablation + bgf_ladder in parallel      [#1, ~35 min wall-clock]
+  Step 1b: While waiting → run Tier 4 CPU jobs [#10–12]     [< 15 min]
+  Step 2:  Launch bgf_cmp after Step 1 finishes             [#2, ~10 min]
+  Step 3:  Run figure regeneration (Session 4)              [#3, ~5 min]
+  Step 4:  Run 500-agent Phase D                            [#4, ~45 min]
+  Step 5:  Run phase transition sweeps (LLM)                [#6, ~60 min]
+
+Day 1 (evening, ~3 h total GPU):
+  Step 6:  Run trust gradient (LLM)                         [#5, ~90 min]
+  Step 7:  Macro shock                                      [#7, ~90 min]
+
+Day 2 (overnight):
+  Step 8:  Topology (long)                                  [#8, ~2 h]
+  Step 9:  Cross-cultural expanded (very long, overnight)   [#9, ~10 h]
+           → tmux bgf_cross_cultural → safe to close SSH
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ MONITORING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  tmux ls                                          # list running sessions
+  tmux attach -t bgf_ablation                      # watch (Ctrl+B D to detach)
+  tail -f logs/ablation_run.log
+  tail -f logs/ladder_run.log
+  tail -f logs/cross_cultural_expanded.log
+  watch -n 5 nvidia-smi                            # GPU utilisation live
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ TEST CHECKLIST (CPU, verify before any GPU run)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  source venv/bin/activate && pytest tests/ -q     # must be 814 passed ✓
+  python scripts/run_full_pipeline.py --rounds 5 --agents 10 --seeds 42,123
+  python scripts/run_full_pipeline.py --plots-only

@@ -32,6 +32,7 @@ class LLMBackend:
         max_new_tokens: int = 256,
         temperature: float = 0.7,
         cache_dir: Optional[str] = None,
+        context_length: int = 4096,
     ):
         self.model_id = model_id
         self.dtype = getattr(torch, dtype, torch.float16)
@@ -39,6 +40,7 @@ class LLMBackend:
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.cache_dir = cache_dir
+        self.context_length = context_length
 
         self.model = None
         self.tokenizer = None
@@ -122,7 +124,7 @@ class LLMBackend:
             prompt_text,
             return_tensors="pt",
             truncation=True,
-            max_length=2048,
+            max_length=self.context_length,
         )
 
         # Move to model device
@@ -201,7 +203,7 @@ class LLMBackend:
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
-                max_length=2048,
+                max_length=self.context_length,
             )
 
             # Move to model device

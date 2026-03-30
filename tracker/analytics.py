@@ -235,6 +235,29 @@ def bootstrap_ci(
     }
 
 
+def fdr_correct(p_values: list[float], alpha: float = 0.05) -> list[float]:
+    """Apply Benjamini-Hochberg FDR correction to a list of p-values.
+
+    Returns adjusted p-values (same length, same order as input).
+    Adjusted values are capped at 1.0.
+    """
+    if not p_values:
+        return []
+    m = len(p_values)
+    if m == 1:
+        return list(p_values)
+    indexed = sorted(enumerate(p_values), key=lambda x: x[1])
+    adjusted = [0.0] * m
+    prev = 1.0
+    for rank_from_end, (orig_idx, p) in enumerate(reversed(indexed)):
+        rank = m - rank_from_end  # 1-based rank from smallest
+        adj = min(prev, p * m / rank)
+        adj = min(adj, 1.0)
+        adjusted[orig_idx] = adj
+        prev = adj
+    return adjusted
+
+
 def pairwise_significance(
     df: pd.DataFrame,
     metric_col: str = "wealth_mean",
@@ -252,7 +275,8 @@ def pairwise_significance(
 
     Returns
     -------
-    DataFrame with columns: group, ref_mean, group_mean, cohens_d, U_statistic, p_value, significant_005.
+    DataFrame with columns: group, ref_mean, group_mean, cohens_d,
+    U_statistic, p_value, significant_005, p_value_fdr, significant_005_fdr.
     """
     ref_vals = df.loc[df[group_col] == reference_group, metric_col].values
     if len(ref_vals) == 0:
@@ -274,6 +298,17 @@ def pairwise_significance(
             "p_value": mw["p_value"],
             "significant_005": mw["p_value"] < 0.05,
         })
+
+    if not rows:
+        return pd.DataFrame()
+
+    # Apply FDR correction across all comparisons
+    raw_p = [r["p_value"] for r in rows]
+    corrected_p = fdr_correct(raw_p)
+    for row, fdr_p in zip(rows, corrected_p):
+        row["p_value_fdr"] = fdr_p
+        row["significant_005_fdr"] = fdr_p < 0.05
+
     return pd.DataFrame(rows)
 
 

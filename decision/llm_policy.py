@@ -71,7 +71,7 @@ class LLMPolicy(LLMPolicyBase):
         action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
         if action is None:
-            action = self._fallback_action(state, neighbors)
+            action = self._fallback_action(state, neighbors, profile=profile)
             parse_meta["fallback"] = True
 
         # Log

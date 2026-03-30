@@ -9,6 +9,16 @@ from __future__ import annotations
 import warnings
 from typing import Optional
 
+from decision.constants import (
+    COOPERATE_WEALTH_THRESHOLD,
+    DEFAULT_COOPERATE_AMOUNT,
+    DEFAULT_FALLBACK_CONFIDENCE,
+    DEFAULT_WORK_AMOUNT,
+    RISK_HIGH,
+    TRUST_HIGH,
+    TRUST_LOW,
+    WORK_WEALTH_THRESHOLD,
+)
 from decision.output_parser import parse_llm_output
 from decision.schemas import ProposedAction
 
@@ -21,6 +31,9 @@ class LLMPolicyBase:
     temperature: float
     max_retries: int
     prompt_logger: object | None
+
+    # Class-level counter for tracking fallback usage across all policy instances.
+    _fallback_counter: int = 0
 
     def _generate_with_retries(
         self,
@@ -48,28 +61,67 @@ class LLMPolicyBase:
 
         return action, raw_text, latency, parse_meta
 
-    def _fallback_action(self, state, neighbors: list[str]) -> ProposedAction:
-        """Rule-based fallback when LLM fails."""
-        if state.wealth < 70:
+    def _fallback_action(self, state, neighbors: list[str], profile=None) -> ProposedAction:
+        """Rule-based fallback when LLM fails.
+
+        When a profile is provided, uses persona traits (trust_people,
+        risk_tolerance) to produce persona-consistent fallback behavior
+        instead of purely wealth-based rules.
+        """
+        LLMPolicyBase._fallback_counter += 1
+
+        trust = getattr(profile, "trust_people", None) if profile else None
+        risk = getattr(profile, "risk_tolerance", None) if profile else None
+
+        # Persona-aware fallback when profile traits are available
+        if trust is not None and risk is not None:
+            # Low trust agents prefer saving even when wealthy
+            if trust < TRUST_LOW:
+                return ProposedAction(
+                    action_type="save",
+                    amount=DEFAULT_COOPERATE_AMOUNT,
+                    reasoning_summary=f"[LLM fallback: saving — low trust ({trust:.2f})]",
+                    confidence=DEFAULT_FALLBACK_CONFIDENCE,
+                )
+            # High risk tolerance agents work harder
+            if risk > RISK_HIGH and state.wealth < COOPERATE_WEALTH_THRESHOLD * 1.2:
+                return ProposedAction(
+                    action_type="work",
+                    amount=DEFAULT_WORK_AMOUNT,
+                    reasoning_summary=f"[LLM fallback: working — high risk tolerance ({risk:.2f})]",
+                    confidence=DEFAULT_FALLBACK_CONFIDENCE,
+                )
+            # High trust agents cooperate at moderate wealth
+            if trust > TRUST_HIGH and neighbors and state.wealth >= WORK_WEALTH_THRESHOLD * 0.7:
+                return ProposedAction(
+                    action_type="cooperate",
+                    target_agent_id=neighbors[0],
+                    amount=DEFAULT_COOPERATE_AMOUNT,
+                    reasoning_summary=f"[LLM fallback: cooperating — high trust ({trust:.2f})]",
+                    confidence=DEFAULT_FALLBACK_CONFIDENCE,
+                )
+
+        # Default wealth-based fallback (backward compatible)
+        if state.wealth < WORK_WEALTH_THRESHOLD:
             return ProposedAction(
                 action_type="work",
-                amount=10.0,
+                amount=DEFAULT_WORK_AMOUNT,
                 reasoning_summary="[LLM fallback: working due to low wealth]",
-                confidence=0.5,
+                confidence=DEFAULT_FALLBACK_CONFIDENCE,
             )
-        if neighbors and state.wealth >= 100:
+        if neighbors and state.wealth >= COOPERATE_WEALTH_THRESHOLD:
             return ProposedAction(
                 action_type="cooperate",
                 target_agent_id=neighbors[0],
-                amount=5.0,
+                amount=DEFAULT_COOPERATE_AMOUNT,
                 reasoning_summary="[LLM fallback: cooperating with high wealth]",
-                confidence=0.5,
+                confidence=DEFAULT_FALLBACK_CONFIDENCE,
             )
         return ProposedAction(
             action_type="save",
-            amount=5.0,
+            amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[LLM fallback: saving as default]",
-            confidence=0.5,
+            confidence=DEFAULT_FALLBACK_CONFIDENCE,
         )
 
     def _log_prompt(

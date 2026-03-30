@@ -1,15 +1,22 @@
 import random
 
+from decision.constants import (
+    DEFAULT_COOPERATE_AMOUNT,
+    DEFAULT_RANDOM_CONFIDENCE,
+    DEFAULT_WORK_AMOUNT,
+    MIN_COOPERATE_WEALTH,
+)
+from decision.prompt_builder import get_neighbors
 from decision.schemas import ProposedAction
 
 
 class RandomPolicy:
     def propose_action(self, profile, state, memory, context, round_id: int) -> ProposedAction:
-        neighbors = context.get("network", {}).get("neighbors", [])
+        neighbors = get_neighbors(context)
 
         possible_actions = ["work", "save"]
 
-        if neighbors and state.wealth >= 5.0:
+        if neighbors and state.wealth >= MIN_COOPERATE_WEALTH:
             possible_actions.append("cooperate")
 
         action_type = random.choice(possible_actions)
@@ -19,22 +26,22 @@ class RandomPolicy:
             return ProposedAction(
                 action_type="cooperate",
                 target_agent_id=target,
-                amount=5.0,
+                amount=DEFAULT_COOPERATE_AMOUNT,
                 reasoning_summary="Random baseline selected cooperation.",
-                confidence=0.5,
+                confidence=DEFAULT_RANDOM_CONFIDENCE,
             )
 
         if action_type == "save":
             return ProposedAction(
                 action_type="save",
-                amount=5.0,
+                amount=DEFAULT_COOPERATE_AMOUNT,
                 reasoning_summary="Random baseline selected saving.",
-                confidence=0.5,
+                confidence=DEFAULT_RANDOM_CONFIDENCE,
             )
 
         return ProposedAction(
             action_type="work",
-            amount=10.0,
+            amount=DEFAULT_WORK_AMOUNT,
             reasoning_summary="Random baseline selected work.",
-            confidence=0.5,
+            confidence=DEFAULT_RANDOM_CONFIDENCE,
         )

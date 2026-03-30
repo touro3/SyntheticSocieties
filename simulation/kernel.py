@@ -138,7 +138,7 @@ class SimulationKernel:
             action, parse_meta = parse_llm_output(raw_text, neighbors)
 
             if action is None:
-                action = policy._fallback_action(agent.state, neighbors)
+                action = policy._fallback_action(agent.state, neighbors, profile=agent.profile)
                 parse_meta["fallback"] = True
 
             if policy.prompt_logger:

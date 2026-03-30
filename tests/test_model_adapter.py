@@ -161,11 +161,13 @@ def test_openai_backend_generate_with_mock_client():
 
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="sk-test")
 
-    # Mock the OpenAI client using the responses.create API
+    # Mock the OpenAI client using chat.completions.create API
     mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.output[0].content[0].text = '{"action_type": "work", "amount": 10}'
-    mock_client.responses.create.return_value = mock_response
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"action_type": "work", "amount": 10}'
+    mock_client.chat.completions.create.return_value = MagicMock(
+        choices=[mock_choice]
+    )
     backend._client = mock_client
 
     text, latency = backend.generate(
@@ -173,7 +175,7 @@ def test_openai_backend_generate_with_mock_client():
     )
     assert "work" in text
     assert latency >= 0.0
-    mock_client.responses.create.assert_called_once()
+    mock_client.chat.completions.create.assert_called_once()
 
 
 def test_openai_backend_temperature_override():
@@ -181,13 +183,15 @@ def test_openai_backend_temperature_override():
 
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="sk-test", temperature=0.5)
     mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.output[0].content[0].text = '{"action_type": "save", "amount": 5}'
-    mock_client.responses.create.return_value = mock_response
+    mock_choice = MagicMock()
+    mock_choice.message.content = '{"action_type": "save", "amount": 5}'
+    mock_client.chat.completions.create.return_value = MagicMock(
+        choices=[mock_choice]
+    )
     backend._client = mock_client
 
     backend.generate(messages=[{"role": "user", "content": "decide"}], temperature=0.9)
-    call_kwargs = mock_client.responses.create.call_args.kwargs
+    call_kwargs = mock_client.chat.completions.create.call_args.kwargs
     assert call_kwargs["temperature"] == 0.9
 
 

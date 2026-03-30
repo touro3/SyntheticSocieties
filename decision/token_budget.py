@@ -8,13 +8,20 @@ This module provides a lightweight, dependency-free character-based estimator
 (4 chars ≈ 1 token for English text) and helpers to trim context sections in
 priority order when the budget is tight.
 
-Priority order (highest → lowest):
+Priority order (highest → lowest, i.e. last to drop):
   1. System prompt        — never trimmed
   2. State block          — never trimmed (current situation is critical)
-  3. Recent memory        — trim window if needed
-  4. Persona block        — trim to minimal if necessary
-  5. Social/RAG context   — first to drop
-  6. Population context   — first to drop
+  3. Population context   — RAG grounding (core experimental value)
+  4. Social context       — GraphRAG (core experimental value)
+  5. Persona block        — never trimmed
+  6. Recent memory        — trim window if needed
+  7. Extra guidance       — first to drop
+
+Trim order (first to drop → last):
+  1. extra guidance       — lowest value
+  2. memory (halve)       — large, compressible
+  3. social_context       — only if memory halving is insufficient
+  4. population_context   — last RAG to drop
 
 Per-model prompt budgets (prompt tokens only; excludes response headroom):
   - Mistral-7B-Instruct-v0.3  (32k ctx):  4096  — quality sweet spot for 7B attention
@@ -78,11 +85,11 @@ def trim_to_budget(
     """Trim optional context sections to fit within the token budget.
 
     Returns the same keys with possibly-trimmed values.
-    Sections are dropped in reverse-priority order:
-      1. extra guidance
-      2. social_context (GraphRAG)
-      3. population_context (SQL RAG)
-      4. memory (window halved, then dropped)
+    Sections are dropped in priority order (first to drop = lowest value):
+      1. extra guidance       — lowest value, drop first
+      2. memory (halve)       — large and compressible
+      3. social_context       — RAG, drop only if halving memory is insufficient
+      4. population_context   — most valuable RAG, last to drop
     System, state, and persona are never touched.
     """
     fixed_tokens = (
@@ -92,7 +99,6 @@ def trim_to_budget(
         + estimate_tokens(context)
         + 50  # formatting overhead
     )
-    budget = max_tokens - fixed_tokens
 
     sections = {
         "memory": memory,
@@ -101,28 +107,34 @@ def trim_to_budget(
         "extra": extra,
     }
 
-    # Drop in reverse priority order until we fit
-    drop_order = ["extra", "social_context", "population_context"]
-    for key in drop_order:
-        if budget >= estimate_tokens(sections.get("memory") or ""):
+    def _variable_tokens() -> int:
+        return sum(estimate_tokens(v or "") for v in sections.values())
+
+    budget = max_tokens - fixed_tokens
+
+    # Step 1: Drop extra guidance first (lowest value).
+    if _variable_tokens() > budget and sections.get("extra"):
+        sections["extra"] = None
+
+    # Step 2: Halve memory repeatedly (large, compressible).
+    if sections["memory"] and _variable_tokens() > budget:
+        lines = sections["memory"].splitlines()
+        while lines and _variable_tokens() > budget and len(lines) > 4:
+            lines = lines[len(lines) // 2:]
+            sections["memory"] = "\n".join(lines)
+
+    # Step 3: Drop RAG contexts only as a last resort.
+    rag_drop_order = ["social_context", "population_context"]
+    for key in rag_drop_order:
+        if _variable_tokens() <= budget:
             break
         if sections.get(key):
-            budget += estimate_tokens(sections[key] or "")
             sections[key] = None
-            if key in ("social_context", "population_context"):
-                warnings.warn(
-                    f"token_budget: dropped '{key}' to fit within {max_tokens}-token limit. "
-                    "RAG context will be absent from this prompt.",
-                    stacklevel=3,
-                )
-
-    # If memory still too large, halve repeatedly until it fits.
-    # Hard floor of 4 lines preserves at least the reflection + most recent event.
-    if sections["memory"] and estimate_tokens(sections["memory"]) > budget:
-        lines = sections["memory"].splitlines()
-        while lines and estimate_tokens("\n".join(lines)) > budget and len(lines) > 4:
-            lines = lines[len(lines) // 2:]
-        sections["memory"] = "\n".join(lines)
+            warnings.warn(
+                f"token_budget: dropped '{key}' to fit within {max_tokens}-token limit. "
+                "RAG context will be absent from this prompt.",
+                stacklevel=3,
+            )
 
     return {
         "system": system,

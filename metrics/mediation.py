@@ -18,6 +18,7 @@ This follows a standard 2x2 factorial decomposition:
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -96,3 +97,77 @@ def mediation_table(
     df = pd.DataFrame(rows)
     df = df.set_index("metric")
     return df
+
+
+def bootstrap_mediation_decomposition(
+    full_grounded_samples: list[float],
+    persona_only_samples: list[float],
+    rag_only_samples: list[float],
+    baseline_samples: list[float],
+    n_bootstrap: int = 10000,
+    confidence: float = 0.95,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Bootstrap confidence intervals for mediation decomposition effects.
+
+    Resamples each condition independently, computes the decomposition for
+    each bootstrap replicate, and returns point estimates with CIs for
+    total, persona, RAG, and interaction effects.
+
+    Args:
+        full_grounded_samples: Per-seed cooperation rates for full grounded.
+        persona_only_samples: Per-seed cooperation rates for persona-only.
+        rag_only_samples: Per-seed cooperation rates for RAG-only.
+        baseline_samples: Per-seed cooperation rates for baseline.
+        n_bootstrap: Number of bootstrap resamples.
+        confidence: Confidence level (0-1).
+        seed: RNG seed for reproducibility.
+
+    Returns:
+        Dict with point estimates and CI bounds for each effect.
+    """
+    rng = np.random.RandomState(seed)
+
+    full = np.asarray(full_grounded_samples, dtype=float)
+    persona = np.asarray(persona_only_samples, dtype=float)
+    rag = np.asarray(rag_only_samples, dtype=float)
+    base = np.asarray(baseline_samples, dtype=float)
+
+    # Point estimates
+    point = compute_mediation_decomposition(
+        full_grounded_coop=float(np.mean(full)),
+        persona_only_coop=float(np.mean(persona)),
+        rag_only_coop=float(np.mean(rag)),
+        baseline_coop=float(np.mean(base)),
+    )
+
+    # Bootstrap resampling
+    effects = {k: [] for k in ["total_effect", "persona_effect", "rag_effect", "interaction_effect"]}
+    for _ in range(n_bootstrap):
+        b_full = rng.choice(full, size=len(full), replace=True)
+        b_persona = rng.choice(persona, size=len(persona), replace=True)
+        b_rag = rng.choice(rag, size=len(rag), replace=True)
+        b_base = rng.choice(base, size=len(base), replace=True)
+
+        decomp = compute_mediation_decomposition(
+            full_grounded_coop=float(np.mean(b_full)),
+            persona_only_coop=float(np.mean(b_persona)),
+            rag_only_coop=float(np.mean(b_rag)),
+            baseline_coop=float(np.mean(b_base)),
+        )
+        for k in effects:
+            effects[k].append(decomp[k])
+
+    alpha = 1.0 - confidence
+    result = {}
+    for k in effects:
+        arr = np.array(effects[k])
+        result[k] = point[k]
+        result[f"{k}_ci_lower"] = float(np.percentile(arr, 100 * alpha / 2))
+        result[f"{k}_ci_upper"] = float(np.percentile(arr, 100 * (1 - alpha / 2)))
+
+    # Include shares from point estimate
+    result["persona_share"] = point["persona_share"]
+    result["rag_share"] = point["rag_share"]
+
+    return result

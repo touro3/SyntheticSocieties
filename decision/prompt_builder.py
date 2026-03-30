@@ -4,6 +4,11 @@ Prompt builder for LLM-based agent decision making.
 Constructs structured prompts from agent persona (ESS-derived),
 current state, memory, and world context. Designed for Mistral
 instruction format.
+
+Key entry point for most callers:
+    messages = build_prompt(profile, state, memory, context, round_id)
+
+The ``AblationLevel`` class documents exactly what each grounding level adds.
 """
 
 from __future__ import annotations
@@ -11,8 +16,49 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from decision.constants import STRESS_CRITICAL
 from decision.system_prompts import BASE_SYSTEM_PROMPT, BALANCED_SYSTEM_PROMPT
 from decision.token_budget import trim_to_budget, DEFAULT_MAX_TOKENS
+
+
+class AblationLevel:
+    """BGF prompt ablation levels — each adds one grounding component.
+
+    Used throughout build_prompt() and build_state_block() to control
+    how much ESS-derived context is injected into each LLM prompt.
+
+        BASELINE       (0) — plain prompt; no grounding
+        STRESS_AWARE   (1) — + explicit stress-salience warning
+        COOPERATION    (2) — + cooperation-incentive hint
+        TRUST_SURFACED (3) — + trust-network dict in the state block
+        BALANCED       (4) — + balanced system-prompt phrasing
+        FULL           (5) — all components (default for Condition B)
+
+    Because the values are plain ints, existing ``ablation_level >= N``
+    comparisons continue to work unchanged.
+    """
+
+    BASELINE: int = 0        # No grounding — equivalent to Condition A
+    STRESS_AWARE: int = 1    # Adds: stress salience warning
+    COOPERATION: int = 2     # Adds: cooperation-incentive hint
+    TRUST_SURFACED: int = 3  # Adds: trust network surfaced in state
+    BALANCED: int = 4        # Adds: balanced system-prompt phrasing
+    FULL: int = 5            # Full grounding — default for Condition B
+
+
+def get_neighbors(context: dict) -> list[str]:
+    """Extract the list of neighbor agent IDs from a world-context dict.
+
+    All policies need this one-liner; centralising it avoids silent
+    divergence if the context schema ever changes.
+
+    Args:
+        context: World-context dict produced by World.get_agent_context().
+
+    Returns:
+        List of neighbor agent IDs (may be empty).
+    """
+    return context.get("network", {}).get("neighbors", [])
 
 
 
@@ -99,11 +145,11 @@ def build_state_block(state, ablation_level: int = 5) -> str:
     )
     
     # V1: Explicit Stress Salience Penalties
-    if ablation_level >= 1 and state.stress >= 0.7:
+    if ablation_level >= AblationLevel.STRESS_AWARE and state.stress >= STRESS_CRITICAL:
         base += "\n[WARNING: Your stress is CRITICAL. Working will increase it further and risk burnout. Resting (save) or Cooperating may reduce it.]"
-    
+
     # V3: Surface Agent Trust Dictionary directly in state
-    if ablation_level >= 3 and hasattr(state, "trust_network") and state.trust_network:
+    if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
         # Only show neighbors where trust > 0
         active_trust = {k: round(v, 2) for k, v in state.trust_network.items() if v > 0}
         if active_trust:
@@ -169,7 +215,7 @@ def build_context_block(context: dict) -> str:
         jobs = resources.get("jobs", "unknown")
         lines.append(f"  Available jobs: {jobs}")
 
-    neighbors = context.get("network", {}).get("neighbors", [])
+    neighbors = get_neighbors(context)
     if neighbors:
         lines.append(f"  Your neighbors: {', '.join(neighbors)}")
     else:
@@ -202,10 +248,10 @@ def build_prompt(
     state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window)
     context_desc = build_context_block(context)
-    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= 4 else BASE_SYSTEM_PROMPT
+    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
 
     extra = None
-    if ablation_level >= 2:
+    if ablation_level >= AblationLevel.COOPERATION:
         extra = "HINT: Continually choosing 'work' increases your stress and alienates neighbors. Periodically mixing 'save' (rest) and 'cooperate' (mutual aid) is highly recommended to maintain long-term stability."
 
     # Trim optional sections to stay within the model's context window.

@@ -68,14 +68,14 @@ class OpenAIBackend:
 
                 start = time.time()
 
-                resp = self._client.responses.create(
+                resp = self._client.chat.completions.create(
                     model=self.model_id,
-                    input=messages,
+                    messages=messages,
                     temperature=temp,
-                    max_output_tokens=max_tok,
+                    max_tokens=max_tok,
                 )
 
-                text = resp.output[0].content[0].text.strip()
+                text = resp.choices[0].message.content.strip()
                 latency = time.time() - start
 
                 self._cache[key] = (text, latency)

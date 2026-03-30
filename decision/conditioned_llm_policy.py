@@ -79,7 +79,7 @@ class ConditionedLLMPolicy(LLMPolicyBase):
         action, raw_text, latency, parse_meta = self._generate_with_retries(messages, neighbors)
 
         if action is None:
-            action = self._fallback_action(state, neighbors)
+            action = self._fallback_action(state, neighbors, profile=profile)
             parse_meta["fallback"] = True
 
         action, correction_meta = self._sanitize_action(action, neighbors, state)
@@ -149,7 +149,7 @@ class ConditionedLLMPolicy(LLMPolicyBase):
 
         return action, meta
 
-    def _fallback_action(self, state, neighbors: list[str]) -> ProposedAction:
+    def _fallback_action(self, state, neighbors: list[str], profile=None) -> ProposedAction:
         if state.stress >= 0.75:
             return ProposedAction(
                 action_type="save",

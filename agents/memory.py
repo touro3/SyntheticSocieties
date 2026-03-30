@@ -101,15 +101,37 @@ class HierarchicalMemory:
             f"{action} ({count}×)" for action, count in top_actions
         )
 
-        # Partner summary: who has this agent cooperated with most?
+        # Partner summary with reciprocation rates from outcome data
         partners: Counter[str] = Counter(
             m.partner_id for m in items
             if m.event_type == "cooperate" and m.partner_id
         )
         partner_summary = ""
         if partners:
-            top_partners = [p for p, _ in partners.most_common(3)]
-            partner_summary = f" Most frequent cooperation partners: {', '.join(top_partners)}."
+            partner_details = []
+            for partner, count in partners.most_common(3):
+                # Check outcome data for reciprocation info
+                partner_items = [
+                    m for m in items
+                    if m.event_type == "cooperate" and m.partner_id == partner
+                ]
+                reciprocated = sum(
+                    1 for m in partner_items
+                    if m.outcome.get("reciprocated") is True
+                )
+                total_coop = len(partner_items)
+                if reciprocated > 0 or any(
+                    "reciprocated" in m.outcome for m in partner_items
+                ):
+                    pct = round(100 * reciprocated / total_coop)
+                    partner_details.append(
+                        f"{partner} ({reciprocated}/{total_coop} reciprocated, {pct}%)"
+                    )
+                else:
+                    partner_details.append(partner)
+            partner_summary = (
+                f" Most frequent cooperation partners: {', '.join(partner_details)}."
+            )
 
         # Stress/outcome trend from most recent items (last 5)
         recent_slice = items[-5:]

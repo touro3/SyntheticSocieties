@@ -6,6 +6,8 @@ bash pipeline_topology.sh             # → topology_dictatorship.png
 python scripts/run_trust_gradient.py  # → trust_gradient.png
 python scripts/run_phase_transition_sweeps.py  # → phase_transitions.png  
 
+CUDA_VISIBLE_DEVICES=0,1,2 python3 scripts/run_full_pipeline.py --include-llm --rounds 20 --agents 500
+
 =================================================================================================
 
   Plots that will change

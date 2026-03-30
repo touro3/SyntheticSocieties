@@ -12,10 +12,30 @@ import re
 import warnings
 from typing import Optional
 
+from decision.constants import (
+    DEFAULT_COOPERATE_AMOUNT,
+    DEFAULT_KEYWORD_CONFIDENCE,
+    DEFAULT_WORK_AMOUNT,
+    MAX_ACTION_AMOUNT,
+)
 from decision.schemas import ProposedAction
 
 
 VALID_ACTIONS = {"work", "save", "cooperate"}
+
+# ── Parse statistics tracking ────────────────────────────────────────────────
+# Module-level counters for diagnosing LLM output quality across runs.
+_parse_stats: dict[str, int] = {}
+
+
+def get_parse_stats() -> dict[str, int]:
+    """Return a copy of the cumulative parse method statistics."""
+    return dict(_parse_stats)
+
+
+def reset_parse_stats() -> None:
+    """Reset all parse statistics counters to zero."""
+    _parse_stats.clear()
 
 
 def parse_llm_output(
@@ -53,23 +73,36 @@ def parse_llm_output(
     if action:
         metadata["parse_method"] = "direct_json"
         metadata["parse_success"] = True
-        return _validate_action(action, neighbors, metadata)
+        result = _validate_action(action, neighbors, metadata)
+        if result[0] is not None:
+            _parse_stats["direct_json"] = _parse_stats.get("direct_json", 0) + 1
+            return result
+        # Validation failed (e.g. invalid action_type) — fall through
+        _parse_stats["failed"] = _parse_stats.get("failed", 0) + 1
+        return result
 
     # Strategy 2: Regex extraction
     action = _try_regex_json(raw_text)
     if action:
         metadata["parse_method"] = "regex_json"
         metadata["parse_success"] = True
-        return _validate_action(action, neighbors, metadata)
+        result = _validate_action(action, neighbors, metadata)
+        if result[0] is not None:
+            _parse_stats["regex_json"] = _parse_stats.get("regex_json", 0) + 1
+            return result
+        _parse_stats["failed"] = _parse_stats.get("failed", 0) + 1
+        return result
 
     # Strategy 3: Keyword fallback
     action = _try_keyword_fallback(raw_text, neighbors)
     if action:
         metadata["parse_method"] = "keyword_fallback"
         metadata["parse_success"] = True
+        _parse_stats["keyword_fallback"] = _parse_stats.get("keyword_fallback", 0) + 1
         return action, metadata
 
     metadata["parse_error"] = "All parsing strategies failed"
+    _parse_stats["failed"] = _parse_stats.get("failed", 0) + 1
     return None, metadata
 
 
@@ -114,25 +147,25 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
         return ProposedAction(
             action_type="cooperate",
             target_agent_id=target,
-            amount=5.0,
+            amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[parsed from keywords: cooperation detected]",
-            confidence=0.3,
+            confidence=DEFAULT_KEYWORD_CONFIDENCE,
         )
 
     if "save" in text_lower or "conserve" in text_lower or "preserve" in text_lower:
         return ProposedAction(
             action_type="save",
-            amount=5.0,
+            amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[parsed from keywords: saving detected]",
-            confidence=0.3,
+            confidence=DEFAULT_KEYWORD_CONFIDENCE,
         )
 
     if "work" in text_lower or "earn" in text_lower or "labor" in text_lower:
         return ProposedAction(
             action_type="work",
-            amount=10.0,
+            amount=DEFAULT_WORK_AMOUNT,
             reasoning_summary="[parsed from keywords: work detected]",
-            confidence=0.3,
+            confidence=DEFAULT_KEYWORD_CONFIDENCE,
         )
 
     return None
@@ -163,15 +196,15 @@ def _validate_action(
             # LLM picked an invalid neighbor — use first valid one
             target = neighbors[0] if neighbors else None
 
-    # Clamp amount
+    # Clamp amount to valid range [0, MAX_ACTION_AMOUNT]
     if amount is not None:
         try:
             amount = float(amount)
-            amount = max(0.0, min(amount, 20.0))
+            amount = max(0.0, min(amount, MAX_ACTION_AMOUNT))
         except (ValueError, TypeError):
-            amount = 5.0
+            amount = DEFAULT_COOPERATE_AMOUNT
     else:
-        amount = 10.0 if action_type == "work" else 5.0
+        amount = DEFAULT_WORK_AMOUNT if action_type == "work" else DEFAULT_COOPERATE_AMOUNT
 
     # Clamp confidence
     if confidence is not None:

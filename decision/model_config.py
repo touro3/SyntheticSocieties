@@ -143,6 +143,7 @@ def get_backend(config: ModelConfig):
             max_new_tokens=config.max_new_tokens,
             temperature=config.temperature,
             cache_dir=config.cache_dir,
+            context_length=config.context_length,
         )
 
     if config.backend_type == "openai":

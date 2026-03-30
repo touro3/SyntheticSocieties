@@ -28,9 +28,9 @@ def test_cooperate_transfer_via_event_dict():
     # execute() must NOT mutate target directly
     assert target.state.wealth == 50.0
 
-    # But deltas must be correct in the event dict
+    # But deltas must be correct in the event dict (1.5× cooperation multiplier)
     assert event["wealth_delta"] == -5.0
-    assert event["target_wealth_delta"] == 5.0
+    assert event["target_wealth_delta"] == 7.5  # 5.0 * 1.5
 
     # The kernel is responsible for applying target_wealth_delta
     source.apply_local_update(event)
@@ -38,4 +38,4 @@ def test_cooperate_transfer_via_event_dict():
 
     # Simulate kernel applying target delta
     target.state.wealth += event["target_wealth_delta"]
-    assert target.state.wealth == 55.0
+    assert target.state.wealth == 57.5  # 50.0 + 7.5

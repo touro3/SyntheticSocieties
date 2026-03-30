@@ -45,7 +45,7 @@ class TestProcessCooperation:
         )
         proc.process_agent_action(a1, action, round_id=1)
         assert a1.state.wealth == 95.0
-        assert a2.state.wealth == 55.0
+        assert a2.state.wealth == 57.5  # 50.0 + (5.0 * 1.5 cooperation multiplier)
 
 
 class TestProcessRejection:

@@ -56,7 +56,7 @@ def test_sql_rag_security():
 def test_sql_rag_parameterization():
     rag = SQLRAG(data_path="data/ess_clean.parquet")
     ctx = rag.get_peer_group_context(age=30, gender="female")
-    assert "Context:" in ctx
+    assert "peers" in ctx.lower() or "Based on" in ctx
 
 
 def test_sql_rag_missing_data():

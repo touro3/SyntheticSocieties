@@ -139,10 +139,34 @@ def _try_regex_json(text: str) -> Optional[dict]:
 
 
 def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional[ProposedAction]:
-    """Last resort: infer action from keywords in the text."""
+    """Last resort: infer action from keywords in the text.
+
+    Uses word-boundary regex to avoid false positives (e.g., "network"
+    matching "work"). When multiple action keywords are found, scores
+    each action and picks the highest.
+    """
     text_lower = text.lower()
 
-    if "cooperate" in text_lower or "help" in text_lower or "share" in text_lower:
+    # Word-boundary patterns to avoid substring false positives
+    _ACTION_PATTERNS = {
+        "cooperate": [r'\bcooperat\w*\b', r'\bhelp\b', r'\bshar\w*\b', r'\bgive\b'],
+        "save": [r'\bsav\w*\b', r'\bconserv\w*\b', r'\brest\b', r'\bpreserv\w*\b'],
+        "work": [r'\bwork\b', r'\bearn\b', r'\blabor\b', r'\bincome\b'],
+    }
+
+    scores: dict[str, int] = {}
+    for action_type, patterns in _ACTION_PATTERNS.items():
+        score = sum(1 for p in patterns if re.search(p, text_lower))
+        if score > 0:
+            scores[action_type] = score
+
+    if not scores:
+        return None
+
+    # Pick the action with the highest keyword score
+    best_action = max(scores, key=scores.get)
+
+    if best_action == "cooperate":
         target = neighbors[0] if neighbors else None
         return ProposedAction(
             action_type="cooperate",
@@ -152,7 +176,7 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
             confidence=DEFAULT_KEYWORD_CONFIDENCE,
         )
 
-    if "save" in text_lower or "conserve" in text_lower or "preserve" in text_lower:
+    if best_action == "save":
         return ProposedAction(
             action_type="save",
             amount=DEFAULT_COOPERATE_AMOUNT,
@@ -160,15 +184,13 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
             confidence=DEFAULT_KEYWORD_CONFIDENCE,
         )
 
-    if "work" in text_lower or "earn" in text_lower or "labor" in text_lower:
-        return ProposedAction(
-            action_type="work",
-            amount=DEFAULT_WORK_AMOUNT,
-            reasoning_summary="[parsed from keywords: work detected]",
-            confidence=DEFAULT_KEYWORD_CONFIDENCE,
-        )
-
-    return None
+    # best_action == "work"
+    return ProposedAction(
+        action_type="work",
+        amount=DEFAULT_WORK_AMOUNT,
+        reasoning_summary="[parsed from keywords: work detected]",
+        confidence=DEFAULT_KEYWORD_CONFIDENCE,
+    )
 
 
 def _validate_action(

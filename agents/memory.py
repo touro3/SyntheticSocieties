@@ -60,14 +60,19 @@ class HierarchicalMemory:
                 self._compress_archive()
 
     def _compress_archive(self) -> None:
-        """Summarize the current archive into a reflection string and store it."""
+        """Summarize the current archive into a reflection string and store it.
+
+        Keeps up to MAX_REFLECTIONS entries so the LLM gets a multi-scale
+        view of the agent's behavioral history, rather than losing all
+        historical context on each compression.
+        """
         reflection = self._build_reflection_text(self.archive)
         if reflection:
-            # Replace the last reflection if it exists (keeps list bounded to 1 entry).
-            if self.reflections:
-                self.reflections[-1] = reflection
-            else:
-                self.reflections.append(reflection)
+            self.reflections.append(reflection)
+            # Keep bounded — drop oldest reflections beyond the cap
+            MAX_REFLECTIONS = 3
+            if len(self.reflections) > MAX_REFLECTIONS:
+                self.reflections = self.reflections[-MAX_REFLECTIONS:]
 
     # ── Reflection generation ─────────────────────────────────────────────────
 
@@ -88,18 +93,25 @@ class HierarchicalMemory:
 
     @staticmethod
     def _build_reflection_text(items: List[MemoryItem]) -> str:
-        """Convert a list of memory items into a concise summary string."""
+        """Convert a list of memory items into a concise summary string.
+
+        Uses proportional language ('work 50%, save 33%, cooperate 17%')
+        rather than raw frequency counts ('work 15×') to prevent the LLM
+        from interpreting frequency as a behavioral directive. Includes
+        outcome tracking and a counterfactual cue.
+        """
         if not items:
             return ""
 
         action_counts: Counter[str] = Counter(m.event_type for m in items)
         total = len(items)
 
-        # Action frequency summary
-        top_actions = action_counts.most_common(3)
-        action_summary = ", ".join(
-            f"{action} ({count}×)" for action, count in top_actions
-        )
+        # Proportional action summary (prevents frequency-as-directive interpretation)
+        action_parts = []
+        for action, count in action_counts.most_common():
+            pct = round(100 * count / total)
+            action_parts.append(f"{action} {pct}%")
+        action_summary = ", ".join(action_parts)
 
         # Partner summary with reciprocation rates from outcome data
         partners: Counter[str] = Counter(
@@ -125,24 +137,33 @@ class HierarchicalMemory:
                 ):
                     pct = round(100 * reciprocated / total_coop)
                     partner_details.append(
-                        f"{partner} ({reciprocated}/{total_coop} reciprocated, {pct}%)"
+                        f"{partner} (reciprocated {pct}% of the time)"
                     )
                 else:
                     partner_details.append(partner)
             partner_summary = (
-                f" Most frequent cooperation partners: {', '.join(partner_details)}."
+                f" Cooperation partners: {', '.join(partner_details)}."
             )
 
-        # Stress/outcome trend from most recent items (last 5)
+        # Outcome trend: wealth and stress changes from recent items
         recent_slice = items[-5:]
+        outcome_parts = []
+        wealth_deltas = [m.outcome.get("wealth_delta", 0) for m in recent_slice if m.outcome]
+        if wealth_deltas:
+            avg_delta = sum(wealth_deltas) / len(wealth_deltas)
+            direction = "gaining" if avg_delta > 0 else "losing" if avg_delta < 0 else "stable"
+            outcome_parts.append(f"wealth {direction}")
         recent_actions = [m.event_type for m in recent_slice]
-        recent_summary = ""
         if recent_actions:
-            recent_summary = f" Recently: {', '.join(recent_actions)}."
+            outcome_parts.append(f"recent actions: {', '.join(recent_actions)}")
+        outcome_summary = f" Trend: {'; '.join(outcome_parts)}." if outcome_parts else ""
+
+        # Counterfactual cue to prevent action lock-in
+        counterfactual = " Note: your past choices do not constrain your current decision."
 
         return (
-            f"Over your recorded history ({total} events), you most often chose: "
-            f"{action_summary}.{partner_summary}{recent_summary}"
+            f"Over {total} events, your action distribution was: "
+            f"{action_summary}.{partner_summary}{outcome_summary}{counterfactual}"
         )
 
     # ── Read ──────────────────────────────────────────────────────────────────

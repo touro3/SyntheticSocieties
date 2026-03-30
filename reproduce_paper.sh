@@ -162,6 +162,14 @@ python scripts/plot_phase_transitions.py || true
 python scripts/export_figures_hires.py || true
 
 echo ""
+echo "=== Policy sweep (CPU demo) ==="
+python scripts/run_policy_sweep.py --dry-run || true
+
+echo ""
+echo "=== Zenodo metadata check ==="
+python -c "import json; d=json.load(open('zenodo.json')); assert 'title' in d; print('zenodo.json OK')" || true
+
+echo ""
 echo "======================================================="
 echo "  Reproduction complete."
 echo ""

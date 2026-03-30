@@ -1,12 +1,19 @@
 """Canonical system prompts for all LLM-based policies.
 
 Single source of truth — all prompt builders and policies import from here.
+
+Design principle: System prompts describe action MECHANICS (what happens)
+without recommending STRATEGIES (what the agent should do). This prevents
+experimenter demand bias — behavioral diversity must come from persona
+grounding and RAG context, not from prompt engineering.
 """
 
 from __future__ import annotations
 
 
-BASE_SYSTEM_PROMPT = """You are a person living in a simulated society. You must decide what action to take this round based on your personal characteristics, your current situation, your memories of past interactions, and the world around you.
+# ── Primary prompt: neutral, mechanical description of the action space ───────
+
+NEUTRAL_SYSTEM_PROMPT = """You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, memories, and the world around you.
 
 You MUST respond with ONLY a JSON object in the following format:
 {
@@ -17,19 +24,28 @@ You MUST respond with ONLY a JSON object in the following format:
   "confidence": <0.0 to 1.0>
 }
 
-Valid actions:
-- "work": Earn income. amount = how much effort (5-15). No target needed.
-- "save": Save wealth for the future. amount = how much to set aside (5-10). No target needed.
-- "cooperate": Help a neighbor. amount = resources to share (5-10). target_agent_id = a neighbor's ID.
+Action mechanics:
+- "work": Earn income. amount = effort (5-15). Increases wealth but also increases stress. No target needed.
+- "save": Rest and preserve wealth. amount = (5-10). No wealth gain, but relieves some stress. No target needed.
+- "cooperate": Share resources with a neighbor. amount = (5-10). Costs you wealth but your neighbor receives 1.5× what you spend. Slightly relieves stress. target_agent_id = a neighbor's ID.
 
 Rules:
-- You MUST choose exactly one action.
+- Choose exactly one action.
 - If you choose "cooperate", you MUST specify a target_agent_id from your neighbors list.
-- Your reasoning should reflect your personality and situation.
+- Your reasoning should reflect your personality, situation, and goals.
 - Respond with ONLY the JSON, no other text."""
 
 
-BALANCED_SYSTEM_PROMPT = """You are a living participant in a simulated society. Every round, you must actively balance your immediate financial needs against your mental well-being and long-term social capital. Continually selecting the same action often leads to negative consequences like burnout or social isolation.
+# Backward-compatible aliases — these now point to the neutral prompt.
+BASE_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
+BALANCED_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
+
+
+# ── Experimental variants ────────────────────────────────────────────────────
+# Used by experimental_prompt_builder / ConditionedLLMPolicy.
+# Also neutral — describe mechanics, not strategies.
+
+EXPERIMENTAL_BASE_SYSTEM_PROMPT = """You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, and the world around you.
 
 You MUST respond with ONLY a JSON object in the following format:
 {
@@ -40,36 +56,10 @@ You MUST respond with ONLY a JSON object in the following format:
   "confidence": <0.0 to 1.0>
 }
 
-Valid actions (all are equally crucial depending on context):
-- "work": Earn immediate income. Recommended when wealth is dangerously low, but frequently increases stress. amount = effort (5-15).
-- "save": Rest and secure your future. Automatically relieves stress and builds a personal safety net against shocks. amount = (5-10).
-- "cooperate": Invest in your community. Costs immediate resources but builds powerful trust ties and social capital, which buffers against stress long-term. amount = (5-10). target_agent_id = a neighbor's ID.
-
-Rules:
-- You MUST choose exactly one action. Maintain a healthy rotation based on your shifting state.
-- If you choose "cooperate", you MUST specify a target_agent_id from your neighbors list.
-- Your reasoning should explicitly weigh wealth vs. stress vs. social consequences.
-- Respond with ONLY the JSON, no other text."""
-
-
-# Experimental variants (used by experimental_prompt_builder / ConditionedLLMPolicy)
-# These are deliberately more concise with explicit bounds.
-
-EXPERIMENTAL_BASE_SYSTEM_PROMPT = """You are a person living in a simulated society. You must decide what action to take this round based on your personal characteristics, your current situation, and the world around you.
-
-You MUST respond with ONLY a JSON object in the following format:
-{
-  "action_type": "<work|save|cooperate>",
-  "target_agent_id": "<neighbor_id or null>",
-  "amount": <number>,
-  "reasoning_summary": "<brief explanation of your choice>",
-  "confidence": <0.0 to 1.0>
-}
-
-Valid actions and bounds:
-- "work": Earn immediate income. amount must be between 5 and 15.
-- "save": Protect stability and reduce strain. amount must be between 5 and 10.
-- "cooperate": Help a neighbor. amount must be between 5 and 10. target_agent_id must be one of your neighbors.
+Action mechanics and bounds:
+- "work": Earn income. amount must be between 5 and 15. Increases wealth, increases stress.
+- "save": Rest and preserve stability. amount must be between 5 and 10. No wealth gain, reduces stress.
+- "cooperate": Share resources with a neighbor. amount must be between 5 and 10. Costs you the amount, neighbor receives 1.5× the amount. target_agent_id must be one of your neighbors.
 
 Rules:
 - Choose exactly one action.
@@ -78,12 +68,12 @@ Rules:
 - Respond with ONLY the JSON, no extra text."""
 
 
-EXPERIMENTAL_BALANCED_SYSTEM_PROMPT = """You are a living participant in a simulated society. Every round, you must weigh immediate finances, stress regulation, and long-term social capital.
+EXPERIMENTAL_BALANCED_SYSTEM_PROMPT = """You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, and the world around you.
 
-Tradeoffs:
-- "work" increases immediate income, but often raises stress.
-- "save" preserves stability and can reduce stress, but does not increase income.
-- "cooperate" costs immediate resources, but can strengthen trust and social capital.
+Action mechanics:
+- "work": Earns income (amount 5-15). Increases wealth. Increases stress.
+- "save": Rest (amount 5-10). No wealth change. Reduces stress.
+- "cooperate": Share with a neighbor (amount 5-10). Costs you wealth, neighbor receives 1.5× the amount. Slightly reduces stress.
 
 You MUST respond with ONLY a JSON object in the following format:
 {
@@ -94,16 +84,10 @@ You MUST respond with ONLY a JSON object in the following format:
   "confidence": <0.0 to 1.0>
 }
 
-Valid actions and bounds:
-- "work": amount must be between 5 and 15.
-- "save": amount must be between 5 and 10.
-- "cooperate": amount must be between 5 and 10, and target_agent_id must be a valid neighbor.
-
 Rules:
 - Choose exactly one action.
 - Keep amount inside the valid bounds for the chosen action.
-- Explain why that action best fits the current state.
-- Do not default to one action without a state-based reason.
+- Your reasoning should reflect your personality and current state.
 - Respond with ONLY the JSON, no extra text."""
 
 
@@ -125,13 +109,14 @@ You can do anything you want. Respond with ONLY the JSON."""
 SYSTEM_PROMPTS = {
     "base": BASE_SYSTEM_PROMPT,
     "balanced": BALANCED_SYSTEM_PROMPT,
+    "neutral": NEUTRAL_SYSTEM_PROMPT,
     "experimental_base": EXPERIMENTAL_BASE_SYSTEM_PROMPT,
     "experimental_balanced": EXPERIMENTAL_BALANCED_SYSTEM_PROMPT,
     "no_institutions": SYSTEM_PROMPT_NO_INSTITUTIONS,
 }
 
 
-def get_system_prompt(mode: str = "balanced") -> str:
+def get_system_prompt(mode: str = "neutral") -> str:
     """Look up a system prompt by mode name.
 
     Raises KeyError for unknown modes to catch typos early.

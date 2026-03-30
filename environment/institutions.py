@@ -42,6 +42,7 @@ class InstitutionManager:
             "target_agent_id": action.target_agent_id,
             "wealth_delta": 0.0,
             "stress_delta": 0.0,
+            "satisfaction_delta": 0.0,
             "target_wealth_delta": 0.0,
             "interaction_type": None,
             "round_id": world_state.round_id,
@@ -50,17 +51,23 @@ class InstitutionManager:
         if action.action_type == "work":
             event["wealth_delta"] = float(action.amount or self.payoffs.work_income)
             event["stress_delta"] = self.payoffs.work_stress_increase
+            # Earning provides mild satisfaction, reduced when stress is high
+            event["satisfaction_delta"] = 0.05 if agent.state.stress < 0.5 else -0.05
 
         elif action.action_type == "save":
             event["wealth_delta"] = self.payoffs.save_wealth_delta
             event["stress_delta"] = self.payoffs.save_stress_relief
+            # Resting and saving provides security-based satisfaction
+            event["satisfaction_delta"] = 0.08
 
         elif action.action_type == "cooperate":
             amount = float(action.amount or 0.0)
 
             event["wealth_delta"] = -amount
-            event["target_wealth_delta"] = amount
+            event["target_wealth_delta"] = amount * self.payoffs.cooperation_multiplier
             event["stress_delta"] = self.payoffs.cooperate_stress_relief
+            # Social cooperation provides the strongest satisfaction boost
+            event["satisfaction_delta"] = 0.12
             event["interaction_type"] = "cooperation"
 
         return event

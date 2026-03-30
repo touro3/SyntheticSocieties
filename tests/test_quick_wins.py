@@ -430,8 +430,13 @@ class TestParseFailureTracking:
     def test_fallback_action_logged(self):
         """LLMPolicyBase must track when fallback actions are used."""
         base = _make_policy_base()
-        assert hasattr(base, "fallback_count") or hasattr(LLMPolicyBase, "_fallback_counter")
-        # The class should have a way to track fallback usage
+        # Instance should support fallback tracking (lazy-initialized)
+        assert hasattr(base, 'get_fallback_rate')
+        assert hasattr(base, 'get_proposal_stats')
+        # After first use, counters should be accessible
+        state = AgentState(wealth=30.0)
+        base._fallback_action(state, neighbors=["a1"])
+        assert base._fallback_counter >= 1
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

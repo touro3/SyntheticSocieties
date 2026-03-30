@@ -38,6 +38,7 @@ class TestAgentStateSnapshot:
             "stress": 0.3,
             "satisfaction": 0.7,
             "last_action": "work",
+            "trust": {},
         }
 
     def test_snapshot_is_independent_copy(self):

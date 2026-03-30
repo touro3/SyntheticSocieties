@@ -15,8 +15,8 @@ class TestEstimateTokens:
         assert estimate_tokens("") >= 1  # minimum 1
 
     def test_known_length(self):
-        # 400 chars ≈ 100 tokens
-        assert estimate_tokens("a" * 400) == 100
+        # 400 chars at ~3.3 chars/token ≈ 121 tokens
+        assert estimate_tokens("a" * 400) == 121
 
     def test_longer_text_has_more_tokens(self):
         assert estimate_tokens("x" * 800) > estimate_tokens("x" * 400)

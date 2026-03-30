@@ -258,9 +258,10 @@ def plot_llm_grounding_comparison():
     ax.set_title("D. Key Metrics by Grounding Level")
     ax.legend(fontsize=7, loc="upper right")
 
-    plt.subplots_adjust(rect=[0, 0, 1, 0.95])
+    fig.subplots_adjust(top=0.90, hspace=0.30, wspace=0.25)
     out = OUTPUT_DIR / "llm_grounding_comparison.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
+
     plt.close(fig)
     print(f"  ✓ {out}")
     return out
@@ -832,7 +833,8 @@ def plot_results_dashboard():
         ax.text(bar.get_x() + bar.get_width()/2, g + 1, f"{g:.1f}%",
                 ha="center", va="bottom", fontsize=9, color="#e8e8e8")
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.subplots_adjust(top=0.92, hspace=0.32, wspace=0.28)
+
     out = OUTPUT_DIR / "results_dashboard.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
     plt.close(fig)

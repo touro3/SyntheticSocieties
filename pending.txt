@@ -5,7 +5,7 @@ bash pipeline_macro_shock.sh          # → macro_shock_resilience.png
 bash pipeline_topology.sh             # → topology_dictatorship.png                                               
 python scripts/run_trust_gradient.py  # → trust_gradient.png
 python scripts/run_phase_transition_sweeps.py  # → phase_transitions.png  
-
+python scripts/run_policy_sweep.py --rule cooperation_bonus
 CUDA_VISIBLE_DEVICES=0,1,2 python3 scripts/run_full_pipeline.py --include-llm --rounds 20 --agents 500
 
 =================================================================================================

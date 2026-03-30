@@ -1,0 +1,36 @@
+{
+  "title": "Behavioral Grounding Framework (BGF): LLM-Grounded Multi-Agent Economic Simulation",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "version": "1.0.0",
+  "publication_date": "2026-03-25",
+  "description": "BGF is an open-source multi-agent economic simulation framework that grounds LLM agent behavior in empirical sociodemographic data from the European Social Survey (ESS). It demonstrates and quantifies the RLHF cooperative bias in instruction-tuned LLMs, introduces the Behavioral Realism Metric (BRM) and RLHF Bias Index (B_RLHF), and provides a reproducible pipeline for LLM-driven computational social science research.",
+  "creators": [
+    {
+      "name": "Tourinho, Lucas"
+    }
+  ],
+  "keywords": [
+    "agent-based modeling",
+    "large language models",
+    "RLHF bias",
+    "synthetic data",
+    "European Social Survey",
+    "behavioral economics",
+    "multi-agent simulation",
+    "cooperation",
+    "inequality",
+    "computational social science",
+    "policy evaluation"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/lucastourinho/SyntheticSocieties",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "language": "eng",
+  "notes": "Includes 804+ unit and integration tests. Requires Python 3.10+. GPU optional (Mistral-7B-Instruct-v0.3); CPU-only mode available via MockPolicy and dry-run scripts."
+}

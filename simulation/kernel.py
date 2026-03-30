@@ -7,7 +7,13 @@ orchestration; RoundProcessor owns validate → execute → update → log.
 
 from __future__ import annotations
 
+import logging
+import warnings
+from collections import Counter
+
 from simulation.round_processor import RoundProcessor
+
+logger = logging.getLogger(__name__)
 
 
 class SimulationKernel:
@@ -19,6 +25,7 @@ class SimulationKernel:
         self._processor = RoundProcessor(
             world=world, agent_lookup=self.agent_lookup, logger=logger,
         )
+        self.round_metrics: list[dict] = []
 
     def run(self, num_rounds: int) -> None:
         for _ in range(num_rounds):
@@ -26,6 +33,7 @@ class SimulationKernel:
                 self.run_round_batched()
             else:
                 self.run_round()
+            self._log_round_metrics()
 
     def _can_use_batched_mode(self) -> bool:
         try:
@@ -166,3 +174,71 @@ class SimulationKernel:
             self._processor.process_agent_action(
                 agent, action, round_id, perception=perception,
             )
+
+    # ── Per-round metrics ────────────────────────────────────────────────────
+
+    def _log_round_metrics(self) -> None:
+        """Compute and store aggregate metrics for the current round.
+
+        Tracks action distribution, wealth Gini, mean wealth/stress/satisfaction.
+        Emits a warning if action collapse is detected (>90% same action).
+        """
+        round_id = self.world.state.round_id
+
+        # Action distribution from last_action
+        actions = [a.state.last_action for a in self.agents if a.state.last_action]
+        action_counts = dict(Counter(actions))
+        total_actions = sum(action_counts.values())
+        action_dist = {
+            k: round(v / total_actions, 3) if total_actions > 0 else 0
+            for k, v in action_counts.items()
+        }
+
+        # Wealth stats
+        wealths = [a.state.wealth for a in self.agents]
+        mean_wealth = sum(wealths) / len(wealths) if wealths else 0.0
+        gini = self._compute_gini(wealths)
+
+        # Stress and satisfaction stats
+        stresses = [a.state.stress for a in self.agents]
+        satisfactions = [a.state.satisfaction for a in self.agents]
+        mean_stress = sum(stresses) / len(stresses) if stresses else 0.0
+        mean_satisfaction = sum(satisfactions) / len(satisfactions) if satisfactions else 0.0
+
+        metrics = {
+            "round_id": round_id,
+            "action_distribution": action_dist,
+            "action_counts": action_counts,
+            "gini": round(gini, 4),
+            "mean_wealth": round(mean_wealth, 2),
+            "mean_stress": round(mean_stress, 4),
+            "mean_satisfaction": round(mean_satisfaction, 4),
+            "n_agents": len(self.agents),
+        }
+
+        self.round_metrics.append(metrics)
+
+        # Early warning: action collapse detection
+        if action_dist:
+            max_action_pct = max(action_dist.values())
+            if max_action_pct > 0.90 and total_actions >= 3:
+                dominant_action = max(action_dist, key=action_dist.get)
+                warnings.warn(
+                    f"Round {round_id}: Action collapse detected — "
+                    f"{dominant_action} accounts for {max_action_pct:.0%} of actions.",
+                    stacklevel=2,
+                )
+
+    @staticmethod
+    def _compute_gini(values: list[float]) -> float:
+        """Compute Gini coefficient for a list of non-negative values."""
+        if not values or len(values) < 2:
+            return 0.0
+        sorted_vals = sorted(values)
+        n = len(sorted_vals)
+        cumulative = sum((2 * i - n + 1) * v for i, v in enumerate(sorted_vals))
+        mean = sum(sorted_vals) / n
+        if mean == 0:
+            return 0.0
+        return cumulative / (n * n * mean)
+

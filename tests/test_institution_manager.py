@@ -33,8 +33,8 @@ class TestExecuteNoSideEffects:
 
         # Target wealth must NOT be mutated by execute
         assert target.state.wealth == 50.0
-        # But the event must carry the delta
-        assert event["target_wealth_delta"] == 5.0
+        # But the event must carry the delta (1.5× cooperation multiplier)
+        assert event["target_wealth_delta"] == 7.5  # 5.0 * 1.5
         assert event["wealth_delta"] == -5.0
 
 
@@ -64,6 +64,7 @@ class TestExecuteDeltas:
         )
         event = manager.execute(action, source, ws, lookup)
         assert event["wealth_delta"] == -7.0
-        assert event["target_wealth_delta"] == 7.0
+        assert event["target_wealth_delta"] == 10.5  # 7.0 * 1.5 cooperation multiplier
         assert event["stress_delta"] == -0.1
         assert event["interaction_type"] == "cooperation"
+        assert event["satisfaction_delta"] == 0.12

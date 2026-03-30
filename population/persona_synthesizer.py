@@ -42,70 +42,15 @@ class PersonaRecord(BaseModel):
     health_status: float | None = None
     religiosity: float | None = None
 
-
-def _safe_float(value, default: float | None = None) -> float | None:
-    if value is None:
-        return default
-    try:
-        value = float(value)
-    except (TypeError, ValueError):
-        return default
-    if pd.isna(value):
-        return default
-    return value
-
-
-def _safe_int(value, default: int | None = None) -> int | None:
-    f = _safe_float(value)
-    return int(f) if f is not None else default
-
-
-def _map_education(level: int | None) -> str:
-    mapping = {
-        1: "less_than_lower_secondary",
-        2: "lower_secondary",
-        3: "upper_secondary",
-        4: "post_secondary",
-        5: "short_cycle_tertiary",
-        6: "bachelor",
-        7: "master_or_higher",
-    }
-    return mapping.get(level, "upper_secondary")
-
-
-def _map_location(urbanization: int | None) -> str:
-    mapping = {
-        1: "big_city",
-        2: "suburbs",
-        3: "town",
-        4: "village",
-        5: "countryside",
-    }
-    return mapping.get(urbanization, "town")
-
-
-def _map_political(value: float | None) -> str:
-    if value is None:
-        return "center"
-    if value < 0.30:
-        return "left"
-    if value < 0.45:
-        return "center-left"
-    if value < 0.55:
-        return "center"
-    if value < 0.70:
-        return "center-right"
-    return "right"
-
-
-def _map_social_class(income_decile: int | None) -> str:
-    if income_decile is None:
-        return "middle"
-    if income_decile <= 3:
-        return "lower"
-    if income_decile <= 7:
-        return "middle"
-    return "upper"
+from population._helpers import (
+    safe_float as _safe_float,
+    safe_int as _safe_int,
+    map_education as _map_education,
+    map_location as _map_location,
+    map_political as _map_political,
+    map_social_class as _map_social_class,
+    safe_mean,
+)
 
 
 def _mean_institutions(row: pd.Series) -> float | None:

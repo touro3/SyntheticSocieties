@@ -43,5 +43,6 @@ class Agent:
     def apply_local_update(self, executed_event: dict) -> None:
         self.state.wealth += float(executed_event.get("wealth_delta", 0.0))
         self.state.stress += float(executed_event.get("stress_delta", 0.0))
+        self.state.satisfaction += float(executed_event.get("satisfaction_delta", 0.0))
         self.state.last_action = executed_event.get("action_type", self.state.last_action)
         self.state.clamp()

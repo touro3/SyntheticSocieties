@@ -7,6 +7,7 @@ rather than deep inside a simulation run.
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -15,7 +16,9 @@ from pydantic import BaseModel, Field, field_validator
 
 class ProjectConfig(BaseModel):
     name: str = "bgf"
-    experiment_id: str = "exp_0001"
+    experiment_id: str = Field(
+        default_factory=lambda: f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
     seed: int = 42
 
 
@@ -25,7 +28,10 @@ class SimulationConfig(BaseModel):
 
 
 class PolicyConfig(BaseModel):
-    type: Literal["mock", "random", "template", "rule_based", "llm"] = "mock"
+    type: Literal[
+        "mock", "random", "template", "rule_based", "llm",
+        "conditioned_llm", "generative_agents", "ablated_llm", "data_driven",
+    ] = "mock"
 
 
 class PopulationConfig(BaseModel):

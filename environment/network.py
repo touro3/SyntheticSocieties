@@ -52,8 +52,33 @@ class NetworkManager:
             return []
         return list(self.graph.neighbors(agent_id))
 
+    def add_edge(self, source: str, target: str, weight: float = 1.0) -> None:
+        """Add a new edge or strengthen an existing one.
+
+        Called by RoundProcessor when cooperation occurs, enabling
+        dynamic network evolution — new cooperative relationships
+        create new edges in the social graph.
+        """
+        if self.graph.has_edge(source, target):
+            self.strengthen_edge(source, target)
+        else:
+            self.graph.add_edge(source, target, weight=weight)
+
+    def strengthen_edge(self, source: str, target: str, increment: float = 0.1) -> None:
+        """Increase weight of an existing edge (repeated cooperation)."""
+        if self.graph.has_edge(source, target):
+            current = self.graph[source][target].get("weight", 1.0)
+            self.graph[source][target]["weight"] = current + increment
+
+    def get_edge_weight(self, source: str, target: str) -> float:
+        """Return the weight of an edge, or 0.0 if no edge exists."""
+        if self.graph.has_edge(source, target):
+            return self.graph[source][target].get("weight", 1.0)
+        return 0.0
+
     def num_nodes(self) -> int:
         return self.graph.number_of_nodes()
 
     def num_edges(self) -> int:
         return self.graph.number_of_edges()
+

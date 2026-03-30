@@ -56,9 +56,9 @@ class OpenAIBackend:
 
         key = self._hash_messages(messages)
 
-        # ✅ CACHE
+        # ✅ CACHE — return cached (text, latency) directly
         if key in self._cache:
-            return self._cache[key], 0.0
+            return self._cache[key]
 
         last_error = None
 

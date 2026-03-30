@@ -68,6 +68,27 @@ class RoundProcessor:
             target.state.wealth += target_delta
             target.state.clamp()
 
+        # Update trust from cooperation events
+        if executed_event.get("interaction_type") == "cooperation" and target_id:
+            source_id = executed_event.get("agent_id")
+            if source_id and source_id in self.agent_lookup:
+                source = self.agent_lookup[source_id]
+                # The cooperator builds trust toward the target (unilateral)
+                source.state.update_trust_from_cooperation(
+                    target_id, was_reciprocated=True
+                )
+            if target_id in self.agent_lookup:
+                target = self.agent_lookup[target_id]
+                # The target records trust toward the source (received help)
+                target.state.update_trust_from_cooperation(
+                    source_id, was_reciprocated=True
+                )
+
+            # Dynamic network evolution: cooperation creates/strengthens edges
+            network = getattr(self.world, "network_manager", None)
+            if network is not None and source_id:
+                network.add_edge(source_id, target_id)
+
     def _record_memory(
         self, agent: Agent, proposed_action: ProposedAction,
         executed_event: dict, round_id: int,

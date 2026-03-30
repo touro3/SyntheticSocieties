@@ -34,8 +34,10 @@ from __future__ import annotations
 
 import warnings
 
-# Conservative estimate: 4 characters per token for English prose.
-_CHARS_PER_TOKEN = 4
+# Improved estimate: ~3.3 characters per token for English prose with
+# numbers (validated against Mistral tokenizer). The old value of 4 was
+# ~20% too generous, risking silent truncation at the model level.
+_CHARS_PER_TOKEN = 3.3
 
 # Default budget for unknown/unconfigured models.
 DEFAULT_MAX_TOKENS = 3072
@@ -47,6 +49,19 @@ _MODEL_BUDGETS: dict[str, int] = {
     "qwen2.5-7b": 6144,
     "gpt-4o-mini": 8192,
 }
+
+# Optional: actual tokenizer for exact counting (set via set_tokenizer).
+_tokenizer = None
+
+
+def set_tokenizer(tokenizer) -> None:
+    """Register a tokenizer for exact token counting.
+
+    Call this after loading the model to switch from character-based
+    estimation to exact tokenizer-based counting.
+    """
+    global _tokenizer
+    _tokenizer = tokenizer
 
 
 def budget_for_model(model_id: str) -> int:
@@ -63,8 +78,13 @@ def budget_for_model(model_id: str) -> int:
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimate token count from character count. Fast, no dependencies."""
-    return max(1, len(text) // _CHARS_PER_TOKEN)
+    """Estimate token count — uses tokenizer if available, else char heuristic."""
+    if _tokenizer is not None:
+        try:
+            return len(_tokenizer.encode(text, add_special_tokens=False))
+        except Exception:
+            pass  # Fall through to heuristic
+    return max(1, int(len(text) / _CHARS_PER_TOKEN))
 
 
 def fits_in_budget(text: str, max_tokens: int = DEFAULT_MAX_TOKENS) -> bool:

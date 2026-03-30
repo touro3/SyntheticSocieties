@@ -32,8 +32,15 @@ class LLMPolicyBase:
     max_retries: int
     prompt_logger: object | None
 
-    # Class-level counter for tracking fallback usage across all policy instances.
-    _fallback_counter: int = 0
+    # Instance-level counters for tracking fallback usage and total proposals.
+    # Lazily initialized via _ensure_counters() to avoid __init__ coupling.
+
+    def _ensure_counters(self) -> None:
+        """Lazily initialize proposal counters on first use."""
+        if not hasattr(self, '_fallback_counter'):
+            self._fallback_counter = 0
+        if not hasattr(self, '_total_proposals'):
+            self._total_proposals = 0
 
     def _generate_with_retries(
         self,
@@ -41,6 +48,8 @@ class LLMPolicyBase:
         neighbors: list[str],
     ) -> tuple[ProposedAction | None, str, float, dict]:
         """Generate LLM output with retries. Returns (action, raw_text, latency, parse_meta)."""
+        self._ensure_counters()
+        self._total_proposals += 1
         action = None
         raw_text = ""
         latency = 0.0
@@ -68,7 +77,8 @@ class LLMPolicyBase:
         risk_tolerance) to produce persona-consistent fallback behavior
         instead of purely wealth-based rules.
         """
-        LLMPolicyBase._fallback_counter += 1
+        self._ensure_counters()
+        self._fallback_counter += 1
 
         trust = getattr(profile, "trust_people", None) if profile else None
         risk = getattr(profile, "risk_tolerance", None) if profile else None
@@ -154,3 +164,23 @@ class LLMPolicyBase:
             parse_metadata=meta,
             rag_context=rag_context,
         )
+
+    def get_fallback_rate(self) -> float:
+        """Return the fraction of proposals that used fallback.
+
+        A high fallback rate (> 0.15) indicates the LLM is struggling to
+        produce parseable output and the experiment results may be
+        unreliable — dominated by rule-based behavior, not LLM behavior.
+        """
+        self._ensure_counters()
+        if self._total_proposals == 0:
+            return 0.0
+        return self._fallback_counter / self._total_proposals
+
+    def get_proposal_stats(self) -> dict:
+        """Return diagnostic counters for experiment-level reporting."""
+        return {
+            "total_proposals": self._total_proposals,
+            "fallback_count": self._fallback_counter,
+            "fallback_rate": self.get_fallback_rate(),
+        }

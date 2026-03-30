@@ -51,8 +51,15 @@ class SQLRAG:
         except Exception as e:
             return f"Query error: {str(e)}"
 
-    def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None) -> str:
+    def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None,
+                                agent_trust: Optional[float] = None,
+                                agent_risk: Optional[float] = None,
+                                agent_satisfaction: Optional[float] = None) -> str:
         """Grounded query: How do peers (age/gender/country) usually behave?
+
+        Returns distribution-level information (mean, std, median, sample size)
+        rather than just averages, so the LLM can understand population variance
+        and where the agent sits relative to their peer group.
 
         Attempts a narrow match (±5 years, same gender, same country if given).
         Falls back to a ±15-year window, then to a population-wide average, so the
@@ -77,11 +84,18 @@ class SQLRAG:
                 params.append(country)
             q = f"""
             SELECT
+                COUNT(*) AS n_peers,
                 AVG(trust_people) * 10 AS avg_trust,
-                AVG(political_interest) * 10 AS avg_interest,
+                STDDEV(trust_people) * 10 AS std_trust,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trust_people) * 10 AS median_trust,
                 AVG(income_decile) AS avg_income_decile,
                 AVG(risk_taking) * 10 AS avg_risk,
-                AVG(life_satisfaction) * 10 AS avg_satisfaction
+                STDDEV(risk_taking) * 10 AS std_risk,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY risk_taking) * 10 AS median_risk,
+                AVG(life_satisfaction) * 10 AS avg_satisfaction,
+                STDDEV(life_satisfaction) * 10 AS std_satisfaction,
+                PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q25,
+                PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q75
             FROM population
             WHERE {' AND '.join(where_clauses)}
             """
@@ -90,13 +104,36 @@ class SQLRAG:
                 if res.empty or pd.isna(res.iloc[0]["avg_trust"]):
                     return None
                 row = res.iloc[0]
-                return (
-                    f"Context: People in your demographic brackets have an average "
-                    f"trust level of {row['avg_trust']:.1f}/10, "
-                    f"income decile {row['avg_income_decile']:.1f}, "
-                    f"risk tolerance of {row['avg_risk']:.1f}/10, "
-                    f"and life satisfaction of {row['avg_satisfaction']:.1f}/10."
-                )
+                n = int(row["n_peers"])
+                if n < 5:
+                    return None
+
+                parts = [
+                    f"Based on {n} peers in your demographic bracket:",
+                    f"  Trust: avg {row['avg_trust']:.1f}/10 (std {row['std_trust']:.1f}, median {row['median_trust']:.1f}, IQR [{row['trust_q25']:.1f}-{row['trust_q75']:.1f}]).",
+                    f"  Risk tolerance: avg {row['avg_risk']:.1f}/10 (std {row['std_risk']:.1f}, median {row['median_risk']:.1f}).",
+                    f"  Life satisfaction: avg {row['avg_satisfaction']:.1f}/10 (std {row['std_satisfaction']:.1f}).",
+                    f"  Income decile: avg {row['avg_income_decile']:.1f}.",
+                ]
+
+                # Show where the agent falls relative to peers
+                agent_position_parts = []
+                if agent_trust is not None and not pd.isna(row['std_trust']) and row['std_trust'] > 0:
+                    z_trust = (agent_trust * 10 - row['avg_trust']) / row['std_trust']
+                    if z_trust > 0.5:
+                        agent_position_parts.append(f"your trust ({agent_trust*10:.1f}) is above average for your peers")
+                    elif z_trust < -0.5:
+                        agent_position_parts.append(f"your trust ({agent_trust*10:.1f}) is below average for your peers")
+                if agent_risk is not None and not pd.isna(row['std_risk']) and row['std_risk'] > 0:
+                    z_risk = (agent_risk * 10 - row['avg_risk']) / row['std_risk']
+                    if z_risk > 0.5:
+                        agent_position_parts.append(f"your risk tolerance ({agent_risk*10:.1f}) is above average")
+                    elif z_risk < -0.5:
+                        agent_position_parts.append(f"your risk tolerance ({agent_risk*10:.1f}) is below average")
+                if agent_position_parts:
+                    parts.append(f"  Relative to peers: {'; '.join(agent_position_parts)}.")
+
+                return "\n".join(parts)
             except Exception:
                 return None
 

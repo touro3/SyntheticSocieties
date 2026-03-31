@@ -24,6 +24,10 @@ from environment.world_state import WorldState
 from simulation.kernel import SimulationKernel
 from utils.io import set_global_seed
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*Action collapse detected.*:UserWarning"
+)
+
 
 # ── Seed utility tests ────────────────────────────────────────────────────────
 

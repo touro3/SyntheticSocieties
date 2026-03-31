@@ -25,6 +25,9 @@ from agents.profile import AgentProfile
 from agents.state import AgentState
 from decision.mock_policy import MockPolicy
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:.*Action collapse detected.*:UserWarning"
+)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

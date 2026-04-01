@@ -362,3 +362,74 @@ Test Infrastructure
 [ ] Run pipeline_topology.sh → analysis/figures/topology_dictatorship.png
 [ ] Run scripts/run_trust_gradient.py → analysis/figures/trust_gradient.png
 [ ] Run scripts/run_phase_transition_sweeps.py → analysis/figures/phase_transitions.png
+
+---
+
+# Phase 28 — Publication-Ready Advancement: Top-Venue Gaps (NEW — 2026-04-01)
+
+**Status:** Infrastructure complete; empirical work pending (10-20 seed runs, human eval, policy sweep)
+
+## Sub-phase 28.1 — Statistical Power and Rigor
+[ ] Increase seed count to 10-20 for core A/B comparison
+[ ] Add bootstrap confidence intervals to all metrics
+[ ] Create `docs/hypothesis_preregistration.md` with H1-H8
+[ ] Implement Benjamini-Hochberg FDR correction in `metrics/statistical_inference.py`
+[ ] Update paper: all metrics reported as `value [95% CI]` format
+
+## Sub-phase 28.2 — Non-LLM Baseline Comparison
+[ ] Implement `decision/rule_based_ess_policy.py` (deterministic ESS-grounded policy)
+[ ] Create three-way comparison table (LLM, BGF Grounded, Rule-Based)
+[ ] Add Condition D: Generative Agents + manual tuning comparison
+[ ] Write paper section: "Why empirical grounding beats manual calibration"
+
+## Sub-phase 28.3 — Feature Importance and Ablation Depth
+[ ] Implement `metrics/feature_importance.py` (logistic regression on ESS features)
+[ ] Generate `analysis/figures/feature_importance.png` (bar chart)
+[ ] Run per-dimension ablation (minimal vs medium vs full ESS profile)
+[ ] Generate table: "Profile richness vs cooperation rate" showing monotonic improvement
+
+## Sub-phase 28.4 — Human Evaluation Study
+[ ] Design human evaluation study (n=30-50 participants)
+[ ] Deploy on Mechanical Turk or Prolific (budget: $100-200)
+[ ] Collect realism ratings (Condition A vs B)
+[ ] Analyze qualitative feedback
+[ ] Generate `analysis/figures/human_eval_boxplot.png`
+
+## Sub-phase 28.5 — Long Horizons and Persona Drift
+[ ] Run extended simulations: T=50 and T=100 with 5-10 seeds
+[ ] Track persona fidelity every 10 rounds
+[ ] Generate `analysis/figures/persona_drift_long_horizon.png` (fidelity vs round)
+[ ] Document long-term stability findings in Limitations section
+
+## Sub-phase 28.6 — Fine-tuning vs. RAG Positioning
+[ ] Write paper subsection: "RAG vs. Fine-tuning Trade-offs" (theoretical)
+[ ] Optional: Fine-tune Mistral-7B on synthetic ESS examples (if time permits)
+[ ] Compare: fine-tuned vs RAG-grounded on held-out test profiles
+
+## Sub-phase 28.7 — Larger Model Validation
+[ ] Acquire Llama-3.1-70B or Mistral-Large access
+[ ] Run Condition A/B experiment: 20 agents × 10 rounds with 70B model
+[ ] Update `analysis/cross_model_results_extended.json`
+[ ] Update Figure 10 with 70B bars
+
+## Sub-phase 28.8 — Policy Intervention Analysis
+[ ] Design trust-building intervention scenario
+[ ] Implement `metrics/policy_intervention.py`
+[ ] Run policy sweep: vary intervention intensity (0%, 5%, 10%, 20%)
+[ ] Generate `analysis/figures/policy_intervention_sweep.png`
+[ ] Write paper subsection: "Policy Application: Intervention Design"
+
+## Sub-phase 28.9 — Reproducibility Stress Test
+[ ] Recruit 2+ external collaborators for reproduction testing
+[ ] Track: time taken, errors encountered, documentation gaps
+[ ] Fix blockers (HuggingFace cache, GPU memory docs, API key setup)
+[ ] Set up GitHub Actions CI: `.github/workflows/ci.yml` runs reproduce_paper.sh
+[ ] Write `data/README.md` with step-by-step ESS download guide
+[ ] Document successful external reproducibility in CONTRIBUTORS.md
+
+## Sub-phase 28.10 — Formal Venue Positioning
+[ ] Create AAMAS-formatted paper (`paper/aamas2026_draft.pdf`)
+[ ] Create NeurIPS-formatted paper (`paper/neurips2026_draft.pdf`)
+[ ] Write venue-specific abstracts (~150 words each)
+[ ] Create supplementary materials: Appendix A-D (variables, prompts, configs, stats)
+[ ] Choose primary target venue and submission timeline

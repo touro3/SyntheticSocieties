@@ -68,18 +68,26 @@ class RoundProcessor:
             target.state.wealth += target_delta
             target.state.clamp()
 
-        # Update trust from cooperation events
+        # Update trust from cooperation events.
+        # Asymmetric: the cooperator invested resources, so they build trust
+        # toward the target (hoping for reciprocation). The target received
+        # unsolicited help — they gain mild trust toward the source, but it
+        # is NOT recorded as "reciprocated" since they didn't cooperate back.
         if executed_event.get("interaction_type") == "cooperation" and target_id:
             source_id = executed_event.get("agent_id")
             if source_id and source_id in self.agent_lookup:
                 source = self.agent_lookup[source_id]
-                # The cooperator builds trust toward the target (unilateral)
+                # Check if target also cooperated with source this round
+                # (true reciprocation). For now, unilateral cooperation is
+                # NOT reciprocated — the trust gradient must be earned.
                 source.state.update_trust_from_cooperation(
-                    target_id, was_reciprocated=True
+                    target_id, was_reciprocated=False
                 )
             if target_id in self.agent_lookup:
                 target = self.agent_lookup[target_id]
-                # The target records trust toward the source (received help)
+                # Target received help — build mild trust toward the source.
+                # was_reciprocated=True here means "the source demonstrated
+                # goodwill toward me" (they invested in me).
                 target.state.update_trust_from_cooperation(
                     source_id, was_reciprocated=True
                 )

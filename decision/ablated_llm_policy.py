@@ -149,11 +149,17 @@ class AblatedLLMPolicy(LLMPolicyBase):
         state_ablation_level = 2 if self.ablation == "no_network" else 5
         state_desc = build_state_block(state, ablation_level=state_ablation_level)
 
-        # Memory block
+        # Memory block — pass profile for persona re-anchoring when
+        # the ablation mode includes a full persona.
         if self.ablation == "no_memory":
             memory_desc = ""
         else:
-            memory_desc = build_memory_block(memory, window=self.memory_window)
+            anchor_profile = None
+            if self.ablation in ("rich_persona", "no_network", "no_institutions"):
+                anchor_profile = profile
+            memory_desc = build_memory_block(
+                memory, window=self.memory_window, profile=anchor_profile,
+            )
 
         # Context block
         if self.ablation == "no_network":

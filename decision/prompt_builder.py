@@ -167,14 +167,25 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
 
 
 
-def build_memory_block(memory: HierarchicalMemory, window: int = 5) -> str:
+def build_memory_block(
+    memory: HierarchicalMemory,
+    window: int = 5,
+    profile: Optional["AgentProfile"] = None,
+) -> str:
     """Build memory context from recent interactions, prefixed by a reflection.
 
     The reflection summarizes long-term history (full archive) while recent
     events provide episodic detail. Together they give the LLM a compressed
     view of the agent's full career without exhausting the context window.
+
+    When ``profile`` is provided and the agent's recent behavior has drifted
+    significantly from their ESS-derived persona expectations, a re-anchoring
+    cue is injected to remind the LLM of the agent's core disposition.
     """
-    if hasattr(memory, "get_recent"):
+    # Use importance-scored retrieval when available.
+    if hasattr(memory, "get_important_recent"):
+        recent = memory.get_important_recent(window)
+    elif hasattr(memory, "get_recent"):
         recent = memory.get_recent(window)
     else:
         recent = memory[-window:] if isinstance(memory, list) else []
@@ -186,6 +197,12 @@ def build_memory_block(memory: HierarchicalMemory, window: int = 5) -> str:
         reflection = memory.generate_reflection()
         if reflection:
             lines.append(f"[Memory summary] {reflection}")
+
+    # Persona re-anchoring: detect drift and inject grounding cue.
+    if profile is not None:
+        anchor = _build_persona_anchor(memory, profile)
+        if anchor:
+            lines.append(anchor)
 
     if not recent:
         if not lines:
@@ -202,6 +219,67 @@ def build_memory_block(memory: HierarchicalMemory, window: int = 5) -> str:
         lines.append(line)
 
     return "\n".join(lines)
+
+
+# Drift detection threshold: if |actual - expected| > this, inject anchor.
+_DRIFT_THRESHOLD = 0.25
+
+
+def _build_persona_anchor(
+    memory: HierarchicalMemory, profile: "AgentProfile",
+) -> Optional[str]:
+    """Generate a persona re-anchoring cue when behavioral drift is detected.
+
+    Compares the agent's recency-weighted cooperation rate against the
+    expectation derived from their ESS trust/risk attributes. If drift
+    exceeds the threshold, returns a natural-language reminder that
+    re-grounds the LLM in the agent's core disposition.
+
+    Returns None if no drift is detected or insufficient data.
+    """
+    if not hasattr(memory, "get_action_distribution"):
+        return None
+
+    dist = memory.get_action_distribution(weighted=True)
+    if not dist:
+        return None
+
+    # Need enough history to detect drift (at least 5 events).
+    all_items = memory.archive + memory.recent
+    if len(all_items) < 5:
+        return None
+
+    actual_coop = dist.get("cooperate", 0.0)
+
+    # Derive expected cooperation from persona attributes.
+    trust = getattr(profile, "trust_people", None) or 0.5
+    risk = getattr(profile, "risk_tolerance", None) or 0.5
+    expected_coop = 0.2 + 0.6 * trust * (1.0 - risk)
+
+    drift = actual_coop - expected_coop
+
+    if abs(drift) <= _DRIFT_THRESHOLD:
+        return None
+
+    # Build a non-directive grounding cue based on persona.
+    trust_word = _level_word(trust)
+    if drift < 0:
+        # Under-cooperating relative to persona.
+        return (
+            f"[Persona reminder] Your core disposition: you have {trust_word} "
+            f"trust in others ({trust:.2f}/1.0). People with your profile "
+            f"tend to cooperate about {expected_coop:.0%} of the time. "
+            f"Consider whether your recent choices still reflect who you are."
+        )
+    else:
+        # Over-cooperating relative to persona.
+        return (
+            f"[Persona reminder] Your core disposition: you have {trust_word} "
+            f"trust in others ({trust:.2f}/1.0). People with your profile "
+            f"tend to cooperate about {expected_coop:.0%} of the time. "
+            f"Consider whether your recent generosity still reflects your "
+            f"actual comfort level with risk."
+        )
 
 
 def build_context_block(context: dict) -> str:
@@ -254,7 +332,7 @@ def build_prompt(
     """
     persona = build_persona_block(profile)
     state_desc = build_state_block(state, ablation_level)
-    memory_desc = build_memory_block(memory, window=memory_window)
+    memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
     context_desc = build_context_block(context)
     system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
 

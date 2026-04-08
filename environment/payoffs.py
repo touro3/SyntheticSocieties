@@ -19,7 +19,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class GamePayoffs:
     work_income: float = 10.0
-    work_stress_increase: float = 1.0
+    work_stress_increase: float = 0.15
     save_wealth_delta: float = 0.0
     save_stress_relief: float = -0.2
     cooperate_stress_relief: float = -0.1

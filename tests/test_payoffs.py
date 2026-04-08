@@ -5,7 +5,7 @@ from environment.payoffs import GamePayoffs, DEFAULT_PAYOFFS
 
 def test_default_payoffs_match_documented_values():
     assert DEFAULT_PAYOFFS.work_income == 10.0
-    assert DEFAULT_PAYOFFS.work_stress_increase == 1.0
+    assert DEFAULT_PAYOFFS.work_stress_increase == 0.15
     assert DEFAULT_PAYOFFS.save_stress_relief == -0.2
     assert DEFAULT_PAYOFFS.cooperate_stress_relief == -0.1
 

@@ -136,11 +136,25 @@ def trim_to_budget(
     if _variable_tokens() > budget and sections.get("extra"):
         sections["extra"] = None
 
-    # Step 2: Halve memory repeatedly (large, compressible).
+    # Step 2: Trim memory from the middle (large, compressible).
+    # Preserve the first lines (reflection + persona anchor) and last lines
+    # (most recent memories), trimming episodic detail from the middle.
     if sections["memory"] and _variable_tokens() > budget:
         lines = sections["memory"].splitlines()
         while lines and _variable_tokens() > budget and len(lines) > 4:
-            lines = lines[len(lines) // 2:]
+            # Keep first 2 lines (reflection + anchor) and last 2 (recent).
+            # Remove from the middle where episodic memories are.
+            keep_top = min(2, len(lines) // 2)
+            keep_bottom = min(2, len(lines) - keep_top)
+            mid_start = keep_top
+            mid_end = len(lines) - keep_bottom
+            if mid_end - mid_start <= 1:
+                break
+            # Remove the older half of the middle section (at least 1 line).
+            mid_len = mid_end - mid_start
+            cut_count = max(1, mid_len // 2)
+            cut_end = mid_start + cut_count
+            lines = lines[:mid_start] + lines[cut_end:]
             sections["memory"] = "\n".join(lines)
 
     # Step 3: Drop RAG contexts only as a last resort.

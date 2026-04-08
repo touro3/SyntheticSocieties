@@ -44,7 +44,7 @@ class TestExecuteDeltas:
         action = ProposedAction(action_type="work", amount=10.0, reasoning_summary="earn")
         event = manager.execute(action, agent, ws, {"a1": agent})
         assert event["wealth_delta"] == 10.0
-        assert event["stress_delta"] == 1.0
+        assert event["stress_delta"] == 0.15
 
     def test_save_returns_correct_deltas(self, manager, ws):
         agent = make_agent("a1", wealth=50.0)

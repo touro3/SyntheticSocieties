@@ -9,12 +9,19 @@ The reflection tier is what makes memory truly "hierarchical": once archive
 grows beyond a threshold, old events are distilled into a single insight
 string. This lets the LLM see a full career summary without exhausting its
 context window on raw event lists.
+
+Anti-drift features (Phase 28):
+  - Recency-weighted reflections: exponential decay prevents early
+    hallucinations from permanently poisoning the action distribution.
+  - Importance scoring: cooperation and persona-aligned events get
+    priority when selecting which memories to surface in prompts.
 """
 
 from __future__ import annotations
 
+import math
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
@@ -25,11 +32,18 @@ class MemoryItem:
     event_type: str
     content: str
     outcome: Dict[str, Any]
+    importance: float = field(default=0.0)
 
 
 class HierarchicalMemory:
     # Compress archive into a reflection whenever it reaches this size.
     _COMPRESS_THRESHOLD = 20
+
+    # Recency half-life: after this many events, weight drops to 50%.
+    _RECENCY_HALF_LIFE = 10
+
+    # Importance bonus for social actions (cooperation builds society).
+    _SOCIAL_IMPORTANCE = 0.3
 
     def __init__(self, max_recent: int = 20, archive_size: int = 100):
         self.max_recent = max_recent
@@ -45,6 +59,9 @@ class HierarchicalMemory:
     # ── Write ─────────────────────────────────────────────────────────────────
 
     def add(self, item: MemoryItem) -> None:
+        # Assign importance if not already set.
+        if item.importance == 0.0:
+            item.importance = self._score_importance(item)
         self.recent.append(item)
         self._cache_dirty = True
 
@@ -58,6 +75,33 @@ class HierarchicalMemory:
             # Compress archive into a reflection periodically.
             if len(self.archive) % self._COMPRESS_THRESHOLD == 0:
                 self._compress_archive()
+
+    @staticmethod
+    def _score_importance(item: MemoryItem) -> float:
+        """Score an event's importance for memory retention.
+
+        Social interactions (cooperate) and events with meaningful outcomes
+        are scored higher so they survive memory compression.
+        """
+        score = 0.5  # baseline
+
+        # Social actions are more memorable.
+        if item.event_type == "cooperate":
+            score += HierarchicalMemory._SOCIAL_IMPORTANCE
+        elif item.event_type == "save":
+            score += 0.1
+
+        # Events with large wealth changes are memorable.
+        if item.outcome:
+            delta = abs(item.outcome.get("wealth_delta", 0))
+            if delta >= 10:
+                score += 0.2
+
+            # Reciprocation outcomes are especially salient.
+            if item.outcome.get("reciprocated") is True:
+                score += 0.2
+
+        return min(1.0, score)
 
     def _compress_archive(self) -> None:
         """Summarize the current archive into a reflection string and store it.
@@ -95,21 +139,33 @@ class HierarchicalMemory:
     def _build_reflection_text(items: List[MemoryItem]) -> str:
         """Convert a list of memory items into a concise summary string.
 
-        Uses proportional language ('work 50%, save 33%, cooperate 17%')
-        rather than raw frequency counts ('work 15×') to prevent the LLM
-        from interpreting frequency as a behavioral directive. Includes
-        outcome tracking and a counterfactual cue.
+        Uses recency-weighted proportional language ('work 50%, cooperate 33%')
+        with exponential decay so that recent behavior counts more than early
+        rounds. This prevents early hallucinations from permanently skewing
+        the action distribution visible to the LLM.
+
+        Includes outcome tracking and a counterfactual cue.
         """
         if not items:
             return ""
 
-        action_counts: Counter[str] = Counter(m.event_type for m in items)
         total = len(items)
+        half_life = HierarchicalMemory._RECENCY_HALF_LIFE
+        decay = math.log(2) / max(half_life, 1)
 
-        # Proportional action summary (prevents frequency-as-directive interpretation)
+        # Recency-weighted action distribution.
+        # Weight of event i (0-indexed from oldest) = exp(decay * i).
+        # Most recent item has the highest weight.
+        weighted_counts: Counter[str] = Counter()
+        total_weight = 0.0
+        for i, m in enumerate(items):
+            w = math.exp(decay * i)
+            weighted_counts[m.event_type] += w
+            total_weight += w
+
         action_parts = []
-        for action, count in action_counts.most_common():
-            pct = round(100 * count / total)
+        for action, w in weighted_counts.most_common():
+            pct = round(100 * w / total_weight) if total_weight > 0 else 0
             action_parts.append(f"{action} {pct}%")
         action_summary = ", ".join(action_parts)
 
@@ -162,7 +218,7 @@ class HierarchicalMemory:
         counterfactual = " Note: your past choices do not constrain your current decision."
 
         return (
-            f"Over {total} events, your action distribution was: "
+            f"Over {total} events, your recency-weighted action distribution was: "
             f"{action_summary}.{partner_summary}{outcome_summary}{counterfactual}"
         )
 
@@ -192,9 +248,64 @@ class HierarchicalMemory:
         """Return the most recent N items (used by prompt builder)."""
         return self.recent[-limit:]
 
+    def get_important_recent(self, limit: int = 5) -> List[MemoryItem]:
+        """Return the N most important recent items, sorted chronologically.
+
+        Combines recency (position in list) with the item's importance score
+        to decide which memories to surface. This ensures that high-importance
+        events (cooperation, large wealth changes) survive even when the
+        window is small, preventing social amnesia in long runs.
+        """
+        if len(self.recent) <= limit:
+            return list(self.recent)
+
+        half_life = self._RECENCY_HALF_LIFE
+        decay = math.log(2) / max(half_life, 1)
+        n = len(self.recent)
+
+        scored = []
+        for i, item in enumerate(self.recent):
+            recency_weight = math.exp(decay * (i - n + 1))  # 1.0 for most recent
+            combined = 0.6 * recency_weight + 0.4 * item.importance
+            scored.append((combined, i, item))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        selected = scored[:limit]
+        # Return in chronological order.
+        selected.sort(key=lambda x: x[1])
+        return [item for _, _, item in selected]
+
     def get_full_context(self, limit: int = 10) -> List[MemoryItem]:
         """Return a blend of archive and recent events."""
         return (self.archive + self.recent)[-limit:]
+
+    def get_action_distribution(self, weighted: bool = True) -> Dict[str, float]:
+        """Return the action distribution across all memory items.
+
+        If weighted=True, applies recency weighting. Returns a dict of
+        action_type -> proportion (sums to 1.0).
+        """
+        all_items = self.archive + self.recent
+        if not all_items:
+            return {}
+
+        if not weighted:
+            counts: Counter[str] = Counter(m.event_type for m in all_items)
+            total = sum(counts.values())
+            return {a: c / total for a, c in counts.items()}
+
+        half_life = self._RECENCY_HALF_LIFE
+        decay_rate = math.log(2) / max(half_life, 1)
+        weighted_counts: Counter[str] = Counter()
+        total_weight = 0.0
+        for i, m in enumerate(all_items):
+            w = math.exp(decay_rate * i)
+            weighted_counts[m.event_type] += w
+            total_weight += w
+
+        if total_weight == 0:
+            return {}
+        return {a: w / total_weight for a, w in weighted_counts.items()}
 
 
 class MemoryBuffer(HierarchicalMemory):

@@ -24,19 +24,79 @@ from scipy import stats as scipy_stats
 DEFAULT_INDEX = "tracker/experiment_index.parquet"
 
 
-def _connect(index_path: str = DEFAULT_INDEX) -> duckdb.DuckDBPyConnection:
+def _quote_sql_str(value: str) -> str:
+    """Safely quote a SQL string literal."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _build_filters_sql(
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
+) -> str:
+    """Build a SQL WHERE clause for experiment filtering."""
+    conds: list[str] = []
+    if require_cmp_only:
+        conds.append("experiment_id LIKE 'cmp_%'")
+
+    if experiment_ids:
+        safe_ids = [_quote_sql_str(x) for x in experiment_ids]
+        conds.append(f"experiment_id IN ({', '.join(safe_ids)})")
+
+    if seeds:
+        safe_seeds = [str(int(s)) for s in seeds]
+        conds.append(f"seed IN ({', '.join(safe_seeds)})")
+
+    if policy_types:
+        safe_policies = [_quote_sql_str(x) for x in policy_types]
+        conds.append(f"policy_type IN ({', '.join(safe_policies)})")
+
+    return " AND ".join(conds)
+
+
+def _connect(
+    index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
+) -> duckdb.DuckDBPyConnection:
     """Create a DuckDB connection with the experiment index loaded."""
     conn = duckdb.connect()
     path = Path(index_path)
     if not path.exists():
         raise FileNotFoundError(f"Experiment index not found: {path}")
-    conn.execute(f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{path}')")
+    conn.execute(f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{path}')")
+
+    where_sql = _build_filters_sql(
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=require_cmp_only,
+    )
+    if where_sql:
+        conn.execute(f"CREATE VIEW experiments AS SELECT * FROM experiments_all WHERE {where_sql}")
+    else:
+        conn.execute("CREATE VIEW experiments AS SELECT * FROM experiments_all")
     return conn
 
 
-def query_by_policy(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
+def query_by_policy(
+    index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
+) -> pd.DataFrame:
     """Aggregate metrics by policy type."""
-    conn = _connect(index_path)
+    conn = _connect(
+        index_path,
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=require_cmp_only,
+    )
     return conn.execute("""
         SELECT
             policy_type,
@@ -54,9 +114,19 @@ def query_by_policy(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
 def query_by_seed(
     policy: str = "llm",
     index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
 ) -> pd.DataFrame:
     """Variance analysis across seeds for a given policy."""
-    conn = _connect(index_path)
+    conn = _connect(
+        index_path,
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=require_cmp_only,
+    )
     return conn.execute(f"""
         SELECT
             experiment_id,
@@ -70,9 +140,20 @@ def query_by_seed(
     """).fetchdf()
 
 
-def query_by_ablation(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
+def query_by_ablation(
+    index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+) -> pd.DataFrame:
     """Compare ablation conditions (experiments with 'ablation_' prefix)."""
-    conn = _connect(index_path)
+    conn = _connect(
+        index_path,
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=False,
+    )
     return conn.execute("""
         SELECT
             REGEXP_EXTRACT(experiment_id, 'ablation_([^_]+(?:_[^_]+)?)', 1) as ablation_mode,
@@ -88,9 +169,21 @@ def query_by_ablation(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
     """).fetchdf()
 
 
-def compare_llm_vs_baselines(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
+def compare_llm_vs_baselines(
+    index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
+) -> pd.DataFrame:
     """Head-to-head comparison: LLM, ablated_llm, template, rule_based, random."""
-    conn = _connect(index_path)
+    conn = _connect(
+        index_path,
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=require_cmp_only,
+    )
     return conn.execute("""
         SELECT
             policy_type,
@@ -116,9 +209,21 @@ def compare_llm_vs_baselines(index_path: str = DEFAULT_INDEX) -> pd.DataFrame:
     """).fetchdf()
 
 
-def robustness_summary(index_path: str = DEFAULT_INDEX) -> dict[str, pd.DataFrame]:
+def robustness_summary(
+    index_path: str = DEFAULT_INDEX,
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
+) -> dict[str, pd.DataFrame]:
     """Generate robustness analysis tables."""
-    conn = _connect(index_path)
+    conn = _connect(
+        index_path,
+        experiment_ids=experiment_ids,
+        seeds=seeds,
+        policy_types=policy_types,
+        require_cmp_only=require_cmp_only,
+    )
 
     # Temperature sensitivity
     temp = conn.execute("""
@@ -315,6 +420,10 @@ def pairwise_significance(
 def run_all_queries(
     index_path: str = DEFAULT_INDEX,
     output_dir: str = "analysis/tables",
+    experiment_ids: Optional[list[str]] = None,
+    seeds: Optional[list[int]] = None,
+    policy_types: Optional[list[str]] = None,
+    require_cmp_only: bool = False,
 ) -> None:
     """Run all analytics queries and save results."""
     out = Path(output_dir)
@@ -323,28 +432,51 @@ def run_all_queries(
     print("Running DuckDB analytics...")
 
     try:
-        df = query_by_policy(index_path)
+        df = query_by_policy(
+            index_path,
+            experiment_ids=experiment_ids,
+            seeds=seeds,
+            policy_types=policy_types,
+            require_cmp_only=require_cmp_only,
+        )
         df.to_csv(out / "policy_comparison.csv", index=False)
         print(f"  ✓ policy_comparison.csv ({len(df)} rows)")
     except Exception as e:
         print(f"  ✗ policy_comparison: {e}")
 
     try:
-        df = compare_llm_vs_baselines(index_path)
+        df = compare_llm_vs_baselines(
+            index_path,
+            experiment_ids=experiment_ids,
+            seeds=seeds,
+            policy_types=policy_types,
+            require_cmp_only=require_cmp_only,
+        )
         df.to_csv(out / "llm_vs_baselines.csv", index=False)
         print(f"  ✓ llm_vs_baselines.csv ({len(df)} rows)")
     except Exception as e:
         print(f"  ✗ llm_vs_baselines: {e}")
 
     try:
-        df = query_by_ablation(index_path)
+        df = query_by_ablation(
+            index_path,
+            experiment_ids=experiment_ids,
+            seeds=seeds,
+            policy_types=policy_types,
+        )
         df.to_csv(out / "ablation_comparison.csv", index=False)
         print(f"  ✓ ablation_comparison.csv ({len(df)} rows)")
     except Exception as e:
         print(f"  ✗ ablation_comparison: {e}")
 
     try:
-        tables = robustness_summary(index_path)
+        tables = robustness_summary(
+            index_path,
+            experiment_ids=experiment_ids,
+            seeds=seeds,
+            policy_types=policy_types,
+            require_cmp_only=require_cmp_only,
+        )
         for name, df in tables.items():
             df.to_csv(out / f"{name}.csv", index=False)
             print(f"  ✓ {name}.csv ({len(df)} rows)")

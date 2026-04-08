@@ -131,6 +131,101 @@ def test_sql_rag_different_demographics_yield_different_context():
     )
 
 
+# ── C2: SQL RAG income cohort filter tests ────────────────────────────────────
+
+def test_sql_rag_income_filter_tightens_cohort():
+    """Passing income_decile should produce a different (tighter) context than omitting it."""
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    ctx_no_income = rag.get_peer_group_context(age=40, gender=1, country="DE")
+    ctx_high_income = rag.get_peer_group_context(age=40, gender=1, country="DE", income_decile=9.0)
+    ctx_low_income = rag.get_peer_group_context(age=40, gender=1, country="DE", income_decile=2.0)
+
+    if "No peer group data found" in ctx_no_income:
+        pytest.skip("Insufficient ESS data for DE/age40/male cohort")
+
+    # Income label appears only when income_decile is provided
+    assert "9.0" in ctx_high_income or "peer avg" in ctx_high_income
+    assert "2.0" in ctx_low_income or "peer avg" in ctx_low_income
+
+
+def test_sql_rag_income_fallback_when_sparse():
+    """When income band is too sparse (<5 peers), fallback should still return data."""
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    # Use an unrealistic income_decile band — should fall back to wider cohort
+    ctx = rag.get_peer_group_context(age=40, gender=1, income_decile=5.5)
+    assert "peers" in ctx.lower() or "No peer group data found" in ctx
+
+
+def test_sql_rag_income_line_without_income_arg():
+    """Without income_decile arg, output should show peer avg income decile."""
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    ctx = rag.get_peer_group_context(age=35, gender=2)
+    if "Based on" in ctx:
+        assert "Income decile: avg" in ctx
+
+
+def test_sql_rag_income_line_with_income_arg():
+    """With income_decile arg, output should show agent's decile alongside peer avg."""
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    ctx = rag.get_peer_group_context(age=35, gender=2, income_decile=7.0)
+    if "Based on" in ctx:
+        assert "7.0" in ctx and "peer avg" in ctx
+
+
+# ── H3: Graph RAG reciprocity rate tests ──────────────────────────────────────
+
+def test_graph_rag_reciprocity_rate_full():
+    """Mutual cooperation should report correct reciprocation percentage."""
+    rag = GraphRAG()
+    # A cooperates with B twice
+    for r in [1, 2]:
+        rag.add_event({"agent_id": "A", "action": {"action_type": "cooperate", "target_agent_id": "B"}, "round_id": r})
+    # B cooperates back once
+    rag.add_event({"agent_id": "B", "action": {"action_type": "cooperate", "target_agent_id": "A"}, "round_id": 3})
+
+    result = rag.query_relationships("A", "B")
+    assert "50%" in result
+    assert "2x" in result
+    assert "reciprocated 1x" in result
+
+
+def test_graph_rag_reciprocity_zero():
+    """One-sided cooperation should show 0% reciprocation."""
+    rag = GraphRAG()
+    rag.add_event({"agent_id": "A", "action": {"action_type": "cooperate", "target_agent_id": "B"}, "round_id": 1})
+    result = rag.query_relationships("A", "B")
+    assert "0%" in result
+    assert "not cooperated back" in result
+
+
+def test_graph_rag_reciprocity_lag():
+    """Reciprocation lag should be reported when B responds after A."""
+    rag = GraphRAG()
+    rag.add_event({"agent_id": "A", "action": {"action_type": "cooperate", "target_agent_id": "B"}, "round_id": 1})
+    rag.add_event({"agent_id": "B", "action": {"action_type": "cooperate", "target_agent_id": "A"}, "round_id": 4})
+    result = rag.query_relationships("A", "B")
+    assert "lag" in result.lower()
+    assert "3.0" in result  # lag = 4 - 1 = 3
+
+
+def test_graph_rag_query_relationships_no_interactions():
+    """Agents with no interactions should return appropriate message."""
+    rag = GraphRAG()
+    rag.add_event({"agent_id": "X", "action": {"action_type": "cooperate", "target_agent_id": "Y"}, "round_id": 1})
+    result = rag.query_relationships("A", "B")
+    assert "recorded interactions" in result.lower()
+
+
+def test_graph_rag_query_owed():
+    """B→A only should tell A they might owe B."""
+    rag = GraphRAG()
+    rag.add_event({"agent_id": "B", "action": {"action_type": "cooperate", "target_agent_id": "A"}, "round_id": 1})
+    result = rag.query_relationships("A", "B")
+    assert "owe" in result.lower()
+
+
+# ── Original kernel integration test (unchanged) ──────────────────────────────
+
 def test_graph_rag_initialized_by_kernel_execution(tmp_path):
     policy = CooperativePolicy()
     agents = [

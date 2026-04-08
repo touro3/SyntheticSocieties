@@ -41,9 +41,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from metrics.cross_cultural import (
+    ClusterMultiSeedResult,
     ClusterSimResult,
     CrossCulturalResult,
+    compute_cluster_ci,
     compute_cross_cultural_correlation,
+    compute_cross_cultural_correlation_multiseed,
     format_cross_cultural_table,
 )
 from population.country_clusters import load_clusters, CountryCluster
@@ -76,9 +79,21 @@ def _make_agent(row: dict, agent_id: str, rng: np.random.Generator, policy):
         except (TypeError, ValueError):
             return default
 
+    def _si(val, default=35):
+        if val is None:
+            return default
+        try:
+            import math
+            f = float(val)
+            if math.isnan(f):
+                return default
+            return int(round(f))
+        except (TypeError, ValueError):
+            return default
+
     profile = AgentProfile(
         agent_id=agent_id,
-        age=int(row.get("age") or 35),
+        age=_si(row.get("age"), 35),
         income=_sf(row.get("income_decile"), 5.0) * 200,
         education=str(row.get("education_level") or "secondary"),
         occupation="worker",
@@ -323,7 +338,13 @@ def main() -> None:
         "--seed",
         type=int,
         default=42,
-        help="Random seed (default: 42).",
+        help="Base random seed (default: 42). Seeds used are seed, seed+1, … seed+n_seeds-1.",
+    )
+    parser.add_argument(
+        "--n-seeds",
+        type=int,
+        default=1,
+        help="Number of seeds to run per cluster (default: 1). Use ≥3 for CIs.",
     )
     parser.add_argument(
         "--out",
@@ -337,42 +358,89 @@ def main() -> None:
     n_agents = 5 if args.dry_run else args.agents
     n_rounds = 3 if args.dry_run else args.rounds
     policy_type = "llm" if args.include_llm else "mock"
+    seeds = list(range(args.seed, args.seed + args.n_seeds))
 
     print("=" * 60)
     print("  Phase 17 — Cross-Cultural ESS Validation")
     print(f"  Mode:    {'dry-run' if args.dry_run else 'real'}")
     print(f"  Policy:  {policy_type}")
-    print(f"  Agents:  {n_agents}   Rounds: {n_rounds}   Seed: {args.seed}")
+    print(f"  Agents:  {n_agents}   Rounds: {n_rounds}   Seeds: {seeds}")
     print("=" * 60)
 
     clusters = load_clusters(_BENCHMARKS_PATH)
 
-    cluster_results: list[ClusterSimResult] = []
+    if args.n_seeds == 1:
+        # Single-seed path (backward-compatible)
+        cluster_results: list[ClusterSimResult] = []
+        for cluster in clusters:
+            result = _run_cluster(
+                cluster=cluster,
+                n_agents=n_agents,
+                n_rounds=n_rounds,
+                policy_type=policy_type,
+                seed=seeds[0],
+                dry_run=args.dry_run,
+            )
+            cluster_results.append(result)
 
-    for cluster in clusters:
-        result = _run_cluster(
-            cluster=cluster,
-            n_agents=n_agents,
-            n_rounds=n_rounds,
-            policy_type=policy_type,
-            seed=args.seed,
-            dry_run=args.dry_run,
-        )
-        cluster_results.append(result)
+        cc_result = compute_cross_cultural_correlation(cluster_results)
 
-    # Compute cross-cultural correlation
-    cc_result = compute_cross_cultural_correlation(cluster_results)
+        _save_results(args.out, cluster_results, cc_result)
+        print(f"\nResults saved to: {args.out}")
+        _save_csv(_TABLE_PATH, cluster_results, cc_result)
+        print(f"Table saved to:   {_TABLE_PATH}")
+        print()
+        print(format_cross_cultural_table(cc_result))
 
-    # Save outputs
-    _save_results(args.out, cluster_results, cc_result)
-    print(f"\nResults saved to: {args.out}")
+    else:
+        # Multi-seed path — aggregate cooperation rates per cluster then correlate
+        from collections import defaultdict
+        per_cluster_runs: dict[str, list[ClusterSimResult]] = defaultdict(list)
 
-    _save_csv(_TABLE_PATH, cluster_results, cc_result)
-    print(f"Table saved to:   {_TABLE_PATH}")
+        for seed in seeds:
+            print(f"\n── Seed {seed} ──")
+            for cluster in clusters:
+                result = _run_cluster(
+                    cluster=cluster,
+                    n_agents=n_agents,
+                    n_rounds=n_rounds,
+                    policy_type=policy_type,
+                    seed=seed,
+                    dry_run=args.dry_run,
+                )
+                per_cluster_runs[cluster.name].append(result)
 
-    # Print formatted table
-    print()
-    print(format_cross_cultural_table(cc_result))
+        # Build ClusterMultiSeedResult list for CI-aware correlation
+        # compute_cluster_ci() takes the list of ClusterSimResult objects (not floats)
+        multi_seed_results: list[ClusterMultiSeedResult] = []
+        for cluster in clusters:
+            runs = per_cluster_runs[cluster.name]
+            multi_seed_results.append(compute_cluster_ci(runs))
+
+        cc_result = compute_cross_cultural_correlation_multiseed(multi_seed_results)
+
+        # Use mean cooperation rates for single-result-compatible outputs
+        flat_results = [
+            ClusterSimResult(
+                cluster_name=r.cluster_name,
+                ess_mean_trust=r.ess_mean_trust,
+                simulated_cooperation_rate=round(r.mean_cooperation_rate, 4),
+                simulated_gini=round(r.mean_gini, 4),
+                n_agents=r.n_agents,
+                n_rounds=r.n_rounds,
+            )
+            for r in multi_seed_results
+        ]
+
+        _save_results(args.out, flat_results, cc_result)
+        print(f"\nResults saved to: {args.out}")
+        _save_csv(_TABLE_PATH, flat_results, cc_result)
+        print(f"Table saved to:   {_TABLE_PATH}")
+        print()
+        print(format_cross_cultural_table(cc_result))
+        print(f"\n[multi-seed] Pearson r = {cc_result.pearson_r:.4f}  "
+              f"Spearman ρ = {cc_result.spearman_rho:.4f}  "
+              f"({args.n_seeds} seeds per cluster)")
 
 
 if __name__ == "__main__":

@@ -4,9 +4,11 @@
 # trust-cooperation Pearson r and Spearman rho, and generates a scatter plot.
 #
 # Usage:
-#   bash pipeline_cross_cultural.sh                 # mock policy, 20 agents, 10 rounds
-#   bash pipeline_cross_cultural.sh --dry-run        # 5 agents, 3 rounds, synthetic data
-#   bash pipeline_cross_cultural.sh --include-llm    # LLM policy (GPU required)
+#   bash pipeline_cross_cultural.sh                              # mock policy, 20 agents, 10 rounds
+#   bash pipeline_cross_cultural.sh --dry-run                    # 5 agents, 3 rounds, synthetic data
+#   bash pipeline_cross_cultural.sh --include-llm                # LLM policy, 1 seed (GPU required)
+#   bash pipeline_cross_cultural.sh --include-llm --n-seeds 3    # LLM policy, 3 seeds (GPU required)
+#   bash pipeline_cross_cultural.sh --include-llm --n-seeds 10   # LLM policy, 10 seeds (GPU required)
 #
 # Outputs:
 #   analysis/cross_cultural_results.json

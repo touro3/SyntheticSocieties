@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "input_csv": "data/human/prolific_round_data.csv",
+    "n_rows": 25,
+    "n_participants": 5,
+    "n_rounds_min": 5,
+    "n_rounds_max": 5
+  },
+  "human_metrics": {
+    "gini": {
+      "value": 0.5556,
+      "lower": 0.2,
+      "upper": 0.6552,
+      "ci_str": "0.5556 [0.2000, 0.6552]"
+    },
+    "cooperation_rate": {
+      "pooled_value": 0.44,
+      "participant_mean_ci": {
+        "value": 0.44,
+        "lower": 0.24,
+        "upper": 0.6,
+        "ci_str": "0.4400 [0.2400, 0.6000]",
+        "n": 5,
+        "confidence": 0.95
+      }
+    },
+    "b_rlhf": {
+      "pooled_value": 0.1067,
+      "participant_mean_ci": {
+        "value": 0.3067,
+        "lower": 0.2,
+        "upper": 0.4,
+        "ci_str": "0.3067 [0.2000, 0.4000]",
+        "n": 5,
+        "confidence": 0.95
+      }
+    },
+    "action_distribution": {
+      "cooperate": 0.44,
+      "save": 0.24,
+      "work": 0.32
+    }
+  }
+}

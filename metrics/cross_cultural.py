@@ -65,6 +65,47 @@ class CrossCulturalResult:
     gradient_recovered: bool
 
 
+@dataclass
+class HoldoutFitResult:
+    """Fit of simulated cooperation against an external trust benchmark.
+
+    Attributes:
+        benchmark_name: Either "ess" (in-sample) or "wvs" (out-of-sample holdout).
+        pearson_r: Linear association between benchmark trust and simulated cooperation.
+        pearson_p: Two-sided p-value for Pearson r.
+        spearman_rho: Rank association between benchmark trust and simulated cooperation.
+        spearman_p: Two-sided p-value for Spearman ρ.
+        gradient_recovered: True iff spearman_rho > 0 and spearman_p < 0.10.
+        mae: Mean absolute error between min-max normalised trust and coop vectors.
+        rmse: Root mean squared error between min-max normalised trust and coop vectors.
+        n_clusters: Number of clusters used in the fit.
+    """
+
+    benchmark_name: str
+    pearson_r: float
+    pearson_p: float
+    spearman_rho: float
+    spearman_p: float
+    gradient_recovered: bool
+    mae: float
+    rmse: float
+    n_clusters: int
+
+
+@dataclass
+class HoldoutComparison:
+    """Condition comparison on a benchmark fit (typically WVS holdout)."""
+
+    benchmark_name: str
+    grounded: HoldoutFitResult
+    control: HoldoutFitResult
+    delta_pearson_r: float
+    delta_spearman_rho: float
+    delta_mae: float
+    delta_rmse: float
+    grounded_better: bool
+
+
 def compute_cross_cultural_correlation(
     cluster_results: list[ClusterSimResult],
 ) -> CrossCulturalResult:
@@ -217,6 +258,119 @@ def compute_cross_cultural_correlation_multiseed(
         for r in multi_results
     ]
     return compute_cross_cultural_correlation(single)
+
+
+def _minmax01(values: np.ndarray) -> np.ndarray:
+    """Scale a 1-D vector to [0, 1]; return zeros for constant vectors."""
+    vmin = float(np.min(values))
+    vmax = float(np.max(values))
+    if np.isclose(vmax, vmin):
+        return np.zeros_like(values, dtype=float)
+    return (values - vmin) / (vmax - vmin)
+
+
+def _compute_alignment_error(
+    benchmark_values: np.ndarray,
+    coop_values: np.ndarray,
+) -> tuple[float, float]:
+    """Compute scale-free MAE/RMSE between benchmark and cooperation profiles."""
+    bx = _minmax01(benchmark_values.astype(float))
+    cy = _minmax01(coop_values.astype(float))
+    diff = bx - cy
+    mae = float(np.mean(np.abs(diff)))
+    rmse = float(np.sqrt(np.mean(diff ** 2)))
+    return mae, rmse
+
+
+def compute_benchmark_fit(
+    multi_results: list[ClusterMultiSeedResult],
+    benchmark: str = "ess",
+) -> HoldoutFitResult:
+    """Compute fit of simulated cooperation against ESS or WVS trust benchmarks.
+
+    Args:
+        multi_results: Per-cluster multi-seed simulation aggregates.
+        benchmark: "ess" (in-sample) or "wvs" (out-of-sample holdout).
+
+    Returns:
+        HoldoutFitResult with correlation and error metrics.
+    """
+    if len(multi_results) < 3:
+        raise ValueError(
+            f"Need at least 3 clusters for meaningful benchmark fit; got {len(multi_results)}."
+        )
+
+    coop = np.array([r.mean_cooperation_rate for r in multi_results], dtype=float)
+
+    bench_key = benchmark.lower()
+    if bench_key == "ess":
+        bench = np.array([r.ess_mean_trust for r in multi_results], dtype=float)
+    elif bench_key == "wvs":
+        missing = [r.cluster_name for r in multi_results if r.wvs_trust_pct is None]
+        if missing:
+            raise ValueError(
+                "WVS benchmark requested but some clusters are missing wvs_trust_pct: "
+                + ", ".join(sorted(missing))
+            )
+        bench = np.array([float(r.wvs_trust_pct) / 100.0 for r in multi_results], dtype=float)
+    else:
+        raise ValueError(f"Unsupported benchmark: {benchmark!r}. Use 'ess' or 'wvs'.")
+
+    # Degenerate case: no variation in either axis.
+    if np.allclose(coop, coop[0]) or np.allclose(bench, bench[0]):
+        pearson_r, pearson_p = 0.0, 1.0
+        spearman_rho, spearman_p = 0.0, 1.0
+    else:
+        pearson_r, pearson_p = pearsonr(bench, coop)
+        spearman_rho, spearman_p = spearmanr(bench, coop)
+        pearson_r = float(pearson_r)
+        pearson_p = float(pearson_p)
+        spearman_rho = float(spearman_rho)
+        spearman_p = float(spearman_p)
+
+    mae, rmse = _compute_alignment_error(bench, coop)
+    return HoldoutFitResult(
+        benchmark_name=bench_key,
+        pearson_r=pearson_r,
+        pearson_p=pearson_p,
+        spearman_rho=spearman_rho,
+        spearman_p=spearman_p,
+        gradient_recovered=(spearman_rho > 0 and spearman_p < 0.10),
+        mae=round(mae, 4),
+        rmse=round(rmse, 4),
+        n_clusters=len(multi_results),
+    )
+
+
+def compare_holdout_fit(
+    grounded_results: list[ClusterMultiSeedResult],
+    control_results: list[ClusterMultiSeedResult],
+    benchmark: str = "wvs",
+) -> HoldoutComparison:
+    """Compare grounded vs control condition on a benchmark fit.
+
+    Positive deltas indicate grounded is better:
+      - correlation deltas: grounded - control
+      - error deltas: control - grounded
+    """
+    g = compute_benchmark_fit(grounded_results, benchmark=benchmark)
+    c = compute_benchmark_fit(control_results, benchmark=benchmark)
+
+    delta_pearson = round(g.pearson_r - c.pearson_r, 4)
+    delta_spearman = round(g.spearman_rho - c.spearman_rho, 4)
+    delta_mae = round(c.mae - g.mae, 4)
+    delta_rmse = round(c.rmse - g.rmse, 4)
+
+    return HoldoutComparison(
+        benchmark_name=benchmark.lower(),
+        grounded=g,
+        control=c,
+        delta_pearson_r=delta_pearson,
+        delta_spearman_rho=delta_spearman,
+        delta_mae=delta_mae,
+        delta_rmse=delta_rmse,
+        grounded_better=(delta_pearson > 0 and delta_spearman > 0 and delta_rmse > 0),
+    )
 
 
 def format_cross_cultural_table(result: CrossCulturalResult) -> str:

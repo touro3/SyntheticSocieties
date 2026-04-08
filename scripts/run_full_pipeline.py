@@ -29,6 +29,7 @@ import json
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 import numpy as np
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -40,7 +41,7 @@ from utils.config import load_config
 from utils.io import ensure_dir, save_yaml, set_global_seed
 from scripts.run_config_simulation import run_simulation
 
-POLICIES_BASELINE = ["template", "rule_based", "random"]
+POLICIES_BASELINE = ["template", "rule_based", "random", "rule_based_ess"]
 POLICIES_LLM = ["llm"]
 PERTURBATION_MODES = ["rephrase", "shuffle", "noise"]
 
@@ -50,7 +51,16 @@ POLICY_PREFIX = {
     "template": "template",
     "rule_based": "rule",
     "random": "random",
+    "rule_based_ess": "rbe",
 }
+
+
+def parse_seed_list(seeds_arg: str) -> list[int]:
+    """Parse seed arg from comma-list or count shorthand."""
+    if "," in seeds_arg:
+        return [int(s.strip()) for s in seeds_arg.split(",") if s.strip()]
+    val = int(seeds_arg)
+    return [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
 
 
 def parse_args():
@@ -73,6 +83,29 @@ def parse_args():
                         help="Prompt ablation level (0-5) for base LLM experiments")
     parser.add_argument("--run-ablation-ladder", action="store_true",
                         help="Run full V0-V5 ablation ladder suite")
+    parser.add_argument(
+        "--analytics-scope",
+        choices=["run", "global"],
+        default="run",
+        help="Analytics scope: current run only (default) or full historical index.",
+    )
+    parser.add_argument(
+        "--analytics-output-dir",
+        type=str,
+        default="analysis/tables",
+        help="Output directory for analytics CSV tables.",
+    )
+    parser.add_argument(
+        "--skip-integrity-audit",
+        action="store_true",
+        help="Skip post-run research integrity audit.",
+    )
+    parser.add_argument(
+        "--integrity-level",
+        choices=["basic", "publication"],
+        default="basic",
+        help="Research integrity audit strictness.",
+    )
     return parser.parse_args()
 
 
@@ -114,11 +147,7 @@ def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
 
 def run_experiments(args) -> list[str]:
     """Run all experiments and return list of experiment IDs."""
-    if "," in args.seeds:
-        seeds = [int(s.strip()) for s in args.seeds.split(",")]
-    else:
-        val = int(args.seeds)
-        seeds = [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
+    seeds = parse_seed_list(args.seeds)
     policies = POLICIES_BASELINE.copy()
     
     experiments = []
@@ -284,7 +313,7 @@ def run_plots(args):
     # Publication analytics plots
     subprocess.run([
         sys.executable, "scripts/plot_all_analytics.py"
-    ], check=True)
+    ] + ["--seeds", args.seeds], check=True)
 
     # Advanced Trajectory Plots (Phase 13)
     seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
@@ -300,20 +329,125 @@ def run_plots(args):
     print("  ✓ All plot suites generated")
 
 
-def run_analytics():
+def _infer_cmp_ids(seeds: list[int], include_llm: bool) -> list[str]:
+    cmp_ids = []
+    for s in seeds:
+        cmp_ids.extend([
+            f"cmp_template_s{s}",
+            f"cmp_rule_s{s}",
+            f"cmp_random_s{s}",
+        ])
+        if include_llm:
+            cmp_ids.append(f"cmp_llm_s{s}")
+    return cmp_ids
+
+
+def run_analytics(args, exp_ids: list[str]):
     """Run DuckDB analytics."""
     print(f"\n{'─' * 60}")
     print(f"  STAGE 3: DuckDB Analytics")
     print(f"{'─' * 60}")
 
-    subprocess.run([
-        sys.executable, "scripts/run_analytics.py"
-    ], check=True)
+    cmd = [
+        sys.executable, "scripts/run_analytics.py",
+        "--output-dir", args.analytics_output_dir,
+    ]
+
+    if args.analytics_scope == "run":
+        seeds = parse_seed_list(args.seeds)
+        policies = ["template", "rule_based", "random"] + (["llm"] if args.include_llm else [])
+        cmp_ids = sorted({x for x in exp_ids if x.startswith("cmp_")}) if exp_ids else _infer_cmp_ids(seeds, args.include_llm)
+        if cmp_ids:
+            cmd += ["--experiment-ids", ",".join(cmp_ids)]
+        cmd += ["--seeds", ",".join(str(s) for s in seeds)]
+        cmd += ["--policy-types", ",".join(policies), "--require-cmp-only"]
+
+    subprocess.run(cmd, check=True)
+
+
+def run_integrity_audit(args, manifest_path: Path) -> None:
+    """Run post-pipeline research integrity checks."""
+    print(f"\n{'─' * 60}")
+    print("  STAGE 4: Research Integrity Audit")
+    print(f"{'─' * 60}")
+    cmd = [
+        sys.executable,
+        "scripts/research_integrity_audit.py",
+        "--manifest",
+        str(manifest_path),
+        "--llm-vs-baselines",
+        str(Path(args.analytics_output_dir) / "llm_vs_baselines.csv"),
+        "--policy-comparison",
+        str(Path(args.analytics_output_dir) / "policy_comparison.csv"),
+        "--cross-cultural",
+        "analysis/cross_cultural_expanded_results.json",
+        "--human-baseline",
+        "analysis/tables/human_baseline_metrics.json",
+        "--level",
+        args.integrity_level,
+        "--output-json",
+        "analysis/reports/research_integrity_audit.json",
+        "--output-markdown",
+        "analysis/reports/research_integrity_audit.md",
+        "--fail-on-blockers",
+    ]
+    subprocess.run(cmd, check=True)
+    print("  ✓ Integrity audit passed")
+
+
+def write_run_manifest(start_ts: float, args, exp_ids: list[str]) -> Path:
+    """Write an auditable manifest of the current pipeline run."""
+    reports_dir = Path("analysis/reports")
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = reports_dir / "last_pipeline_run_manifest.json"
+
+    def _modified_since(base: Path, patterns: list[str], since: float) -> list[str]:
+        out = []
+        for pattern in patterns:
+            for p in base.glob(pattern):
+                try:
+                    if p.is_file() and p.stat().st_mtime >= since:
+                        out.append(str(p))
+                except FileNotFoundError:
+                    continue
+        return sorted(set(out))
+
+    seeds = parse_seed_list(args.seeds)
+    summary_paths = []
+    for exp_id in exp_ids:
+        p = Path("experiments") / exp_id / "summary.json"
+        if p.exists():
+            summary_paths.append(str(p))
+
+    payload = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "args": {
+            "seeds": seeds,
+            "rounds": args.rounds,
+            "agents": args.agents,
+            "include_llm": args.include_llm,
+            "include_perturbation": args.include_perturbation,
+            "plots_only": args.plots_only,
+            "analytics_scope": args.analytics_scope,
+            "analytics_output_dir": args.analytics_output_dir,
+            "integrity_level": args.integrity_level,
+            "skip_integrity_audit": args.skip_integrity_audit,
+        },
+        "experiment_ids": exp_ids,
+        "summary_paths": summary_paths,
+        "analysis_outputs_modified_since_run_start": {
+            "figures": _modified_since(Path("analysis/figures"), ["*.png", "*.pdf"], start_ts),
+            "tables": _modified_since(Path(args.analytics_output_dir), ["*.csv", "*.json"], start_ts),
+        },
+    }
+
+    manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return manifest_path
 
 
 def print_quick_comparison(seeds_str: str):
     """Print a quick comparison table from experiment summaries."""
-    seeds = [int(s) for s in seeds_str.split(",")]
+    seeds = parse_seed_list(seeds_str)
     policies = ["llm", "template", "rule_based", "random"]
 
     print(f"\n{'═' * 70}")
@@ -364,7 +498,8 @@ def print_quick_comparison(seeds_str: str):
         save = all_actions.get("save", 0) / total_a * 100
 
         label = {"llm": "LLM (Mistral-7B)", "template": "Template (ESS)",
-                 "rule_based": "Rule-Based", "random": "Random"}[policy]
+                 "rule_based": "Rule-Based", "random": "Random",
+                 "rule_based_ess": "Rule-Based ESS (D)"}.get(policy, policy)
 
         print(f"  {label:<23} {mean_w:>10.1f} {gini:>8.3f} {coop:>7.1f}% {work:>7.1f}% {save:>7.1f}%")
 
@@ -403,16 +538,26 @@ def main():
     print(f"  Perturb:  {'Yes' if args.include_perturbation else 'No'}")
 
     t0 = time.time()
+    exp_ids: list[str] = []
 
     if not args.plots_only:
-        run_experiments(args)
+        exp_ids = run_experiments(args)
     else:
         print("\n  Skipping experiments (--plots-only)")
+        exp_ids = _infer_cmp_ids(parse_seed_list(args.seeds), args.include_llm)
 
     run_plots(args)
 
-    run_analytics()
+    run_analytics(args, exp_ids)
     print_quick_comparison(args.seeds)
+
+    manifest_path = write_run_manifest(t0, args, exp_ids)
+    print(f"  🧾 Run manifest: {manifest_path}")
+
+    if not args.skip_integrity_audit:
+        run_integrity_audit(args, manifest_path)
+    else:
+        print("  ⏭  Integrity audit skipped (--skip-integrity-audit)")
 
     elapsed = time.time() - t0
     print(f"  ⏱  Total pipeline time: {elapsed:.1f}s")

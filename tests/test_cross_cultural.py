@@ -16,7 +16,10 @@ import pytest
 
 from metrics.cross_cultural import (
     ClusterSimResult,
+    ClusterMultiSeedResult,
     CrossCulturalResult,
+    compare_holdout_fit,
+    compute_benchmark_fit,
     compute_cross_cultural_correlation,
     format_cross_cultural_table,
 )
@@ -249,3 +252,53 @@ class TestFormatTable:
         result = compute_cross_cultural_correlation(gradient_results)
         table = format_cross_cultural_table(result)
         assert "Gradient recovered" in table
+
+
+@pytest.fixture
+def grounded_multiseed() -> list[ClusterMultiSeedResult]:
+    return [
+        ClusterMultiSeedResult("eastern", 0.418, 0.280, 0.02, 0.260, 0.300, 3, [0.27, 0.29, 0.28], mean_gini=0.34, n_agents=20, n_rounds=10, wvs_trust_pct=24.0),
+        ClusterMultiSeedResult("southern", 0.455, 0.350, 0.02, 0.330, 0.370, 3, [0.34, 0.36, 0.35], mean_gini=0.32, n_agents=20, n_rounds=10, wvs_trust_pct=29.0),
+        ClusterMultiSeedResult("western", 0.504, 0.420, 0.02, 0.400, 0.440, 3, [0.41, 0.43, 0.42], mean_gini=0.30, n_agents=20, n_rounds=10, wvs_trust_pct=37.0),
+        ClusterMultiSeedResult("anglo", 0.565, 0.500, 0.02, 0.480, 0.520, 3, [0.49, 0.51, 0.50], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=43.0),
+        ClusterMultiSeedResult("northern", 0.634, 0.580, 0.02, 0.560, 0.600, 3, [0.57, 0.59, 0.58], mean_gini=0.28, n_agents=20, n_rounds=10, wvs_trust_pct=55.0),
+        ClusterMultiSeedResult("nordic", 0.689, 0.660, 0.02, 0.640, 0.680, 3, [0.65, 0.67, 0.66], mean_gini=0.27, n_agents=20, n_rounds=10, wvs_trust_pct=68.0),
+    ]
+
+
+@pytest.fixture
+def control_multiseed() -> list[ClusterMultiSeedResult]:
+    return [
+        ClusterMultiSeedResult("eastern", 0.418, 0.460, 0.01, 0.450, 0.470, 3, [0.46, 0.47, 0.45], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=24.0),
+        ClusterMultiSeedResult("southern", 0.455, 0.450, 0.01, 0.440, 0.460, 3, [0.45, 0.46, 0.44], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=29.0),
+        ClusterMultiSeedResult("western", 0.504, 0.455, 0.01, 0.445, 0.465, 3, [0.45, 0.46, 0.46], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=37.0),
+        ClusterMultiSeedResult("anglo", 0.565, 0.448, 0.01, 0.438, 0.458, 3, [0.44, 0.45, 0.45], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=43.0),
+        ClusterMultiSeedResult("northern", 0.634, 0.452, 0.01, 0.442, 0.462, 3, [0.45, 0.46, 0.44], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=55.0),
+        ClusterMultiSeedResult("nordic", 0.689, 0.449, 0.01, 0.439, 0.459, 3, [0.45, 0.44, 0.46], mean_gini=0.29, n_agents=20, n_rounds=10, wvs_trust_pct=68.0),
+    ]
+
+
+class TestHoldoutFit:
+    def test_ess_fit_positive_gradient(self, grounded_multiseed):
+        fit = compute_benchmark_fit(grounded_multiseed, benchmark="ess")
+        assert fit.pearson_r > 0
+        assert fit.spearman_rho > 0
+
+    def test_wvs_fit_positive_gradient(self, grounded_multiseed):
+        fit = compute_benchmark_fit(grounded_multiseed, benchmark="wvs")
+        assert fit.pearson_r > 0
+        assert fit.spearman_rho > 0
+        assert fit.rmse < 0.30
+
+    def test_compare_holdout_prefers_grounded(self, grounded_multiseed, control_multiseed):
+        cmp = compare_holdout_fit(grounded_multiseed, control_multiseed, benchmark="wvs")
+        assert cmp.delta_pearson_r > 0
+        assert cmp.delta_spearman_rho > 0
+        assert cmp.delta_rmse > 0
+        assert cmp.grounded_better
+
+    def test_wvs_requires_wvs_values(self, grounded_multiseed):
+        broken = list(grounded_multiseed)
+        broken[0].wvs_trust_pct = None
+        with pytest.raises(ValueError, match="missing wvs_trust_pct"):
+            compute_benchmark_fit(broken, benchmark="wvs")

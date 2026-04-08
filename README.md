@@ -1,5 +1,7 @@
 # SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
+[![BGF CI](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml/badge.svg)](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml)
+
 **Can LLMs grounded in real survey microdata produce more realistic synthetic societies than pure LLMs?**
 
 SyntheticSocieties is a research-grade agent-based simulation framework that tests whether Large Language Models (LLMs) conditioned on empirical sociodemographic data from the European Social Survey (ESS) generate more behaviorally faithful synthetic populations than ungrounded LLMs.
@@ -119,7 +121,13 @@ python scripts/run_full_pipeline.py --seeds 1,2,3,4,5 --include-llm
 # Regenerate plots from existing data
 python scripts/run_full_pipeline.py --plots-only
 
-# Run full test suite (636+ tests)
+# By default, analytics are scoped to the current run seeds/policies (no stale mixing).
+# A provenance manifest is saved to: analysis/reports/last_pipeline_run_manifest.json
+# A post-run integrity audit is also generated:
+#   analysis/reports/research_integrity_audit.json
+#   analysis/reports/research_integrity_audit.md
+
+# Run full test suite (929+ tests)
 pytest tests/ -v
 
 # Run specific new metric tests
@@ -156,6 +164,20 @@ python scripts/plot_network_evolution.py
 # Phase transition sweeps (bad apple fraction, shock magnitude, beta)
 python scripts/run_phase_transition_sweeps.py --no-llm  # Run sweeps
 python scripts/plot_phase_transitions.py                 # Plot results
+
+# Out-of-sample validation (ESS in-sample + WVS holdout; optional ungrounded control)
+python scripts/run_cross_cultural_expanded.py --run-ungrounded-control
+python scripts/plot_cross_cultural_expanded.py --wvs
+
+# Human baseline analysis (after Prolific CSV is collected).
+# Default mode is publication-strict: it rejects synthetic/demo-like data and
+# enforces minimum sample/round thresholds.
+python scripts/analyze_human_baseline.py \
+  --input-csv data/human/prolific_round_data.csv \
+  --comparison-json analysis/tables/human_vs_simulation_reference.json
+
+# Optional standalone audit (basic or publication)
+python scripts/research_integrity_audit.py --level publication --fail-on-blockers
 
 # ESS data validation
 python scripts/validate_ess_data.py

@@ -54,16 +54,22 @@ class SQLRAG:
     def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None,
                                 agent_trust: Optional[float] = None,
                                 agent_risk: Optional[float] = None,
-                                agent_satisfaction: Optional[float] = None) -> str:
-        """Grounded query: How do peers (age/gender/country) usually behave?
+                                agent_satisfaction: Optional[float] = None,
+                                income_decile: Optional[float] = None) -> str:
+        """Grounded query: How do peers (age/gender/country/income) usually behave?
 
         Returns distribution-level information (mean, std, median, sample size)
         rather than just averages, so the LLM can understand population variance
         and where the agent sits relative to their peer group.
 
-        Attempts a narrow match (±5 years, same gender, same country if given).
-        Falls back to a ±15-year window, then to a population-wide average, so the
-        LLM always receives meaningful grounding rather than an empty string.
+        Four-tier fallback for cohort matching:
+          1. age±5, gender, country, income band (±2.5 deciles)  — tightest
+          2. age±10, gender, country                             — drops income
+          3. age±15, country                                     — drops gender
+          4. population-wide                                     — broadest
+
+        This ensures high-income and low-income agents receive meaningfully
+        different peer norms rather than collapsing to the same demographic bucket.
         """
         try:
             self._connect()
@@ -76,12 +82,16 @@ class SQLRAG:
         else:
             g_val = self._GENDER_ENCODING.get(str(gender).lower(), 1)
 
-        def _run_query(age_window: int, include_country: bool) -> Optional[str]:
+        def _run_query(age_window: int, include_country: bool,
+                       include_income: bool = False) -> Optional[str]:
             where_clauses = ["age BETWEEN ? AND ?", "gender = ?"]
             params: list = [age - age_window, age + age_window, g_val]
             if include_country and country:
                 where_clauses.append("country = ?")
                 params.append(country)
+            if include_income and income_decile is not None:
+                where_clauses.append("income_decile BETWEEN ? AND ?")
+                params.extend([income_decile - 2.5, income_decile + 2.5])
             q = f"""
             SELECT
                 COUNT(*) AS n_peers,
@@ -98,7 +108,7 @@ class SQLRAG:
                 PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q75
             FROM population
             WHERE {' AND '.join(where_clauses)}
-            """
+            """  # noqa: S608 — no user-supplied table names, only parameterised values
             try:
                 res = self.conn.execute(q, params).fetchdf()
                 if res.empty or pd.isna(res.iloc[0]["avg_trust"]):
@@ -108,12 +118,17 @@ class SQLRAG:
                 if n < 5:
                     return None
 
+                income_line = (
+                    f"  Income decile: {income_decile:.1f} (peer avg {row['avg_income_decile']:.1f})."
+                    if income_decile is not None
+                    else f"  Income decile: avg {row['avg_income_decile']:.1f}."
+                )
                 parts = [
                     f"Based on {n} peers in your demographic bracket:",
                     f"  Trust: avg {row['avg_trust']:.1f}/10 (std {row['std_trust']:.1f}, median {row['median_trust']:.1f}, IQR [{row['trust_q25']:.1f}-{row['trust_q75']:.1f}]).",
                     f"  Risk tolerance: avg {row['avg_risk']:.1f}/10 (std {row['std_risk']:.1f}, median {row['median_risk']:.1f}).",
                     f"  Life satisfaction: avg {row['avg_satisfaction']:.1f}/10 (std {row['std_satisfaction']:.1f}).",
-                    f"  Income decile: avg {row['avg_income_decile']:.1f}.",
+                    income_line,
                 ]
 
                 # Show where the agent falls relative to peers
@@ -137,9 +152,14 @@ class SQLRAG:
             except Exception:
                 return None
 
-        # Try narrow match → wider window → population-wide fallback
-        for window, use_country in [(5, True), (15, True), (15, False)]:
-            result = _run_query(window, use_country)
+        # Four-tier fallback: tightest → broadest
+        for window, use_country, use_income in [
+            (5, True, True),    # tier 1: tight age, same country, same income band
+            (10, True, False),  # tier 2: wider age, same country
+            (15, True, False),  # tier 3: broad age, same country, no income filter
+            (15, False, False), # tier 4: population-wide
+        ]:
+            result = _run_query(window, use_country, use_income)
             if result:
                 return result
 

@@ -17,6 +17,7 @@ Usage:
     python scripts/plot_all_analytics.py
 """
 
+import argparse
 import json
 import sys
 from collections import Counter
@@ -85,6 +86,15 @@ POLICY_PREFIX = {"llm": "llm", "template": "template", "rule_based": "rule", "ra
 SEEDS = [42, 123, 7]
 
 
+def _parse_seeds_arg(seeds_arg: str) -> list[int]:
+    if "," in seeds_arg:
+        return [int(s.strip()) for s in seeds_arg.split(",") if s.strip()]
+    val = int(seeds_arg)
+    if val <= 20:
+        return [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val]
+    return [val]
+
+
 def load_summary(exp_id: str) -> dict:
     path = EXPERIMENTS_DIR / exp_id / "summary.json"
     if not path.exists():
@@ -93,7 +103,9 @@ def load_summary(exp_id: str) -> dict:
         return json.loads(f.read())
 
 
-def load_wealth(policy: str, seeds=SEEDS) -> list[float]:
+def load_wealth(policy: str, seeds: list[int] | None = None) -> list[float]:
+    if seeds is None:
+        seeds = SEEDS
     prefix = POLICY_PREFIX.get(policy, policy)
     wealth = []
     for s in seeds:
@@ -102,7 +114,9 @@ def load_wealth(policy: str, seeds=SEEDS) -> list[float]:
     return wealth
 
 
-def load_actions(policy: str, seeds=SEEDS) -> Counter:
+def load_actions(policy: str, seeds: list[int] | None = None) -> Counter:
+    if seeds is None:
+        seeds = SEEDS
     prefix = POLICY_PREFIX.get(policy, policy)
     actions = Counter()
     for s in seeds:
@@ -111,7 +125,9 @@ def load_actions(policy: str, seeds=SEEDS) -> Counter:
     return actions
 
 
-def load_ablation_wealth(mode: str, seeds=SEEDS) -> list[float]:
+def load_ablation_wealth(mode: str, seeds: list[int] | None = None) -> list[float]:
+    if seeds is None:
+        seeds = SEEDS
     wealth = []
     for s in seeds:
         summary = load_summary(f"ablation_{mode}_s{s}")
@@ -122,8 +138,6 @@ def load_ablation_wealth(mode: str, seeds=SEEDS) -> list[float]:
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 1: LLM-ALONE VS ESS-GROUNDED (PRIORITY)
 # ══════════════════════════════════════════════════════════════════════════
-
-# how to fix: 
 
 def plot_llm_grounding_comparison():
     """Compare LLM with no persona (ungrounded) vs LLM with ESS personas."""
@@ -847,11 +861,23 @@ def plot_results_dashboard():
 # ══════════════════════════════════════════════════════════════════════════
 
 def main():
+    global SEEDS
+    parser = argparse.ArgumentParser(description="Generate publication analytics plots.")
+    parser.add_argument(
+        "--seeds",
+        type=str,
+        default="42,123,7",
+        help="Comma-separated seed list or integer count.",
+    )
+    args = parser.parse_args()
+
+    SEEDS = _parse_seeds_arg(args.seeds)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
     print("Generating Publication Plots")
     print("=" * 60)
+    print(f"Seeds in scope: {SEEDS}")
 
     figures = []
 

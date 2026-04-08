@@ -10,6 +10,7 @@ from bgf_logging.event_logger import EventLogger
 from decision.data_driven_policy import DataDrivenPolicy
 from decision.mock_policy import MockPolicy
 from decision.random_policy import RandomPolicy
+from decision.rule_based_ess_policy import RuleBasedESSPolicy
 from decision.rule_based_policy import RuleBasedPolicy
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
@@ -157,6 +158,9 @@ def build_policy(config: dict):
 
     if policy_type == "rule_based":
         return RuleBasedPolicy()
+
+    if policy_type == "rule_based_ess":
+        return RuleBasedESSPolicy()
 
     if policy_type == "data_driven":
         return DataDrivenPolicy()

@@ -253,10 +253,11 @@ def make_plot(
     if show_wvs and all(r.get("wvs_trust_pct") is not None for r in rows):
         _add_wvs_inset(fig, ax, rows)
 
-    try:
+    # tight_layout can emit warnings with inset axes; avoid it in WVS inset mode.
+    if show_wvs:
+        fig.subplots_adjust(left=0.08, right=0.97, bottom=0.08, top=0.93)
+    else:
         fig.tight_layout()
-    except Exception:
-        pass  # inset axes may not be tight_layout-compatible; figure still renders correctly
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)

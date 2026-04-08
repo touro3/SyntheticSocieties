@@ -4,6 +4,55 @@
 # CPU runs: seconds–minutes regardless of agent count
 # ─────────────────────────────────────────────────────────────────────────────
 
+Next priorities (ranked by publication impact)                                                 
+                                                                                                 
+  1. Statistical power — highest priority for reviewers     
+                                                                                                 
+  Run 10-20 seeds with bootstrap CIs on the core A/B comparison. Without this, NeurIPS/AAMAS     
+  reviewers will reject on rigor alone.                                                          
+  python scripts/run_full_pipeline.py --include-llm --seeds 1,2,3,4,5,6,7,8,9,10 --rounds 30     
+  --agents 100                                                                              
+                                                                                                 
+  2. Condition D real numbers
+                                                                                                 
+  rule_based_ess_policy.py is implemented but never actually run. This is critical — it's the    
+  "why LLM reasoning adds value beyond rules alone" argument.                                    
+  python scripts/run_full_pipeline.py --policy rule_based_ess --seeds 1,2,3 --rounds 30          
+                                                            
+  3. Macro shock + topology (evenings/overnight)                                                 
+   
+  Both pipelines are ready, just need execution:                                                 
+  bash pipeline_macro_shock.sh   # ~75 min                  
+  bash pipeline_topology.sh      # ~2.5 h                                                        
+                                                            
+  4. Venue formatting                                                                            
+   
+  None of the paper formats exist yet (paper/neurips2026_draft.pdf, paper/aamas2026_draft.pdf).  
+  This needs to happen soon — formatting restructures how you present results.
+                                                                                                 
+  5. Human eval (optional but differentiating)                                                   
+   
+  The Prolific protocol is designed. $150 budget, 30-50 participants. This is the most           
+  differentiating signal for top venues but requires external action.
+                                                                                                 
+  ---                                                       
+  What to skip (diminishing returns)
+                                    
+  - 70B model validation (Sub-phase 28.7) — nice-to-have, not blocking
+  - Fine-tuning comparison (28.6 optional) — already well-argued in the paper                    
+  - External reproducibility recruiters (28.9) — blocked on external coordination                
+                                                                                                 
+  Critical path: Seeds → Condition D → Venue choice → Paper format → Submit.   
+ 
+ 1. Statistical power — 3 seeds → 10-20 seeds with bootstrap 95% CIs. Run: python scripts/run_full_pipeline.py     
+  --include-llm --seeds 1,2,3,4,5,6,7,8,9,10 --rounds 30 --agents 100                                               
+  2. Condition D real numbers — rule_based_ess is implemented but not run. Run: python scripts/run_full_pipeline.py 
+  --policy rule_based_ess --seeds 1,2,3 --rounds 30                                                                 
+  3. Cross-cultural LLM validation — currently only dry-run (rule-based proxy). Run: bash pipeline_cross_cultural.sh
+   --include-llm --n-seeds 10                                                                                       
+  4. Human evaluation — n=30-50 participants on Prolific (~$150). Protocol designed. Needs budget approval +
+  deployment.  
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  RUN ORDER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

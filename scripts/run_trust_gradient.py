@@ -32,12 +32,12 @@ from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from agents.agent import Agent
-from decision.rule_based_policy import RuleBasedPolicy
+from decision.rule_based_ess_policy import RuleBasedESSPolicy
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
 from environment.world import World
 from environment.world_state import WorldState
-from metrics.event_metrics import behavior_summary_from_events
+from metrics.event_metrics import behavior_summary_from_events, load_events
 from metrics.inequality import gini_coefficient
 from metrics.trust_gradient import (
     TRUST_GROUPS,
@@ -64,8 +64,9 @@ def _make_agent_from_profile_row(row, agent_id: str, rng: np.random.Generator) -
         political_preference="center",
         risk_tolerance=float(row.get("risk_taking", 0.5)),
         social_class="middle",
-        trust_people=float(row.get("trust_people", 0.5)),
-        competitiveness=float(row.get("competitiveness", 0.5)),
+        trust_people=max(0.0, min(1.0, float(row.get("trust_people", 0.5)))),
+        competitiveness=max(0.0, min(1.0, float(row.get("competitiveness", 0.5)))),
+        social_activity=max(0.0, min(1.0, float(row.get("social_activity", 0.5)))),
     )
     state = AgentState(
         wealth=float(rng.uniform(40, 80)),
@@ -76,7 +77,7 @@ def _make_agent_from_profile_row(row, agent_id: str, rng: np.random.Generator) -
         profile=profile,
         state=state,
         memory=MemoryBuffer(max_items=20),
-        policy=RuleBasedPolicy(),
+        policy=RuleBasedESSPolicy(),
     )
 
 
@@ -138,19 +139,17 @@ def run_group_simulation(
     kernel = SimulationKernel(
         agents=agents,
         world=world,
-        event_logger=event_logger,
-        n_rounds=n_rounds,
-        seed=seed,
+        logger=event_logger,
     )
-    kernel.run()
+    kernel.run(num_rounds=n_rounds)
 
-    events = event_logger.load_events()
+    events = load_events(log_path)
     behavior = behavior_summary_from_events(events)
 
     final_wealth = [a.state.wealth for a in agents]
     gini = gini_coefficient(final_wealth)
     mean_wealth = float(np.mean(final_wealth))
-    coop_rate = float(behavior.get("cooperation_rate", 0.0))
+    coop_rate = float(behavior.get("event_behavior", {}).get("cooperation_rate", 0.0))
 
     return {
         "group_name": group.name,

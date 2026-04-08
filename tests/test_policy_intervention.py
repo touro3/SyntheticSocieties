@@ -1,8 +1,216 @@
-"""Tests for environment/policy_intervention.py."""
+"""Tests for metrics/policy_intervention.py — Phase 28.8."""
 
 from __future__ import annotations
 
 import pytest
+
+from metrics.policy_intervention import (
+    InterventionResult,
+    InterventionSummary,
+    aggregate_by_intensity,
+    run_intervention_sweep,
+    run_single_intervention,
+    _gini,
+    _hash_uniform,
+)
+
+
+# ── Unit tests ────────────────────────────────────────────────────────────
+
+
+class TestHelpers:
+    def test_hash_uniform_in_range(self):
+        v = _hash_uniform("agent_0001", 5)
+        assert 0.0 <= v < 1.0
+
+    def test_hash_uniform_deterministic(self):
+        a = _hash_uniform("agent_0001", 5)
+        b = _hash_uniform("agent_0001", 5)
+        assert a == b
+
+    def test_hash_uniform_different_inputs(self):
+        a = _hash_uniform("agent_0001", 5)
+        b = _hash_uniform("agent_0001", 6)
+        c = _hash_uniform("agent_0002", 5)
+        assert a != b
+        assert a != c
+
+    def test_gini_uniform(self):
+        g = _gini([10.0, 10.0, 10.0, 10.0])
+        assert abs(g) < 1e-10
+
+    def test_gini_max_inequality(self):
+        values = [0.0, 0.0, 0.0, 100.0]
+        g = _gini(values)
+        assert g > 0.5
+
+    def test_gini_empty(self):
+        assert _gini([]) == 0.0
+
+    def test_gini_zero_sum(self):
+        assert _gini([0.0, 0.0, 0.0]) == 0.0
+
+
+class TestRunSingleIntervention:
+    def test_returns_correct_type(self):
+        result = run_single_intervention(intensity=0.0, n_agents=20, n_rounds=10, seed=42)
+        assert isinstance(result, InterventionResult)
+
+    def test_per_round_length(self):
+        result = run_single_intervention(intensity=0.0, n_agents=20, n_rounds=15, seed=42)
+        assert len(result.per_round_cooperation) == 15
+        assert len(result.per_round_wealth_mean) == 15
+
+    def test_cooperation_rates_in_range(self):
+        result = run_single_intervention(intensity=0.0, n_agents=50, n_rounds=10, seed=42)
+        for v in result.per_round_cooperation:
+            assert 0.0 <= v <= 1.0
+
+    def test_gini_in_range(self):
+        result = run_single_intervention(intensity=0.0, n_agents=50, n_rounds=10, seed=42)
+        assert 0.0 <= result.gini_final <= 1.0
+
+    def test_wealth_positive(self):
+        result = run_single_intervention(intensity=0.0, n_agents=50, n_rounds=10, seed=42)
+        assert result.wealth_mean_final > 0.0
+
+    def test_delta_cooperation_sign_with_boost(self):
+        no_boost = run_single_intervention(
+            intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15
+        )
+        boosted = run_single_intervention(
+            intensity=0.20, n_agents=100, n_rounds=30, seed=42, intervention_round=15
+        )
+        assert boosted.delta_cooperation > no_boost.delta_cooperation
+
+    def test_zero_intensity_delta_near_zero(self):
+        result = run_single_intervention(
+            intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15
+        )
+        assert abs(result.delta_cooperation) < 0.15
+
+    def test_fields_consistent(self):
+        result = run_single_intervention(intensity=0.10, n_agents=50, n_rounds=20, seed=7)
+        assert result.intensity == 0.10
+        assert result.n_agents == 50
+        assert result.n_rounds == 20
+        assert result.seed == 7
+        expected_delta = result.cooperation_rate_post - result.cooperation_rate_pre
+        assert abs(result.delta_cooperation - expected_delta) < 1e-9
+
+    def test_reproducibility_across_calls(self):
+        r1 = run_single_intervention(intensity=0.05, n_agents=30, n_rounds=10, seed=99)
+        r2 = run_single_intervention(intensity=0.05, n_agents=30, n_rounds=10, seed=99)
+        assert r1.delta_cooperation == r2.delta_cooperation
+        assert r1.gini_final == r2.gini_final
+
+    def test_different_seeds_differ(self):
+        r1 = run_single_intervention(intensity=0.10, n_agents=50, n_rounds=15, seed=1)
+        r2 = run_single_intervention(intensity=0.10, n_agents=50, n_rounds=15, seed=2)
+        assert r1.gini_final != r2.gini_final
+
+    def test_intervention_round_zero(self):
+        result = run_single_intervention(
+            intensity=0.10, n_agents=30, n_rounds=10, seed=42, intervention_round=0
+        )
+        assert isinstance(result, InterventionResult)
+        assert len(result.per_round_cooperation) == 10
+
+
+class TestRunInterventionSweep:
+    def test_sweep_length(self):
+        results = run_intervention_sweep(
+            intensities=(0.0, 0.10),
+            seeds=(42, 123),
+            n_agents=20,
+            n_rounds=5,
+        )
+        assert len(results) == 4
+
+    def test_all_intensities_covered(self):
+        intensities = (0.0, 0.05, 0.10, 0.20)
+        results = run_intervention_sweep(
+            intensities=intensities,
+            seeds=(42,),
+            n_agents=20,
+            n_rounds=5,
+        )
+        found = {r.intensity for r in results}
+        assert found == set(intensities)
+
+    def test_all_seeds_covered(self):
+        results = run_intervention_sweep(
+            intensities=(0.0,),
+            seeds=(1, 2, 3),
+            n_agents=20,
+            n_rounds=5,
+        )
+        found = {r.seed for r in results}
+        assert found == {1, 2, 3}
+
+
+class TestAggregateByIntensity:
+    def test_aggregation_count(self):
+        results = run_intervention_sweep(
+            intensities=(0.0, 0.10, 0.20),
+            seeds=(42, 123),
+            n_agents=20,
+            n_rounds=5,
+        )
+        summaries = aggregate_by_intensity(results)
+        assert len(summaries) == 3
+
+    def test_summaries_sorted_ascending(self):
+        results = run_intervention_sweep(
+            intensities=(0.20, 0.0, 0.10),
+            seeds=(42,),
+            n_agents=20,
+            n_rounds=5,
+        )
+        summaries = aggregate_by_intensity(results)
+        intensities = [s.intensity for s in summaries]
+        assert intensities == sorted(intensities)
+
+    def test_summary_type(self):
+        results = run_intervention_sweep(
+            intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=5
+        )
+        summaries = aggregate_by_intensity(results)
+        assert isinstance(summaries[0], InterventionSummary)
+
+    def test_intensity_pct_format(self):
+        results = run_intervention_sweep(
+            intensities=(0.0, 0.05, 0.10, 0.20),
+            seeds=(42,),
+            n_agents=20,
+            n_rounds=5,
+        )
+        summaries = aggregate_by_intensity(results)
+        pcts = [s.intensity_pct for s in summaries]
+        assert "0%" in pcts
+        assert "5%" in pcts
+        assert "10%" in pcts
+        assert "20%" in pcts
+
+    def test_delta_coop_monotone_with_intensity(self):
+        results = run_intervention_sweep(
+            intensities=(0.0, 0.05, 0.10, 0.20),
+            seeds=(42, 123, 7),
+            n_agents=100,
+            n_rounds=30,
+            intervention_round=15,
+        )
+        summaries = aggregate_by_intensity(results)
+        deltas = [s.delta_coop_mean for s in summaries]
+        for i in range(1, len(deltas)):
+            assert deltas[i] >= deltas[i - 1] - 0.01
+
+    def test_per_round_length_matches_n_rounds(self):
+        results = run_intervention_sweep(
+            intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=15
+        )
+        summaries = aggregate_by_intensity(results)
+        assert len(summaries[0].per_round_cooperation) == 15
 from tests.conftest import make_agent
 from environment.policy_intervention import (
     InterventionEngine,

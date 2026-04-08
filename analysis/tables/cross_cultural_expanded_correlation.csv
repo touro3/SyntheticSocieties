@@ -1,7 +1,7 @@
-cluster,ess_mean_trust,wvs_trust_pct,mean_coop,ci_lower,ci_upper,std_coop,n_seeds,mean_gini,n_agents,pearson_r,spearman_rho,gradient_recovered
-eastern,0.418,24.0,0.1031,0.0743,0.1318,0.0116,3,0.1653,5,0.998,1.0,True
-southern,0.455,29.0,0.1169,0.0612,0.1726,0.0224,3,0.1563,5,0.998,1.0,True
-western,0.504,37.0,0.1527,0.1203,0.1851,0.013,3,0.1623,5,0.998,1.0,True
-anglo,0.565,43.0,0.1801,0.1702,0.1901,0.004,3,0.1683,5,0.998,1.0,True
-northern,0.634,55.0,0.2214,0.1466,0.2962,0.0301,3,0.1726,5,0.998,1.0,True
-nordic,0.689,68.0,0.2585,0.197,0.32,0.0248,3,0.165,5,0.998,1.0,True
+cluster,ess_mean_trust,wvs_trust_pct,mean_coop,ci_lower,ci_upper,std_coop,n_seeds,mean_gini,n_agents,pearson_r_ess,spearman_rho_ess,pearson_r_wvs,spearman_rho_wvs,gradient_ess,gradient_wvs
+eastern,0.418,24.0,0.1116,0.1031,0.1202,0.0034,3,0.1625,5,0.9828,1.0,0.9772,1.0,True,True
+southern,0.455,29.0,0.125,0.0973,0.1527,0.0112,3,0.159,5,0.9828,1.0,0.9772,1.0,True,True
+western,0.504,37.0,0.1801,0.1261,0.2341,0.0217,3,0.1733,5,0.9828,1.0,0.9772,1.0,True,True
+anglo,0.565,43.0,0.1932,0.1503,0.236,0.0173,3,0.1386,5,0.9828,1.0,0.9772,1.0,True,True
+northern,0.634,55.0,0.2232,0.181,0.2654,0.017,3,0.1595,5,0.9828,1.0,0.9772,1.0,True,True
+nordic,0.689,68.0,0.2558,0.2392,0.2723,0.0067,3,0.1627,5,0.9828,1.0,0.9772,1.0,True,True

@@ -1,0 +1,104 @@
+name: BGF CI
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Cancel in-progress runs on new push to same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: "Python ${{ matrix.python-version }} — unit & integration tests"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies (CPU-only, no GPU)
+        run: |
+          python -m pip install --upgrade pip
+          # Install all requirements except GPU-heavy torch (use CPU wheel)
+          pip install \
+            numpy==1.26.4 \
+            scipy==1.11.4 \
+            pandas==2.2.2 \
+            pyarrow==17.0.0 \
+            duckdb==1.1.0 \
+            pydantic==2.8.2 \
+            networkx==3.3 \
+            scikit-learn==1.5.2 \
+            matplotlib==3.9.2 \
+            pytest==8.3.2 \
+            pytest-cov \
+            openai \
+            polars==1.8.2 \
+            orjson==3.10.7
+          # Install project in editable mode (no torch required for most modules)
+          pip install -e . --no-deps
+
+      - name: Run non-GPU tests
+        run: |
+          python -m pytest tests/ \
+            --ignore=tests/test_llm_policy.py \
+            -k "not (llm_backend or huggingface or gpu or cuda)" \
+            --tb=short \
+            -q \
+            --timeout=120
+        env:
+          # Prevent accidental LLM API calls in CI
+          OPENAI_API_KEY: "sk-test-ci-placeholder"
+          BGF_CI: "true"
+
+      - name: Verify one-command baseline pipeline
+        run: |
+          python scripts/run_full_pipeline.py \
+            --rounds 3 \
+            --agents 5 \
+            --seeds 42 \
+            2>&1 | tail -20
+
+      - name: Run feature importance (no GPU)
+        run: |
+          python scripts/run_feature_importance.py \
+            --n-agents 50 \
+            --n-rounds 5 \
+            --seed 42
+
+      - name: Run policy intervention sweep (no GPU)
+        run: |
+          python scripts/run_policy_intervention.py \
+            --n-agents 50 \
+            --n-rounds 10 \
+            --n-seeds 2
+
+      - name: Run long-horizon persona drift (no GPU)
+        run: |
+          python scripts/run_long_horizon.py \
+            --n-agents 30 \
+            --n-rounds 30 \
+            --n-seeds 2
+
+      - name: Upload figures artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgf-figures-${{ github.sha }}
+          path: analysis/figures/
+          retention-days: 7

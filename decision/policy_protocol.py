@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import HierarchicalMemory
 from decision.schemas import ProposedAction
 
 

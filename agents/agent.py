@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import HierarchicalMemory
 from decision.policy_protocol import PolicyProtocol
 from decision.schemas import ProposedAction
 

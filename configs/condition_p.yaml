@@ -1,0 +1,80 @@
+# Condition P — Padded Prompt Control
+#
+# Phase 28 / TOP_TIER_RESEARCH Section 1 — Causal isolation experiment.
+#
+# Condition P is the length-matched, content-free control for Condition B:
+#   - Same token count as Condition B prompts (matched per-agent dynamically)
+#   - Zero ESS-specific content: no persona demographics, no RAG context
+#   - Identical simulation parameters: N, T, seeds, network topology
+#
+# Causal logic:
+#   P vs A  → isolates prompt *length* effect (both ungrounded, different lengths)
+#   P vs B  → isolates *content* effect (same length, B has ESS grounding)
+#   If BRM(B) >> BRM(P) ≈ BRM(A): content is the causal driver, not length
+#
+# Run with:
+#   python scripts/run_padded_control.py --seeds 42,123,7 --agents 500 --rounds 30
+
+defaults:
+  - base_config
+
+project:
+  name: bgf_condition_p
+  experiment_id: padded_control_001
+  seed: 42
+
+simulation:
+  rounds: 30
+  population_size: 500
+
+policy:
+  type: padded_ablation
+
+# padded_ablation-specific settings
+padded:
+  # target_token_count: null means "measure dynamically per agent" (default)
+  # Set to a fixed integer to use the same target for all agents.
+  target_token_count: null
+
+population:
+  source: empirical    # ESS agents, but their profiles are NOT injected into prompts
+
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  cache_dir: null
+  dtype: float16
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+  inference_timeout: 120
+
+network:
+  type: random
+  edge_prob: 0.5
+  k: 2
+  rewiring_prob: 0.3
+
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10

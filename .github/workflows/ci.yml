@@ -102,3 +102,73 @@ jobs:
           name: bgf-figures-${{ github.sha }}
           path: analysis/figures/
           retention-days: 7
+
+  lint:
+    name: "Lint (ruff)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff check
+        run: ruff check .
+      - name: Run ruff format check
+        run: ruff format --check .
+
+  type-check:
+    name: "Type check (mypy)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install mypy pydantic>=2.8 types-PyYAML numpy pandas networkx
+          pip install -e . --no-deps
+      - name: Run mypy
+        run: mypy . --ignore-missing-imports --exclude tests/ --exclude llama.cpp/ --exclude venv/
+        continue-on-error: true  # non-blocking until type annotations are complete
+
+  coverage:
+    name: "Coverage (≥70%)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install \
+            numpy==1.26.4 scipy==1.11.4 pandas==2.2.2 pyarrow==17.0.0 \
+            duckdb==1.1.0 pydantic==2.8.2 networkx==3.3 scikit-learn==1.5.2 \
+            matplotlib==3.9.2 pytest==8.3.2 pytest-cov openai polars==1.8.2 \
+            orjson==3.10.7
+          pip install -e . --no-deps
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ \
+            --ignore=tests/test_llm_policy.py \
+            -k "not (llm_backend or huggingface or gpu or cuda)" \
+            --cov=. \
+            --cov-report=xml \
+            --cov-fail-under=70 \
+            -q \
+            --timeout=120
+        env:
+          OPENAI_API_KEY: "sk-test-ci-placeholder"
+          BGF_CI: "true"
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage.xml
+          retention-days: 7

@@ -7,33 +7,31 @@ orchestration; RoundProcessor owns validate → execute → update → log.
 
 from __future__ import annotations
 
+import json
 import logging
+import time
 import warnings
 from collections import Counter
+from pathlib import Path
+from typing import Optional
 
+from metrics.inequality import gini_coefficient as _gini_canonical
 from simulation.round_processor import RoundProcessor
 
 logger = logging.getLogger(__name__)
 
 
 class SimulationKernel:
-    def __init__(self, agents: list, world, logger) -> None:
+    def __init__(self, agents: list, world, logger, heartbeat_path: Optional[Path] = None) -> None:
         self.agents = agents
         self.world = world
         self.logger = logger
+        self.heartbeat_path = Path(heartbeat_path) if heartbeat_path else None
         self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
         self._processor = RoundProcessor(
             world=world, agent_lookup=self.agent_lookup, logger=logger,
         )
         self.round_metrics: list[dict] = []
-
-    def run(self, num_rounds: int) -> None:
-        for _ in range(num_rounds):
-            if self._can_use_batched_mode():
-                self.run_round_batched()
-            else:
-                self.run_round()
-            self._log_round_metrics()
 
     def _can_use_batched_mode(self) -> bool:
         try:
@@ -64,24 +62,25 @@ class SimulationKernel:
                 agent, proposed_action, round_id, perception=perception,
             )
 
-    def run_round_batched(self) -> None:
-        from decision.llm_policy import LLMPolicy
-        from decision.output_parser import parse_llm_output
-        from decision.prompt_builder import build_prompt, build_prompt_text
+    def _prepare_agent_batch(
+        self, policy, round_id: int,
+    ) -> tuple[list[dict], list[list[dict]]]:
+        """Build per-agent context dicts and prompt message lists for batched inference.
 
-        sample_policy = self.agents[0].policy if self.agents and hasattr(self.agents[0], "policy") else None
-        backend = getattr(sample_policy, "backend", None)
+        Extracted from run_round_batched() to keep that method readable.  The
+        heavy-lifting here is: perception, optional RAG context retrieval, prompt
+        construction, and optional perturbation.
 
-        if not isinstance(sample_policy, LLMPolicy) or not hasattr(backend, "generate_batch"):
-            return self.run_round()
+        Returns:
+            agent_data: List of dicts with keys agent, perception, neighbors,
+                        social_context, pop_context.
+            messages_list: Parallel list of chat message lists ready for
+                           backend.generate_batch().
+        """
+        from decision.prompt_builder import build_prompt
 
-        policy = sample_policy
-
-        self.world.apply_exogenous_updates()
-        round_id = self.world.state.round_id
-
-        agent_data = []
-        messages_list = []
+        agent_data: list[dict] = []
+        messages_list: list[list[dict]] = []
 
         for agent in self.agents:
             world_context = self.world.get_agent_context(agent.profile.agent_id)
@@ -90,17 +89,13 @@ class SimulationKernel:
                 local_network={"neighbors": world_context.get("neighbors", [])},
             )
 
-            social_context = None
-            if getattr(policy, "graph_rag", None):
-                social_context = policy.graph_rag.get_social_context(agent.profile.agent_id)
+            social_context = policy.graph_rag_context(agent.profile.agent_id)
 
-            pop_context = None
-            if getattr(policy, "sql_rag", None):
-                pop_context = policy.sql_rag.get_peer_group_context(
-                    age=agent.profile.age,
-                    gender=agent.profile.gender,
-                    country=agent.profile.country,
-                )
+            pop_context = policy.sql_rag_context(
+                age=agent.profile.age,
+                gender=agent.profile.gender,
+                country=agent.profile.country,
+            )
 
             messages = build_prompt(
                 profile=agent.profile,
@@ -130,6 +125,26 @@ class SimulationKernel:
                 }
             )
             messages_list.append(messages)
+
+        return agent_data, messages_list
+
+    def run_round_batched(self) -> None:
+        from decision.llm_policy import LLMPolicy
+        from decision.output_parser import parse_llm_output
+        from decision.prompt_builder import build_prompt_text
+
+        sample_policy = self.agents[0].policy if self.agents and hasattr(self.agents[0], "policy") else None
+        backend = getattr(sample_policy, "backend", None)
+
+        if not isinstance(sample_policy, LLMPolicy) or not hasattr(backend, "generate_batch"):
+            return self.run_round()
+
+        policy = sample_policy
+
+        self.world.apply_exogenous_updates()
+        round_id = self.world.state.round_id
+
+        agent_data, messages_list = self._prepare_agent_batch(policy, round_id)
 
         batch_results = policy.backend.generate_batch(
             messages_list=messages_list,
@@ -174,6 +189,79 @@ class SimulationKernel:
             self._processor.process_agent_action(
                 agent, action, round_id, perception=perception,
             )
+
+    # ── Checkpoint ───────────────────────────────────────────────────────────
+
+    def save_checkpoint(self, path: Path) -> None:
+        """Persist agent states and current round_id to a JSON checkpoint."""
+        data = {
+            "round_id": self.world.state.round_id,
+            "agents": {
+                agent.profile.agent_id: agent.state.snapshot()
+                for agent in self.agents
+            },
+        }
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, indent=2))
+
+    def load_checkpoint(self, path: Path) -> int:
+        """Restore agent states from a checkpoint. Returns the saved round_id."""
+        data = json.loads(Path(path).read_text())
+        saved = data.get("agents", {})
+        for agent in self.agents:
+            snap = saved.get(agent.profile.agent_id)
+            if snap is None:
+                continue
+            agent.state.wealth = float(snap.get("wealth", agent.state.wealth))
+            agent.state.stress = float(snap.get("stress", agent.state.stress))
+            agent.state.satisfaction = float(snap.get("satisfaction", agent.state.satisfaction))
+            agent.state.last_action = snap.get("last_action", agent.state.last_action)
+            agent.state.trust = {k: float(v) for k, v in snap.get("trust", {}).items()}
+        round_id = int(data.get("round_id", 0))
+        self.world.state.round_id = round_id
+        return round_id
+
+    def run(self, num_rounds: int, start_round: int = 0) -> None:
+        """Run num_rounds simulation rounds, optionally skipping already-done ones.
+
+        Args:
+            num_rounds:  Total rounds in the experiment (from config).
+            start_round: First round to execute (0 = fresh start; N = resume after N).
+        """
+        remaining = num_rounds - start_round
+        if remaining <= 0:
+            logger.info("All %d rounds already complete — nothing to do.", num_rounds)
+            return
+        if start_round > 0:
+            logger.info("Resuming from round %d (%d remaining).", start_round, remaining)
+        for _ in range(remaining):
+            if self._can_use_batched_mode():
+                self.run_round_batched()
+            else:
+                self.run_round()
+            self._log_round_metrics()
+            self._write_heartbeat()
+            if self.heartbeat_path is not None:
+                checkpoint_path = self.heartbeat_path.parent / "checkpoint.json"
+                self.save_checkpoint(checkpoint_path)
+
+    # ── Heartbeat ────────────────────────────────────────────────────────────
+
+    def _write_heartbeat(self) -> None:
+        """Write a heartbeat file so external watchdogs can detect stalls."""
+        if self.heartbeat_path is None:
+            return
+        try:
+            payload = {
+                "round_id": self.world.state.round_id,
+                "ts": time.time(),
+                "n_agents": len(self.agents),
+            }
+            self.heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
+            self.heartbeat_path.write_text(json.dumps(payload))
+        except Exception as exc:  # never let heartbeat I/O crash the sim
+            logger.warning("Heartbeat write failed: %s", exc)
 
     # ── Per-round metrics ────────────────────────────────────────────────────
 
@@ -231,14 +319,8 @@ class SimulationKernel:
 
     @staticmethod
     def _compute_gini(values: list[float]) -> float:
-        """Compute Gini coefficient for a list of non-negative values."""
+        """Thin wrapper around the canonical Gini implementation."""
         if not values or len(values) < 2:
             return 0.0
-        sorted_vals = sorted(values)
-        n = len(sorted_vals)
-        cumulative = sum((2 * i - n + 1) * v for i, v in enumerate(sorted_vals))
-        mean = sum(sorted_vals) / n
-        if mean == 0:
-            return 0.0
-        return cumulative / (n * n * mean)
+        return float(_gini_canonical(values))
 

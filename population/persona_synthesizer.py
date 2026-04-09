@@ -193,6 +193,133 @@ def synthesize_spec_personas(spec: SocietySpec, n: int, seed: int = 42) -> list[
     return records
 
 
+def build_persona_natural_language(record: PersonaRecord) -> str:
+    """Convert a PersonaRecord into a natural-language persona description.
+
+    Mirrors MiroFish's OasisProfileGenerator: builds a richly worded persona
+    string from the structured ESS-derived attributes so the LLM receives a
+    human-readable profile rather than raw numbers.
+
+    This description can be enriched further by ``enrich_persona_from_graph()``
+    before being injected into the prompt.
+    """
+    parts: list[str] = []
+
+    age_str = f"{record.age}-year-old"
+    if record.gender == 1:
+        gender_str = "man"
+    elif record.gender == 2:
+        gender_str = "woman"
+    else:
+        gender_str = "person"
+
+    country_str = f" from {record.country}" if record.country else ""
+    parts.append(f"{age_str} {gender_str}{country_str}.")
+
+    if record.education:
+        parts.append(f"Education: {record.education}.")
+
+    if record.location:
+        parts.append(f"Lives in a {record.location} area.")
+
+    if record.social_class:
+        parts.append(f"Social class: {record.social_class}.")
+
+    # Trust attributes
+    if record.trust_people is not None:
+        level = _trust_word(record.trust_people)
+        parts.append(f"Has {level} trust in other people ({record.trust_people:.2f}).")
+
+    if record.trust_institutions is not None:
+        level = _trust_word(record.trust_institutions)
+        parts.append(f"Has {level} trust in institutions ({record.trust_institutions:.2f}).")
+
+    if record.risk_tolerance is not None:
+        level = _trust_word(record.risk_tolerance)
+        parts.append(f"Risk tolerance is {level} ({record.risk_tolerance:.2f}).")
+
+    if record.life_satisfaction is not None:
+        level = _trust_word(record.life_satisfaction)
+        parts.append(f"Life satisfaction is {level} ({record.life_satisfaction:.2f}).")
+
+    if record.social_activity is not None:
+        level = _trust_word(record.social_activity)
+        parts.append(f"Social activity level is {level}.")
+
+    return " ".join(parts)
+
+
+def _trust_word(value: float) -> str:
+    """Map a [0,1] score to a descriptive adjective."""
+    if value < 0.2:   return "very low"
+    if value < 0.4:   return "low"
+    if value < 0.6:   return "moderate"
+    if value < 0.8:   return "high"
+    return "very high"
+
+
+def enrich_persona_from_graph(
+    record: PersonaRecord,
+    graph_rag: object,
+    base_persona: str | None = None,
+) -> str:
+    """Prepend graph-derived social context to a persona description.
+
+    Mirrors MiroFish's OasisProfileGenerator enrichment step: before writing
+    the final persona text, the system queries the knowledge graph for entity
+    relationships and injects that relational context.  Here we query the live
+    GraphRAG for the agent's social position in the cooperation network.
+
+    If the graph is not yet initialised (e.g. round 0 of a fresh simulation)
+    the function returns the base persona unchanged — the enrichment degrades
+    gracefully when no graph data is available.
+
+    Args:
+        record:      The agent's PersonaRecord (ESS-derived attributes).
+        graph_rag:   A ``GraphRAG`` instance from ``decision.graph_rag``.
+        base_persona: Pre-built natural-language description.  If None,
+                      ``build_persona_natural_language(record)`` is called.
+
+    Returns:
+        Enriched persona string: graph context block + ESS persona block.
+    """
+    if base_persona is None:
+        base_persona = build_persona_natural_language(record)
+
+    # Bail out gracefully if graph is uninitialised or missing the method
+    if not getattr(graph_rag, "_initialized", False):
+        return base_persona
+
+    social_ctx: str = ""
+    if hasattr(graph_rag, "get_social_context"):
+        try:
+            social_ctx = graph_rag.get_social_context(record.agent_id)
+        except Exception:
+            social_ctx = ""
+
+    if not social_ctx or "not yet initialized" in social_ctx or "no recorded" in social_ctx:
+        return base_persona
+
+    # Prefix the graph-derived social context as a bracketed block so the LLM
+    # can distinguish it from the static ESS persona.
+    return f"[Social network context] {social_ctx}\n\n{base_persona}"
+
+
+def enrich_all_personas(
+    records: list[PersonaRecord],
+    graph_rag: object,
+) -> dict[str, str]:
+    """Batch-enrich all persona records with graph context.
+
+    Returns a dict mapping agent_id → enriched persona string.
+    Agents with no graph data get the plain ESS-derived persona.
+    """
+    return {
+        record.agent_id: enrich_persona_from_graph(record, graph_rag)
+        for record in records
+    }
+
+
 def save_persona_records(records: Iterable[PersonaRecord], path: str | Path) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

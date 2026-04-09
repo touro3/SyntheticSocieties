@@ -11,10 +11,9 @@ when reporting comparisons across seeds, conditions, or sub-populations.
 
 from __future__ import annotations
 
-from typing import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 
 import numpy as np
-
 
 # ── Benjamini-Hochberg FDR Correction ────────────────────────────────────────
 

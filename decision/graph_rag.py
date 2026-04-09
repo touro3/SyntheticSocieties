@@ -53,7 +53,7 @@ class GraphRAG:
         if not Path(events_path).exists():
             return
 
-        with open(events_path, "r") as f:
+        with open(events_path) as f:
             for line in f:
                 try:
                     event = json.loads(line)

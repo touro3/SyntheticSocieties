@@ -19,7 +19,6 @@ import random
 import re
 from copy import deepcopy
 
-
 # Rephrase mapping: original pattern → alternatives
 _REPHRASE_MAP = {
     r"You have (very low|low|moderate|high|very high) trust in other people":
@@ -120,7 +119,7 @@ def _shuffle(content: str, rng: random.Random) -> str:
 
     # The persona block is typically index 1
     persona_section = sections[1]
-    persona_lines = [l for l in persona_section.split(". ") if l.strip()]
+    persona_lines = [ln for ln in persona_section.split(". ") if ln.strip()]
 
     if len(persona_lines) > 2:
         # Keep the first line (identity) fixed, shuffle the rest

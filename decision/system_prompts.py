@@ -10,7 +10,6 @@ grounding and RAG context, not from prompt engineering.
 
 from __future__ import annotations
 
-
 # ── Primary prompt: neutral, mechanical description of the action space ───────
 
 NEUTRAL_SYSTEM_PROMPT = """You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, memories, and the world around you.

@@ -92,6 +92,26 @@ class _MockBackend:
         return response, 0.001
 
 
+# ── CLI helpers ───────────────────────────────────────────────────────────────
+
+
+def _parse_seed_list(value: str) -> list[int]:
+    """Parse comma-separated seeds from CLI (e.g. '42,123,7')."""
+    tokens = [token.strip() for token in value.split(",") if token.strip()]
+    if not tokens:
+        raise argparse.ArgumentTypeError("Seed list cannot be empty.")
+
+    seeds: list[int] = []
+    for token in tokens:
+        try:
+            seeds.append(int(token))
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"Invalid seed '{token}': expected integer values."
+            ) from exc
+    return seeds
+
+
 # ── Simulation runner ─────────────────────────────────────────────────────────
 
 
@@ -99,6 +119,7 @@ def _run_condition(
     model_name: str,
     model_spec: dict,
     condition: str,
+    seed: int = 42,
     dry_run: bool = False,
 ) -> CrossModelResult:
     """Run one condition (A or B) for one model and return metrics.
@@ -106,13 +127,17 @@ def _run_condition(
     In dry-run mode, uses a mock backend and synthetic action counts.
     In real mode, runs a minimal simulation via the BGF kernel.
     """
-    print(f"\n  [{model_name}] Condition {condition} — ", end="", flush=True)
+    print(
+        f"\n  [{model_name}] Seed {seed} Condition {condition} — ",
+        end="",
+        flush=True,
+    )
     t0 = time.time()
 
     if dry_run:
         # Synthetic results to validate the pipeline without GPU
         import random
-        rng = random.Random(hash(f"{model_name}{condition}"))
+        rng = random.Random(f"{model_name}:{condition}:{seed}")
         if condition == "A":
             # Ungrounded: high cooperation bias
             counts = {"cooperate": 60 + rng.randint(0, 10),
@@ -165,7 +190,10 @@ def _run_condition(
     n_agents = model_spec["n_agents"]
     n_rounds = model_spec["n_rounds"]
     config = {
-        "project": {"seed": 42, "experiment_id": f"cross_model_{model_name}_{condition}"},
+        "project": {
+            "seed": seed,
+            "experiment_id": f"cross_model_{model_name}_{condition}_s{seed}",
+        },
         "simulation": {"rounds": n_rounds, "population_size": n_agents},
         "policy": {"type": "llm"},
         "population": {"source": "empirical"},
@@ -299,16 +327,25 @@ def main() -> None:
         "--force", action="store_true",
         help="Re-run all models even if results already exist",
     )
+    parser.add_argument(
+        "--seeds",
+        type=_parse_seed_list,
+        default=[42],
+        help="Comma-separated seeds to run (e.g. 42,123,7)",
+    )
     args = parser.parse_args()
 
     print("=" * 60)
     print("  Phase 16 — Cross-Model Generalizability Study")
     print(f"  Models: {', '.join(args.models)}")
     print(f"  Mode:   {'dry-run' if args.dry_run else 'real (GPU/API)'}")
+    print(f"  Seeds:  {', '.join(str(s) for s in args.seeds)}")
     print("=" * 60)
 
     # Load any previously saved real results (enables crash recovery)
-    existing = {} if args.dry_run or args.force else _load_existing(args.out)
+    # Existing rows are keyed by (model, condition) and do not encode seed.
+    # Multi-seed runs therefore always start fresh to avoid accidental skips.
+    existing = {} if (args.dry_run or args.force or len(args.seeds) > 1) else _load_existing(args.out)
     if existing:
         print(f"\nResuming — found {len(existing)} existing result(s) in {args.out}")
         for (m, c) in existing:
@@ -331,14 +368,22 @@ def main() -> None:
     for model_name in args.models:
         spec = _MODELS[model_name]
         print(f"\nModel: {model_name}")
-        for condition in ["A", "B"]:
-            if (model_name, condition) in existing:
-                continue  # already done
-            result = _run_condition(model_name, spec, condition, dry_run=args.dry_run)
-            all_results.append(result)
-            # Save incrementally after every condition — crash-safe
-            _save_results(args.out, all_results)
-            print(f"  Saved to: {args.out}")
+        for seed in args.seeds:
+            print(f"  Seed: {seed}")
+            for condition in ["A", "B"]:
+                if len(args.seeds) == 1 and (model_name, condition) in existing:
+                    continue  # already done
+                result = _run_condition(
+                    model_name,
+                    spec,
+                    condition,
+                    seed=seed,
+                    dry_run=args.dry_run,
+                )
+                all_results.append(result)
+                # Save incrementally after every condition — crash-safe
+                _save_results(args.out, all_results)
+                print(f"  Saved to: {args.out}")
 
     print(f"\nAll results saved to: {args.out}")
 

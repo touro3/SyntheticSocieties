@@ -7,11 +7,16 @@ Designed for P100 constraints (float16, eager attention, no bfloat16).
 
 from __future__ import annotations
 
+import concurrent.futures
+import logging
 import time
-import warnings
 from typing import Optional
 
 import torch
+
+logger = logging.getLogger(__name__)
+
+SLOW_INFERENCE_THRESHOLD_S: float = 30.0  # Warn if a single generate() takes longer
 
 
 class LLMBackend:
@@ -22,7 +27,7 @@ class LLMBackend:
     for reuse across agents and rounds.
     """
 
-    _instance: Optional["LLMBackend"] = None
+    _instance: Optional[LLMBackend] = None
 
     def __init__(
         self,
@@ -33,6 +38,8 @@ class LLMBackend:
         temperature: float = 0.7,
         cache_dir: Optional[str] = None,
         context_length: int = 4096,
+        inference_timeout: int = 120,
+        max_retries: int = 2,
     ):
         self.model_id = model_id
         self.dtype = getattr(torch, dtype, torch.float16)
@@ -41,6 +48,8 @@ class LLMBackend:
         self.temperature = temperature
         self.cache_dir = cache_dir
         self.context_length = context_length
+        self.inference_timeout = inference_timeout
+        self.max_retries = max_retries
 
         self.model = None
         self.tokenizer = None
@@ -61,6 +70,7 @@ class LLMBackend:
             self.model_id,
             cache_dir=self.cache_dir,
             trust_remote_code=True,
+            local_files_only=True,
         )
 
         # Ensure pad token exists
@@ -73,6 +83,7 @@ class LLMBackend:
             device_map=self.device_map,
             cache_dir=self.cache_dir,
             trust_remote_code=True,
+            local_files_only=True,
             attn_implementation="eager",  # P100 doesn't support flash attention
         )
 
@@ -89,6 +100,19 @@ class LLMBackend:
                 total = torch.cuda.get_device_properties(i).total_memory / 1e9
                 if allocated > 0.1:
                     print(f"  GPU {i}: {allocated:.1f}/{total:.1f} GB used")
+
+    def _timed_generate(self, fn, *args, **kwargs):
+        """Run fn(*args, **kwargs) in a thread; raise TimeoutError if it exceeds inference_timeout."""
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(fn, *args, **kwargs)
+            try:
+                return future.result(timeout=self.inference_timeout)
+            except concurrent.futures.TimeoutError:
+                logger.warning(
+                    "LLM generate() timed out after %ds — returning fallback.",
+                    self.inference_timeout,
+                )
+                raise TimeoutError(f"LLM inference exceeded {self.inference_timeout}s")
 
     def generate(
         self,
@@ -134,25 +158,37 @@ class LLMBackend:
             device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        start = time.time()
+        gen_kwargs = dict(
+            max_new_tokens=max_tokens,
+            temperature=temp if temp > 0 else 1.0,
+            do_sample=temp > 0,
+            top_p=0.9 if temp > 0 else 1.0,
+            pad_token_id=self.tokenizer.pad_token_id,
+        )
 
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=temp if temp > 0 else 1.0,
-                do_sample=temp > 0,
-                top_p=0.9 if temp > 0 else 1.0,
-                pad_token_id=self.tokenizer.pad_token_id,
-            )
-
-        latency = time.time() - start
-
-        # Decode only new tokens
-        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
-        result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
-
-        return result.strip(), latency
+        for attempt in range(self.max_retries + 1):
+            start = time.time()
+            try:
+                with torch.no_grad():
+                    outputs = self._timed_generate(self.model.generate, **inputs, **gen_kwargs)
+                latency = time.time() - start
+                if latency > SLOW_INFERENCE_THRESHOLD_S:
+                    logger.warning(
+                        "Slow inference: %.1fs exceeds threshold %.0fs",
+                        latency, SLOW_INFERENCE_THRESHOLD_S,
+                    )
+                new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+                result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+                return result.strip(), latency
+            except TimeoutError:
+                if attempt < self.max_retries:
+                    logger.warning("generate() attempt %d timed out, retrying…", attempt + 1)
+                else:
+                    logger.error("generate() timed out after %d attempts, returning fallback.", self.max_retries + 1)
+                    return (
+                        '{"action_type": "work", "reasoning_summary": "[backend timeout fallback]", "confidence": 0.3}',
+                        self.inference_timeout * (self.max_retries + 1),
+                    )
 
     def generate_batch(
         self,
@@ -213,38 +249,62 @@ class LLMBackend:
                 device = next(self.model.parameters()).device
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
-            start = time.time()
+            gen_kwargs = dict(
+                max_new_tokens=max_tokens,
+                temperature=temp if temp > 0 else 1.0,
+                do_sample=temp > 0,
+                top_p=0.9 if temp > 0 else 1.0,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
 
-            with torch.no_grad():
-                outputs = self.model.generate(
-                    **inputs,
-                    max_new_tokens=max_tokens,
-                    temperature=temp if temp > 0 else 1.0,
-                    do_sample=temp > 0,
-                    top_p=0.9 if temp > 0 else 1.0,
-                    pad_token_id=self.tokenizer.pad_token_id,
+            start = time.time()
+            batch_ok = False
+
+            try:
+                with torch.no_grad():
+                    outputs = self._timed_generate(self.model.generate, **inputs, **gen_kwargs)
+                total_latency = time.time() - start
+                per_item_latency = total_latency / len(sub_messages)
+
+                input_len = inputs["input_ids"].shape[1]
+                for j in range(len(sub_messages)):
+                    new_tokens = outputs[j][input_len:]
+                    text = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+                    all_results.append((text, per_item_latency))
+                del outputs
+                batch_ok = True
+
+            except TimeoutError:
+                logger.warning(
+                    "Batch generate timed out (sub-batch %d–%d). Falling back to sequential.",
+                    i, i + len(sub_messages) - 1,
                 )
 
-            total_latency = time.time() - start
-            per_item_latency = total_latency / len(sub_messages)
+            finally:
+                del inputs
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-            # Decode new tokens for each item
-            input_len = inputs["input_ids"].shape[1]
-            for j in range(len(sub_messages)):
-                new_tokens = outputs[j][input_len:]
-                text = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-                all_results.append((text, per_item_latency))
-
-            # Aggressive memory reclamation to prevent fragmentation
-            del inputs
-            del outputs
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            if not batch_ok:
+                # Sequential fallback: process each item individually with timeout
+                for single_messages in sub_messages:
+                    try:
+                        text, lat = self.generate(
+                            single_messages, temperature=temp, max_new_tokens=max_tokens
+                        )
+                    except Exception as exc:
+                        logger.error("Sequential fallback also failed: %s", exc)
+                        text, lat = (
+                            '{"action_type": "work", "reasoning_summary": "[sequential fallback]", "confidence": 0.3}',
+                            float(self.inference_timeout),
+                        )
+                    all_results.append((text, lat))
+                continue  # skip the 'del outputs' below (already cleaned up)
 
         return all_results
 
     @classmethod
-    def get_instance(cls, **kwargs) -> "LLMBackend":
+    def get_instance(cls, **kwargs) -> LLMBackend:
         """Get or create singleton instance."""
         if cls._instance is None:
             cls._instance = cls(**kwargs)

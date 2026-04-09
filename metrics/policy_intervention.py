@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from metrics.inequality import gini_coefficient as _gini_canonical
 
 # ── Data structures ────────────────────────────────────────────────────────
 
@@ -80,16 +81,10 @@ def _hash_uniform(agent_id: str, round_id: int) -> float:
 
 
 def _gini(values: list[float]) -> float:
-    """Gini coefficient using the canonical sorted-array formula."""
+    """Thin wrapper around the canonical Gini implementation."""
     if not values:
         return 0.0
-    arr = sorted(values)
-    n = len(arr)
-    cumsum = sum(arr)
-    if cumsum == 0.0:
-        return 0.0
-    numerator = sum((i + 1) * v for i, v in enumerate(arr))
-    return (2.0 * numerator) / (n * cumsum) - (n + 1.0) / n
+    return float(_gini_canonical(values))
 
 
 # ── Core simulation ────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@ as specified in the BGF Phase 8 evaluation metrics.
 from __future__ import annotations
 
 import warnings
-import math
+
 import networkx as nx
 import numpy as np
 

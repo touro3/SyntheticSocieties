@@ -9,10 +9,12 @@ from decision.prompt_builder import (
     build_state_block,
 )
 from decision.system_prompts import (
-    EXPERIMENTAL_BASE_SYSTEM_PROMPT as BASE_SYSTEM_PROMPT,
     EXPERIMENTAL_BALANCED_SYSTEM_PROMPT as BALANCED_SYSTEM_PROMPT,
 )
-from decision.token_budget import trim_to_budget, DEFAULT_MAX_TOKENS
+from decision.system_prompts import (
+    EXPERIMENTAL_BASE_SYSTEM_PROMPT as BASE_SYSTEM_PROMPT,
+)
+from decision.token_budget import DEFAULT_MAX_TOKENS, trim_to_budget
 
 SYSTEM_PROMPTS = {
     "base": BASE_SYSTEM_PROMPT,
@@ -72,7 +74,7 @@ def build_experimental_prompt(
     ]
 
     if state.stress >= 0.75:
-        parts.append("[Your stress level is critically high ({:.2f}).]" .format(state.stress))
+        parts.append(f"[Your stress level is critically high ({state.stress:.2f}).]" )
 
     if trimmed["population_context"]:
         parts.append(f"General Population Trends:\n{trimmed['population_context']}")

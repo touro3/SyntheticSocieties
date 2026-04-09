@@ -10,7 +10,6 @@ from typing import Any, Optional
 import duckdb
 import pandas as pd
 
-
 STOPWORDS = {
     "a", "o", "e", "de", "do", "da", "das", "dos", "um", "uma", "para", "por",
     "com", "sem", "que", "quer", "sociedade", "dataset", "dados", "data",

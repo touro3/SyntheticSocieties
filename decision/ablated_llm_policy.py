@@ -27,12 +27,13 @@ from decision.prompt_builder import (
     build_state_block,
     get_neighbors,
 )
+from decision.schemas import ProposedAction
 from decision.system_prompts import (
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
+)
+from decision.system_prompts import (
     SYSTEM_PROMPT_NO_INSTITUTIONS,
 )
-
-from decision.schemas import ProposedAction
 
 
 class AblatedLLMPolicy(LLMPolicyBase):

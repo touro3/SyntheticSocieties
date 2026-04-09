@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -7,8 +8,6 @@ import polars as pl
 
 from utils.config import load_config
 from utils.io import ensure_dir
-import json
-
 
 TRACKER_PATH = Path("tracker/experiment_index.parquet")
 

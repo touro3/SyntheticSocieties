@@ -68,7 +68,7 @@ class AuditableRandomPolicy:
         return action
 
     def _derive_seed(self, agent_id: str, round_id: int) -> int:
-        key = f"{self.seed}:{agent_id}:{round_id}:{self.condition_name}".encode("utf-8")
+        key = f"{self.seed}:{agent_id}:{round_id}:{self.condition_name}".encode()
         digest = hashlib.sha256(key).hexdigest()
         return int(digest[:16], 16)
 

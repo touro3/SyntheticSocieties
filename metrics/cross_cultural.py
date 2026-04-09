@@ -20,7 +20,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, t as t_dist
+from scipy.stats import pearsonr, spearmanr
+from scipy.stats import t as t_dist
 
 
 @dataclass

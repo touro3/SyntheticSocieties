@@ -4,9 +4,11 @@ Parses events.jsonl to reconstruct time-series data for wealth, stress, and acti
 """
 
 import json
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
+
 import numpy as np
+
 
 def extract_trajectories(exp_dir: str | Path) -> dict:
     """
@@ -89,7 +91,8 @@ def aggregate_seeds(policy: str, seeds: list[int], experiments_root: str | Path 
             exp_dir = root / exp_id
             if exp_dir.exists():
                 data = extract_trajectories(exp_dir)
-                if data: break
+                if data:
+                    break
         
         if not data:
             continue

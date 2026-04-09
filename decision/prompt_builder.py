@@ -13,15 +13,12 @@ The ``AblationLevel`` class documents exactly what each grounding level adds.
 
 from __future__ import annotations
 
-import json
 from enum import IntEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from decision.constants import STRESS_CRITICAL
-from decision.system_prompts import BASE_SYSTEM_PROMPT, BALANCED_SYSTEM_PROMPT
-from decision.token_budget import trim_to_budget, DEFAULT_MAX_TOKENS
-
-from typing import TYPE_CHECKING
+from decision.system_prompts import BALANCED_SYSTEM_PROMPT, BASE_SYSTEM_PROMPT
+from decision.token_budget import DEFAULT_MAX_TOKENS, trim_to_budget
 
 if TYPE_CHECKING:
     from agents.memory import HierarchicalMemory
@@ -154,7 +151,7 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
     
     # Neutral stress observation (no action recommendations)
     if ablation_level >= AblationLevel.STRESS_AWARE and state.stress >= STRESS_CRITICAL:
-        base += "\n[Your stress level is critically high ({:.2f}).]" .format(state.stress)
+        base += f"\n[Your stress level is critically high ({state.stress:.2f}).]" 
 
     # V3: Surface Agent Trust Dictionary directly in state
     if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
@@ -170,7 +167,7 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
 def build_memory_block(
     memory: HierarchicalMemory,
     window: int = 5,
-    profile: Optional["AgentProfile"] = None,
+    profile: Optional[AgentProfile] = None,
 ) -> str:
     """Build memory context from recent interactions, prefixed by a reflection.
 
@@ -226,7 +223,7 @@ _DRIFT_THRESHOLD = 0.25
 
 
 def _build_persona_anchor(
-    memory: HierarchicalMemory, profile: "AgentProfile",
+    memory: HierarchicalMemory, profile: AgentProfile,
 ) -> Optional[str]:
     """Generate a persona re-anchoring cue when behavioral drift is detected.
 
@@ -245,7 +242,7 @@ def _build_persona_anchor(
         return None
 
     # Need enough history to detect drift (at least 5 events).
-    all_items = memory.archive + memory.recent
+    all_items = memory.archive + getattr(memory, "_effective_recent", memory.recent)
     if len(all_items) < 5:
         return None
 
@@ -375,6 +372,98 @@ def build_prompt(
         {"role": "user", "content": user_content},
     ]
 
+
+
+def build_prompt_staged(
+    profile: AgentProfile,
+    state: AgentState,
+    memory: HierarchicalMemory,
+    context: dict,
+    round_id: int,
+    memory_window: int = 5,
+    social_context: Optional[str] = None,
+    population_context: Optional[str] = None,
+    ablation_level: int = 5,
+    max_tokens: Optional[int] = None,
+) -> list[dict]:
+    """Build a chat-format prompt via 4 sequential construction stages.
+
+    Mirrors MiroFish's multi-stage LLM config generation strategy: instead
+    of assembling one massive prompt string, each stage adds a focused block.
+    This prevents any single component from crowding out others when the
+    token budget is tight and makes budget allocation explicit.
+
+    Stage 1 — Identity:    system prompt + persona (who the agent is)
+    Stage 2 — State:       current wealth/stress/trust (what's happening now)
+    Stage 3 — History:     memory reflection + recent events (what happened)
+    Stage 4 — World/RAG:   environment context + population/social signals
+
+    Each stage is trimmed independently before assembly so that history never
+    cannibalises persona or vice-versa. The final action instruction is always
+    appended last and is never trimmed.
+    """
+    system_text = (
+        BALANCED_SYSTEM_PROMPT
+        if ablation_level >= AblationLevel.BALANCED
+        else BASE_SYSTEM_PROMPT
+    )
+
+    # ── Stage 1: Identity ────────────────────────────────────────────────────
+    persona = build_persona_block(profile)
+
+    # ── Stage 2: State ───────────────────────────────────────────────────────
+    state_desc = build_state_block(state, ablation_level)
+
+    # ── Stage 3: History ─────────────────────────────────────────────────────
+    memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
+
+    # ── Stage 4: World + RAG context ─────────────────────────────────────────
+    context_desc = build_context_block(context)
+
+    # Per-stage token budgets (sum ≤ max_tokens; action instruction reserved)
+    budget = max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS
+    # Rough allocation: 10% system, 25% persona, 15% state, 25% memory, 25% world
+    stage_budgets = {
+        "persona":            int(budget * 0.25),
+        "state":              int(budget * 0.15),
+        "memory":             int(budget * 0.25),
+        "context":            int(budget * 0.20),
+        "population_context": int(budget * 0.07),
+        "social_context":     int(budget * 0.05),
+    }
+
+    # Trim each stage independently to its budget (~4 chars/token heuristic).
+    def _trim(text: Optional[str], key: str) -> Optional[str]:
+        if not text:
+            return text
+        char_limit = stage_budgets[key] * 4
+        return text[:char_limit] if len(text) > char_limit else text
+
+    persona_t     = _trim(persona, "persona") or persona
+    state_t       = _trim(state_desc, "state") or state_desc
+    memory_t      = _trim(memory_desc, "memory") or memory_desc
+    context_t     = _trim(context_desc, "context") or context_desc
+    pop_t         = _trim(population_context, "population_context")
+    social_t      = _trim(social_context, "social_context")
+
+    # ── Assemble ──────────────────────────────────────────────────────────────
+    parts = [f"Round {round_id}.", persona_t, state_t]
+
+    if pop_t:
+        parts.append(f"General Population Trends:\n{pop_t}")
+    if social_t:
+        parts.append(f"Social Network Context:\n{social_t}")
+
+    parts.append(memory_t)
+    parts.append(context_t)
+    parts.append("What action do you take this round? Respond with ONLY the JSON.")
+
+    user_content = "\n\n".join(p for p in parts if p)
+
+    return [
+        {"role": "system", "content": system_text},
+        {"role": "user", "content": user_content},
+    ]
 
 
 def build_prompt_text(

@@ -90,6 +90,8 @@ def build_backend(args):
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
         cache_dir=args.cache_dir,
+        inference_timeout=120,
+        max_retries=2,
     )
     backend.load()
     return backend

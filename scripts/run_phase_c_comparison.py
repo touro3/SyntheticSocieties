@@ -52,7 +52,7 @@ def main():
     profiles = loader.load_population(target_size=args.pop_size)
     agent_ids = [p.agent_id for p in profiles]
 
-    backend = LLMBackend(model_id="mistralai/Mistral-7B-Instruct-v0.3", temperature=0.5)
+    backend = LLMBackend(model_id="mistralai/Mistral-7B-Instruct-v0.3", temperature=0.5, inference_timeout=120, max_retries=2)
     backend.load()
 
     network = NetworkManager.small_world(agent_ids, k=4, rewiring_prob=0.1, seed=42)

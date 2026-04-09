@@ -11,8 +11,8 @@ project:
   seed: 42
 
 simulation:
-  rounds: 10
-  population_size: 20
+  rounds: 20
+  population_size: 50
 
 policy:
   type: llm

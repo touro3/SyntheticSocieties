@@ -19,7 +19,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 CALIBRATION_SEEDS = [42, 123]
 EVALUATION_SEEDS = [7]
 EXPERIMENTS_DIR = Path("experiments")

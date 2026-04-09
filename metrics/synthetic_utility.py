@@ -47,10 +47,8 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
-
 
 # ── Feature/label extraction ─────────────────────────────────────────────────
 
@@ -159,8 +157,9 @@ def load_real_ess_dataset(parquet_path: str) -> tuple[np.ndarray, np.ndarray]:
         FileNotFoundError: If the parquet file does not exist.
         ImportError: If pandas or pyarrow is not installed.
     """
-    import pandas as pd
     from pathlib import Path
+
+    import pandas as pd
 
     path = Path(parquet_path)
     if not path.exists():
@@ -354,12 +353,12 @@ def utility_report(result: TSTRResult) -> str:
         "  Synthetic Data Utility Benchmark (TSTR vs TRTR)",
         "=" * 60,
         "",
-        f"  Dataset sizes",
+        "  Dataset sizes",
         f"    Synthetic train:  {result.n_synthetic_train:>6}",
         f"    Real train:       {result.n_real_train:>6}",
         f"    Real test:        {result.n_real_test:>6}",
         "",
-        f"  Label balance (fraction positive)",
+        "  Label balance (fraction positive)",
         f"    Synthetic:        {result.synthetic_label_balance:.4f}",
         f"    Real:             {result.real_label_balance:.4f}",
         "",

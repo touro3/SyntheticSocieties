@@ -17,10 +17,10 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
-from decision.token_budget import budget_for_model, DEFAULT_MAX_TOKENS
+from decision.token_budget import DEFAULT_MAX_TOKENS, budget_for_model
 
 
 @dataclass
@@ -62,7 +62,7 @@ class ModelConfig:
             self.prompt_budget = budget_for_model(self.model_id)
 
     @classmethod
-    def mistral_7b(cls, cache_dir: str | None = None) -> "ModelConfig":
+    def mistral_7b(cls, cache_dir: str | None = None) -> ModelConfig:
         """Mistral-7B-Instruct-v0.3 — primary BGF model.
 
         prompt_budget=4096: quality sweet spot for 7B attention heads; leaves
@@ -78,7 +78,7 @@ class ModelConfig:
         )
 
     @classmethod
-    def qwen2_5_7b(cls, cache_dir: str | None = None) -> "ModelConfig":
+    def qwen2_5_7b(cls, cache_dir: str | None = None) -> ModelConfig:
         """Qwen2.5-7B-Instruct — second open-weights model for cross-model validation.
 
         Non-gated alternative to meta-llama/Llama-3.1-8B-Instruct, comparable in
@@ -97,7 +97,7 @@ class ModelConfig:
         )
 
     @classmethod
-    def gpt4o_mini(cls) -> "ModelConfig":
+    def gpt4o_mini(cls) -> ModelConfig:
         """GPT-4o-mini — external validation via OpenAI API (small-scale only).
 
         prompt_budget=8192: API cost is bounded by max_agents=20; maximising
@@ -144,6 +144,8 @@ def get_backend(config: ModelConfig):
             temperature=config.temperature,
             cache_dir=config.cache_dir,
             context_length=config.context_length,
+            inference_timeout=getattr(config, "inference_timeout", 120),
+            max_retries=getattr(config, "max_retries", 2),
         )
 
     if config.backend_type == "openai":

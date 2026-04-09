@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-import warnings
+import time
 from typing import Optional
 
 from decision.constants import (
@@ -19,7 +19,6 @@ from decision.constants import (
     MAX_ACTION_AMOUNT,
 )
 from decision.schemas import ProposedAction
-
 
 VALID_ACTIONS = {"work", "save", "cooperate"}
 
@@ -167,10 +166,17 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
     best_action = max(scores, key=scores.get)
 
     if best_action == "cooperate":
-        target = neighbors[0] if neighbors else None
+        if not neighbors:
+            # cooperate requires a target; fall back to work when no neighbors available
+            return ProposedAction(
+                action_type="work",
+                amount=DEFAULT_WORK_AMOUNT,
+                reasoning_summary="[parsed from keywords: cooperation detected but no neighbors — defaulting to work]",
+                confidence=DEFAULT_KEYWORD_CONFIDENCE,
+            )
         return ProposedAction(
             action_type="cooperate",
-            target_agent_id=target,
+            target_agent_id=neighbors[0],
             amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[parsed from keywords: cooperation detected]",
             confidence=DEFAULT_KEYWORD_CONFIDENCE,
@@ -191,6 +197,98 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
         reasoning_summary="[parsed from keywords: work detected]",
         confidence=DEFAULT_KEYWORD_CONFIDENCE,
     )
+
+
+def _repair_json(text: str) -> str:
+    """Attempt lightweight repairs on malformed JSON strings.
+
+    Handles the most common LLM output defects:
+    1. Trailing commas before closing brace/bracket.
+    2. Unclosed braces/brackets (appends the missing closers).
+    3. Single-quoted strings (converts to double quotes).
+
+    This is intentionally conservative — it only fixes patterns that are
+    safe to repair without changing the semantic content.
+    """
+    # Strip leading/trailing whitespace and markdown code fences
+    text = text.strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+
+    # Convert single-quoted keys/values to double-quoted (common in GPT outputs)
+    # Only do this when the string isn't already valid JSON
+    try:
+        json.loads(text)
+        return text  # already valid, no repair needed
+    except json.JSONDecodeError:
+        pass
+
+    # Remove trailing commas before } or ]
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+
+    # Balance unmatched braces/brackets
+    open_braces = text.count("{") - text.count("}")
+    open_brackets = text.count("[") - text.count("]")
+    if open_braces > 0:
+        text += "}" * open_braces
+    if open_brackets > 0:
+        text += "]" * open_brackets
+
+    return text
+
+
+def parse_llm_output_with_retry(
+    raw_text: str,
+    neighbors: Optional[list[str]] = None,
+    max_attempts: int = 3,
+    base_delay: float = 2.0,
+) -> tuple[Optional[ProposedAction], dict]:
+    """Parse LLM output with JSON repair and exponential backoff retry.
+
+    On each failed attempt, applies _repair_json() to the text before
+    retrying the full parse pipeline. Uses exponential backoff (base_delay *
+    2^attempt) between attempts to avoid hammering a struggling LLM backend.
+
+    This is the recommended entry point for production use.  The lower-level
+    ``parse_llm_output`` remains available for testing and cases where retry
+    overhead is undesirable.
+
+    Args:
+        raw_text:    Raw text output from the LLM.
+        neighbors:   List of valid neighbor agent IDs for validation.
+        max_attempts: Maximum parse attempts (default 3, matching MiroFish).
+        base_delay:   Base delay in seconds for exponential backoff (default 2s).
+
+    Returns:
+        Tuple of (ProposedAction or None, parse_metadata dict).
+    """
+    last_action: Optional[ProposedAction] = None
+    last_metadata: dict = {}
+    candidate = raw_text
+
+    for attempt in range(max_attempts):
+        action, metadata = parse_llm_output(candidate, neighbors)
+
+        if action is not None:
+            metadata["retry_attempts"] = attempt
+            _parse_stats["retry_success"] = _parse_stats.get("retry_success", 0) + 1
+            return action, metadata
+
+        last_action = action
+        last_metadata = metadata
+
+        if attempt < max_attempts - 1:
+            # Apply JSON repair before next attempt
+            repaired = _repair_json(candidate)
+            if repaired != candidate:
+                candidate = repaired
+            delay = base_delay * (2 ** attempt)
+            time.sleep(delay)
+
+    last_metadata["retry_attempts"] = max_attempts
+    last_metadata["retry_exhausted"] = True
+    _parse_stats["retry_exhausted"] = _parse_stats.get("retry_exhausted", 0) + 1
+    return last_action, last_metadata
 
 
 def _validate_action(

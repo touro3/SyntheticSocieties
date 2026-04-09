@@ -6,8 +6,7 @@ and ConditionedLLMPolicy. Subclasses override only prompt construction.
 
 from __future__ import annotations
 
-import warnings
-from typing import Optional
+import logging
 
 from decision.constants import (
     COOPERATE_WEALTH_THRESHOLD,
@@ -21,6 +20,8 @@ from decision.constants import (
 )
 from decision.output_parser import parse_llm_output
 from decision.schemas import ProposedAction
+
+logger = logging.getLogger(__name__)
 
 
 class LLMPolicyBase:
@@ -41,6 +42,22 @@ class LLMPolicyBase:
             self._fallback_counter = 0
         if not hasattr(self, '_total_proposals'):
             self._total_proposals = 0
+
+    # ── RAG context accessors ─────────────────────────────────────────────────
+
+    def graph_rag_context(self, agent_id: str) -> str | None:
+        """Return graph-RAG social context string for *agent_id*, or None."""
+        rag = getattr(self, "graph_rag", None)
+        if rag is None:
+            return None
+        return rag.get_social_context(agent_id)
+
+    def sql_rag_context(self, age: int, gender: str, country: str) -> str | None:
+        """Return SQL-RAG peer-group context string, or None."""
+        rag = getattr(self, "sql_rag", None)
+        if rag is None:
+            return None
+        return rag.get_peer_group_context(age=age, gender=gender, country=country)
 
     def _generate_with_retries(
         self,
@@ -65,7 +82,7 @@ class LLMPolicyBase:
                 if action is not None:
                     break
             except Exception as e:
-                warnings.warn(f"LLM generation failed (attempt {attempt + 1}): {e}")
+                logger.warning("LLM generation failed (attempt %d): %s", attempt + 1, e)
                 parse_meta = {"parse_error": str(e), "parse_success": False}
 
         return action, raw_text, latency, parse_meta

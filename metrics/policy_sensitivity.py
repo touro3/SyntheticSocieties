@@ -52,7 +52,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-
 # ── Published empirical benchmarks ───────────────────────────────────────────
 
 #: Eurostat 2023 Gini coefficients for ESS country clusters (equivalised

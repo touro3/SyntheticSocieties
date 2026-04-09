@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Optional
 
 
 @dataclass
 class AgentState:
     wealth: float
-    trust: Dict[str, float] = field(default_factory=dict)
+    trust: dict[str, float] = field(default_factory=dict)
     stress: float = 0.0
     satisfaction: float = 0.0
     last_action: Optional[str] = None
@@ -15,7 +15,7 @@ class AgentState:
             self.wealth = 0.0
 
     @property
-    def trust_network(self) -> Dict[str, float]:
+    def trust_network(self) -> dict[str, float]:
         """Alias for trust dict — used by prompt_builder's TRUST_SURFACED level."""
         return self.trust
 

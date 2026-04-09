@@ -14,8 +14,8 @@ class TestBaseConfigValidates:
         with open(config_path) as f:
             raw = yaml.safe_load(f)
         config = BGFConfig(**raw)
-        assert config.policy.type == "mock"
-        assert config.simulation.rounds == 3
+        assert config.policy.type == "llm"     # base_config.yaml uses llm policy
+        assert config.simulation.rounds == 30  # base_config.yaml uses 30 rounds
 
     def test_defaults_produce_valid_config(self):
         config = BGFConfig()

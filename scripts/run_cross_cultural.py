@@ -183,6 +183,8 @@ def _run_cluster(
             device_map="auto",
             max_new_tokens=256,
             temperature=0.7,
+            inference_timeout=120,
+            max_retries=2,
         )
         backend.load()
         policy = LLMPolicy(backend=backend)

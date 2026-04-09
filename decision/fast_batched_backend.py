@@ -7,17 +7,17 @@ It wraps LLMBackend and converts raw-string prompts to chat messages.
 
 import warnings
 
-warnings.warn(
+_DEPRECATION_MSG = (
     "FastBatchedBackend is deprecated. Use decision.llm_backend.LLMBackend "
-    "with generate_batch() instead.",
-    DeprecationWarning,
-    stacklevel=2,
+    "with generate_batch() instead."
 )
+
+warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
 
 from decision.llm_backend import LLMBackend
 
 
-class FastBatchedBackend:
+class _FastBatchedBackend:
     """Deprecated wrapper around LLMBackend for legacy scripts.
 
     Legacy scripts pass raw text prompts; this wrapper converts them to
@@ -55,3 +55,14 @@ class FastBatchedBackend:
             max_batch_size=min(batch_size, 5),
         )
         return [text for text, _latency in results]
+
+
+def __getattr__(name: str):
+    """Expose deprecated symbols while warning on attribute import access."""
+    if name == "FastBatchedBackend":
+        warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+        return _FastBatchedBackend
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["FastBatchedBackend"]

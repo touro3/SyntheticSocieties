@@ -135,6 +135,8 @@ def main():
         max_new_tokens=256,
         temperature=args.temperature,
         cache_dir=args.cache_dir,
+        inference_timeout=120,
+        max_retries=2,
     )
     backend.load()
 

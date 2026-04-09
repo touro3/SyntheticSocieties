@@ -438,14 +438,44 @@ Test Infrastructure
 [ ] Recruit 2+ external collaborators for reproduction testing
 [ ] Track: time taken, errors encountered, documentation gaps
 [ ] Fix blockers (HuggingFace cache, GPU memory docs, API key setup)
-[x] Set up GitHub Actions CI: `.github/workflows/ci.yml` — runs pytest, baseline pipeline,
-    feature importance, policy intervention, and long-horizon on every push
+[x] Set up GitHub Actions CI: `.github/workflows/ci.yml` — runs pytest, baseline pipeline, feature importance, policy intervention, and long-horizon on every push
 [x] `data/README.md` with step-by-step ESS download guide already exists
 [ ] Document successful external reproducibility in CONTRIBUTORS.md
 
-## Sub-phase 28.10 — Formal Venue Positioning
+## Sub-phase 28.10 — Formal Venue Positioning 
 [ ] Create AAMAS-formatted paper (`paper/aamas2026_draft.pdf`)
 [ ] Create NeurIPS-formatted paper (`paper/neurips2026_draft.pdf`)
-[ ] Write venue-specific abstracts (~150 wor1ds each)
+[ ] Write venue-specific abstracts (~150 words each)
 [ ] Create supplementary materials: Appendix A-D (variables, prompts, configs, stats)
 [ ] Choose primary target venue and submission timeline
+
+---
+
+# Phase 29 — Top-Tier Research Elevation (TOP_TIER_RESEARCH.md)
+
+## Sub-phase 29.1 — Padded Prompt Control Experiment (P0) — Infrastructure Complete
+[x] decision/padded_ablation_policy.py (PaddedAblationPolicy — Condition P)
+[x] configs/condition_p.yaml (padded ablation config: N=500, T=30, 3 seeds)
+[x] scripts/run_padded_control.py (multi-seed pipeline with --dry-run support)
+[x] scripts/analyze_padded_vs_grounded.py (P vs A vs B: Mann-Whitney U, Cohen's d, figures)
+[x] tests/test_padded_control_pipeline.py (19 tests: policy, dispatch, metrics, stats)
+[ ] GPU run: python scripts/run_padded_control.py --seeds 42,123,7 --agents 500 --rounds 30
+[ ] analysis/tables/padded_control_comparison.json (actual GPU results)
+[ ] analysis/figures/padded_control_*.png (actual GPU results)
+
+## Sub-phase 29.2 — Human Baseline Experiment (P0)
+[ ] human_experiment/app/ (React/HTML frontend)
+[ ] human_experiment/server/ (backend API)
+[ ] scripts/analyze_human_baseline.py (update existing)
+[ ] docs/human_experiment_protocol.md
+
+## Sub-phase 29.3 — Scaled Cross-Model Validation (P1)
+[ ] Update configs/cross_model/gpt4o_mini.yaml: agents=50, rounds=20
+[ ] scripts/analyze_cross_model_scaled.py (bootstrap CIs, N=50 inverse effect test)
+
+## Sub-phase 29.4 — Memory System Ablation (P1)
+[ ] configs/memory_ablation/m0_no_memory.yaml … m3_full.yaml
+[ ] agents/memory.py MemoryLevel enum support
+[ ] scripts/run_memory_ablation.py (2×4 factorial: 8 conditions × 3 seeds)
+[ ] scripts/analyze_memory_ablation.py
+[ ] tests/test_memory_ablation.py

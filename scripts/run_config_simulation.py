@@ -32,6 +32,17 @@ def parse_args():
         default="configs/base_config.yaml",
         help="Path to YAML config file.",
     )
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        metavar="EXP_ID",
+        help=(
+            "Resume an interrupted experiment. Pass the experiment ID "
+            "(e.g. cmp_llm_s2). Loads experiments/<EXP_ID>/checkpoint.json "
+            "and continues from the saved round."
+        ),
+    )
     args, overrides = parser.parse_known_args()
     return args, overrides
 
@@ -118,6 +129,8 @@ def _build_llm_backend(llm_cfg: dict):
         max_new_tokens=llm_cfg.get("max_new_tokens", 256),
         temperature=llm_cfg.get("temperature", 0.7),
         cache_dir=llm_cfg.get("cache_dir"),
+        inference_timeout=llm_cfg.get("inference_timeout", 120),
+        max_retries=llm_cfg.get("max_retries", 2),
     )
     backend.load()
     return backend
@@ -191,6 +204,25 @@ def build_policy(config: dict):
             sql_rag=sql_rag,
         )
 
+    if policy_type == "padded_ablation":
+        from decision.padded_ablation_policy import PaddedAblationPolicy
+
+        llm_cfg = config.get("llm", {})
+        padded_cfg = config.get("padded", {})
+        experiment_id = config["project"]["experiment_id"]
+
+        backend = _build_llm_backend(llm_cfg)
+        prompt_logger = _build_prompt_logger(experiment_id)
+
+        return PaddedAblationPolicy(
+            backend=backend,
+            temperature=llm_cfg.get("temperature", 0.7),
+            max_retries=llm_cfg.get("max_retries", 2),
+            prompt_logger=prompt_logger,
+            memory_window=llm_cfg.get("memory_window", 5),
+            target_token_count=padded_cfg.get("target_token_count"),
+        )
+
     if policy_type == "ablated_llm":
         from decision.ablated_llm_policy import AblatedLLMPolicy
 
@@ -222,7 +254,7 @@ def build_policy(config: dict):
     raise ValueError(f"Unsupported policy type: {policy_type}")
 
 
-def run_simulation(config_path: str, overrides: list[str] | None = None) -> None:
+def run_simulation(config_path: str, overrides: list[str] | None = None, resume_exp_id: str | None = None) -> None:
     config = load_config(config_path)
 
     if overrides:
@@ -269,8 +301,21 @@ def run_simulation(config_path: str, overrides: list[str] | None = None) -> None
         agents=agents,
         world=world,
         logger=logger,
+        heartbeat_path=run_dir / "heartbeat.json",
     )
-    kernel.run(num_rounds=config["simulation"]["rounds"])
+
+    num_rounds = config["simulation"]["rounds"]
+    start_round = 0
+
+    if resume_exp_id:
+        checkpoint_path = Path("experiments") / resume_exp_id / "checkpoint.json"
+        if checkpoint_path.exists():
+            start_round = kernel.load_checkpoint(checkpoint_path)
+            print(f"Resumed from checkpoint: round {start_round} / {num_rounds}")
+        else:
+            print(f"Warning: no checkpoint found at {checkpoint_path}, starting fresh.")
+
+    kernel.run(num_rounds=num_rounds, start_round=start_round)
 
     summary = summarize_agents(agents)
     events = load_events(run_dir / "events.jsonl")
@@ -288,7 +333,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None) -> None
 
 def main() -> None:
     args, overrides = parse_args()
-    run_simulation(args.config, overrides)
+    run_simulation(args.config, overrides, resume_exp_id=args.resume)
 
 
 if __name__ == "__main__":

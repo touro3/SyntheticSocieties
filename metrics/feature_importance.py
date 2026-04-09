@@ -16,15 +16,15 @@ Usage
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, NamedTuple
+from typing import NamedTuple
 
 import numpy as np
 
 # scikit-learn is in requirements.txt (scikit-learn==1.5.2)
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils import check_array
 
 # ── Feature definitions ───────────────────────────────────────────────────────
 

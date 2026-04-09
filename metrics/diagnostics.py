@@ -10,10 +10,7 @@ Provides 4 diagnostic analyses:
 
 from __future__ import annotations
 
-import json
 from collections import Counter, defaultdict
-from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from scipy.stats import entropy
@@ -35,7 +32,6 @@ def subgroup_analysis(
     Returns:
         Dict with per-group wealth, cooperation rate, and action distribution.
     """
-    agent_lookup = {a.profile.agent_id: a for a in agents}
     groups: dict[str, list] = defaultdict(list)
 
     for agent in agents:
@@ -180,7 +176,6 @@ def alignment_bias_detection(
     Computes per-persona-attribute correlation between attributes and action choices.
     A high bias score means the LLM ignores persona variation.
     """
-    agent_lookup = {a.profile.agent_id: a for a in agents}
     agent_action_rates: dict[str, dict] = {}
 
     for agent in agents:

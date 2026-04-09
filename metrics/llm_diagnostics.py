@@ -8,12 +8,10 @@ Provides detailed runtime diagnostics for the LLM policy, focusing on:
 4. Extracting raw JSON parsing errors or fallbacks.
 """
 
-import json
-from pathlib import Path
-from collections import defaultdict, Counter
-import numpy as np
-import pandas as pd
 import argparse
+import json
+from collections import Counter, defaultdict
+from pathlib import Path
 
 
 def load_llm_prompts_and_responses(experiment_id: str, experiments_root="experiments"):

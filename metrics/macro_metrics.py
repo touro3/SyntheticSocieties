@@ -1,6 +1,7 @@
-import polars as pl
-import numpy as np
 import json
+
+import numpy as np
+import polars as pl
 
 from metrics.inequality import gini_coefficient as _canonical_gini
 
@@ -34,9 +35,12 @@ class SocietyMacroMetrics:
             if isinstance(val, dict):
                 return str(val.get("action_type", "")).lower()
             if isinstance(val, str):
-                if "cooperate" in val.lower(): return "cooperate"
-                if "work" in val.lower(): return "work"
-                if "save" in val.lower(): return "save"
+                if "cooperate" in val.lower():
+                    return "cooperate"
+                if "work" in val.lower():
+                    return "work"
+                if "save" in val.lower():
+                    return "save"
             return ""
             
         def safe_extract_wealth(val):
@@ -46,7 +50,7 @@ class SocietyMacroMetrics:
             if isinstance(val, str):
                 try:
                     return float(json.loads(val).get("wealth"))
-                except:
+                except Exception:
                     pass
             return None
 

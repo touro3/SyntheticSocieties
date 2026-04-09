@@ -1,4 +1,4 @@
-.PHONY: all test reproduce reproduce-fast plots lint clean help
+.PHONY: all test reproduce reproduce-fast plots install format lint type-check coverage clean help
 
 PYTHON := python
 PYTEST := pytest
@@ -45,8 +45,20 @@ phase-transitions:
 	$(PYTHON) scripts/run_phase_transition_sweeps.py --analyze-only
 
 # ── Code quality ──────────────────────────────────────────────────────────────
+install:
+	pip install -e ".[dev]"
+
+format:
+	ruff format . && ruff check --fix .
+
 lint:
-	python -m flake8 metrics/ agents/ decision/ population/ simulation/ --max-line-length=120 --ignore=E203,W503
+	ruff check .
+
+type-check:
+	mypy . --ignore-missing-imports --exclude tests/
+
+coverage:
+	$(PYTEST) tests/ -q -k "not llm" --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 clean:
@@ -65,5 +77,9 @@ help:
 	@echo "  plots             Regenerate all figures from existing experiments"
 	@echo "  trust-gradient    Run trust-gradient sub-population analysis"
 	@echo "  phase-transitions Analyze phase transitions from existing runs"
-	@echo "  lint              Run flake8 linter"
+	@echo "  install           Install project in editable mode with dev extras"
+	@echo "  format            Auto-format with ruff"
+	@echo "  lint              Run ruff linter"
+	@echo "  type-check        Run mypy type checker"
+	@echo "  coverage          Run tests with coverage report (fail under 70%%)"
 	@echo "  clean             Remove Python cache files"

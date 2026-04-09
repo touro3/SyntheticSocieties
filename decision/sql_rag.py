@@ -3,10 +3,12 @@ SQL-based TableRAG for population grounding.
 Allows agents to query empirical population trends via DuckDB SQL.
 """
 
+from pathlib import Path
+from typing import Optional
+
 import duckdb
 import pandas as pd
-from pathlib import Path
-from typing import Optional, Union
+
 
 class SQLRAG:
 

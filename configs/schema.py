@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -57,6 +56,7 @@ class LLMConfig(BaseModel):
     max_new_tokens: int = Field(default=256, ge=1)
     memory_window: int = Field(default=5, ge=1)
     max_retries: int = Field(default=2, ge=0)
+    inference_timeout: int = Field(default=120, ge=1)
 
     @field_validator("cache_dir", mode="before")
     @classmethod

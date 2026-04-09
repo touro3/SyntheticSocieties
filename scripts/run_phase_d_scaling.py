@@ -1,42 +1,28 @@
 import argparse
-import os
-import sys
+import concurrent.futures
 import time
 from pathlib import Path
-import concurrent.futures
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+from scripts._common import ParallelLogger, setup_gpu_env
 
-repo_root = str(Path(__file__).resolve().parent.parent)
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
+setup_gpu_env()
 
-from agents.memory import HierarchicalMemory
-from agents.state import AgentState
-from agents.agent import Agent
-from environment.world_state import WorldState
-from environment.world import World
+from agents.agent import Agent  # noqa: E402
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
+from environment.world import World
+from environment.world_state import WorldState
 from decision.fast_batched_backend import FastBatchedBackend
 from population.profile_loader import EmpiricalProfileLoader
+from utils.agent_factory import build_society
+
 
 class ParallelPolicy:
     def __init__(self, backend):
         self.backend = backend
-    
+
     def build_prompt(self, agent, context, round_id):
         return f"[SYSTEM] You are an actor... (persona: {agent.profile.agent_id}) [USER] Action for round {round_id}"
-
-class ParallelLogger:
-    def __init__(self): self.events = []
-    def log_event(self, ev): self.events.append(ev)
-
-def build_society(profiles, policy):
-    agents = []
-    for p in profiles:
-        agents.append(Agent(profile=p, state=AgentState(wealth=p.income), memory=HierarchicalMemory(10), policy=policy))
-    return agents
 
 def main():
     parser = argparse.ArgumentParser(description="Phase D: High-Scale Simulation")

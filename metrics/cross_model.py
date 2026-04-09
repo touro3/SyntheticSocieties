@@ -18,12 +18,11 @@ Expected result:
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from metrics.behavioral_realism import rlhf_bias_index_from_counts
 from metrics.inequality import gini_coefficient
-
 
 # ── Result container ─────────────────────────────────────────────────────────
 

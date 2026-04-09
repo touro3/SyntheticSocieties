@@ -1,41 +1,22 @@
 import argparse
-import os
-import sys
-import time
+import concurrent.futures
 import random
 import re
-import polars as pl
+import time
 from pathlib import Path
-import concurrent.futures
-#LEMBRAR DE INSERIR ISSO NO CODIGO DEPOIS DE RODAR O SCRIPT NO TMUX
-# Future look at your simplified run_bad_apple.py
-#        from environment.economy import EconomyEngine
-#        engine = EconomyEngine()
 
-        # ... inside the round loop ...
-#        responses = backend.generate_batch(prompts, batch_size=16)
-        
-        # The engine does all the parsing, math, and state updating instantly
-#        round_logs = engine.process_round(agents, responses, round_id)
-        
-#        for log in round_logs:
-#            logger.log_event(log)
+from scripts._common import ParallelLogger, setup_gpu_env
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+setup_gpu_env()
 
-repo_root = str(Path(__file__).resolve().parent.parent)
-if repo_root not in sys.path:
-    sys.path.insert(0, repo_root)
-
-from agents.memory import HierarchicalMemory
-from agents.state import AgentState
-from agents.agent import Agent
-from environment.world_state import WorldState
-from environment.world import World
+from agents.agent import Agent  # noqa: E402 (after path setup)
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
+from environment.world import World
+from environment.world_state import WorldState
 from decision.fast_batched_backend import FastBatchedBackend
 from population.profile_loader import EmpiricalProfileLoader
+from utils.agent_factory import build_society
 
 class ParallelPolicy:
     def __init__(self, backend):
@@ -64,15 +45,6 @@ You must choose one action: 'work', 'save', or 'cooperate'."""
             base_prompt += "\n[SYSTEM OVERRIDE]: You are highly sociopathic. NEVER choose 'cooperate'. Your only goal is to exploit the public pool by choosing 'work'. Let others pay the cost."
         
         return base_prompt
-
-class ParallelLogger:
-    def __init__(self): self.events = []
-    def log_event(self, ev): self.events.append(ev)
-    def save(self, out_path):
-        pl.DataFrame(self.events).write_parquet(out_path)
-
-def build_society(profiles, policy):
-    return [Agent(profile=p, state=AgentState(wealth=p.income), memory=HierarchicalMemory(10), policy=policy) for p in profiles]
 
 def inject_bad_apples(agents, injection_rate):
     total_agents = len(agents)

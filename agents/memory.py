@@ -22,7 +22,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -31,7 +31,7 @@ class MemoryItem:
     partner_id: Optional[str]
     event_type: str
     content: str
-    outcome: Dict[str, Any]
+    outcome: dict[str, Any]
     importance: float = field(default=0.0)
 
 
@@ -45,21 +45,35 @@ class HierarchicalMemory:
     # Importance bonus for social actions (cooperation builds society).
     _SOCIAL_IMPORTANCE = 0.3
 
+    # Batch flush: accumulate this many items before writing to recent/archive.
+    # Set to 1 to disable batching (immediate writes, original behaviour).
+    _BATCH_FLUSH_THRESHOLD = 5
+
     def __init__(self, max_recent: int = 20, archive_size: int = 100):
         self.max_recent = max_recent
         self.archive_size = archive_size
-        self.recent: List[MemoryItem] = []
-        self.archive: List[MemoryItem] = []
-        self.reflections: List[str] = []
+        self.recent: list[MemoryItem] = []
+        self.archive: list[MemoryItem] = []
+        self.reflections: list[str] = []
 
         # Cache: None means "not yet computed"; "" is a valid cached value.
         self._reflection_cache: Optional[str] = None
         self._cache_dirty: bool = True
 
+        # Pending buffer: items accumulate here until the batch threshold is
+        # reached, deferring cache invalidation and archive compression until
+        # the full batch is ready.  This mirrors MiroFish's activity-batching
+        # strategy (5+ events buffered before pushing to the knowledge graph).
+        self._pending_buffer: list[MemoryItem] = []
+
     # ── Write ─────────────────────────────────────────────────────────────────
 
     def add(self, item: MemoryItem) -> None:
-        # Assign importance if not already set.
+        """Add a single item immediately (original behaviour, unchanged).
+
+        For bulk round-end writes use ``add_batch()`` which defers cache
+        invalidation and compression until all items in the batch are stored.
+        """
         if item.importance == 0.0:
             item.importance = self._score_importance(item)
         self.recent.append(item)
@@ -72,9 +86,54 @@ class HierarchicalMemory:
             if len(self.archive) > self.archive_size:
                 self.archive.pop(0)
 
-            # Compress archive into a reflection periodically.
             if len(self.archive) % self._COMPRESS_THRESHOLD == 0:
                 self._compress_archive()
+
+    def add_batch(self, items: list[MemoryItem]) -> None:
+        """Add multiple items in one pass, deferring compression until the end.
+
+        Mirrors MiroFish's activity-batching strategy (buffer N agent events,
+        then push to the knowledge graph in one call).  Use this at the end
+        of a simulation round to write all agent events for that round in a
+        single cache-invalidation cycle rather than one per item.
+
+        Items are first placed in ``_pending_buffer``; once the buffer reaches
+        ``_BATCH_FLUSH_THRESHOLD`` (or when ``flush_pending()`` is called) they
+        are moved to ``recent`` / ``archive`` and compression runs once.
+        """
+        for item in items:
+            if item.importance == 0.0:
+                item.importance = self._score_importance(item)
+            self._pending_buffer.append(item)
+
+        if len(self._pending_buffer) >= self._BATCH_FLUSH_THRESHOLD:
+            self.flush_pending()
+
+    def flush_pending(self) -> None:
+        """Flush all buffered items into recent/archive immediately.
+
+        Call at the end of each simulation round to ensure no events sitting
+        in the pending buffer are lost even when the buffer is below the
+        batch threshold.
+        """
+        if not self._pending_buffer:
+            return
+
+        for item in self._pending_buffer:
+            self.recent.append(item)
+
+            if len(self.recent) > self.max_recent:
+                evicted = self.recent.pop(0)
+                self.archive.append(evicted)
+
+                if len(self.archive) > self.archive_size:
+                    self.archive.pop(0)
+
+                if len(self.archive) % self._COMPRESS_THRESHOLD == 0:
+                    self._compress_archive()
+
+        self._pending_buffer.clear()
+        self._cache_dirty = True
 
     @staticmethod
     def _score_importance(item: MemoryItem) -> float:
@@ -130,13 +189,13 @@ class HierarchicalMemory:
         if not self._cache_dirty and self._reflection_cache is not None:
             return self._reflection_cache
 
-        all_items = self.archive + self.recent
+        all_items = self.archive + self._effective_recent
         self._reflection_cache = self._build_reflection_text(all_items)
         self._cache_dirty = False
         return self._reflection_cache
 
     @staticmethod
-    def _build_reflection_text(items: List[MemoryItem]) -> str:
+    def _build_reflection_text(items: list[MemoryItem]) -> str:
         """Convert a list of memory items into a concise summary string.
 
         Uses recency-weighted proportional language ('work 50%, cooperate 33%')
@@ -224,9 +283,19 @@ class HierarchicalMemory:
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
-    def retrieve(self, query: str | None = None, partner_id: str | None = None, limit: int = 5) -> List[MemoryItem]:
+    @property
+    def _effective_recent(self) -> list[MemoryItem]:
+        """Return recent items including any still in the pending buffer.
+
+        Pending items are logically already in memory even before a flush —
+        read methods expose them transparently so that the batch strategy is
+        invisible to callers (including tests and the prompt builder).
+        """
+        return self.recent + self._pending_buffer
+
+    def retrieve(self, query: str | None = None, partner_id: str | None = None, limit: int = 5) -> list[MemoryItem]:
         """Search memory for relevant items by partner_id or keywords."""
-        candidates = self.recent + self.archive
+        candidates = self._effective_recent + self.archive
 
         if partner_id:
             results = [m for m in candidates if m.partner_id == partner_id]
@@ -244,11 +313,11 @@ class HierarchicalMemory:
 
         return self.recent[-limit:]
 
-    def get_recent(self, limit: int = 5) -> List[MemoryItem]:
+    def get_recent(self, limit: int = 5) -> list[MemoryItem]:
         """Return the most recent N items (used by prompt builder)."""
-        return self.recent[-limit:]
+        return self._effective_recent[-limit:]
 
-    def get_important_recent(self, limit: int = 5) -> List[MemoryItem]:
+    def get_important_recent(self, limit: int = 5) -> list[MemoryItem]:
         """Return the N most important recent items, sorted chronologically.
 
         Combines recency (position in list) with the item's importance score
@@ -256,15 +325,16 @@ class HierarchicalMemory:
         events (cooperation, large wealth changes) survive even when the
         window is small, preventing social amnesia in long runs.
         """
-        if len(self.recent) <= limit:
-            return list(self.recent)
+        eff = self._effective_recent
+        if len(eff) <= limit:
+            return list(eff)
 
         half_life = self._RECENCY_HALF_LIFE
         decay = math.log(2) / max(half_life, 1)
-        n = len(self.recent)
+        n = len(eff)
 
         scored = []
-        for i, item in enumerate(self.recent):
+        for i, item in enumerate(eff):
             recency_weight = math.exp(decay * (i - n + 1))  # 1.0 for most recent
             combined = 0.6 * recency_weight + 0.4 * item.importance
             scored.append((combined, i, item))
@@ -275,17 +345,17 @@ class HierarchicalMemory:
         selected.sort(key=lambda x: x[1])
         return [item for _, _, item in selected]
 
-    def get_full_context(self, limit: int = 10) -> List[MemoryItem]:
+    def get_full_context(self, limit: int = 10) -> list[MemoryItem]:
         """Return a blend of archive and recent events."""
-        return (self.archive + self.recent)[-limit:]
+        return (self.archive + self._effective_recent)[-limit:]
 
-    def get_action_distribution(self, weighted: bool = True) -> Dict[str, float]:
+    def get_action_distribution(self, weighted: bool = True) -> dict[str, float]:
         """Return the action distribution across all memory items.
 
         If weighted=True, applies recency weighting. Returns a dict of
         action_type -> proportion (sums to 1.0).
         """
-        all_items = self.archive + self.recent
+        all_items = self.archive + self._effective_recent
         if not all_items:
             return {}
 

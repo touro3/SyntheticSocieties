@@ -114,6 +114,34 @@ def test_get_backend_passes_max_new_tokens():
     assert backend.max_new_tokens == 512
 
 
+def test_get_backend_passes_inference_timeout():
+    cfg = ModelConfig(model_id="m", backend_type="huggingface")
+    cfg.inference_timeout = 60
+    backend = get_backend(cfg)
+    assert backend.inference_timeout == 60
+
+
+def test_get_backend_passes_max_retries():
+    cfg = ModelConfig(model_id="m", backend_type="huggingface")
+    cfg.max_retries = 3
+    backend = get_backend(cfg)
+    assert backend.max_retries == 3
+
+
+def test_get_backend_default_inference_timeout():
+    """Without inference_timeout on the config, backend defaults to 120s."""
+    cfg = ModelConfig(model_id="m", backend_type="huggingface")
+    backend = get_backend(cfg)
+    assert backend.inference_timeout == 120
+
+
+def test_get_backend_default_max_retries():
+    """Without max_retries on the config, backend defaults to 2."""
+    cfg = ModelConfig(model_id="m", backend_type="huggingface")
+    backend = get_backend(cfg)
+    assert backend.max_retries == 2
+
+
 # ── OpenAIBackend ─────────────────────────────────────────────────────────────
 
 

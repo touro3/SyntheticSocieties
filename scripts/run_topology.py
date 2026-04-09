@@ -1,20 +1,21 @@
-import argparse, os, sys, time, re, polars as pl
-from pathlib import Path
+import argparse
 import concurrent.futures
+import re
+import time
+from pathlib import Path
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-repo_root = str(Path(__file__).resolve().parent.parent)
-sys.path.insert(0, repo_root)
+from scripts._common import ParallelLogger, setup_gpu_env
 
-from agents.memory import HierarchicalMemory
-from agents.state import AgentState
-from agents.agent import Agent
-from environment.world_state import WorldState
-from environment.world import World
+setup_gpu_env()
+
+from agents.agent import Agent  # noqa: E402
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
+from environment.world import World
+from environment.world_state import WorldState
 from decision.fast_batched_backend import FastBatchedBackend
 from population.profile_loader import EmpiricalProfileLoader
+from utils.agent_factory import build_society
 
 class ParallelPolicyTopology:
     def __init__(self, backend): self.backend = backend
@@ -24,14 +25,9 @@ class ParallelPolicyTopology:
         base_prompt += f"\n[USER] Action for round {round_id}:"
         return base_prompt
 
-class ParallelLogger:
-    def __init__(self): self.events = []
-    def log_event(self, ev): self.events.append(ev)
-    def save(self, out_path): pl.DataFrame(self.events).write_parquet(out_path)
-
 def run_simulation(name, profiles, policy, backend, args, out_path, is_ablated=False):
     print(f"\n>>> Running {name} in a FULLY CONNECTED NETWORK...")
-    agents = [Agent(profile=p, state=AgentState(wealth=p.income), memory=HierarchicalMemory(10), policy=policy) for p in profiles]
+    agents = build_society(profiles, policy)
     if is_ablated:
         for a in agents: a.profile.agent_id = "Generic_Assistant"
     agent_ids = [a.profile.agent_id for a in agents]

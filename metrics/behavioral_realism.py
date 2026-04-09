@@ -14,7 +14,7 @@ All metrics are oriented so that 1 = better / more realistic.
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 from metrics.distribution import jensen_shannon_divergence
 

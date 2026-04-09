@@ -1,0 +1,32 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "I", "UP"]
+ignore = [
+    "E203",   # whitespace before ':'  (black-compatible)
+    "E501",   # line too long         (handled by formatter)
+    "UP007",  # Use X | Y for union          (keep Optional[] for readability)
+    "UP006",  # Use built-in type            (keep Optional for readability)
+    "UP045",  # Non-PEP604 Optional[]        (same — keep Optional syntax)
+]
+
+[lint.isort]
+known-first-party = [
+    "agents",
+    "bgf_logging",
+    "configs",
+    "decision",
+    "environment",
+    "metrics",
+    "population",
+    "scripts",
+    "simulation",
+    "tracker",
+    "utils",
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["F811"]                     # redefined-unused — common in pytest fixtures
+"scripts/*" = ["E402"]                   # module-level import not at top — scripts use sys.path hacks
+"decision/fast_batched_backend.py" = ["E402"]  # deprecation warning issued before imports by design

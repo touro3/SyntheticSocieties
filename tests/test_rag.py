@@ -251,3 +251,79 @@ def test_graph_rag_initialized_by_kernel_execution(tmp_path):
 
     ctx = policy.graph_rag.get_social_context("agent_0")
     assert "Social network not yet initialized." not in ctx
+
+
+# ── P4.6: RAG failure path tests ──────────────────────────────────────────────
+
+class TestGraphRagNoneReturnGraceful:
+    """graph_rag.get_social_context() returning None must not crash prompt building."""
+
+    def test_graph_rag_returns_none_for_unknown_agent(self):
+        """GraphRAG.get_social_context returns a string (not None) even for unknown agents."""
+        rag = GraphRAG()
+        # Add one event for a different agent so the graph is initialized
+        rag.add_event({"agent_id": "A", "action": {"action_type": "cooperate", "target_agent_id": "B"}, "round_id": 1})
+        result = rag.get_social_context("completely_unknown_agent_xyz")
+        # Must return a string, never None — callers assume str
+        assert isinstance(result, str)
+
+    def test_llm_policy_base_graph_rag_context_returns_none_when_no_rag(self):
+        """graph_rag_context() returns None when graph_rag attribute is absent."""
+        from decision.llm_policy_base import LLMPolicyBase
+        policy = LLMPolicyBase.__new__(LLMPolicyBase)
+        # No graph_rag attribute set
+        assert policy.graph_rag_context("any_agent") is None
+
+    def test_llm_policy_base_graph_rag_context_handles_none_attribute(self):
+        """graph_rag_context() returns None when graph_rag is explicitly set to None."""
+        from decision.llm_policy_base import LLMPolicyBase
+        policy = LLMPolicyBase.__new__(LLMPolicyBase)
+        policy.graph_rag = None
+        assert policy.graph_rag_context("any_agent") is None
+
+    def test_llm_policy_base_sql_rag_context_returns_none_when_no_rag(self):
+        """sql_rag_context() returns None when sql_rag attribute is absent."""
+        from decision.llm_policy_base import LLMPolicyBase
+        policy = LLMPolicyBase.__new__(LLMPolicyBase)
+        assert policy.sql_rag_context(age=35, gender="male", country="DE") is None
+
+    def test_llm_policy_base_sql_rag_context_handles_none_attribute(self):
+        """sql_rag_context() returns None when sql_rag is explicitly set to None."""
+        from decision.llm_policy_base import LLMPolicyBase
+        policy = LLMPolicyBase.__new__(LLMPolicyBase)
+        policy.sql_rag = None
+        assert policy.sql_rag_context(age=35, gender="male", country="DE") is None
+
+    def test_llm_policy_propose_action_with_rag_returning_none(self):
+        """LLMPolicy must not crash when both RAG contexts return None."""
+        from unittest.mock import MagicMock
+        from decision.llm_policy import LLMPolicy
+        from agents.memory import HierarchicalMemory
+        from agents.profile import AgentProfile
+        from agents.state import AgentState
+
+        mock_rag = MagicMock()
+        mock_rag.get_social_context.return_value = None
+        mock_rag.get_peer_group_context.return_value = None
+
+        mock_backend = MagicMock()
+        mock_backend.generate.return_value = (
+            '{"action_type": "work", "reasoning_summary": "ok", "confidence": 0.8}',
+            0.1,
+        )
+
+        policy = LLMPolicy(backend=mock_backend, graph_rag=mock_rag, sql_rag=mock_rag, max_retries=0)
+
+        profile = AgentProfile(
+            agent_id="a0", age=35, income=1000.0, education="college",
+            occupation="worker", location="italy", political_preference="center",
+            risk_tolerance=0.5, social_class="middle",
+        )
+        state = AgentState(wealth=100.0)
+        memory = HierarchicalMemory(max_recent=5)
+        context = {"neighbors": ["a1"], "public_signal": {}, "prices": {}, "resources": {}, "round_id": 1}
+
+        # Should not raise
+        result = policy.propose_action(profile, state, memory, context, round_id=1)
+        assert result is not None
+        assert result.action_type in ("work", "save", "cooperate")

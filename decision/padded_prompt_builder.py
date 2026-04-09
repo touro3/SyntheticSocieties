@@ -23,7 +23,6 @@ from decision.prompt_builder import (
 from decision.system_prompts import BASE_SYSTEM_PROMPT
 from decision.token_budget import estimate_tokens
 
-
 # ── Semantically empty filler pool ───────────────────────────────────────
 # These sentences discuss generic, non-specific concepts. They must NOT
 # contain any ESS-specific data, demographic grounding, or culturally

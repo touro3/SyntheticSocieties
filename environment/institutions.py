@@ -33,6 +33,16 @@ class InstitutionManager:
             if agent.state.wealth < action.amount:
                 return ValidationResult(valid=False, reason="insufficient_wealth")
 
+        if action.action_type == "communicate":
+            if not action.target_agent_id:
+                return ValidationResult(valid=False, reason="missing_target")
+
+            if action.target_agent_id not in agent_lookup:
+                return ValidationResult(valid=False, reason="unknown_target")
+
+            if action.target_agent_id == agent.profile.agent_id:
+                return ValidationResult(valid=False, reason="self_target_not_allowed")
+
         return ValidationResult(valid=True)
 
     def execute(self, action: ProposedAction, agent, world_state, agent_lookup) -> dict:
@@ -69,5 +79,10 @@ class InstitutionManager:
             # Social cooperation provides the strongest satisfaction boost
             event["satisfaction_delta"] = 0.12
             event["interaction_type"] = "cooperation"
+
+        elif action.action_type == "communicate":
+            # Communication has no economic effect — purely informational.
+            event["interaction_type"] = "communication"
+            event["message_summary"] = action.reasoning_summary
 
         return event

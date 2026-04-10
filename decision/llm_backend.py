@@ -128,7 +128,8 @@ class LLMBackend:
         messages: list[dict],
         temperature: Optional[float] = None,
         max_new_tokens: Optional[int] = None,
-    ) -> tuple[str, float]:
+        return_logprobs: bool = False,
+    ) -> tuple[str, float] | tuple[str, float, float]:
         """
         Generate text from chat messages.
 
@@ -136,9 +137,15 @@ class LLMBackend:
             messages: Chat-format messages [{"role": "...", "content": "..."}].
             temperature: Sampling temperature (overrides default).
             max_new_tokens: Max tokens to generate (overrides default).
+            return_logprobs: If True, return (text, latency, logprob) where
+                logprob is the normalized log-probability of the first
+                generated token (from log_softmax over the output logits).
+                This provides mathematically grounded confidence instead
+                of LLM-hallucinated "confidence" values.
 
         Returns:
-            Tuple of (generated_text, latency_seconds).
+            Tuple of (generated_text, latency_seconds) or
+            (generated_text, latency_seconds, first_token_logprob).
         """
         if not self._loaded:
             self.load()
@@ -172,6 +179,11 @@ class LLMBackend:
             pad_token_id=self.tokenizer.pad_token_id,
         )
 
+        # Enable score output for logprob extraction
+        if return_logprobs:
+            gen_kwargs_base["output_scores"] = True
+            gen_kwargs_base["return_dict_in_generate"] = True
+
         delay = self._backoff_initial_delay
 
         for attempt in range(self.max_retries + 1):
@@ -196,8 +208,24 @@ class LLMBackend:
                         "Slow inference: %.1fs exceeds threshold %.0fs",
                         latency, SLOW_INFERENCE_THRESHOLD_S,
                     )
-                new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+
+                # Extract sequences — handle both dict-style and tensor outputs
+                if return_logprobs and hasattr(outputs, "sequences"):
+                    sequences = outputs.sequences
+                else:
+                    sequences = outputs
+
+                new_tokens = sequences[0][inputs["input_ids"].shape[1]:]
                 result = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+
+                if return_logprobs and hasattr(outputs, "scores") and outputs.scores:
+                    # Extract normalized log-probability of the first generated token
+                    first_step_logits = outputs.scores[0]  # shape: [batch, vocab]
+                    log_probs = torch.nn.functional.log_softmax(first_step_logits, dim=-1)
+                    first_token_id = new_tokens[0].item()
+                    logprob = log_probs[0, first_token_id].item()
+                    return result.strip(), latency, logprob
+
                 return result.strip(), latency
             except TimeoutError:
                 if attempt < self.max_retries:
@@ -215,10 +243,13 @@ class LLMBackend:
                     delay *= self._backoff_factor
                 else:
                     logger.error("generate() timed out after %d attempts, returning fallback.", self.max_retries + 1)
-                    return (
+                    fallback = (
                         '{"action_type": "work", "reasoning_summary": "[backend timeout fallback]", "confidence": 0.3}',
                         self.inference_timeout * (self.max_retries + 1),
                     )
+                    if return_logprobs:
+                        return fallback[0], fallback[1], float("-inf")
+                    return fallback
 
     def generate_batch(
         self,

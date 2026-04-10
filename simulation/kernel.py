@@ -18,6 +18,7 @@ from typing import Optional
 from metrics.inequality import gini_coefficient as _gini_canonical
 from simulation.round_processor import RoundProcessor
 from agents.memory import HierarchicalMemory, MemoryItem
+from decision.output_parser import get_parse_stats, reset_parse_stats
 
 logger = logging.getLogger(__name__)
 
@@ -377,6 +378,38 @@ class SimulationKernel:
         mean_stress = sum(stresses) / len(stresses) if stresses else 0.0
         mean_satisfaction = sum(satisfactions) / len(satisfactions) if satisfactions else 0.0
 
+        # LLM output quality stats for this round (MiroFish get_stats() pattern).
+        # Captures how often each parse strategy was used so drift and
+        # JSON-degradation trends are visible in experiment metrics.
+        parse_stats = get_parse_stats()
+        reset_parse_stats()
+        llm_quality = {
+            "direct_json":      parse_stats.get("direct_json", 0),
+            "regex_json":       parse_stats.get("regex_json", 0),
+            "keyword_fallback": parse_stats.get("keyword_fallback", 0),
+            "field_extract":    parse_stats.get("field_extract", 0),
+            "retry_success":    parse_stats.get("retry_success", 0),
+            "retry_exhausted":  parse_stats.get("retry_exhausted", 0),
+            "failed":           parse_stats.get("failed", 0),
+        }
+        degraded = (
+            llm_quality["keyword_fallback"]
+            + llm_quality["field_extract"]
+            + llm_quality["retry_exhausted"]
+            + llm_quality["failed"]
+        )
+        if degraded > 0:
+            logger.info(
+                "Round %d LLM quality: %d degraded parse(s) "
+                "(keyword=%d field_extract=%d exhausted=%d failed=%d)",
+                round_id,
+                degraded,
+                llm_quality["keyword_fallback"],
+                llm_quality["field_extract"],
+                llm_quality["retry_exhausted"],
+                llm_quality["failed"],
+            )
+
         metrics = {
             "round_id": round_id,
             "action_distribution": action_dist,
@@ -386,6 +419,7 @@ class SimulationKernel:
             "mean_stress": round(mean_stress, 4),
             "mean_satisfaction": round(mean_satisfaction, 4),
             "n_agents": len(self.agents),
+            "llm_quality": llm_quality,
         }
 
         self.round_metrics.append(metrics)

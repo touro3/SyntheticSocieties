@@ -38,6 +38,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_INDEX = "tracker/experiment_index.parquet"
 MAX_ITERATIONS = 8          # guard against infinite loops
 TOOL_CALL_PAUSE = 0.2       # seconds between tool calls
+_MAX_CONFLICTS = 2          # max consecutive tool+FinalAnswer conflicts before downgrade
 
 
 class _TrackerTools:
@@ -519,19 +520,67 @@ class ReportAgent:
 
     @staticmethod
     def _parse_action(text: str) -> Optional[tuple[str, dict]]:
-        """Extract (tool_name, args_dict) from a Thought/Action/Args block."""
-        action_match = re.search(r"Action:\s*(\w+)", text)
-        args_match = re.search(r"Args:\s*(\{.*?\})", text, re.DOTALL)
-        if not action_match:
-            return None
-        tool_name = action_match.group(1).strip()
-        args: dict = {}
-        if args_match:
+        """Extract (tool_name, args_dict) from the assistant's response.
+
+        Supports three formats in priority order (MiroFish multi-format pattern):
+          1. XML-style:  <tool_call>{"name": "...", "parameters": {...}}</tool_call>
+          2. Text-style: Action: <name> / Args: {...}  (original BGF format)
+          3. Bare JSON:  {"name": "...", "parameters": {...}} at end of response
+        """
+        valid_tools = set(_TrackerTools.TOOL_DESCRIPTIONS.keys())
+
+        # Format 1: XML-style <tool_call> (MiroFish primary format)
+        xml_match = re.search(r'<tool_call>\s*(\{.*?\})\s*</tool_call>', text, re.DOTALL)
+        if xml_match:
             try:
-                args = json.loads(args_match.group(1))
+                call_data = json.loads(xml_match.group(1))
+                tool_name = call_data.get("name") or call_data.get("tool")
+                if tool_name in valid_tools:
+                    args = (
+                        call_data.get("parameters")
+                        or call_data.get("params")
+                        or call_data.get("args")
+                        or {}
+                    )
+                    return tool_name, (args if isinstance(args, dict) else {})
             except json.JSONDecodeError:
                 pass
-        return tool_name, args
+
+        # Format 2: Text-style Action:/Args: (original BGF format)
+        action_match = re.search(r"Action:\s*(\w+)", text)
+        args_match = re.search(r"Args:\s*(\{.*?\})", text, re.DOTALL)
+        if action_match:
+            tool_name = action_match.group(1).strip()
+            args: dict = {}
+            if args_match:
+                try:
+                    args = json.loads(args_match.group(1))
+                except json.JSONDecodeError:
+                    pass
+            return tool_name, args
+
+        # Format 3: Bare JSON at end of response (MiroFish fallback)
+        stripped = text.strip()
+        json_pattern = r'(\{"(?:name|tool)"\s*:.*?\})\s*$'
+        bare_match = re.search(json_pattern, stripped, re.DOTALL)
+        if not bare_match and stripped.startswith('{') and stripped.endswith('}'):
+            bare_match = re.match(r'(\{.*\})', stripped, re.DOTALL)
+        if bare_match:
+            try:
+                call_data = json.loads(bare_match.group(1))
+                tool_name = call_data.get("name") or call_data.get("tool")
+                if tool_name in valid_tools:
+                    args = (
+                        call_data.get("parameters")
+                        or call_data.get("params")
+                        or call_data.get("args")
+                        or {}
+                    )
+                    return tool_name, (args if isinstance(args, dict) else {})
+            except json.JSONDecodeError:
+                pass
+
+        return None
 
     @staticmethod
     def _extract_final_answer(text: str) -> Optional[str]:
@@ -564,28 +613,76 @@ class ReportAgent:
             {"role": "user", "content": query},
         ]
 
+        conflict_retries = 0  # consecutive conflict counter (MiroFish pattern)
+
         for iteration in range(self.max_iterations):
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=self.temperature,
-                stop=["Observation:"],  # pause before tool result injection
-            )
-            assistant_text = response.choices[0].message.content or ""
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    stop=["Observation:"],
+                )
+                assistant_text = (
+                    response.choices[0].message.content
+                    if response and response.choices
+                    else ""
+                ) or ""
+            except Exception as exc:
+                logger.warning(
+                    "ReACT iteration %d: LLM call failed (%s).", iteration + 1, exc
+                )
+                assistant_text = ""
+
+            # Handle empty / None response (MiroFish None-guard pattern)
+            if not assistant_text.strip():
+                logger.warning("ReACT iteration %d: empty response.", iteration + 1)
+                if iteration < self.max_iterations - 1:
+                    messages.append({"role": "assistant", "content": "(empty response)"})
+                    messages.append({"role": "user", "content": "Please continue."})
+                    continue
+                break
 
             if verbose:
                 print(f"\n--- Iteration {iteration + 1} ---")
                 print(assistant_text)
 
-            # Check for final answer
             final = self._extract_final_answer(assistant_text)
+            parsed = self._parse_action(assistant_text)
+
+            # Conflict: both tool call and Final Answer in same response
+            # (MiroFish conflict resolution pattern)
+            if parsed is not None and final is not None:
+                conflict_retries += 1
+                logger.warning(
+                    "ReACT iteration %d: conflict — tool call and Final Answer in same "
+                    "response (conflict #%d/%d).",
+                    iteration + 1, conflict_retries, _MAX_CONFLICTS,
+                )
+                if conflict_retries <= _MAX_CONFLICTS:
+                    messages.append({"role": "assistant", "content": assistant_text})
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "Your response contained both a tool call and a Final Answer. "
+                            "Please do only one per reply: either call a tool OR write your "
+                            "Final Answer — not both."
+                        ),
+                    })
+                    continue
+                else:
+                    # Downgrade after repeated conflicts: prefer Final Answer
+                    logger.warning(
+                        "ReACT: conflict threshold exceeded — using Final Answer directly."
+                    )
+                    conflict_retries = 0
+                    return final
+
+            # No conflict — proceed normally
             if final:
                 return final
 
-            # Parse and execute tool call
-            parsed = self._parse_action(assistant_text)
             if parsed is None:
-                # No action found — treat entire response as final answer
                 logger.warning(
                     "ReACT iteration %d: no Action found, using response as final answer.",
                     iteration + 1,
@@ -593,6 +690,7 @@ class ReportAgent:
                 return assistant_text.strip()
 
             tool_name, args = parsed
+            conflict_retries = 0  # reset on clean tool call
             observation = self.tools.call(
                 tool_name, args, _client=self._client, _model=self.model
             )
@@ -600,7 +698,6 @@ class ReportAgent:
             if verbose:
                 print(f"Observation ({tool_name}): {observation[:500]}...")
 
-            # Append assistant turn + observation to conversation
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append({
                 "role": "user",
@@ -617,12 +714,20 @@ class ReportAgent:
                 "Write your Final Answer now based on the information gathered."
             ),
         })
-        response = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=self.temperature,
-        )
-        final_text = response.choices[0].message.content or ""
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+            )
+            final_text = (
+                response.choices[0].message.content
+                if response and response.choices
+                else ""
+            ) or ""
+        except Exception as exc:
+            logger.error("ReACT final synthesis call failed: %s", exc)
+            final_text = ""
         final = self._extract_final_answer(final_text)
         return final or final_text.strip()
 

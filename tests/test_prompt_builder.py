@@ -196,3 +196,86 @@ class TestBuildPromptMaxTokens:
         )
         assert isinstance(msgs, list)
         assert all("role" in m and "content" in m for m in msgs)
+
+
+# ── Position-bias mitigation (Permutation Invariance) ─────────────────────────
+
+import re
+from collections import Counter
+from decision.output_parser import parse_llm_output, VALID_ACTIONS
+
+
+class TestPositionBiasMitigation:
+    """System prompt action options are shuffled to prevent position bias."""
+
+    def test_action_options_shuffled_across_builds(self):
+        """Multiple calls with identical data should produce different action orderings."""
+        from decision.system_prompts import get_shuffled_system_prompt
+
+        orderings = set()
+        for _ in range(30):
+            prompt = get_shuffled_system_prompt()
+            # Extract the action_type options pattern: <work|save|cooperate> (in any order)
+            match = re.search(r'"action_type":\s*"<([^>]+)>"', prompt)
+            assert match, "System prompt must contain action_type options"
+            orderings.add(match.group(1))
+
+        # With 3! = 6 permutations, 30 draws should produce at least 2 orderings
+        assert len(orderings) >= 2, (
+            f"Expected shuffled orderings, but got only: {orderings}"
+        )
+
+    def test_all_valid_actions_present(self):
+        """Every shuffled prompt must contain all valid actions."""
+        from decision.system_prompts import get_shuffled_system_prompt
+
+        # Core actions in the prompt (communicate is not included in the
+        # shuffled system prompt as it's a meta-action, not an economic action)
+        core_actions = {"work", "save", "cooperate"}
+        for _ in range(10):
+            prompt = get_shuffled_system_prompt()
+            for action in core_actions:
+                assert action in prompt, f"Missing '{action}' in shuffled prompt"
+
+    def test_build_prompt_uses_shuffled_actions(self):
+        """build_prompt() should produce prompts with shuffled action ordering."""
+        profile = _make_profile()
+        state = _make_state()
+        memory = _make_memory()
+        context = _make_context()
+
+        orderings = set()
+        for _ in range(30):
+            msgs = build_prompt(profile, state, memory, context, round_id=1)
+            system = msgs[0]["content"]
+            match = re.search(r'"action_type":\s*"<([^>]+)>"', system)
+            assert match, "System prompt in build_prompt must contain action options"
+            orderings.add(match.group(1))
+
+        assert len(orderings) >= 2
+
+    def test_parser_handles_any_action_order(self):
+        """output_parser reads action_type correctly regardless of prompt ordering."""
+        for action in ["work", "save", "cooperate"]:
+            if action == "cooperate":
+                raw = f'{{"action_type": "{action}", "target_agent_id": "agent_1", "amount": 5, "reasoning_summary": "test"}}'
+            else:
+                raw = f'{{"action_type": "{action}", "amount": 5, "reasoning_summary": "test"}}'
+            result, meta = parse_llm_output(raw, neighbors=["agent_1"])
+            assert result is not None, f"Parser failed for action '{action}'"
+            assert result.action_type == action
+
+    def test_action_mechanics_block_shuffled(self):
+        """The 'Action mechanics' list order should also be shuffled."""
+        from decision.system_prompts import get_shuffled_system_prompt
+
+        first_actions = []
+        for _ in range(30):
+            prompt = get_shuffled_system_prompt()
+            # Find the first action after "Action mechanics:"
+            match = re.search(r'Action mechanics:\n- "(\w+)"', prompt)
+            assert match, "Must have Action mechanics block"
+            first_actions.append(match.group(1))
+
+        # Should see different first actions across 30 draws
+        assert len(set(first_actions)) >= 2

@@ -114,6 +114,30 @@ class RoundProcessor:
             )
         )
 
+        # ── Communication injection (information contagion) ──────────────────
+        # When an agent communicates, inject the message into the target's
+        # memory as a 'received_message' item tagged with the source agent ID.
+        if (
+            proposed_action.action_type == "communicate"
+            and proposed_action.target_agent_id
+            and proposed_action.target_agent_id in self.agent_lookup
+        ):
+            target = self.agent_lookup[proposed_action.target_agent_id]
+            source_id = agent.profile.agent_id
+            msg_ttl = HierarchicalMemory.default_ttl("observation")  # short-lived
+            target.memory.add(
+                MemoryItem(
+                    round_id=round_id,
+                    partner_id=source_id,
+                    event_type="received_message",
+                    content=f"[from {source_id}] {proposed_action.reasoning_summary}",
+                    outcome={},
+                    importance=0.4,
+                    valid_at=round_id,
+                    expires_at_round=round_id + msg_ttl if msg_ttl is not None else None,
+                )
+            )
+
     def _update_graph_rag(
         self, policy, agent: Agent, proposed_action: ProposedAction, round_id: int,
     ) -> None:

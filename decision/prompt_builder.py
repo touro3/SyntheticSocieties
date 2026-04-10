@@ -17,7 +17,11 @@ from enum import IntEnum
 from typing import TYPE_CHECKING, Optional
 
 from decision.constants import STRESS_CRITICAL
-from decision.system_prompts import BALANCED_SYSTEM_PROMPT, BASE_SYSTEM_PROMPT
+from decision.system_prompts import (
+    BALANCED_SYSTEM_PROMPT,
+    BASE_SYSTEM_PROMPT,
+    get_shuffled_system_prompt,
+)
 from decision.token_budget import DEFAULT_MAX_TOKENS, trim_to_budget
 
 if TYPE_CHECKING:
@@ -387,7 +391,7 @@ def build_prompt(
     state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
     context_desc = build_context_block(context)
-    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
+    system_text = get_shuffled_system_prompt()
 
     # No extra guidance — prompt must not bias toward specific actions.
     extra = None

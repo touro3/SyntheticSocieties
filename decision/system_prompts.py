@@ -10,6 +10,18 @@ grounding and RAG context, not from prompt engineering.
 
 from __future__ import annotations
 
+import random
+
+# ── Action definitions (used for dynamic shuffling) ──────────────────────────
+
+_ACTION_OPTIONS = ["work", "save", "cooperate"]
+
+_ACTION_MECHANICS = {
+    "work": '- "work": Earn income. amount = effort (5-15). Increases wealth but also increases stress. No target needed.',
+    "save": '- "save": Rest and preserve wealth. amount = (5-10). No wealth gain, but relieves some stress. No target needed.',
+    "cooperate": '- "cooperate": Share resources with a neighbor. amount = (5-10). Costs you wealth but your neighbor receives 1.5× what you spend. Slightly relieves stress. target_agent_id = a neighbor\'s ID.',
+}
+
 # ── Primary prompt: neutral, mechanical description of the action space ───────
 
 NEUTRAL_SYSTEM_PROMPT = """You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, memories, and the world around you.
@@ -38,6 +50,42 @@ Rules:
 # Backward-compatible aliases — these now point to the neutral prompt.
 BASE_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
 BALANCED_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
+
+
+# ── Shuffled prompt generator (position-bias mitigation) ─────────────────────
+
+def get_shuffled_system_prompt() -> str:
+    """Return NEUTRAL_SYSTEM_PROMPT with action options in random order.
+
+    Prevents position bias — LLMs tend to favour whichever action appears
+    first in the prompt. By shuffling on each call, the ordering becomes a
+    nuisance variable that averages out across rounds.
+    """
+    actions = _ACTION_OPTIONS.copy()
+    random.shuffle(actions)
+
+    options_str = "|".join(actions)
+    mechanics_lines = "\n".join(_ACTION_MECHANICS[a] for a in actions)
+
+    return f"""You are a person living in a simulated society. Each round, you choose one action based on your personal characteristics, current situation, memories, and the world around you.
+
+You MUST respond with ONLY a JSON object in the following format:
+{{
+  "action_type": "<{options_str}>",
+  "target_agent_id": "<neighbor_id or null>",
+  "amount": <number>,
+  "reasoning_summary": "<brief explanation of your choice>",
+  "confidence": <0.0 to 1.0>
+}}
+
+Action mechanics:
+{mechanics_lines}
+
+Rules:
+- Choose exactly one action.
+- If you choose "cooperate", you MUST specify a target_agent_id from your neighbors list.
+- Your reasoning should reflect your personality, situation, and goals.
+- Respond with ONLY the JSON, no other text."""
 
 
 # ── Experimental variants ────────────────────────────────────────────────────

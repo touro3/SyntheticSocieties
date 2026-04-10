@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random as _random
 from typing import Optional
 
 from agents.agent import Agent
@@ -13,7 +14,14 @@ from population.schemas import PopulationSpec
 
 
 def generate_population(config: dict, policy) -> list[Agent]:
-    """Generate a synthetic population from config defaults (v0.1 — backward compatible)."""
+    """Generate a synthetic population from config defaults (v0.1 — backward compatible).
+
+    When ``agent_defaults.shuffle_traits`` is True, psychological traits
+    (risk_tolerance, competitiveness, trust_people, etc.) are randomly
+    permuted across agents **after** generation.  This creates "Condition C"
+    — the counterfactual identity condition where demographics remain intact
+    but trait assignments are decorrelated.
+    """
     simulation_cfg = config["simulation"]
     defaults = config["agent_defaults"]
 
@@ -57,6 +65,10 @@ def generate_population(config: dict, policy) -> list[Agent]:
                 policy=policy,
             )
         )
+
+    # ── Condition C: Counterfactual Identity ("Soul Swap") ────────────────
+    if defaults.get("shuffle_traits", False):
+        _shuffle_traits(agents)
 
     return agents
 
@@ -170,7 +182,38 @@ def generate_empirical_population(
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 
+    # ── Condition C: Counterfactual Identity ("Soul Swap") ────────────────
+    if defaults.get("shuffle_traits", False):
+        _shuffle_traits(agents)
+
     return agents
+
+
+# ── Counterfactual Identity helper ───────────────────────────────────────────
+
+# Psychological traits that get permuted independently in Condition C.
+_TRAIT_FIELDS = ("risk_tolerance", "competitiveness", "trust_people", "social_activity")
+
+
+def _shuffle_traits(agents: list[Agent]) -> None:
+    """Permute psychological trait columns independently across the population.
+
+    Demographics (age, income, education, gender, country) remain intact.
+    Each trait is shuffled independently so that the joint distribution of
+    traits is also destroyed — this is the strongest "soul swap" condition.
+    """
+    n = len(agents)
+    if n < 2:
+        return
+
+    for field in _TRAIT_FIELDS:
+        # Collect current values
+        values = [getattr(a.profile, field, None) for a in agents]
+        _random.shuffle(values)
+        # Re-assign
+        for agent, val in zip(agents, values):
+            if hasattr(agent.profile, field):
+                object.__setattr__(agent.profile, field, val)
 
 
 # ── Helper functions (imported from shared module) ───────────────────────────

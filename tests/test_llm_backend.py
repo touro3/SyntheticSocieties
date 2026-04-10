@@ -251,3 +251,72 @@ class TestLoadLocalFilesOnly:
         _, model_kwargs = model_call.call_args
         assert model_kwargs.get("local_files_only") is True, \
             "AutoModelForCausalLM.from_pretrained must use local_files_only=True"
+
+
+# ---------------------------------------------------------------------------
+# Logprobs-based uncertainty calibration
+# ---------------------------------------------------------------------------
+
+class TestLogprobsCalibration:
+    """generate() extracts real logprob confidence from output scores."""
+
+    def test_generate_with_logprobs_returns_three_tuple(self):
+        """When return_logprobs=True, generate() returns (text, latency, logprob)."""
+        backend = _make_backend(inference_timeout=5)
+
+        # Mock model.generate to return a GenerateDecoderOutput-style object
+        # with scores attribute
+        output_ids = torch.zeros(1, 8, dtype=torch.long)
+        scores = (torch.randn(1, 100),)  # One step of logits over vocab
+
+        mock_output = MagicMock()
+        mock_output.__getitem__ = lambda self, idx: output_ids[idx]
+        mock_output.sequences = output_ids
+        mock_output.scores = scores
+
+        backend.model.generate.return_value = mock_output
+
+        result = backend.generate(
+            [{"role": "user", "content": "test"}],
+            return_logprobs=True,
+        )
+
+        assert len(result) == 3, f"Expected 3-tuple (text, latency, logprob), got {len(result)}"
+        text, latency, logprob = result
+        assert isinstance(text, str)
+        assert isinstance(latency, float)
+        assert isinstance(logprob, float)
+        assert -float("inf") < logprob <= 0.0, "Logprob must be a non-positive float"
+
+    def test_generate_without_logprobs_returns_two_tuple(self):
+        """Default generate() still returns (text, latency) — backward compatible."""
+        backend = _make_backend(inference_timeout=5)
+        result = backend.generate([{"role": "user", "content": "test"}])
+        assert len(result) == 2
+
+    def test_logprob_is_normalized(self):
+        """The logprob should be from log_softmax, not raw logits."""
+        backend = _make_backend(inference_timeout=5)
+
+        # Create logits where token 0 has high probability
+        logits = torch.full((1, 100), -10.0)
+        logits[0, 0] = 5.0  # Token 0 is very likely
+        scores = (logits,)
+
+        output_ids = torch.zeros(1, 8, dtype=torch.long)
+        mock_output = MagicMock()
+        mock_output.__getitem__ = lambda self, idx: output_ids[idx]
+        mock_output.sequences = output_ids
+        mock_output.scores = scores
+
+        backend.model.generate.return_value = mock_output
+
+        _, _, logprob = backend.generate(
+            [{"role": "user", "content": "test"}],
+            return_logprobs=True,
+        )
+
+        # Token 0 has logits=5.0 vs all others=-10.0
+        # log_softmax should give a value close to 0 (high confidence)
+        assert logprob > -1.0, "High-confidence token should have logprob close to 0"
+

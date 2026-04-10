@@ -20,7 +20,7 @@ from decision.constants import (
 )
 from decision.schemas import ProposedAction
 
-VALID_ACTIONS = {"work", "save", "cooperate"}
+VALID_ACTIONS = {"work", "save", "cooperate", "communicate"}
 
 # ── Parse statistics tracking ────────────────────────────────────────────────
 # Module-level counters for diagnosing LLM output quality across runs.
@@ -204,8 +204,9 @@ def _repair_json(text: str) -> str:
 
     Handles the most common LLM output defects:
     1. Trailing commas before closing brace/bracket.
-    2. Unclosed braces/brackets (appends the missing closers).
-    3. Single-quoted strings (converts to double quotes).
+    2. Embedded raw newlines inside string values (MiroFish pattern).
+    3. Control characters that break JSON parsing (MiroFish pattern).
+    4. Unclosed strings / braces / brackets (appends missing closers).
 
     This is intentionally conservative — it only fixes patterns that are
     safe to repair without changing the semantic content.
@@ -215,8 +216,6 @@ def _repair_json(text: str) -> str:
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
 
-    # Convert single-quoted keys/values to double-quoted (common in GPT outputs)
-    # Only do this when the string isn't already valid JSON
     try:
         json.loads(text)
         return text  # already valid, no repair needed
@@ -226,15 +225,79 @@ def _repair_json(text: str) -> str:
     # Remove trailing commas before } or ]
     text = re.sub(r",\s*([}\]])", r"\1", text)
 
-    # Balance unmatched braces/brackets
+    # Normalize embedded newlines inside JSON string values (MiroFish pattern).
+    # Raw \n / \r inside a JSON string are illegal and break parsers.
+    try:
+        def _fix_str_newlines(m: re.Match) -> str:
+            s = m.group(0)
+            s = s.replace('\n', ' ').replace('\r', ' ')
+            return re.sub(r'  +', ' ', s)
+        text = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"', _fix_str_newlines, text)
+    except re.error:
+        pass  # regex can fail on pathological/truncated input
+
+    # Strip control characters that prevent JSON parsing (MiroFish pattern).
+    # Preserve \t (0x09), \n (0x0a), \r (0x0d) — valid JSON whitespace.
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', ' ', text)
+
+    # Balance unmatched braces/brackets.
+    # Close any dangling open string before appending closers (MiroFish pattern).
     open_braces = text.count("{") - text.count("}")
     open_brackets = text.count("[") - text.count("]")
-    if open_braces > 0:
-        text += "}" * open_braces
-    if open_brackets > 0:
-        text += "]" * open_brackets
+    if open_braces > 0 and text and text[-1] not in '",}]':
+        text += '"'
+    text += "}" * max(open_braces, 0)
+    text += "]" * max(open_brackets, 0)
 
     return text
+
+
+def _field_extract_action(
+    text: str,
+    neighbors: Optional[list[str]] = None,
+) -> Optional[ProposedAction]:
+    """Ultimate fallback: extract ProposedAction fields via targeted regex.
+
+    Called after all JSON-repair strategies are exhausted.  Mirrors
+    MiroFish's ``_try_fix_json`` field-level extraction: even when the
+    outer JSON structure is irreparable, individual field values can
+    usually be recovered with targeted patterns.
+    """
+    action_match = re.search(r'"action_type"\s*:\s*"(\w+)"', text)
+    if not action_match:
+        return None
+    action_type = action_match.group(1).strip().lower()
+    if action_type not in VALID_ACTIONS:
+        return None
+
+    amount_match = re.search(r'"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)', text)
+    conf_match = re.search(r'"confidence"\s*:\s*([0-9]+(?:\.[0-9]+)?)', text)
+    reason_match = re.search(r'"reasoning_summary"\s*:\s*"([^"]*)"', text)
+    target_match = re.search(r'"target_agent_id"\s*:\s*"([^"]+)"', text)
+
+    amount = float(amount_match.group(1)) if amount_match else (
+        DEFAULT_WORK_AMOUNT if action_type == "work" else DEFAULT_COOPERATE_AMOUNT
+    )
+    confidence = float(conf_match.group(1)) if conf_match else DEFAULT_KEYWORD_CONFIDENCE
+    reasoning = reason_match.group(1) if reason_match else "[field extraction fallback]"
+    target = target_match.group(1) if target_match else None
+
+    if action_type in ("cooperate", "communicate"):
+        if target and neighbors and target not in neighbors:
+            target = neighbors[0] if neighbors else None
+        elif target is None and neighbors:
+            target = neighbors[0]
+
+    try:
+        return ProposedAction(
+            action_type=action_type,
+            target_agent_id=target,
+            amount=max(0.0, min(float(amount), MAX_ACTION_AMOUNT)),
+            confidence=max(0.0, min(float(confidence), 1.0)),
+            reasoning_summary=reasoning[:500],
+        )
+    except Exception:
+        return None
 
 
 def parse_llm_output_with_retry(
@@ -285,6 +348,17 @@ def parse_llm_output_with_retry(
             delay = base_delay * (2 ** attempt)
             time.sleep(delay)
 
+    # Ultimate fallback: field-level regex extraction (MiroFish pattern).
+    # Even when JSON structure is irreparable, individual field values can
+    # often be recovered with targeted patterns.
+    field_action = _field_extract_action(raw_text, neighbors)
+    if field_action is not None:
+        last_metadata["parse_method"] = "field_extract"
+        last_metadata["parse_success"] = True
+        last_metadata["retry_attempts"] = max_attempts
+        _parse_stats["field_extract"] = _parse_stats.get("field_extract", 0) + 1
+        return field_action, last_metadata
+
     last_metadata["retry_attempts"] = max_attempts
     last_metadata["retry_exhausted"] = True
     _parse_stats["retry_exhausted"] = _parse_stats.get("retry_exhausted", 0) + 1
@@ -308,8 +382,8 @@ def _validate_action(
     reasoning = data.get("reasoning_summary", "LLM decision")
     confidence = data.get("confidence")
 
-    # Validate cooperate has a valid target
-    if action_type == "cooperate":
+    # Validate cooperate/communicate has a valid target
+    if action_type in ("cooperate", "communicate"):
         if target is None and neighbors:
             target = neighbors[0]
         elif target and neighbors and target not in neighbors:

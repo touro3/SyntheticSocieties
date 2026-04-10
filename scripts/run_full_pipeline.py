@@ -106,6 +106,15 @@ def parse_args():
         default="basic",
         help="Research integrity audit strictness.",
     )
+    parser.add_argument(
+        "--condition",
+        choices=["A", "B", "C"],
+        default=None,
+        help=(
+            "Experimental condition: A=baseline (no grounding), "
+            "B=full grounding (default), C=counterfactual identity (soul swap)."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -150,15 +159,22 @@ def run_experiments(args) -> list[str]:
     seeds = parse_seed_list(args.seeds)
     policies = POLICIES_BASELINE.copy()
     
+    # ── Condition-based overrides ─────────────────────────────────────────
+    condition_overrides: list[str] = []
+    if getattr(args, "condition", None) == "A":
+        condition_overrides.append("llm.ablation_level=0")
+    elif getattr(args, "condition", None) == "C":
+        condition_overrides.append("agent_defaults.shuffle_traits=true")
+
     experiments = []
     # Regular baselines
     for policy in policies:
         for seed in seeds:
-            experiments.append(("cmp_", policy, seed, []))
+            experiments.append(("cmp_", policy, seed, list(condition_overrides)))
 
     if args.include_llm and not args.run_ablation_ladder:
         for seed in seeds:
-            experiments.append(("cmp_", "llm", seed, [f"llm.ablation_level={args.llm_ablation_level}"]))
+            experiments.append(("cmp_", "llm", seed, [f"llm.ablation_level={args.llm_ablation_level}"] + condition_overrides))
 
     # Full V0-V5 Sweep
     if args.run_ablation_ladder:

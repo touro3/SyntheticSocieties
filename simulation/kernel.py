@@ -17,6 +17,7 @@ from typing import Optional
 
 from metrics.inequality import gini_coefficient as _gini_canonical
 from simulation.round_processor import RoundProcessor
+from agents.memory import HierarchicalMemory, MemoryItem
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,10 @@ class SimulationKernel:
     def run_round(self) -> None:
         self.world.apply_exogenous_updates()
         round_id = self.world.state.round_id
+
+        # Advance each agent's memory clock — expires stale beliefs.
+        for agent in self.agents:
+            agent.memory.advance_round(round_id)
 
         for agent in self.agents:
             world_context = self.world.get_agent_context(agent.profile.agent_id)
@@ -144,6 +149,10 @@ class SimulationKernel:
         self.world.apply_exogenous_updates()
         round_id = self.world.state.round_id
 
+        # Advance each agent's memory clock — expires stale beliefs.
+        for agent in self.agents:
+            agent.memory.advance_round(round_id)
+
         agent_data, messages_list = self._prepare_agent_batch(policy, round_id)
 
         batch_results = policy.backend.generate_batch(
@@ -222,29 +231,46 @@ class SimulationKernel:
         self.world.state.round_id = round_id
         return round_id
 
-    def run(self, num_rounds: int, start_round: int = 0) -> None:
+    def run(self, num_rounds: int, start_round: int = 0, stop_flag: Optional[object] = None) -> int:
         """Run num_rounds simulation rounds, optionally skipping already-done ones.
 
         Args:
             num_rounds:  Total rounds in the experiment (from config).
             start_round: First round to execute (0 = fresh start; N = resume after N).
+            stop_flag:   Optional ``GracefulShutdown`` instance.  When its
+                         ``requested`` attribute becomes True (SIGTERM/SIGINT),
+                         the loop exits cleanly after the current round finishes
+                         and saves a checkpoint before returning.
+
+        Returns:
+            The number of completed rounds (< num_rounds if interrupted).
         """
         remaining = num_rounds - start_round
         if remaining <= 0:
             logger.info("All %d rounds already complete — nothing to do.", num_rounds)
-            return
+            return num_rounds - start_round
         if start_round > 0:
             logger.info("Resuming from round %d (%d remaining).", start_round, remaining)
+        completed = 0
         for _ in range(remaining):
+            if stop_flag is not None and getattr(stop_flag, "requested", False):
+                logger.info(
+                    "GracefulShutdown requested after round %d — stopping loop.",
+                    self.world.state.round_id,
+                )
+                break
             if self._can_use_batched_mode():
                 self.run_round_batched()
             else:
                 self.run_round()
+            self._narrate_and_update_memory(self.world.state.round_id)
             self._log_round_metrics()
             self._write_heartbeat()
+            completed += 1
             if self.heartbeat_path is not None:
                 checkpoint_path = self.heartbeat_path.parent / "checkpoint.json"
                 self.save_checkpoint(checkpoint_path)
+        return completed
 
     # ── Heartbeat ────────────────────────────────────────────────────────────
 
@@ -262,6 +288,64 @@ class SimulationKernel:
             self.heartbeat_path.write_text(json.dumps(payload))
         except Exception as exc:  # never let heartbeat I/O crash the sim
             logger.warning("Heartbeat write failed: %s", exc)
+
+    # ── Real-time memory update loop ─────────────────────────────────────────
+
+    def _narrate_and_update_memory(self, round_id: int) -> None:
+        """Convert the round's collective actions into NL observations per agent.
+
+        Inspired by MiroFish's ZepGraphMemoryUpdater: after each round, each
+        agent receives a natural-language summary of what its neighbors did,
+        written as an 'observation' memory item with a short TTL so it fades
+        naturally.  This closes the perception–action loop: agents not only
+        act but also *observe* the social environment evolving around them.
+        """
+        # Collect last-action info for all agents
+        action_registry: dict[str, str] = {}
+        for agent in self.agents:
+            if agent.state.last_action:
+                action_registry[agent.profile.agent_id] = agent.state.last_action
+
+        if not action_registry:
+            return
+
+        ttl = HierarchicalMemory.default_ttl("observation")
+
+        for agent in self.agents:
+            ctx = self.world.get_agent_context(agent.profile.agent_id)
+            neighbors = ctx.get("neighbors", [])
+            if not neighbors:
+                continue
+
+            # Build neighbor activity summary (cap at 5 to prevent prompt bloat,
+            # mirrors MiroFish BATCH_SIZE = 5 pattern)
+            neighbor_actions: list[str] = []
+            for nid in neighbors[:5]:
+                action = action_registry.get(nid)
+                if action:
+                    neighbor_actions.append(f"{nid} chose to {action}")
+
+            if not neighbor_actions:
+                continue
+
+            narration = (
+                f"Round {round_id} observations: "
+                f"{'; '.join(neighbor_actions)}."
+            )
+
+            obs_item = MemoryItem(
+                round_id=round_id,
+                partner_id=None,
+                event_type="observation",
+                content=narration,
+                outcome={},
+                importance=0.3,  # Lower than actions, higher than noise
+                valid_at=round_id,
+                expires_at_round=(
+                    round_id + ttl if ttl is not None else None
+                ),
+            )
+            agent.memory.add(obs_item)
 
     # ── Per-round metrics ────────────────────────────────────────────────────
 

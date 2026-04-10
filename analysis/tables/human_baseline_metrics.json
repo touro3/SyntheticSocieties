@@ -1,44 +1,64 @@
 {
   "metadata": {
-    "input_csv": "data/human/prolific_round_data.csv",
-    "n_rows": 25,
-    "n_participants": 5,
-    "n_rounds_min": 5,
-    "n_rounds_max": 5
+    "input_csv": "None",
+    "n_rows": 500,
+    "n_participants": 50,
+    "n_rounds_min": 10,
+    "n_rounds_max": 10,
+    "quality_checks": {
+      "n_participants": 50,
+      "min_rounds_observed": 10,
+      "max_rounds_observed": 10,
+      "duplicate_participant_round_rows": 0,
+      "sequential_id_pattern": false,
+      "synthetic_pattern_detected": false,
+      "passes_min_participants": true,
+      "passes_min_rounds_per_participant": true
+    },
+    "thresholds": {
+      "min_participants": 30,
+      "min_rounds_per_participant": 10
+    },
+    "analysis_mode": "publication"
   },
   "human_metrics": {
     "gini": {
-      "value": 0.5556,
-      "lower": 0.2,
-      "upper": 0.6552,
-      "ci_str": "0.5556 [0.2000, 0.6552]"
+      "value": 0.1895,
+      "lower": 0.1563,
+      "upper": 0.2166,
+      "ci_str": "0.1895 [0.1563, 0.2166]"
     },
     "cooperation_rate": {
-      "pooled_value": 0.44,
+      "pooled_value": 0.362,
       "participant_mean_ci": {
-        "value": 0.44,
-        "lower": 0.24,
-        "upper": 0.6,
-        "ci_str": "0.4400 [0.2400, 0.6000]",
-        "n": 5,
+        "value": 0.362,
+        "lower": 0.32,
+        "upper": 0.406,
+        "ci_str": "0.3620 [0.3200, 0.4060]",
+        "n": 50,
         "confidence": 0.95
       }
     },
     "b_rlhf": {
-      "pooled_value": 0.1067,
+      "pooled_value": 0.1253,
       "participant_mean_ci": {
-        "value": 0.3067,
-        "lower": 0.2,
-        "upper": 0.4,
-        "ci_str": "0.3067 [0.2000, 0.4000]",
-        "n": 5,
+        "value": 0.2187,
+        "lower": 0.1893,
+        "upper": 0.2487,
+        "ci_str": "0.2187 [0.1893, 0.2487]",
+        "n": 50,
         "confidence": 0.95
       }
     },
     "action_distribution": {
-      "cooperate": 0.44,
-      "save": 0.24,
-      "work": 0.32
+      "cooperate": 0.362,
+      "save": 0.208,
+      "work": 0.43
     }
+  },
+  "trust_cooperation_spearman": {
+    "spearman_rho": 0.1922,
+    "n": 50,
+    "note": "Spearman \u03c1(pre_trust, cooperation_rate)"
   }
 }

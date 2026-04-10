@@ -99,7 +99,7 @@ class RunState:
     @property
     def resume_round(self) -> int:
         """Round to pass as start_round when resuming."""
-        return self.completed_rounds if self.is_resumable else 0
+        return self.completed_rounds if (self.is_resumable or self.is_failed) else 0
 
 
 # ── RunStateManager ───────────────────────────────────────────────────────────

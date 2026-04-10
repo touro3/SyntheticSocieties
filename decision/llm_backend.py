@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import random
 import time
 from typing import Optional
 
@@ -54,6 +55,14 @@ class LLMBackend:
         self.model = None
         self.tokenizer = None
         self._loaded = False
+
+        # Exponential backoff parameters (MiroFish retry_with_backoff pattern)
+        self._backoff_initial_delay: float = 1.0
+        self._backoff_factor: float = 2.0
+        self._backoff_max_delay: float = 30.0
+        # Reduce temperature by this much per retry to get more deterministic
+        # outputs when the model is struggling.
+        self._retry_temp_reduction: float = 0.1
 
     def load(self):
         """Load model and tokenizer. Call once before inference."""
@@ -158,15 +167,25 @@ class LLMBackend:
             device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
-        gen_kwargs = dict(
+        gen_kwargs_base = dict(
             max_new_tokens=max_tokens,
-            temperature=temp if temp > 0 else 1.0,
-            do_sample=temp > 0,
-            top_p=0.9 if temp > 0 else 1.0,
             pad_token_id=self.tokenizer.pad_token_id,
         )
 
+        delay = self._backoff_initial_delay
+
         for attempt in range(self.max_retries + 1):
+            # Progressive temperature reduction: cooler on each retry to
+            # produce more deterministic output when the model struggles.
+            retry_temp = max(0.1, temp - (attempt * self._retry_temp_reduction))
+
+            gen_kwargs = {
+                **gen_kwargs_base,
+                "temperature": retry_temp if retry_temp > 0 else 1.0,
+                "do_sample": retry_temp > 0,
+                "top_p": 0.9 if retry_temp > 0 else 1.0,
+            }
+
             start = time.time()
             try:
                 with torch.no_grad():
@@ -182,7 +201,18 @@ class LLMBackend:
                 return result.strip(), latency
             except TimeoutError:
                 if attempt < self.max_retries:
-                    logger.warning("generate() attempt %d timed out, retrying…", attempt + 1)
+                    # Jittered exponential backoff (MiroFish pattern)
+                    current_delay = min(delay, self._backoff_max_delay)
+                    jittered = current_delay * (0.5 + random.random())
+                    next_temp = max(0.1, temp - ((attempt + 1) * self._retry_temp_reduction))
+                    logger.warning(
+                        "generate() attempt %d/%d timed out; retrying in %.1fs "
+                        "(temp %.2f → %.2f)",
+                        attempt + 1, self.max_retries + 1,
+                        jittered, retry_temp, next_temp,
+                    )
+                    time.sleep(jittered)
+                    delay *= self._backoff_factor
                 else:
                     logger.error("generate() timed out after %d attempts, returning fallback.", self.max_retries + 1)
                     return (

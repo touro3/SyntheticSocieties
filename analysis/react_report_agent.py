@@ -167,6 +167,122 @@ class _TrackerTools:
         except Exception as exc:
             return f"ERROR: {exc}"
 
+    def panorama_search(self, metric: str = "wealth_mean", top_n: int = 10) -> str:
+        """Comprehensive historical search across all experiments (MiroFish panorama pattern).
+
+        Unlike ``policy_comparison`` which averages across all runs, panorama_search
+        surfaces the full distribution: best runs, worst runs, outliers, and the
+        temporal arc of a metric.  Includes experiments of every status — the
+        "panorama" — rather than just the latest aggregate snapshot.
+
+        Args:
+            metric: Column to rank experiments by (default: wealth_mean).
+            top_n:  How many top/bottom experiments to surface.
+        """
+        safe_metric = re.sub(r"[^\w]", "", metric)  # prevent SQL injection
+        try:
+            conn = self._conn()
+            # Check the column exists
+            cols = [r[0] for r in conn.execute("DESCRIBE experiments").fetchall()]
+            if safe_metric not in cols:
+                safe_metric = "wealth_mean"
+
+            top_df = conn.execute(f"""
+                SELECT experiment_id, policy_type, seed,
+                       ROUND({safe_metric}, 3) AS metric_value,
+                       ROUND(wealth_gini, 3) AS gini, ROUND(stress_mean, 4) AS stress
+                FROM experiments
+                ORDER BY {safe_metric} DESC
+                LIMIT {int(top_n)}
+            """).fetchdf()
+
+            bot_df = conn.execute(f"""
+                SELECT experiment_id, policy_type, seed,
+                       ROUND({safe_metric}, 3) AS metric_value,
+                       ROUND(wealth_gini, 3) AS gini, ROUND(stress_mean, 4) AS stress
+                FROM experiments
+                ORDER BY {safe_metric} ASC
+                LIMIT {int(top_n)}
+            """).fetchdf()
+
+            dist_df = conn.execute(f"""
+                SELECT
+                    policy_type,
+                    COUNT(*) AS n,
+                    ROUND(MIN({safe_metric}), 3)    AS min_val,
+                    ROUND(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {safe_metric}), 3) AS p25,
+                    ROUND(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY {safe_metric}), 3) AS median,
+                    ROUND(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {safe_metric}), 3) AS p75,
+                    ROUND(MAX({safe_metric}), 3)    AS max_val
+                FROM experiments
+                GROUP BY policy_type
+                ORDER BY median DESC
+            """).fetchdf()
+
+            return (
+                f"=== PANORAMA: {safe_metric} ===\n\n"
+                f"Full distribution by policy:\n{dist_df.to_string(index=False)}\n\n"
+                f"Top {top_n} experiments:\n{top_df.to_string(index=False)}\n\n"
+                f"Bottom {top_n} experiments:\n{bot_df.to_string(index=False)}"
+            )
+        except Exception as exc:
+            return f"ERROR: {exc}"
+
+    def trend_analysis(self, metric: str = "wealth_mean", window: int = 3) -> str:
+        """Analyse how a metric evolves across experiments ordered by experiment_id.
+
+        Computes a rolling average to smooth noise and detect regime changes.
+        Useful for identifying whether performance improves over seeds or
+        degrades over time (e.g., action collapse onset).
+
+        Args:
+            metric: Column to track (default: wealth_mean).
+            window: Rolling average window size.
+        """
+        safe_metric = re.sub(r"[^\w]", "", metric)
+        try:
+            conn = self._conn()
+            cols = [r[0] for r in conn.execute("DESCRIBE experiments").fetchall()]
+            if safe_metric not in cols:
+                safe_metric = "wealth_mean"
+
+            df = conn.execute(f"""
+                SELECT
+                    experiment_id, policy_type, seed,
+                    ROUND({safe_metric}, 3) AS value
+                FROM experiments
+                ORDER BY experiment_id
+            """).fetchdf()
+
+            if df.empty:
+                return "(no experiments)"
+
+            # Rolling average per policy
+            parts: list[str] = []
+            for policy, group in df.groupby("policy_type"):
+                group = group.sort_values("experiment_id")
+                group = group.copy()
+                group["rolling_avg"] = (
+                    group["value"]
+                    .rolling(window, min_periods=1)
+                    .mean()
+                    .round(3)
+                )
+                first_avg = group["rolling_avg"].iloc[0]
+                last_avg = group["rolling_avg"].iloc[-1]
+                trend = "improving" if last_avg > first_avg else "declining"
+                parts.append(
+                    f"Policy '{policy}': {len(group)} experiments, "
+                    f"trend={trend}, latest_avg={last_avg}\n"
+                    f"{group[['experiment_id', 'value', 'rolling_avg']].to_string(index=False)}"
+                )
+            return (
+                f"=== TREND ANALYSIS: {safe_metric} (window={window}) ===\n\n"
+                + "\n\n".join(parts)
+            )
+        except Exception as exc:
+            return f"ERROR: {exc}"
+
     def insight_forge(self, question: str, client: Any, model: str, temperature: float = 0.3) -> str:
         """Deep analysis via sub-question decomposition (MiroFish insight_forge pattern).
 
@@ -247,6 +363,24 @@ class _TrackerTools:
         except Exception as exc:
             return f"(synthesis error: {exc})\n\n" + "\n\n".join(partial_answers)
 
+    def _insight_forge_fallback(self, question: str) -> str:
+        """Rule-based insight synthesis when no LLM client is available.
+
+        Produces a structured data dump that assembles all available tool
+        outputs so the caller still gets useful context even in offline /
+        no-API environments.
+        """
+        parts = [
+            f"Question: {question}\n",
+            "--- Policy Overview ---",
+            self.policy_comparison(),
+            "\n--- Ablation Overview ---",
+            self.ablation_comparison(),
+            "\n--- Trend ---",
+            self.trend_analysis(),
+        ]
+        return "\n".join(parts)
+
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     TOOL_DESCRIPTIONS = {
@@ -256,10 +390,20 @@ class _TrackerTools:
         "experiment_detail":  "Full details of one experiment. Argument: experiment_id (str).",
         "run_sql":            "Run a custom SELECT query against the 'experiments' table. Argument: sql (str).",
         "list_experiments":   "List recent experiments. Argument: limit (int, default=20).",
+        "panorama_search":    (
+            "Full distribution analysis of a metric across ALL experiments (best/worst/percentiles). "
+            "Use when you need the complete picture, not just averages. "
+            "Arguments: metric (str, default='wealth_mean'), top_n (int, default=10)."
+        ),
         "insight_forge":      (
             "Deep analysis via sub-question decomposition. Best for complex, multi-faceted questions. "
             "Argument: question (str). Automatically decomposes into sub-questions, answers each, "
             "then synthesises. Use this when a simple tool call won't capture the full answer."
+        ),
+        "trend_analysis":     (
+            "Track how a metric evolves across experiments over time / seeds. "
+            "Computes rolling averages to detect regime changes (e.g., action collapse onset). "
+            "Arguments: metric (str, default='wealth_mean'), window (int, default=3)."
         ),
     }
 
@@ -272,17 +416,19 @@ class _TrackerTools:
             "experiment_detail":  lambda: self.experiment_detail(**args),
             "run_sql":            lambda: self.run_sql(**args),
             "list_experiments":   lambda: self.list_experiments(**args),
+            "panorama_search":    lambda: self.panorama_search(**args),
             "insight_forge":      lambda: self.insight_forge(
                 question=args.get("question", ""),
                 client=_client,
                 model=_model,
             ),
+            "trend_analysis":     lambda: self.trend_analysis(**args),
         }
         fn = dispatch.get(tool_name)
         if fn is None:
             return f"ERROR: Unknown tool '{tool_name}'. Available: {list(dispatch)}"
         if tool_name == "insight_forge" and _client is None:
-            return "ERROR: insight_forge requires a live LLM client (not available in dry-run mode)."
+            return self._insight_forge_fallback(args.get("question", ""))
         return fn()
 
 

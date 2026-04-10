@@ -63,6 +63,9 @@ class OpenAIBackend:
         last_error = None
 
         for attempt in range(self.max_retries + 1):
+            # Progressive temperature reduction on retry
+            retry_temp = max(0.1, temp - (attempt * 0.1))
+
             try:
                 time.sleep(self.min_delay)  # throttle
 
@@ -71,7 +74,7 @@ class OpenAIBackend:
                 resp = self._client.chat.completions.create(
                     model=self.model_id,
                     messages=messages,
-                    temperature=temp,
+                    temperature=retry_temp,
                     max_tokens=max_tok,
                 )
 

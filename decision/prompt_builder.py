@@ -168,17 +168,73 @@ def build_memory_block(
     memory: HierarchicalMemory,
     window: int = 5,
     profile: Optional[AgentProfile] = None,
+    level=None,
 ) -> str:
-    """Build memory context from recent interactions, prefixed by a reflection.
+    """Build memory context from recent interactions, subject to ablation level.
 
-    The reflection summarizes long-term history (full archive) while recent
-    events provide episodic detail. Together they give the LLM a compressed
-    view of the agent's full career without exhausting the context window.
+    The ``level`` parameter controls how much memory is surfaced to the LLM:
 
-    When ``profile`` is provided and the agent's recent behavior has drifted
-    significantly from their ESS-derived persona expectations, a re-anchoring
-    cue is injected to remind the LLM of the agent's core disposition.
+      M0 — no memory context at all
+      M1 — sliding window of recent events only (no reflection, no archive)
+      M2 — recent events + archive count (no reflection text)
+      M3 — full hierarchical: reflection + important recent + drift anchor [default]
+
+    If ``level`` is None, the value is read from ``memory.level`` (defaulting
+    to M3 for backwards compatibility with existing HierarchicalMemory objects).
+
+    When ``profile`` is provided (M3 only), a re-anchoring cue is injected
+    when the agent's cooperation rate has drifted from ESS-derived expectations.
     """
+    from agents.memory import MemoryLevel  # local import to avoid circular dep
+
+    # Resolve effective level: explicit arg beats memory attribute.
+    if level is None:
+        level = getattr(memory, "level", MemoryLevel.M3)
+    effective = MemoryLevel(int(level))
+
+    # ── M0: no memory ─────────────────────────────────────────────────────────
+    if effective == MemoryLevel.M0:
+        return "No memory context available."
+
+    # ── M1: window only ───────────────────────────────────────────────────────
+    if effective == MemoryLevel.M1:
+        recent = memory.get_recent(window) if hasattr(memory, "get_recent") else []
+        if not recent:
+            return "You have no memories of past interactions yet."
+        lines = ["Your recent memories:"]
+        for item in recent:
+            line = f"  Round {item.round_id}: you chose '{item.event_type}'"
+            if item.partner_id:
+                line += f" with {item.partner_id}"
+            if item.content:
+                line += f" ({item.content})"
+            lines.append(line)
+        return "\n".join(lines)
+
+    # ── M2: window + archive count, no reflections ────────────────────────────
+    if effective == MemoryLevel.M2:
+        recent = memory.get_recent(window) if hasattr(memory, "get_recent") else []
+        lines = []
+        archive_count = len(getattr(memory, "archive", []))
+        if archive_count > 0:
+            lines.append(
+                f"[Memory archive: {archive_count} older events stored, not shown]"
+            )
+        if not recent:
+            if not lines:
+                return "You have no memories of past interactions yet."
+            return "\n".join(lines)
+        lines.append("Your recent memories:")
+        for item in recent:
+            line = f"  Round {item.round_id}: you chose '{item.event_type}'"
+            if item.partner_id:
+                line += f" with {item.partner_id}"
+            if item.content:
+                line += f" ({item.content})"
+            lines.append(line)
+        return "\n".join(lines)
+
+    # ── M3: full hierarchical (original behaviour) ────────────────────────────
     # Use importance-scored retrieval when available.
     if hasattr(memory, "get_important_recent"):
         recent = memory.get_important_recent(window)

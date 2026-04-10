@@ -315,7 +315,61 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         else:
             print(f"Warning: no checkpoint found at {checkpoint_path}, starting fresh.")
 
-    kernel.run(num_rounds=num_rounds, start_round=start_round)
+    # ── Graph-enriched persona injection (post-resume) ────────────────────────
+    # After a resume, the GraphRAG is rebuilt from events.jsonl by the policy
+    # before run() starts.  We enrich all agent personas with social context
+    # from the graph so the LLM receives relationship-aware persona blocks.
+    if start_round > 0 and hasattr(policy, "graph_rag") and policy.graph_rag is not None:
+        try:
+            from population.persona_synthesizer import PersonaRecord, enrich_persona_from_graph
+            for agent in agents:
+                p = agent.profile
+                rec = PersonaRecord(
+                    agent_id=p.agent_id, age=p.age,
+                    income=getattr(p, "income", 0.0),
+                    education=getattr(p, "education", ""),
+                    occupation=getattr(p, "occupation", "worker"),
+                    location=getattr(p, "location", "urban"),
+                    political_preference=str(getattr(p, "political_preference", "center")),
+                    risk_tolerance=getattr(p, "risk_tolerance", 0.5) or 0.5,
+                    social_class=getattr(p, "social_class", "middle"),
+                    initial_wealth=agent.state.wealth,
+                    gender=getattr(p, "gender", None),
+                    country=getattr(p, "country", None),
+                    trust_people=getattr(p, "trust_people", None),
+                    trust_institutions=getattr(p, "trust_institutions", None),
+                    life_satisfaction=getattr(p, "life_satisfaction", None),
+                    social_activity=getattr(p, "social_activity", None),
+                )
+                enriched = enrich_persona_from_graph(rec, policy.graph_rag)
+                if hasattr(p, "persona_text"):
+                    p.persona_text = enriched
+            print(f"Graph-enriched personas applied to {len(agents)} agents.")
+        except Exception as exc:
+            print(f"Warning: graph persona enrichment skipped ({exc})")
+
+    # ── Graceful shutdown wiring ──────────────────────────────────────────────
+    from simulation.signal_handler import GracefulShutdown
+    from simulation.crash_recovery import RunStateManager
+    run_mgr = RunStateManager(run_dir)
+    if start_round == 0:
+        run_mgr.start(total_rounds=num_rounds, experiment_id=experiment_id)
+    shutdown = GracefulShutdown()
+    shutdown.register()
+
+    try:
+        completed = kernel.run(num_rounds=num_rounds, start_round=start_round, stop_flag=shutdown)
+        run_mgr.tick(start_round + completed)
+        if shutdown.requested:
+            run_mgr.fail(f"Interrupted by {shutdown.signal_name}")
+            print(f"Run interrupted after round {start_round + completed} — checkpoint saved.")
+        else:
+            run_mgr.complete()
+    except Exception as exc:
+        run_mgr.fail(str(exc))
+        raise
+    finally:
+        shutdown.unregister()
 
     summary = summarize_agents(agents)
     events = load_events(run_dir / "events.jsonl")

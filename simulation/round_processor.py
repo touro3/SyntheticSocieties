@@ -8,7 +8,7 @@ this class owns the validate → execute → update → log sequence.
 from __future__ import annotations
 
 from agents.agent import Agent
-from agents.memory import MemoryItem
+from agents.memory import HierarchicalMemory, MemoryItem
 from decision.schemas import ProposedAction
 
 
@@ -101,6 +101,7 @@ class RoundProcessor:
         self, agent: Agent, proposed_action: ProposedAction,
         executed_event: dict, round_id: int,
     ) -> None:
+        ttl = HierarchicalMemory.default_ttl(proposed_action.action_type)
         agent.memory.add(
             MemoryItem(
                 round_id=round_id,
@@ -108,6 +109,8 @@ class RoundProcessor:
                 event_type=proposed_action.action_type,
                 content=proposed_action.reasoning_summary,
                 outcome=executed_event,
+                valid_at=round_id,
+                expires_at_round=round_id + ttl if ttl is not None else None,
             )
         )
 

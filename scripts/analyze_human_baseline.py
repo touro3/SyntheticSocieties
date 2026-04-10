@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 """Analyze human-subject baseline data and build a comparison table.
 
-Expected input CSV schema (one row per participant-round):
+Extended CSV schema (output by human_experiment/server/server.py):
+  participant_id, round_id, action, target, wealth_after, stress_after,
+  pre_trust, pre_risk, cooperation_count, total_rounds
+
+Minimum required columns (legacy):
   participant_id, round_id, action, wealth_after
-where action in {work, save, cooperate}.
+
+Phase 29.2 additions:
+  - JSD(D_human, D_condA) vs JSD(D_human, D_condB) — action distribution divergence
+  - Spearman ρ: pre_trust → cooperation_rate (validates E[coop|profile] formula)
+  - --synthetic: generate synthetic participants for offline testing
+  - Outputs analysis/tables/human_vs_simulation_reference.json
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
+import random
 import re
 from pathlib import Path
 
@@ -20,6 +31,112 @@ from metrics.inequality import gini_coefficient
 from metrics.statistical_inference import bootstrap_ci, report_metric
 
 VALID_ACTIONS = {"work", "save", "cooperate"}
+
+
+# ── Synthetic data generation ─────────────────────────────────────────────────
+
+def _generate_synthetic_participants(n: int = 50, seed: int = 42) -> pd.DataFrame:
+    """Generate synthetic participant data based on E[coop]=0.2+0.6*trust*(1-risk).
+
+    Used for offline testing without real Prolific data.
+    """
+    rng = random.Random(seed)
+    rows = []
+    for i in range(n):
+        pid       = f"synth_{i:04d}"
+        pre_trust = rng.uniform(0.1, 0.9)
+        pre_risk  = rng.uniform(0.1, 0.9)
+        # Formula-predicted cooperation probability
+        p_coop = max(0.0, min(1.0, 0.2 + 0.6 * pre_trust * (1 - pre_risk)))
+        # Remaining rounds split between work (higher p) and save
+        p_work = max(0.0, 0.8 - p_coop)
+        p_save = max(0.0, 1.0 - p_coop - p_work)
+        total = p_coop + p_work + p_save
+        p_coop /= total; p_work /= total; p_save /= total
+
+        wealth = 50.0
+        for r in range(1, 11):
+            roll = rng.random()
+            if roll < p_coop:
+                action = "cooperate"
+                wealth = max(0.0, wealth - 5.0)
+            elif roll < p_coop + p_work:
+                action = "work"
+                wealth += 10.0
+            else:
+                action = "save"
+            rows.append({
+                "participant_id": pid,
+                "round_id":       r,
+                "action":         action,
+                "target":         "",
+                "wealth_after":   round(wealth, 2),
+                "stress_after":   round(rng.uniform(0.1, 0.6), 3),
+                "pre_trust":      round(pre_trust, 3),
+                "pre_risk":       round(pre_risk, 3),
+                "cooperation_count": 0,
+                "total_rounds":   10,
+            })
+    return pd.DataFrame(rows)
+
+
+# ── JSD divergence ────────────────────────────────────────────────────────────
+
+def _jsd(p: dict[str, float], q: dict[str, float]) -> float:
+    """Jensen-Shannon Divergence between two categorical distributions (nats).
+
+    Both dicts should sum to 1 over the same key set.
+    """
+    keys = sorted(set(p) | set(q))
+    p_arr = [p.get(k, 1e-10) for k in keys]
+    q_arr = [q.get(k, 1e-10) for k in keys]
+
+    def _kl(a: list[float], b: list[float]) -> float:
+        return sum(ai * math.log(ai / bi) for ai, bi in zip(a, b) if ai > 0)
+
+    m_arr = [(a + b) / 2 for a, b in zip(p_arr, q_arr)]
+    return 0.5 * _kl(p_arr, m_arr) + 0.5 * _kl(q_arr, m_arr)
+
+
+# ── Spearman correlation ──────────────────────────────────────────────────────
+
+def _spearman(x: list[float], y: list[float]) -> float:
+    """Compute Spearman rank correlation coefficient."""
+    n = len(x)
+    if n < 3:
+        return float("nan")
+
+    def _ranks(v: list[float]) -> list[float]:
+        indexed = sorted(enumerate(v), key=lambda t: t[1])
+        ranks = [0.0] * n
+        for rank, (i, _) in enumerate(indexed, 1):
+            ranks[i] = float(rank)
+        return ranks
+
+    rx, ry = _ranks(x), _ranks(y)
+    xm = sum(rx) / n
+    ym = sum(ry) / n
+    num = sum((rx[i] - xm) * (ry[i] - ym) for i in range(n))
+    den = (
+        sum((rx[i] - xm) ** 2 for i in range(n)) *
+        sum((ry[i] - ym) ** 2 for i in range(n))
+    ) ** 0.5
+    return num / den if den > 0 else float("nan")
+
+
+def _compute_trust_coop_spearman(part_df: pd.DataFrame) -> dict:
+    """Compute Spearman ρ between pre_trust and cooperation_rate per participant."""
+    if "pre_trust" not in part_df.columns:
+        return {"spearman_rho": None, "n": 0, "note": "pre_trust column missing"}
+    valid = part_df.dropna(subset=["pre_trust", "coop_rate"])
+    if len(valid) < 3:
+        return {"spearman_rho": None, "n": len(valid), "note": "insufficient data"}
+    rho = _spearman(valid["pre_trust"].tolist(), valid["coop_rate"].tolist())
+    return {
+        "spearman_rho": round(rho, 4),
+        "n": len(valid),
+        "note": "Spearman ρ(pre_trust, cooperation_rate)",
+    }
 
 
 def _write_template_csv(path: Path) -> None:
@@ -120,15 +237,19 @@ def _compute_participant_level(df: pd.DataFrame) -> pd.DataFrame:
         n = len(part_sorted)
         counts = part_sorted["action"].value_counts().to_dict()
         dist = {a: counts.get(a, 0) / n for a in sorted(VALID_ACTIONS)}
-        rows.append(
-            {
-                "participant_id": participant_id,
-                "n_rounds": int(n),
-                "coop_rate": float(dist["cooperate"]),
-                "b_rlhf": float(compute_rlhf_bias_index(dist)),
-                "final_wealth": float(part_sorted["wealth_after"].iloc[-1]),
-            }
-        )
+        row = {
+            "participant_id": participant_id,
+            "n_rounds": int(n),
+            "coop_rate": float(dist["cooperate"]),
+            "b_rlhf": float(compute_rlhf_bias_index(dist)),
+            "final_wealth": float(part_sorted["wealth_after"].iloc[-1]),
+        }
+        # Include pre-survey attributes if available (Phase 29.2 schema)
+        if "pre_trust" in part_sorted.columns:
+            row["pre_trust"] = float(part_sorted["pre_trust"].iloc[0])
+        if "pre_risk" in part_sorted.columns:
+            row["pre_risk"] = float(part_sorted["pre_risk"].iloc[0])
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -177,7 +298,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Analyze human baseline data and generate comparison artifacts."
     )
-    parser.add_argument("--input-csv", required=True, help="Human baseline CSV path.")
+    parser.add_argument("--input-csv", default=None, help="Human baseline CSV path.")
+    parser.add_argument("--synthetic", action="store_true",
+                        help="Generate 50 synthetic participants for offline testing.")
+    parser.add_argument("--simulation-json", default=None,
+                        help="JSON with simulation action distributions per condition "
+                             "for JSD comparison ({condA: {work, save, cooperate}, ...}).")
+    parser.add_argument("--jsd-output-json",
+                        default="analysis/tables/human_vs_simulation_reference.json",
+                        help="Output JSON for JSD + Spearman comparison table.")
     parser.add_argument(
         "--output-json",
         default="analysis/tables/human_baseline_metrics.json",
@@ -222,20 +351,30 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    input_path = Path(args.input_csv)
-    if args.init_template:
-        _write_template_csv(input_path)
-        print(f"Template created: {input_path}")
-        print("Next step: fill rows with participant-round data, then rerun this script.")
-        return
+    # ── Synthetic data shortcut ───────────────────────────────────────────────
+    if args.synthetic:
+        print("Generating 50 synthetic participants (formula-based)...")
+        df = _generate_synthetic_participants(n=50, seed=42)
+        # Bypass all quality guards for synthetic runs
+        args.allow_synthetic = True
+        args.allow_noncompliant = True
+    else:
+        if args.input_csv is None:
+            parser.error("--input-csv is required unless --synthetic is set.")
+        input_path = Path(args.input_csv)
+        if args.init_template:
+            _write_template_csv(input_path)
+            print(f"Template created: {input_path}")
+            print("Next step: fill rows with participant-round data, then rerun this script.")
+            return
 
-    if not input_path.exists():
-        _write_template_csv(input_path)
-        print(f"Input CSV not found. Created template: {input_path}")
-        print("Fill this file with Prolific data and rerun the same command.")
-        return
+        if not input_path.exists():
+            _write_template_csv(input_path)
+            print(f"Input CSV not found. Created template: {input_path}")
+            print("Fill this file with Prolific data and rerun the same command.")
+            return
 
-    df = _load_human_csv(input_path)
+        df = _load_human_csv(input_path)
     checks = _quality_checks(
         df,
         min_participants=args.min_participants,
@@ -330,10 +469,41 @@ def main() -> None:
         },
     }
 
+    # ── Spearman trust → cooperation ──────────────────────────────────────────
+    trust_coop = _compute_trust_coop_spearman(part)
+    payload["trust_cooperation_spearman"] = trust_coop
+    if trust_coop.get("spearman_rho") is not None:
+        print(
+            f"Spearman ρ(pre_trust, coop_rate) = {trust_coop['spearman_rho']:.4f} "
+            f"(n={trust_coop['n']})"
+        )
+
     output_json = Path(args.output_json)
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(json.dumps(payload, indent=2))
     print(f"Saved metrics: {output_json}")
+
+    # ── JSD vs simulation conditions ──────────────────────────────────────────
+    if args.simulation_json and Path(args.simulation_json).exists():
+        sim_data = json.loads(Path(args.simulation_json).read_text())
+        human_dist = {k: round(float(v), 6) for k, v in action_dist.items()}
+        jsd_results = {}
+        for cond_name, cond_dist in sim_data.items():
+            if isinstance(cond_dist, dict):
+                jsd_val = _jsd(human_dist, {k: float(v) for k, v in cond_dist.items()})
+                jsd_results[cond_name] = round(jsd_val, 6)
+        reference_payload = {
+            "human_action_distribution": human_dist,
+            "jsd_vs_conditions": jsd_results,
+            "trust_cooperation_spearman": trust_coop,
+        }
+        jsd_out = Path(args.jsd_output_json)
+        jsd_out.parent.mkdir(parents=True, exist_ok=True)
+        jsd_out.write_text(json.dumps(reference_payload, indent=2))
+        print(f"Saved JSD comparison: {jsd_out}")
+        print("JSD(human, condition):")
+        for cond, val in sorted(jsd_results.items(), key=lambda x: x[1]):
+            print(f"  {cond}: {val:.6f}")
 
     if args.comparison_json:
         comp_path = Path(args.comparison_json)

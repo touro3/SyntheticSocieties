@@ -19,10 +19,28 @@ Anti-drift features (Phase 28):
 
 from __future__ import annotations
 
+import logging
 import math
 from collections import Counter
 from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
+
+
+class MemoryLevel(IntEnum):
+    """Memory depth surfaced to the LLM — used for the memory ablation study.
+
+    M0 — no memory context (LLM acts with no history)
+    M1 — sliding window only (recent events, no archive, no reflections)
+    M2 — window + archive count (older events acknowledged but not shown)
+    M3 — full hierarchical (reflection + important recent + drift anchor) [default]
+    """
+    M0 = 0
+    M1 = 1
+    M2 = 2
+    M3 = 3
 
 
 @dataclass
@@ -33,6 +51,23 @@ class MemoryItem:
     content: str
     outcome: dict[str, Any]
     importance: float = field(default=0.0)
+    expires_at_round: Optional[int] = field(default=None)
+    """Round after which this belief is no longer surfaced to the LLM.
+
+    None = never expires (default, backwards-compatible).
+    Set to round_id + N to create a belief that fades after N rounds.
+    Expired items remain in the archive for metric computation but are
+    filtered out of get_recent() and _effective_recent so the LLM never
+    reasons from stale information.  Mirrors MiroFish's valid_at /
+    expired_at pattern on knowledge graph nodes.
+    """
+    valid_at: Optional[int] = field(default=None)
+    """Round when this belief was formed.
+
+    Bookkeeping companion to ``expires_at_round``.  Together they define
+    the temporal validity window [valid_at, expires_at_round].  Set
+    automatically by ``RoundProcessor._record_memory()``.
+    """
 
 
 class HierarchicalMemory:
@@ -49,9 +84,33 @@ class HierarchicalMemory:
     # Set to 1 to disable batching (immediate writes, original behaviour).
     _BATCH_FLUSH_THRESHOLD = 5
 
-    def __init__(self, max_recent: int = 20, archive_size: int = 100):
+    # Default time-to-live (in rounds) per event type.  None = never expires.
+    # Social/negative experiences linger longer than routine or ephemeral ones.
+    # Mirrors MiroFish's valid_at / expired_at pattern on knowledge-graph nodes.
+    _DEFAULT_TTL: dict[str, int | None] = {
+        "cooperate":   15,   # Social observations fade after 15 rounds
+        "work":        10,   # Routine actions fade quickly
+        "save":        10,
+        "steal":       20,   # Negative experiences linger longer
+        "observation":  8,   # NL narrations (kernel feedback) fade after 8 rounds
+    }
+    _DEFAULT_TTL_FALLBACK: int = 12  # For unknown event types
+
+    @classmethod
+    def default_ttl(cls, event_type: str) -> int | None:
+        """Return the default time-to-live (in rounds) for an event type.
+
+        Returns the TTL in rounds or ``_DEFAULT_TTL_FALLBACK`` for unknown
+        event types.  Used by ``RoundProcessor._record_memory()`` to
+        auto-assign ``MemoryItem.expires_at_round``.
+        """
+        return cls._DEFAULT_TTL.get(event_type, cls._DEFAULT_TTL_FALLBACK)
+
+    def __init__(self, max_recent: int = 20, archive_size: int = 100,
+                 level: MemoryLevel | int = MemoryLevel.M3):
         self.max_recent = max_recent
         self.archive_size = archive_size
+        self.level: MemoryLevel = MemoryLevel(int(level))
         self.recent: list[MemoryItem] = []
         self.archive: list[MemoryItem] = []
         self.reflections: list[str] = []
@@ -65,6 +124,10 @@ class HierarchicalMemory:
         # the full batch is ready.  This mirrors MiroFish's activity-batching
         # strategy (5+ events buffered before pushing to the knowledge graph).
         self._pending_buffer: list[MemoryItem] = []
+
+        # Current simulation round — updated by the kernel each round so that
+        # temporal expiry filtering knows what "now" is.
+        self._current_round: int = 0
 
     # ── Write ─────────────────────────────────────────────────────────────────
 
@@ -283,15 +346,45 @@ class HierarchicalMemory:
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
+    def advance_round(self, round_id: int) -> int:
+        """Advance the memory's sense of "now" and purge expired beliefs.
+
+        Call this at the start of each simulation round (from the kernel or
+        round processor).  Returns the count of items that were expired and
+        moved to archive so callers can log the expiry event.
+
+        Expired items are moved to archive (not deleted) so they still
+        contribute to metric computation and reflection generation.
+        """
+        self._current_round = round_id
+        expired_count = 0
+        still_valid: list[MemoryItem] = []
+        for item in self.recent:
+            if item.expires_at_round is not None and round_id > item.expires_at_round:
+                self.archive.append(item)
+                if len(self.archive) > self.archive_size:
+                    self.archive.pop(0)
+                expired_count += 1
+            else:
+                still_valid.append(item)
+        if expired_count:
+            self.recent = still_valid
+            self._cache_dirty = True
+            logger.debug("Memory: expired %d beliefs at round %d", expired_count, round_id)
+        return expired_count
+
     @property
     def _effective_recent(self) -> list[MemoryItem]:
         """Return recent items including any still in the pending buffer.
 
-        Pending items are logically already in memory even before a flush —
-        read methods expose them transparently so that the batch strategy is
-        invisible to callers (including tests and the prompt builder).
+        Filters out expired items so the LLM never reasons from stale beliefs.
+        Pending items are logically in memory even before a flush — exposed
+        transparently so batch strategy is invisible to callers.
         """
-        return self.recent + self._pending_buffer
+        now = self._current_round
+        def _live(item: MemoryItem) -> bool:
+            return item.expires_at_round is None or item.expires_at_round >= now
+        return [i for i in self.recent + self._pending_buffer if _live(i)]
 
     def retrieve(self, query: str | None = None, partner_id: str | None = None, limit: int = 5) -> list[MemoryItem]:
         """Search memory for relevant items by partner_id or keywords."""

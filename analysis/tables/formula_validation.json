@@ -1,0 +1,42 @@
+{
+  "data_source": "synthetic",
+  "n_participants": 50,
+  "r_squared": 0.4078,
+  "aic": -204.01,
+  "coefficients": [
+    {
+      "name": "intercept",
+      "fitted": 0.2441,
+      "ci_lo": 0.0482,
+      "ci_hi": 0.4111,
+      "formula": 0.2,
+      "formula_within_ci": true
+    },
+    {
+      "name": "trust",
+      "fitted": 0.5275,
+      "ci_lo": 0.211,
+      "ci_hi": 0.9284,
+      "formula": 0.6,
+      "formula_within_ci": true
+    },
+    {
+      "name": "risk",
+      "fitted": -0.0675,
+      "ci_lo": -0.3421,
+      "ci_hi": 0.2684,
+      "formula": -0.6,
+      "formula_within_ci": false
+    },
+    {
+      "name": "trust:risk",
+      "fitted": -0.4089,
+      "ci_lo": -1.0429,
+      "ci_hi": 0.096,
+      "formula": 0.0,
+      "formula_within_ci": true
+    }
+  ],
+  "formula": "E[coop] = 0.20 + 0.60 * trust * (1 - risk)",
+  "formula_validated": false
+}

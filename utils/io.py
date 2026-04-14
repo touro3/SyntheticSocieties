@@ -28,6 +28,13 @@ def save_yaml(data: dict[str, Any], path: str | Path) -> None:
 
 
 def set_global_seed(seed: int) -> None:
+    """Set seed across all RNG sources for full reproducibility.
+
+    Also enables cuDNN deterministic mode so conv kernels produce bit-exact
+    outputs across runs.  ``benchmark=False`` prevents cuDNN from picking a
+    different fast-path kernel each time, which would break reproducibility
+    even with a fixed seed.
+    """
     random.seed(seed)
     np.random.seed(seed)
     try:
@@ -35,5 +42,10 @@ def set_global_seed(seed: int) -> None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
+        # cuDNN: deterministic algorithms + disable auto-tuner.
+        # Cost: ~5-15% slower conv on first batch; negligible for transformer
+        # inference where attention dominates, not conv.
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     except ImportError:
         pass

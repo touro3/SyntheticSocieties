@@ -347,9 +347,11 @@ Test Infrastructure
 [x] Dry-run result (3-cluster): Spearman ρ = 1.000 (p = 0.000) — gradient fully recovered
 [x] Dry-run result (6-cluster): Pearson r = +0.998, Spearman ρ = +1.000 (p = 0.000)
 [x] Figure: analysis/figures/cross_cultural_expanded.png (6 clusters, 95% CI, WVS inset)
-[ ] Run scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 → GPU results for paper
-[ ] Run pipeline_cross_cultural.sh --include-llm → analysis/figures/cross_cultural_validation.png (3-cluster GPU run)
-[ ] Record Pearson r and Spearman ρ from GPU run → fill paper Section 5.X
+[x] Run pipeline_cross_cultural.sh --include-llm --n-seeds 10 → DONE (LLM, Mistral-7B, N=20, T=10)
+[x] LLM GPU results: Pearson r=+0.983, Spearman ρ=+1.000 (10 seeds/cluster) — gradient fully recovered
+[x] Figure: analysis/figures/cross_cultural_validation.png (3-cluster LLM run)
+[x] Results: analysis/cross_cultural_results.json + analysis/tables/cross_cultural_correlation.csv
+[ ] Optional: Run scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 → extended 6-cluster run
 
 ---
 
@@ -358,7 +360,7 @@ Test Infrastructure
 [x] Phase 16: GPU experiments complete (mistral-7b ✓, qwen2.5-7b ✓, gpt4o-mini ✓)
 [x] Phase 25: Contribution statement rewrite — COMPLETE
 [x] Phase 26: Technical writing polish — COMPLETE
-[x] Phase 27: Cross-cultural infrastructure — COMPLETE (GPU experiment pending)
+[x] Phase 27: Cross-cultural infrastructure + LLM GPU validation — COMPLETE (Pearson r=+0.983, Spearman ρ=+1.000)
 [ ] Run pipeline_macro_shock.sh → analysis/figures/macro_shock_resilience.png
 [ ] Run pipeline_topology.sh → analysis/figures/topology_dictatorship.png
 [x] Run scripts/run_trust_gradient.py → analysis/figures/trust_gradient.png

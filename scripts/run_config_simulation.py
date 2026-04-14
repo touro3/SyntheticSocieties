@@ -126,12 +126,17 @@ def _build_llm_backend(llm_cfg: dict):
         model_id=llm_cfg.get("model_id", "mistralai/Mistral-7B-Instruct-v0.3"),
         dtype=llm_cfg.get("dtype", "float16"),
         device_map=llm_cfg.get("device_map", "auto"),
-        max_new_tokens=llm_cfg.get("max_new_tokens", 256),
+        max_new_tokens=llm_cfg.get("max_new_tokens", 128),
         temperature=llm_cfg.get("temperature", 0.7),
         cache_dir=llm_cfg.get("cache_dir"),
         inference_timeout=llm_cfg.get("inference_timeout", 120),
         max_retries=llm_cfg.get("max_retries", 2),
+        quantization=llm_cfg.get("quantization", None),
     )
+    # Override the default batch size if the config specifies one.
+    # With 4-bit quant the default is 16; fp16 defaults to 4.
+    if "max_batch_size" in llm_cfg:
+        backend._max_batch_size = int(llm_cfg["max_batch_size"])
     backend.load()
     return backend
 

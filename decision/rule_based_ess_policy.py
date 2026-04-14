@@ -149,12 +149,15 @@ class RuleBasedESSPolicy:
 
         # ── Priority 3: cooperate ─────────────────────────────────────────
         if h < coop_prob and neighbors:
+            # Fallback check injected here to prevent NoneType formatting crashes
+            safe_trust = float(profile.trust_people if profile.trust_people is not None else 0.5)
+            
             return ProposedAction(
                 action_type="cooperate",
                 target_agent_id=neighbors[0],
                 amount=DEFAULT_COOPERATE_AMOUNT,
                 reasoning_summary=(
-                    f"ESS-rule: trust={profile.trust_people:.2f}, "
+                    f"ESS-rule: trust={safe_trust:.2f}, "
                     f"coop_prob={coop_prob:.2f} → cooperate."
                 ),
                 confidence=DEFAULT_RULE_CONFIDENCE,

@@ -7,6 +7,7 @@ orchestration; RoundProcessor owns validate → execute → update → log.
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
 import time
@@ -22,6 +23,10 @@ from decision.output_parser import get_parse_stats, reset_parse_stats
 
 logger = logging.getLogger(__name__)
 
+# Flush in-memory round_metrics to disk every N rounds to keep RAM bounded.
+# At ~1 KB per dict and 100 agents per round, 50 rounds = ~50 KB in memory max.
+_METRICS_FLUSH_INTERVAL = 50
+
 
 class SimulationKernel:
     def __init__(self, agents: list, world, logger, heartbeat_path: Optional[Path] = None) -> None:
@@ -34,6 +39,15 @@ class SimulationKernel:
             world=world, agent_lookup=self.agent_lookup, logger=logger,
         )
         self.round_metrics: list[dict] = []
+
+        # Derive metrics flush path from heartbeat directory so the kernel
+        # needs no extra parameters from callers.
+        if self.heartbeat_path is not None:
+            self._metrics_flush_path: Optional[Path] = (
+                self.heartbeat_path.parent / "round_metrics.jsonl"
+            )
+        else:
+            self._metrics_flush_path = None
 
     def _can_use_batched_mode(self) -> bool:
         try:
@@ -67,6 +81,10 @@ class SimulationKernel:
             self._processor.process_agent_action(
                 agent, proposed_action, round_id, perception=perception,
             )
+
+        # Memory update on the sequential path — no cached neighbors available
+        # so get_agent_context() is called per-agent as before.
+        self._narrate_and_update_memory(self.world.state.round_id)
 
     def _prepare_agent_batch(
         self, policy, round_id: int,
@@ -128,6 +146,10 @@ class SimulationKernel:
                     "neighbors": world_context.get("neighbors", []),
                     "social_context": social_context,
                     "pop_context": pop_context,
+                    # Store the already-built messages so the logging step can
+                    # reuse them directly — avoids rebuilding the full prompt
+                    # (memory retrieval + token budget trimming) a second time.
+                    "messages": messages,
                 }
             )
             messages_list.append(messages)
@@ -137,7 +159,6 @@ class SimulationKernel:
     def run_round_batched(self) -> None:
         from decision.llm_policy import LLMPolicy
         from decision.output_parser import parse_llm_output
-        from decision.prompt_builder import build_prompt_text
 
         sample_policy = self.agents[0].policy if self.agents and hasattr(self.agents[0], "policy") else None
         backend = getattr(sample_policy, "backend", None)
@@ -159,6 +180,7 @@ class SimulationKernel:
         batch_results = policy.backend.generate_batch(
             messages_list=messages_list,
             temperature=policy.temperature,
+            max_batch_size=getattr(policy.backend, "_max_batch_size", 16),
         )
 
         for i, (raw_text, latency) in enumerate(batch_results):
@@ -175,16 +197,12 @@ class SimulationKernel:
                 parse_meta["fallback"] = True
 
             if policy.prompt_logger:
-                prompt_text = build_prompt_text(
-                    agent.profile,
-                    agent.state,
-                    agent.memory,
-                    perception,
-                    round_id,
-                    policy.memory_window,
-                    social_context=social_ctx,
-                    population_context=pop_ctx,
-                    ablation_level=getattr(policy, "ablation_level", 5),
+                # Reuse the messages already built in _prepare_agent_batch —
+                # avoids a full second prompt build (memory scoring + token
+                # budget trimming) purely for logging.
+                cached_msgs = agent_data[i].get("messages", [])
+                prompt_text = "\n\n".join(
+                    f"[{m['role'].upper()}]\n{m['content']}" for m in cached_msgs
                 )
                 policy.prompt_logger.log(
                     round_id=round_id,
@@ -199,6 +217,25 @@ class SimulationKernel:
             self._processor.process_agent_action(
                 agent, action, round_id, perception=perception,
             )
+
+        # Build neighbor cache from already-assembled agent_data before freeing
+        # it — avoids a second get_agent_context() traversal in the memory step.
+        cached_neighbors = {
+            d["agent"].profile.agent_id: d["perception"].get("neighbors", [])
+            for d in agent_data
+        }
+
+        # Release batch-local data structures immediately.  agent_data holds
+        # references to every agent object plus their full perception dicts;
+        # keeping them alive until Python's cyclic GC decides to collect them
+        # can double peak RAM usage when population size is large (500+ agents).
+        del agent_data, messages_list, batch_results
+        gc.collect()
+
+        # Memory update uses cached neighbors — no second network traversal.
+        self._narrate_and_update_memory(
+            self.world.state.round_id, cached_neighbors=cached_neighbors
+        )
 
     # ── Checkpoint ───────────────────────────────────────────────────────────
 
@@ -252,6 +289,8 @@ class SimulationKernel:
             return num_rounds - start_round
         if start_round > 0:
             logger.info("Resuming from round %d (%d remaining).", start_round, remaining)
+        # Evaluate once — the policy type and backend never change mid-run.
+        use_batched = self._can_use_batched_mode()
         completed = 0
         for _ in range(remaining):
             if stop_flag is not None and getattr(stop_flag, "requested", False):
@@ -260,17 +299,21 @@ class SimulationKernel:
                     self.world.state.round_id,
                 )
                 break
-            if self._can_use_batched_mode():
+            if use_batched:
                 self.run_round_batched()
             else:
                 self.run_round()
-            self._narrate_and_update_memory(self.world.state.round_id)
             self._log_round_metrics()
             self._write_heartbeat()
             completed += 1
             if self.heartbeat_path is not None:
                 checkpoint_path = self.heartbeat_path.parent / "checkpoint.json"
                 self.save_checkpoint(checkpoint_path)
+        # Flush any remaining round_metrics to disk without clearing.
+        # Callers and tests can still access the last batch via round_metrics.
+        if self.round_metrics:
+            self._flush_round_metrics()
+
         return completed
 
     # ── Heartbeat ────────────────────────────────────────────────────────────
@@ -292,7 +335,11 @@ class SimulationKernel:
 
     # ── Real-time memory update loop ─────────────────────────────────────────
 
-    def _narrate_and_update_memory(self, round_id: int) -> None:
+    def _narrate_and_update_memory(
+        self,
+        round_id: int,
+        cached_neighbors: dict[str, list[str]] | None = None,
+    ) -> None:
         """Convert the round's collective actions into NL observations per agent.
 
         Inspired by MiroFish's ZepGraphMemoryUpdater: after each round, each
@@ -300,6 +347,11 @@ class SimulationKernel:
         written as an 'observation' memory item with a short TTL so it fades
         naturally.  This closes the perception–action loop: agents not only
         act but also *observe* the social environment evolving around them.
+
+        Args:
+            cached_neighbors: Optional pre-built mapping of agent_id → neighbor
+                list from the batch round.  When provided, skips the redundant
+                get_agent_context() call (saves N network traversals per round).
         """
         # Collect last-action info for all agents
         action_registry: dict[str, str] = {}
@@ -313,8 +365,11 @@ class SimulationKernel:
         ttl = HierarchicalMemory.default_ttl("observation")
 
         for agent in self.agents:
-            ctx = self.world.get_agent_context(agent.profile.agent_id)
-            neighbors = ctx.get("neighbors", [])
+            if cached_neighbors is not None:
+                neighbors = cached_neighbors.get(agent.profile.agent_id, [])
+            else:
+                ctx = self.world.get_agent_context(agent.profile.agent_id)
+                neighbors = ctx.get("neighbors", [])
             if not neighbors:
                 continue
 
@@ -424,6 +479,13 @@ class SimulationKernel:
 
         self.round_metrics.append(metrics)
 
+        # Flush to disk every N rounds to keep the in-memory list bounded.
+        # round_metrics.jsonl accumulates all historical data; round_metrics
+        # in memory only ever holds _METRICS_FLUSH_INTERVAL entries at a time.
+        if len(self.round_metrics) >= _METRICS_FLUSH_INTERVAL:
+            self._flush_round_metrics()
+            self.round_metrics.clear()
+
         # Early warning: action collapse detection
         if action_dist:
             max_action_pct = max(action_dist.values())
@@ -434,6 +496,20 @@ class SimulationKernel:
                     f"{dominant_action} accounts for {max_action_pct:.0%} of actions.",
                     stacklevel=2,
                 )
+
+    def _flush_round_metrics(self) -> None:
+        """Append the current in-memory round_metrics batch to disk.
+
+        Called automatically every _METRICS_FLUSH_INTERVAL rounds.  If no
+        heartbeat path is configured (e.g., in unit tests) the flush is skipped
+        and the in-memory list is simply cleared by the caller.
+        """
+        if not self._metrics_flush_path or not self.round_metrics:
+            return
+        self._metrics_flush_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._metrics_flush_path.open("a", encoding="utf-8") as f:
+            for m in self.round_metrics:
+                f.write(json.dumps(m, ensure_ascii=False) + "\n")
 
     @staticmethod
     def _compute_gini(values: list[float]) -> float:

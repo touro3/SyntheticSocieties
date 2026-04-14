@@ -39,7 +39,7 @@ def parse_args():
     parser.add_argument("--model-id", type=str, default="mistralai/Mistral-7B-Instruct-v0.3")
     parser.add_argument("--cache-dir", type=str, default=None)
     parser.add_argument("--temperature", type=float, default=0.7)
-    parser.add_argument("--max-new-tokens", type=int, default=256)
+    parser.add_argument("--max-new-tokens", type=int, default=128)
     parser.add_argument("--memory-window", type=int, default=5)
     parser.add_argument("--network-type", type=str, default="random")
     parser.add_argument("--edge-prob", type=float, default=0.4)
@@ -92,6 +92,7 @@ def build_backend(args):
         cache_dir=args.cache_dir,
         inference_timeout=120,
         max_retries=2,
+        quantization="4bit",
     )
     backend.load()
     return backend

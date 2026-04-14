@@ -181,10 +181,11 @@ def _run_cluster(
             model_id="mistralai/Mistral-7B-Instruct-v0.3",
             dtype="float16",
             device_map="auto",
-            max_new_tokens=256,
+            max_new_tokens=128,
             temperature=0.7,
             inference_timeout=120,
             max_retries=2,
+            quantization="4bit",
         )
         backend.load()
         policy = LLMPolicy(backend=backend)
@@ -399,7 +400,10 @@ def main() -> None:
         from collections import defaultdict
         per_cluster_runs: dict[str, list[ClusterSimResult]] = defaultdict(list)
 
-        for seed in seeds:
+        for seed_idx, seed in enumerate(seeds):
+            if seed_idx > 0 and policy_type == "llm":
+                from decision.llm_backend import LLMBackend
+                LLMBackend.between_seeds()
             print(f"\n── Seed {seed} ──")
             for cluster in clusters:
                 result = _run_cluster(

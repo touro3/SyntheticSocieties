@@ -33,6 +33,7 @@ Per-model prompt budgets (prompt tokens only; excludes response headroom):
 from __future__ import annotations
 
 import warnings
+from functools import lru_cache
 
 # Improved estimate: ~3.3 characters per token for English prose with
 # numbers (validated against Mistral tokenizer). The old value of 4 was
@@ -58,10 +59,12 @@ def set_tokenizer(tokenizer) -> None:
     """Register a tokenizer for exact token counting.
 
     Call this after loading the model to switch from character-based
-    estimation to exact tokenizer-based counting.
+    estimation to exact tokenizer-based counting.  Clears the static-section
+    LRU cache so the new tokenizer is used on the next estimate.
     """
     global _tokenizer
     _tokenizer = tokenizer
+    _estimate_tokens_static.cache_clear()
 
 
 def budget_for_model(model_id: str) -> int:
@@ -75,6 +78,23 @@ def budget_for_model(model_id: str) -> int:
         if key in lower:
             return budget
     return DEFAULT_MAX_TOKENS
+
+
+@lru_cache(maxsize=4096)
+def _estimate_tokens_static(text: str) -> int:
+    """Cached token estimator for static prompt sections (persona, system prompt).
+
+    The cache survives across rounds since these sections don't change per-agent
+    per-round.  Invalidated on set_tokenizer() so the registered tokenizer is
+    always used after model load.  LRU size of 4096 comfortably covers
+    N_agents × unique_sections without unbounded growth.
+    """
+    if _tokenizer is not None:
+        try:
+            return len(_tokenizer.encode(text, add_special_tokens=False))
+        except Exception:
+            pass
+    return max(1, int(len(text) / _CHARS_PER_TOKEN))
 
 
 def estimate_tokens(text: str) -> int:
@@ -112,11 +132,13 @@ def trim_to_budget(
       4. population_context   — most valuable RAG, last to drop
     System, state, and persona are never touched.
     """
+    # System and persona are static per-agent (don't change round-to-round).
+    # Use the LRU-cached estimator to avoid re-tokenizing on every call.
     fixed_tokens = (
-        estimate_tokens(system)
-        + estimate_tokens(persona)
-        + estimate_tokens(state)
-        + estimate_tokens(context)
+        _estimate_tokens_static(system)
+        + _estimate_tokens_static(persona)
+        + estimate_tokens(state)    # dynamic: wealth/stress changes each round
+        + estimate_tokens(context)  # dynamic: world state changes each round
         + 50  # formatting overhead
     )
 

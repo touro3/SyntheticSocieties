@@ -26,7 +26,8 @@ ENV/
 .python-version
 .pyenv
 
-# Environment files
+# Environment files (never commit secrets)
+.env
 .env.local
 .env.*.local
 .env.prod
@@ -79,6 +80,9 @@ logs/
 outputs/
 /log_bad_apple.txt
 results/
+# run output logs dumped in root (e.g. condition_d_log.txt, safe_run.txt)
+*_log.txt
+safe_run.txt
 
 # =========================
 # Models (IMPORTANT)

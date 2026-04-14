@@ -26,10 +26,12 @@ llm:
   dtype: float16
   device_map: auto
   temperature: 0.7
-  max_new_tokens: 256
+  max_new_tokens: 128
   memory_window: 5
   max_retries: 2
   inference_timeout: 120
+  quantization: 4bit  # NF4 via bitsandbytes: reduces ~14.5 GB → ~4 GB on P100-16GB
+  max_batch_size: 16  # agents per GPU kernel call; 16 safe with 4bit, use 4 for fp16
 
 network:
   type: random

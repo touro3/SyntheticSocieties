@@ -10,15 +10,26 @@ Performance:
   invalidates the cache when the graph topology changes (i.e., when a new
   cooperation edge is added). Non-structural events (work, save) do not
   invalidate the cache.
+
+Memory:
+  Without pruning, a dense cooperation network accumulates O(agents × rounds)
+  edges — potentially millions of edges and gigabytes of RAM for long runs.
+  ``_EDGE_PRUNE_AGE`` controls the rolling retention window: edges older than
+  this many rounds are removed from the graph.  The recency-weighting in
+  ``get_social_context`` already down-weights old edges; pruning simply removes
+  the ones that are effectively zero-weight.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
 import networkx as nx
+
+logger = logging.getLogger(__name__)
 
 
 class GraphRAG:
@@ -26,10 +37,21 @@ class GraphRAG:
     # Temporal decay: edges older than this many rounds lose salience.
     _EDGE_HALF_LIFE = 10
 
+    # Hard retention window: edges older than this many rounds are permanently
+    # removed from the graph.  Set conservatively (10× half-life) so the
+    # recency-weighted context is unaffected, but unbounded growth is prevented.
+    # Dense runs (500 agents, ~50% cooperation): without pruning → millions of
+    # edges after 1 000 rounds; with default → graph stays ≤ 50 rounds × edges/round.
+    _EDGE_PRUNE_AGE: int = 100
+
+    # Check for stale edges every N additions to amortise the O(E) scan cost.
+    _EDGE_PRUNE_INTERVAL: int = 50
+
     def __init__(self) -> None:
         self.graph: nx.MultiDiGraph = nx.MultiDiGraph()
         self._initialized: bool = False
         self._current_round: int = 0
+        self._add_count: int = 0  # total cooperation edges added (used for prune scheduling)
 
         # Centrality cache — invalidated only when graph topology changes.
         self._centrality_cache: Optional[dict] = None
@@ -68,6 +90,9 @@ class GraphRAG:
 
         Only cooperation events change the graph topology. Work/save events
         are ignored — this keeps the cache stable for non-social actions.
+
+        Stale edges are pruned every ``_EDGE_PRUNE_INTERVAL`` additions to
+        prevent unbounded graph growth in long-horizon runs.
         """
         if event.get("action", {}).get("action_type") != "cooperate":
             return
@@ -86,6 +111,40 @@ class GraphRAG:
             self._current_round = max(self._current_round, round_id)
             self._initialized = True
             self._invalidate_cache()
+            self._add_count += 1
+
+            # Prune on a fixed cadence to amortise the O(E) scan cost.
+            if self._add_count % self._EDGE_PRUNE_INTERVAL == 0:
+                self._prune_stale_edges()
+
+    def _prune_stale_edges(self) -> None:
+        """Remove edges older than _EDGE_PRUNE_AGE rounds.
+
+        Called automatically every _EDGE_PRUNE_INTERVAL additions.  Keeps the
+        graph size bounded at O(agents × _EDGE_PRUNE_AGE) regardless of how
+        many simulation rounds have passed.
+        """
+        cutoff = self._current_round - self._EDGE_PRUNE_AGE
+        if cutoff <= 0:
+            return  # not enough rounds have passed yet
+
+        stale = [
+            (u, v, k)
+            for u, v, k, data in self.graph.edges(keys=True, data=True)
+            if data.get("round", 0) < cutoff
+        ]
+        for u, v, k in stale:
+            self.graph.remove_edge(u, v, k)
+
+        if stale:
+            # Remove isolated nodes left behind by pruning to keep node count tidy.
+            isolates = list(nx.isolates(self.graph))
+            self.graph.remove_nodes_from(isolates)
+            self._invalidate_cache()
+            logger.debug(
+                "GraphRAG: pruned %d stale edges and %d isolates (cutoff round %d)",
+                len(stale), len(isolates), cutoff,
+            )
 
     # ── Centrality (cached) ───────────────────────────────────────────────────
 

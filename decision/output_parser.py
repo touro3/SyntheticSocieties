@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from typing import Optional
 
 from decision.constants import (
@@ -304,23 +303,21 @@ def parse_llm_output_with_retry(
     raw_text: str,
     neighbors: Optional[list[str]] = None,
     max_attempts: int = 3,
-    base_delay: float = 2.0,
 ) -> tuple[Optional[ProposedAction], dict]:
-    """Parse LLM output with JSON repair and exponential backoff retry.
+    """Parse LLM output with JSON repair and multi-attempt retry.
 
     On each failed attempt, applies _repair_json() to the text before
-    retrying the full parse pipeline. Uses exponential backoff (base_delay *
-    2^attempt) between attempts to avoid hammering a struggling LLM backend.
+    retrying the full parse pipeline.  No sleep between attempts — parsing
+    is pure CPU string manipulation; there is nothing to wait for.
 
     This is the recommended entry point for production use.  The lower-level
     ``parse_llm_output`` remains available for testing and cases where retry
     overhead is undesirable.
 
     Args:
-        raw_text:    Raw text output from the LLM.
-        neighbors:   List of valid neighbor agent IDs for validation.
-        max_attempts: Maximum parse attempts (default 3, matching MiroFish).
-        base_delay:   Base delay in seconds for exponential backoff (default 2s).
+        raw_text:     Raw text output from the LLM.
+        neighbors:    List of valid neighbor agent IDs for validation.
+        max_attempts: Maximum parse attempts (default 3).
 
     Returns:
         Tuple of (ProposedAction or None, parse_metadata dict).
@@ -341,12 +338,11 @@ def parse_llm_output_with_retry(
         last_metadata = metadata
 
         if attempt < max_attempts - 1:
-            # Apply JSON repair before next attempt
+            # Apply JSON repair before next attempt. No sleep — parsing is
+            # pure CPU string manipulation; there is nothing to wait for.
             repaired = _repair_json(candidate)
             if repaired != candidate:
                 candidate = repaired
-            delay = base_delay * (2 ** attempt)
-            time.sleep(delay)
 
     # Ultimate fallback: field-level regex extraction (MiroFish pattern).
     # Even when JSON structure is irreparable, individual field values can

@@ -238,21 +238,33 @@ class TestPositionBiasMitigation:
                 assert action in prompt, f"Missing '{action}' in shuffled prompt"
 
     def test_build_prompt_uses_shuffled_actions(self):
-        """build_prompt() should produce prompts with shuffled action ordering."""
-        profile = _make_profile()
+        """build_prompt() should produce different action orderings across agents/rounds.
+
+        The shuffle is seeded by (round_id, agent_id) so repeated calls with the
+        same inputs are deterministic (prompt-log consistency), but different
+        agents or different rounds produce different orderings.
+        """
+        import re as _re
         state = _make_state()
         memory = _make_memory()
         context = _make_context()
 
         orderings = set()
-        for _ in range(30):
-            msgs = build_prompt(profile, state, memory, context, round_id=1)
-            system = msgs[0]["content"]
-            match = re.search(r'"action_type":\s*"<([^>]+)>"', system)
-            assert match, "System prompt in build_prompt must contain action options"
-            orderings.add(match.group(1))
+        # Vary both round_id and agent_id to exercise the shuffle seed space.
+        for round_id in range(1, 16):
+            for agent_suffix in ["_a", "_b"]:
+                profile = _make_profile()
+                profile.agent_id = f"agent{agent_suffix}_{round_id}"
+                msgs = build_prompt(profile, state, memory, context, round_id=round_id)
+                system = msgs[0]["content"]
+                match = _re.search(r'"action_type":\s*"<([^>]+)>"', system)
+                assert match, "System prompt in build_prompt must contain action options"
+                orderings.add(match.group(1))
 
-        assert len(orderings) >= 2
+        # With 30 distinct (round_id, agent_id) pairs we expect multiple orderings.
+        assert len(orderings) >= 2, (
+            f"Expected multiple action orderings across agents/rounds, got: {orderings}"
+        )
 
     def test_parser_handles_any_action_order(self):
         """output_parser reads action_type correctly regardless of prompt ordering."""

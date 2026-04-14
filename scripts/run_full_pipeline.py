@@ -26,6 +26,7 @@ Usage:
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -34,6 +35,12 @@ import numpy as np
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
+
+# Must be set before any CUDA tensor is allocated (including in subprocesses
+# that inherit this environment) so PyTorch's expandable-segments allocator
+# is active from the start.  This prevents fragmentation-OOM on multi-seed
+# runs where the singleton LLM model (14.5 GB) stays resident across seeds.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -55,12 +62,28 @@ POLICY_PREFIX = {
 }
 
 
-def parse_seed_list(seeds_arg: str) -> list[int]:
-    """Parse seed arg from comma-list or count shorthand."""
-    if "," in seeds_arg:
-        return [int(s.strip()) for s in seeds_arg.split(",") if s.strip()]
-    val = int(seeds_arg)
-    return [42, 123, 7, 1, 2, 88, 99, 101, 102, 103][:val] if val <= 20 else [val]
+def parse_seed_list(seeds_arg):
+    """
+    Parses a seed string into a list of integers.
+    Supports single ints ('42'), comma-separated ('42,123,7'), 
+    and inclusive ranges ('1..10').
+    """
+    seeds = []
+    # Split by comma to handle standard lists
+    for part in seeds_arg.split(','):
+        part = part.strip()
+        if '..' in part:
+            # Handle range syntax (e.g., '1..10')
+            start_str, end_str = part.split('..')
+            start = int(start_str)
+            end = int(end_str)
+            # Use end + 1 to make the range inclusive
+            seeds.extend(range(start, end + 1))
+        else:
+            # Handle single integers
+            seeds.append(int(part))
+            
+    return seeds
 
 
 def parse_args():
@@ -108,11 +131,12 @@ def parse_args():
     )
     parser.add_argument(
         "--condition",
-        choices=["A", "B", "C"],
+        choices=["A", "B", "C", "D"],
         default=None,
         help=(
             "Experimental condition: A=baseline (no grounding), "
-            "B=full grounding (default), C=counterfactual identity (soul swap)."
+            "B=full grounding (default), C=counterfactual identity (soul swap), "
+            "D=rule-based ESS only (no LLM, deterministic)."
         ),
     )
     return parser.parse_args()
@@ -165,6 +189,9 @@ def run_experiments(args) -> list[str]:
         condition_overrides.append("llm.ablation_level=0")
     elif getattr(args, "condition", None) == "C":
         condition_overrides.append("agent_defaults.shuffle_traits=true")
+    elif getattr(args, "condition", None) == "D":
+        # Condition D: deterministic rule-based ESS policy only, no LLM needed
+        policies = ["rule_based_ess"]
 
     experiments = []
     # Regular baselines
@@ -261,6 +288,7 @@ def run_experiments(args) -> list[str]:
             print(f"  ⚡ Baselines done in {parallel_elapsed:.1f}s (parallel)")
 
     # Run LLM experiments sequentially (GPU bound)
+    _first_llm = True
     for i, prefix, policy, seed, extra in llm_exps:
         exp_prefix = POLICY_PREFIX.get(policy, policy)
         exp_id = f"{prefix}{exp_prefix}_s{seed}"
@@ -280,6 +308,13 @@ def run_experiments(args) -> list[str]:
             skipped += 1
             exp_ids.append(exp_id)
             continue
+
+        # Release KV-cache fragments from the previous seed before starting
+        # the next one.  The model stays loaded (no reload cost).
+        if not _first_llm:
+            from decision.llm_backend import LLMBackend
+            LLMBackend.between_seeds()
+        _first_llm = False
 
         t0 = time.time()
         print(f"  [{i}/{total}] Running: {exp_id} (LLM)...", end="", flush=True)

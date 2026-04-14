@@ -175,6 +175,159 @@ def report_metric(
     }
 
 
+# ── Effect Size ──────────────────────────────────────────────────────────────
+
+
+def cohens_d(
+    group_a: Sequence[float],
+    group_b: Sequence[float],
+) -> float:
+    """Cohen's d effect size: (mean_a - mean_b) / pooled_std.
+
+    Uses the pooled standard deviation (equal-variance form).  For n < 50
+    consider Hedges' g (bias-corrected), but Cohen's d is standard for
+    simulation paper comparisons.
+
+    Returns:
+        Positive d means group_a > group_b.  Conventional thresholds:
+        small |d|=0.2, medium |d|=0.5, large |d|=0.8.
+    """
+    a, b = np.asarray(group_a, dtype=float), np.asarray(group_b, dtype=float)
+    if len(a) < 2 or len(b) < 2:
+        raise ValueError("Both groups must have at least 2 observations.")
+    na, nb = len(a), len(b)
+    pooled_var = ((na - 1) * a.var(ddof=1) + (nb - 1) * b.var(ddof=1)) / (na + nb - 2)
+    pooled_std = np.sqrt(pooled_var)
+    if pooled_std == 0.0:
+        return 0.0
+    return float((a.mean() - b.mean()) / pooled_std)
+
+
+# ── Non-Parametric Significance ───────────────────────────────────────────────
+
+
+def mann_whitney_u(
+    group_a: Sequence[float],
+    group_b: Sequence[float],
+    alternative: str = "two-sided",
+) -> dict:
+    """Mann-Whitney U test (non-parametric alternative to t-test).
+
+    Does not assume normality — appropriate for simulation metrics whose
+    distributions are often skewed (Gini, cooperation rate, wealth).
+
+    Args:
+        group_a: Observations from condition A.
+        group_b: Observations from condition B.
+        alternative: "two-sided", "greater", or "less".
+
+    Returns:
+        Dict with keys: u_statistic, p_value, significant (at α=0.05).
+    """
+    try:
+        from scipy.stats import mannwhitneyu
+    except ImportError as exc:
+        raise ImportError(
+            "scipy is required for mann_whitney_u. "
+            "Install with: pip install scipy"
+        ) from exc
+
+    a = np.asarray(group_a, dtype=float)
+    b = np.asarray(group_b, dtype=float)
+    if len(a) < 3 or len(b) < 3:
+        raise ValueError("Mann-Whitney U requires at least 3 observations per group.")
+
+    u_stat, p_val = mannwhitneyu(a, b, alternative=alternative)
+    return {
+        "u_statistic": float(u_stat),
+        "p_value": float(p_val),
+        "significant": bool(p_val < 0.05),
+        "alternative": alternative,
+        "n_a": len(a),
+        "n_b": len(b),
+    }
+
+
+# ── Power Analysis ────────────────────────────────────────────────────────────
+
+
+def min_seeds_for_power(
+    effect_size_d: float,
+    alpha: float = 0.05,
+    power: float = 0.80,
+) -> int:
+    """Estimate minimum seeds (n per group) needed for a two-sample t-test.
+
+    Uses the analytic formula: n = 2 * ((z_alpha/2 + z_beta) / d)^2.
+    This is a simple closed-form approximation; for exact results use
+    ``statsmodels.stats.power.TTestIndPower``.
+
+    Args:
+        effect_size_d: Expected Cohen's d (use 0.5 for medium, 0.8 for large).
+        alpha: Type-I error rate (default 0.05, two-tailed).
+        power: Desired power 1-β (default 0.80).
+
+    Returns:
+        Minimum n per group (seeds), rounded up.
+
+    Example:
+        >>> min_seeds_for_power(0.5)  # medium effect
+        64
+        >>> min_seeds_for_power(0.8)  # large effect
+        26
+    """
+    if effect_size_d <= 0:
+        raise ValueError("effect_size_d must be positive.")
+    from scipy.stats import norm
+
+    z_alpha = norm.ppf(1 - alpha / 2)  # two-tailed
+    z_beta = norm.ppf(power)
+    n = 2 * ((z_alpha + z_beta) / effect_size_d) ** 2
+    return int(np.ceil(n))
+
+
+def power_report(
+    group_a: Sequence[float],
+    group_b: Sequence[float],
+    alpha: float = 0.05,
+) -> dict:
+    """Full power + significance report for two groups.
+
+    Combines Cohen's d, Mann-Whitney U, bootstrap CIs, and minimum seeds
+    needed for 80% power at the observed effect size.
+
+    Returns dict with: cohens_d, interpretation, mann_whitney, min_seeds_80,
+    ci_a, ci_b.
+    """
+    d = cohens_d(group_a, group_b)
+    mw = mann_whitney_u(group_a, group_b, alternative="two-sided")
+    ci_a = report_metric(list(group_a))
+    ci_b = report_metric(list(group_b))
+
+    if abs(d) < 0.2:
+        interp = "negligible"
+    elif abs(d) < 0.5:
+        interp = "small"
+    elif abs(d) < 0.8:
+        interp = "medium"
+    else:
+        interp = "large"
+
+    try:
+        min_seeds = min_seeds_for_power(abs(d), alpha=alpha) if d != 0.0 else None
+    except Exception:
+        min_seeds = None
+
+    return {
+        "cohens_d": round(d, 4),
+        "interpretation": interp,
+        "mann_whitney": mw,
+        "min_seeds_80pct_power": min_seeds,
+        "ci_a": ci_a,
+        "ci_b": ci_b,
+    }
+
+
 def apply_fdr_to_results(
     named_pvalues: dict[str, float],
     alpha: float = 0.05,

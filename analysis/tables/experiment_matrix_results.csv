@@ -1,0 +1,5 @@
+exp_id,condition,seed,ablation,temperature,status,cooperation_rate,gini,mean_wealth,brm,fidelity,error
+mx_A_s1,A,1,,,ok,,,,,,
+mx_A_s2,A,2,,,ok,,,,,,
+mx_B_s1,B,1,,,ok,,,,,,
+mx_B_s2,B,2,,,ok,,,,,,

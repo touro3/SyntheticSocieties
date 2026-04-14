@@ -132,11 +132,12 @@ def main():
         model_id=args.model_id,
         dtype="float16",
         device_map="auto",
-        max_new_tokens=256,
+        max_new_tokens=128,
         temperature=args.temperature,
         cache_dir=args.cache_dir,
         inference_timeout=120,
         max_retries=2,
+        quantization="4bit",
     )
     backend.load()
 

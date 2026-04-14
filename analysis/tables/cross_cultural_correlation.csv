@@ -1,4 +1,4 @@
 cluster_name,ess_mean_trust,simulated_cooperation_rate,simulated_gini,n_agents,n_rounds,pearson_r,spearman_rho,gradient_recovered
-eastern,0.421,0.0,0.0572,20,10,0.9878,0.866,False
-southern,0.463,0.0,0.0676,20,10,0.9878,0.866,False
-nordic,0.673,0.001,0.0997,20,10,0.9878,0.866,False
+eastern,0.421,0.001,0.1894,20,10,0.9826,1.0,True
+southern,0.463,0.102,0.1452,20,10,0.9826,1.0,True
+nordic,0.673,0.2965,0.2047,20,10,0.9826,1.0,True

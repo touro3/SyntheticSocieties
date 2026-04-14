@@ -391,7 +391,12 @@ def build_prompt(
     state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
     context_desc = build_context_block(context)
-    system_text = get_shuffled_system_prompt()
+    # Pin the action-order shuffle to (round_id, agent_id) so that any
+    # subsequent call with the same inputs (e.g. the logging path) produces
+    # the identical system prompt — without this the logged prompt diverges
+    # from what the model actually received, corrupting the prompt log.
+    shuffle_seed = hash((round_id, profile.agent_id)) % (2 ** 31)
+    system_text = get_shuffled_system_prompt(seed=shuffle_seed)
 
     # No extra guidance — prompt must not bias toward specific actions.
     extra = None

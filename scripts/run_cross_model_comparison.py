@@ -222,7 +222,7 @@ def _run_condition(
             "dtype": "float16",
             "device_map": "auto",
             "temperature": 0.7,
-            "max_new_tokens": 256,
+            "max_new_tokens": 128,
             "memory_window": 5,
             "max_retries": 2,
         },
@@ -234,7 +234,7 @@ def _run_condition(
         backend_type=model_spec["backend_type"],
         cache_dir=model_spec.get("cache_dir"),
         dtype=model_spec.get("dtype", "float16"),
-        max_new_tokens=256,
+        max_new_tokens=128,
         temperature=0.7,
     )
     backend = get_backend(model_cfg)

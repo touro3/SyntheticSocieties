@@ -54,15 +54,27 @@ BALANCED_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
 
 # ── Shuffled prompt generator (position-bias mitigation) ─────────────────────
 
-def get_shuffled_system_prompt() -> str:
-    """Return NEUTRAL_SYSTEM_PROMPT with action options in random order.
+def get_shuffled_system_prompt(seed: int | None = None) -> str:
+    """Return NEUTRAL_SYSTEM_PROMPT with action options in shuffled order.
 
     Prevents position bias — LLMs tend to favour whichever action appears
-    first in the prompt. By shuffling on each call, the ordering becomes a
-    nuisance variable that averages out across rounds.
+    first in the prompt. By shuffling, ordering becomes a nuisance variable
+    that averages out across rounds.
+
+    Args:
+        seed: Optional integer seed for deterministic shuffling. Pass
+              ``hash((round_id, agent_id)) % (2**31)`` so the same prompt is
+              produced for both generation and logging — without this, the two
+              calls produce different action orderings and the logged prompt
+              does not match what the model actually received.
+              When None (legacy), uses the global random state.
     """
     actions = _ACTION_OPTIONS.copy()
-    random.shuffle(actions)
+    if seed is not None:
+        rng = random.Random(seed)
+        rng.shuffle(actions)
+    else:
+        random.shuffle(actions)
 
     options_str = "|".join(actions)
     mechanics_lines = "\n".join(_ACTION_MECHANICS[a] for a in actions)

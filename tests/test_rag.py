@@ -1,5 +1,7 @@
 from pathlib import Path
+from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from agents.agent import Agent
@@ -15,6 +17,52 @@ from environment.network import NetworkManager
 from environment.world import World
 from environment.world_state import WorldState
 from simulation.kernel import SimulationKernel
+
+_ESS_PATH = Path("data/ess_clean.parquet")
+
+
+@pytest.fixture(autouse=True)
+def _ess_parquet(tmp_path, monkeypatch):
+    """Redirect SQLRAG to a minimal synthetic parquet when the real ESS file is absent.
+
+    The synthetic dataset covers ages 25–54 (30 rows, alternating genders) so
+    every tier of the four-tier peer-group fallback can satisfy the n≥5 threshold
+    for realistic age/gender queries (e.g. age=30, gender=female).  The extreme
+    query age=500 intentionally finds no peers, exercising the "No peer group
+    data found" branch.
+    """
+    if _ESS_PATH.exists():
+        return  # real file present — no mocking needed
+
+    import numpy as np
+
+    rng = np.random.RandomState(42)
+    n = 30
+    synthetic = pd.DataFrame(
+        {
+            "age": list(range(25, 55)),
+            "gender": [1, 2] * 15,
+            "trust_people": rng.uniform(0.3, 0.8, n).tolist(),
+            "risk_taking": rng.uniform(0.2, 0.7, n).tolist(),
+            "life_satisfaction": rng.uniform(0.5, 0.9, n).tolist(),
+            "income_decile": rng.uniform(3.0, 8.0, n).tolist(),
+            "country": ["AT"] * n,
+        }
+    )
+    parquet_path = tmp_path / "ess_clean.parquet"
+    synthetic.to_parquet(parquet_path, index=False)
+
+    # Patch SQLRAG.__init__ to silently swap the default path for the synthetic one.
+    from decision.sql_rag import SQLRAG
+
+    _real_init = SQLRAG.__init__
+
+    def _patched_init(self, data_path="data/ess_clean.parquet", **kwargs):
+        if str(data_path) == "data/ess_clean.parquet":
+            data_path = parquet_path
+        _real_init(self, data_path=str(data_path))
+
+    monkeypatch.setattr(SQLRAG, "__init__", _patched_init)
 
 
 def test_graph_rag_reset():

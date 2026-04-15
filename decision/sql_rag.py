@@ -14,11 +14,13 @@ class SQLRAG:
     _GENDER_ENCODING = {"male": 1, "female": 2}  # ESS codebook section 3.2
 
     def __init__(self, data_path: str | Path = "data/ess_clean.parquet"):
+        # Initialise before the existence check so __del__ never sees a missing
+        # attribute if __init__ raises (e.g. FileNotFoundError below).
+        self.conn = None
+        self._initialized = False
         self.data_path = Path(data_path)
         if not self.data_path.exists():
             raise FileNotFoundError(f"Population data not found: {self.data_path}")
-        self.conn = None
-        self._initialized = False
 
     def _connect(self) -> None:
         """Lazily open a DuckDB connection and register the population view.

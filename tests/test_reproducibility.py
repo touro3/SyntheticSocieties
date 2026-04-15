@@ -52,6 +52,8 @@ def test_set_global_seed_seeds_numpy():
 
 def test_set_global_seed_calls_torch_manual_seed():
     """torch.manual_seed must be called so GPU inference is reproducible."""
+    # patch("torch.manual_seed") imports torch internally; skip gracefully when absent.
+    pytest.importorskip("torch", reason="torch required to patch torch.manual_seed")
     with patch("torch.manual_seed") as mock_torch_seed:
         set_global_seed(99)
     mock_torch_seed.assert_called_once_with(99)

@@ -19,7 +19,13 @@ import random
 import time
 from typing import Optional
 
-import torch
+try:
+    import torch
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
 
 # Enable the expandable-segments allocator *before* any CUDA tensor is
 # allocated.  This lets PyTorch reuse fragmented reserved-but-unallocated
@@ -34,6 +40,8 @@ SLOW_INFERENCE_THRESHOLD_S: float = 30.0  # Warn if a single generate() takes lo
 
 def _is_cuda_oom(exc: Exception) -> bool:
     """Return True if *exc* is a CUDA out-of-memory error."""
+    if not _TORCH_AVAILABLE:
+        return False
     return isinstance(exc, (torch.cuda.OutOfMemoryError,)) or (
         isinstance(exc, RuntimeError) and "CUDA out of memory" in str(exc)
     )
@@ -78,7 +86,7 @@ class LLMBackend:
         # Release any CUDA memory that was freed by completed GPU ops but not
         # yet returned to the pool.  Calling this before creating the new
         # executor avoids the new thread starting with a fragmented pool.
-        if torch.cuda.is_available():
+        if _TORCH_AVAILABLE and torch.cuda.is_available():
             torch.cuda.empty_cache()
         cls._executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
@@ -97,7 +105,7 @@ class LLMBackend:
         allow_remote_code: bool = False,
     ):
         self.model_id = model_id
-        self.dtype = getattr(torch, dtype, torch.float16)
+        self.dtype = getattr(torch, dtype, torch.float16) if _TORCH_AVAILABLE else dtype
         self.device_map = device_map
         # Agent decisions are short JSON (~40 tokens).  128 gives ample
         # headroom while halving KV-cache allocation vs the old 256.

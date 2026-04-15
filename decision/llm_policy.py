@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Optional
 
 from decision.llm_backend import LLMBackend
@@ -66,7 +67,9 @@ class LLMPolicy(LLMPolicyBase):
         # Apply perturbation if configured
         if self.perturbation_mode:
             from decision.prompt_perturbation import apply_perturbation
-            seed = hash((round_id, profile.agent_id)) % (2**31)
+            seed = int(
+                hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16
+            )
             messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
         # Generate with retries (shared logic from LLMPolicyBase)

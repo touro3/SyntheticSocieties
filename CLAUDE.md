@@ -34,13 +34,13 @@ python metrics/calibration.py
 python scripts/plot_trajectories_full.py --seeds 5
 
 # Experiment-specific pipelines (run from repo root)
-bash pipeline_bad_apple.sh        # 5% adversarial agent injection
-bash pipeline_macro_shock.sh      # Economic crisis (50% wealth shock at round 15)
-bash pipeline_topology.sh         # Network topology experiments
-bash pipeline_phase_c.sh          # 100 agents, 100 rounds, LLM with RAG
-bash pipeline_phase_d.sh          # Large-scale 500-agent simulation
-bash pipeline_cross_cultural.sh   # Phase 27: Nordic/Southern/Eastern cluster validation
-bash run_all_experiments.sh       # Full paper reproduction
+bash scripts/pipeline_bad_apple.sh        # 5% adversarial agent injection
+bash scripts/pipeline_macro_shock.sh      # Economic crisis (50% wealth shock at round 15)
+bash scripts/pipeline_topology.sh         # Network topology experiments
+bash scripts/pipeline_phase_c.sh          # 100 agents, 100 rounds, LLM with RAG
+bash scripts/pipeline_phase_d.sh          # Large-scale 500-agent simulation
+bash scripts/pipeline_cross_cultural.sh   # Phase 27: Nordic/Southern/Eastern cluster validation
+bash scripts/run_all_experiments.sh       # Full paper reproduction
 ```
 
 ## Architecture
@@ -107,7 +107,7 @@ Plots land in `analysis/figures/`; network exports for Gephi in `analysis/networ
 - **Memory**: `memory.py` implements a hierarchical memory system with a sliding window and a "long-term" summary slot, allowing agents to recall past events and decisions.   
 - **RAG**: `sql_rag.py` and `graph_rag.py` provide SQL and graph-based retrieval for empirical context injection. Always verify dual RAG is active in grounded (Condition B) runs.
 - **Experiment Tracking**: `tracker/` uses DuckDB to store experiment metadata and results, enabling SQL-based analytics across all runs.
-- **Progress Tracking**: `BGF_PROGRESS_CHECKLIST.md` tracks the project's progress against the original research plan, including advanced stress tests for robustness.
+- **Progress Tracking**: `docs/BGF_PROGRESS_CHECKLIST.md` tracks the project's progress against the original research plan, including advanced stress tests for robustness.
 - **Testing**: `tests/` contains 636+ unit and integration tests, including RAG-specific, cross-model, cross-cultural, and metric validation tests. Shared fixtures in `conftest.py`.
 - **Configuration**: `configs/` uses Hydra for flexible configuration management, with `base_config.yaml` as the default and multiple experiment-specific configs.
 - **Documentation**: `docs/` contains the paper draft, hypotheses, evaluation protocol, and other research artifacts.
@@ -124,7 +124,7 @@ Plots land in `analysis/figures/`; network exports for Gephi in `analysis/networ
 
 - **Condition C**: `decision/generative_agents_policy.py` implements a fictional-persona LLM policy (Park et al. 2023 proxy) with no ESS grounding or RAG — enables direct Generative Agents comparison.
 - **Cross-model backends**: `decision/model_config.py` (ModelConfig dataclass + `get_backend()` factory) and `decision/openai_backend.py` (OpenAI responses.create API with caching and retry).
-- **Cross-cultural validation**: `population/country_clusters.py` defines Nordic/Southern/Eastern ESS-11 cluster benchmarks; `metrics/cross_cultural.py` computes Pearson r and Spearman ρ between published ESS-11 cluster trust means and simulated cooperation rates. Dry-run result: Spearman ρ = 1.0 (gradient fully recovered). `configs/cross_cultural/`, `scripts/run_cross_cultural.py`, `pipeline_cross_cultural.sh`.
+- **Cross-cultural validation**: `population/country_clusters.py` defines Nordic/Southern/Eastern ESS-11 cluster benchmarks; `metrics/cross_cultural.py` computes Pearson r and Spearman ρ between published ESS-11 cluster trust means and simulated cooperation rates. Dry-run result: Spearman ρ = 1.0 (gradient fully recovered). `configs/cross_cultural/`, `scripts/run_cross_cultural.py`, `scripts/pipeline_cross_cultural.sh`.
 - **TDD**: Test-Driven Development throughout — 636+ tests in `tests/` with pytest fixtures in `conftest.py`.
 - **Modular Design**: Clear separation between layers. Individual components (policies, metrics, RAG backends) can be swapped without affecting the rest of the system.
 

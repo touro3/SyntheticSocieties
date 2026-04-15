@@ -233,17 +233,25 @@ class TestPersonaReAnchoring:
         assert anchor is not None
         assert "comfort level" in anchor.lower()
 
-    def test_memory_block_includes_anchor_on_drift(self):
+    def test_memory_block_does_not_inject_anchor_into_prompts(self):
+        """Persona re-anchoring must NOT appear in build_memory_block output.
+
+        Injecting a formula-derived expected-cooperation rate into live
+        prompts is a confound: it biases Condition B agent behavior via an
+        unvalidated heuristic, undermining the empirical grounding claim.
+        The anchor string is only available via the private _build_persona_anchor
+        utility for post-hoc analysis; it must never appear in simulation prompts.
+        """
         from decision.prompt_builder import build_memory_block
 
         mem = HierarchicalMemory(max_recent=20)
         profile = _profile(trust_people=0.8, risk_tolerance=0.3)
-        # All work → drift from high-trust persona
+        # All work → would trigger drift anchor under the old (incorrect) design
         for i in range(10):
             mem.add(_item(i, "work"))
 
         block = build_memory_block(mem, window=5, profile=profile)
-        assert "[Persona reminder]" in block
+        assert "[Persona reminder]" not in block
 
     def test_memory_block_no_anchor_without_profile(self):
         from decision.prompt_builder import build_memory_block
@@ -252,12 +260,15 @@ class TestPersonaReAnchoring:
         for i in range(10):
             mem.add(_item(i, "work"))
 
-        # No profile → no anchor (backward compatible)
         block = build_memory_block(mem, window=5, profile=None)
         assert "[Persona reminder]" not in block
 
-    def test_build_prompt_passes_profile_to_memory(self):
-        """build_prompt should pass profile to build_memory_block for anchoring."""
+    def test_build_prompt_does_not_inject_persona_anchor(self):
+        """build_prompt must not include the persona re-anchoring cue.
+
+        Confirmed removal: the anchor formula is analysis-only and must not
+        appear in prompts used during simulation runs.
+        """
         from decision.prompt_builder import build_prompt
 
         mem = HierarchicalMemory(max_recent=20)
@@ -267,10 +278,9 @@ class TestPersonaReAnchoring:
             "world": {"prices": {"food": 1.0}, "public_signal": {"economy": "stable"}},
             "network": {"neighbors": ["a1"]},
         }
-        # All work → drift from very-high-trust persona
         for i in range(10):
             mem.add(_item(i, "work"))
 
         messages = build_prompt(profile, state, mem, context, round_id=11)
         full_text = " ".join(m["content"] for m in messages)
-        assert "Persona reminder" in full_text
+        assert "Persona reminder" not in full_text

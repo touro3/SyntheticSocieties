@@ -7,6 +7,7 @@ and ConditionedLLMPolicy. Subclasses override only prompt construction.
 from __future__ import annotations
 
 import logging
+import math
 
 from decision.constants import (
     COOPERATE_WEALTH_THRESHOLD,
@@ -64,7 +65,13 @@ class LLMPolicyBase:
         messages: list[dict],
         neighbors: list[str],
     ) -> tuple[ProposedAction | None, str, float, dict]:
-        """Generate LLM output with retries. Returns (action, raw_text, latency, parse_meta)."""
+        """Generate LLM output with retries. Returns (action, raw_text, latency, parse_meta).
+
+        When the backend supports logprobs (LLMBackend with return_logprobs=True),
+        the parsed action's confidence is replaced with exp(first_token_logprob) —
+        a calibrated model-derived value — instead of the LLM's self-reported
+        confidence field, which is known to be poorly calibrated.
+        """
         self._ensure_counters()
         self._total_proposals += 1
         action = None
@@ -74,13 +81,39 @@ class LLMPolicyBase:
 
         for attempt in range(self.max_retries + 1):
             try:
-                raw_text, latency = self.backend.generate(
-                    messages=messages,
-                    temperature=self.temperature,
-                )
+                # Request logprobs for calibrated confidence. Falls back to the
+                # two-element return if the backend doesn't support this parameter.
+                try:
+                    result = self.backend.generate(
+                        messages=messages,
+                        temperature=self.temperature,
+                        return_logprobs=True,
+                    )
+                    raw_text, latency = result[0], result[1]
+                    logprob: float | None = result[2] if len(result) > 2 else None
+                except TypeError:
+                    # Backend doesn't accept return_logprobs (e.g. OpenAIBackend).
+                    raw_text, latency = self.backend.generate(
+                        messages=messages,
+                        temperature=self.temperature,
+                    )
+                    logprob = None
+
                 action, parse_meta = parse_llm_output(raw_text, neighbors)
+
                 if action is not None:
+                    # Replace self-reported confidence with the model's actual
+                    # first-token log-probability when available. exp(logprob)
+                    # gives a calibrated probability in [0, 1]; the LLM's
+                    # self-reported "confidence" field is not calibrated.
+                    if logprob is not None and logprob != float("-inf"):
+                        calibrated_conf = max(0.0, min(1.0, math.exp(logprob)))
+                        action = action.model_copy(update={"confidence": calibrated_conf})
+                        parse_meta["confidence_source"] = "logprob"
+                    else:
+                        parse_meta["confidence_source"] = "self_reported"
                     break
+
             except Exception as e:
                 logger.warning("LLM generation failed (attempt %d): %s", attempt + 1, e)
                 parse_meta = {"parse_error": str(e), "parse_success": False}

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # reproduce_paper.sh
 # One-command reproduction of the BGF paper results.
 #

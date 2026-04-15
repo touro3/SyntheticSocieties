@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # ==============================================================================
 # PIPELINE FASE C: Baselines e Validação do Framework

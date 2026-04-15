@@ -6,10 +6,9 @@ Measures how well an agent's behavior over time remains consistent with
 the cooperation expectations set by its ESS-derived persona attributes.
 
 Key concept:
-  expected_cooperation_rate(profile) maps trust and risk attributes to a
-  baseline cooperation probability. This is an explicit, documented
-  assumption -- intentionally simple (linear) so it can be critiqued and
-  replaced.
+  expected_cooperation_rate(profile) maps ESS-derived attributes to a
+  baseline cooperation probability estimated from a logistic regression
+  model fitted on real ESS Round 11 volunteering data (Austria, N=866).
 
   Persona fidelity at round r = 1 - |actual_coop_rate - expected_coop_rate|
   Decay rate = linear slope of fidelity over rounds (negative = drifting)
@@ -17,46 +16,135 @@ Key concept:
 
 from __future__ import annotations
 
+import json
+import math
 from collections import defaultdict
 from collections.abc import Iterable
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-# ── Expected cooperation rate ────────────────────────────────────────────
+# ── Empirical cooperation rate model ─────────────────────────────────────
 
-_DEFAULT_TRUST = 0.5
-_DEFAULT_RISK = 0.5
+_MODEL_PATH = Path(__file__).parent.parent / "data" / "cooperation_model.json"
+
+# Feature order must match scripts/fit_cooperation_model.py FEATURES list
+_MODEL_FEATURES = [
+    "trust_people",
+    "trust_fairness",
+    "trust_helpfulness",
+    "risk_taking",
+    "social_meeting_freq",
+    "social_activity",
+    "reduce_inequality",
+]
+
+
+@lru_cache(maxsize=1)
+def _load_model() -> dict | None:
+    """Load and cache the fitted cooperation model from JSON.
+
+    Returns None if the model file is not found (falls back to heuristic).
+    The lru_cache ensures the file is read only once per interpreter session.
+    """
+    if not _MODEL_PATH.exists():
+        return None
+    try:
+        with _MODEL_PATH.open() as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _logistic(x: float) -> float:
+    """Numerically stable sigmoid."""
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    ex = math.exp(x)
+    return ex / (1.0 + ex)
 
 
 def expected_cooperation_rate(profile: Any) -> float:
-    """Map ESS trust/risk attributes to an expected cooperation baseline.
+    """Return the expected cooperation probability for a given agent profile.
 
-    Model:  expected_coop = 0.2 + 0.6 * trust_people * (1 - risk_tolerance)
+    Uses a logistic regression model fitted on ESS Round 11 volunteering
+    behavior (Austria, N=866, AUC=0.640, 10-fold CV).
 
-    This yields:
-      - High trust, low risk  -> ~0.74 (cooperate often)
-      - Low trust, high risk  -> ~0.26 (cooperate rarely)
-      - Neutral (0.5, 0.5)    -> ~0.35
+    The model was fitted in ``scripts/fit_cooperation_model.py`` and stored
+    in ``data/cooperation_model.json``. Volunteering is used as the
+    cooperation proxy because it is the only directly observed altruistic
+    behavior in the ESS (all other variables are attitudes or demographics).
 
-    The 0.2 floor ensures all agents have some baseline cooperation
-    probability, and 0.8 ceiling prevents deterministic cooperation.
+    Feature → profile attribute mapping
+    ------------------------------------
+    trust_people       → profile.trust_people        (direct, or model mean)
+    trust_fairness     → model training mean          (not in agent profile)
+    trust_helpfulness  → model training mean          (not in agent profile)
+    risk_taking        → profile.risk_tolerance       (same ESS variable)
+    social_meeting_freq→ model training mean          (not in agent profile)
+    social_activity    → profile.social_activity      (direct, or model mean)
+    reduce_inequality  → model training mean          (not in agent profile)
+
+    Attributes not in the profile are imputed with their training-data mean,
+    which is conservative (predicts close to the population average for those
+    dimensions). This imputation is documented here and in the model JSON.
+
+    Known limitations
+    -----------------
+    - Austria-only data; cross-country generalization is untested
+    - Volunteering ≠ in-game cooperation; effect sizes may differ
+    - AUC=0.640 indicates moderate (not strong) predictive signal
+    - ``trust_people`` is NOT a significant predictor in the fitted model
+      (95% CI includes zero); ``risk_taking`` and social engagement drive
+      the effect. This contradicts the prior heuristic formula's assumption.
+
+    Falls back to heuristic formula if model file is missing.
 
     Args:
-        profile: AgentProfile (or any object with trust_people and
-            risk_tolerance attributes).
+        profile: AgentProfile or any object with relevant attributes.
 
     Returns:
-        Float in [0.2, 0.8].
+        Float in (0, 1): estimated P(cooperate | profile).
     """
-    trust = getattr(profile, "trust_people", None)
-    risk = getattr(profile, "risk_tolerance", None)
+    model = _load_model()
+    if model is None:
+        return _heuristic_cooperation_rate(profile)
 
-    if trust is None:
-        trust = _DEFAULT_TRUST
-    if risk is None:
-        risk = _DEFAULT_RISK
+    params = model["model_params"]
+    coefs = params["coef_original"]          # coefficients on original scale
+    intercept = params["intercept_original"]
+    feat_means = params["feature_means"]     # training means for imputation
 
+    # Build feature vector with imputation for missing profile attributes
+    trust_people = getattr(profile, "trust_people", None)
+    risk_tolerance = getattr(profile, "risk_tolerance", None)
+    social_activity = getattr(profile, "social_activity", None)
+
+    feat_vals = [
+        trust_people   if trust_people   is not None else feat_means[0],  # trust_people
+        feat_means[1],                                                      # trust_fairness (imputed)
+        feat_means[2],                                                      # trust_helpfulness (imputed)
+        risk_tolerance if risk_tolerance is not None else feat_means[3],   # risk_taking
+        feat_means[4],                                                      # social_meeting_freq (imputed)
+        social_activity if social_activity is not None else feat_means[5], # social_activity
+        feat_means[6],                                                      # reduce_inequality (imputed)
+    ]
+
+    log_odds = intercept + sum(c * x for c, x in zip(coefs, feat_vals))
+    return _logistic(log_odds)
+
+
+def _heuristic_cooperation_rate(profile: Any) -> float:
+    """Fallback heuristic when empirical model is unavailable.
+
+    DEPRECATED: This formula was not fitted against data. It is retained
+    only as a fallback if data/cooperation_model.json is missing. New code
+    should call expected_cooperation_rate() which uses the empirical model.
+    """
+    trust = getattr(profile, "trust_people", None) or 0.5
+    risk = getattr(profile, "risk_tolerance", None) or 0.5
     return 0.2 + 0.6 * trust * (1.0 - risk)
 
 

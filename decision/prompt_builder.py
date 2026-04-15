@@ -13,6 +13,7 @@ The ``AblationLevel`` class documents exactly what each grounding level adds.
 
 from __future__ import annotations
 
+import hashlib
 from enum import IntEnum
 from typing import TYPE_CHECKING, Optional
 
@@ -255,11 +256,11 @@ def build_memory_block(
         if reflection:
             lines.append(f"[Memory summary] {reflection}")
 
-    # Persona re-anchoring: detect drift and inject grounding cue.
-    if profile is not None:
-        anchor = _build_persona_anchor(memory, profile)
-        if anchor:
-            lines.append(anchor)
+    # NOTE: persona re-anchoring is intentionally NOT applied here.
+    # Injecting an expected cooperation rate derived from trust/risk attributes
+    # into LLM prompts during a simulation run conflates the grounding mechanism
+    # under study with the measurement of its effect, confounding Condition A vs B.
+    # See _build_persona_anchor() below for the analysis-only utility.
 
     if not recent:
         if not lines:
@@ -278,19 +279,26 @@ def build_memory_block(
     return "\n".join(lines)
 
 
-# Drift detection threshold: if |actual - expected| > this, inject anchor.
+# Drift detection threshold: if |actual - expected| > this, produce an anchor.
 _DRIFT_THRESHOLD = 0.25
 
 
 def _build_persona_anchor(
     memory: HierarchicalMemory, profile: AgentProfile,
 ) -> Optional[str]:
-    """Generate a persona re-anchoring cue when behavioral drift is detected.
+    """Generate a persona re-anchoring string for POST-HOC ANALYSIS ONLY.
 
-    Compares the agent's recency-weighted cooperation rate against the
-    expectation derived from their ESS trust/risk attributes. If drift
-    exceeds the threshold, returns a natural-language reminder that
-    re-grounds the LLM in the agent's core disposition.
+    WARNING: This function MUST NOT be called from build_memory_block() or any
+    code path that constructs prompts used during a live simulation run.
+    Injecting a cooperation-rate expectation derived from trust/risk attributes
+    directly into agent prompts is a confound: it manipulates agent behavior in
+    the grounded condition (Condition B) via a formula that is NOT derived from
+    ESS data, violating the empirical grounding claim.
+
+    The formula `expected_coop = 0.2 + 0.6 * trust * (1.0 - risk)` below is a
+    heuristic approximation. It is retained here only so that analysis scripts
+    and tests that study drift can compute a drift signal, NOT so that the LLM
+    is told what cooperation rate to target.
 
     Returns None if no drift is detected or insufficient data.
     """
@@ -395,7 +403,12 @@ def build_prompt(
     # subsequent call with the same inputs (e.g. the logging path) produces
     # the identical system prompt — without this the logged prompt diverges
     # from what the model actually received, corrupting the prompt log.
-    shuffle_seed = hash((round_id, profile.agent_id)) % (2 ** 31)
+    # Uses SHA-256 (not Python's built-in hash()) for cross-process stability:
+    # hash() is randomized per-interpreter since Python 3.3 (PYTHONHASHSEED),
+    # which would produce different action orderings across machines/processes.
+    shuffle_seed = int(
+        hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16
+    )
     system_text = get_shuffled_system_prompt(seed=shuffle_seed)
 
     # No extra guidance — prompt must not bias toward specific actions.
@@ -485,31 +498,30 @@ def build_prompt_staged(
     # ── Stage 4: World + RAG context ─────────────────────────────────────────
     context_desc = build_context_block(context)
 
-    # Per-stage token budgets (sum ≤ max_tokens; action instruction reserved)
+    # Trim using the same priority-aware budget manager as build_prompt().
+    # The previous per-stage character heuristic (~4 chars/token) was both
+    # inconsistent with build_prompt() and less accurate than the tokenizer-
+    # backed trim_to_budget() call below.
     budget = max_tokens if max_tokens is not None else DEFAULT_MAX_TOKENS
-    # Rough allocation: 10% system, 25% persona, 15% state, 25% memory, 25% world
-    stage_budgets = {
-        "persona":            int(budget * 0.25),
-        "state":              int(budget * 0.15),
-        "memory":             int(budget * 0.25),
-        "context":            int(budget * 0.20),
-        "population_context": int(budget * 0.07),
-        "social_context":     int(budget * 0.05),
-    }
 
-    # Trim each stage independently to its budget (~4 chars/token heuristic).
-    def _trim(text: Optional[str], key: str) -> Optional[str]:
-        if not text:
-            return text
-        char_limit = stage_budgets[key] * 4
-        return text[:char_limit] if len(text) > char_limit else text
+    trimmed = trim_to_budget(
+        system=system_text,
+        persona=persona,
+        state=state_desc,
+        memory=memory_desc,
+        context=context_desc,
+        population_context=population_context,
+        social_context=social_context,
+        extra=None,
+        max_tokens=budget,
+    )
 
-    persona_t     = _trim(persona, "persona") or persona
-    state_t       = _trim(state_desc, "state") or state_desc
-    memory_t      = _trim(memory_desc, "memory") or memory_desc
-    context_t     = _trim(context_desc, "context") or context_desc
-    pop_t         = _trim(population_context, "population_context")
-    social_t      = _trim(social_context, "social_context")
+    persona_t  = trimmed["persona"]
+    state_t    = trimmed["state"]
+    memory_t   = trimmed["memory"]
+    context_t  = trimmed["context"]
+    pop_t      = trimmed["population_context"]
+    social_t   = trimmed["social_context"]
 
     # ── Assemble ──────────────────────────────────────────────────────────────
     parts = [f"Round {round_id}.", persona_t, state_t]

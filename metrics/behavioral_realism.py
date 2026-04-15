@@ -1,4 +1,4 @@
-"""Behavioral Realism Metric (BRM) and RLHF Bias Index.
+"""Behavioral Realism Metric (BRM) and Action Concentration Index.
 
 Phase 23 — Formal framework formalization.
 
@@ -6,10 +6,25 @@ Provides three core metrics for evaluating how well a simulation
 matches empirical data:
 
   BRM_JSD:  1 - JSD(D_sim || D_ESS)                   ∈ [0, 1]
-  B_RLHF:  TV(π_observed, π_uniform)                   ∈ [0, 1]
+  B_RLHF:   TV(π_observed, π_uniform)                  ∈ [0, 1]
   Composite BRM:  weighted aggregate of sub-dimensions  ∈ [0, 1]
 
 All metrics are oriented so that 1 = better / more realistic.
+
+Interpretation note — B_RLHF:
+  B_RLHF measures total variation distance from a *uniform* action
+  distribution. In this project it is used as a diagnostic for whether
+  RLHF fine-tuning has steered the base model toward a particular action
+  (typically cooperation/helpfulness), producing a skewed distribution.
+  The hypothesis is that an ungrounded RLHF-tuned LLM will over-cooperate
+  (high B_RLHF), while ESS grounding pushes action distributions toward
+  empirically realistic heterogeneity (lower B_RLHF).
+
+  Limitation: B_RLHF cannot distinguish RLHF-induced concentration from
+  legitimate persona-driven concentration (e.g. a cohort of high-trust
+  agents will naturally cooperate more). Interpret B_RLHF differences
+  between Condition A and B as evidence of grounding effect, not as a
+  standalone measure of RLHF bias.
 """
 
 from __future__ import annotations
@@ -55,16 +70,24 @@ def compute_brm_jsd(
 
 
 def compute_rlhf_bias_index(action_distribution: dict[str, float]) -> float:
-    """RLHF Bias Index via Total Variation distance from uniform.
+    """Action Concentration Index via Total Variation distance from uniform.
+
+    Also referred to as B_RLHF in the paper (see module docstring for
+    interpretation and limitations before using this for causal claims).
 
     B_RLHF(π) = 0.5 * Σ |π(a) - 1/|A||  for a ∈ {work, save, cooperate}
+
+    This equals the total variation distance between the observed action
+    distribution and a uniform distribution over the action space. A value
+    of 0 means actions are equally distributed; 2/3 means all agents take
+    the same action (maximum concentration).
 
     Args:
         action_distribution: Mapping of action name → probability.
             Missing actions are treated as 0.0.
 
     Returns:
-        Float in [0, 1]. 0 = uniform (no bias), 2/3 = maximally biased.
+        Float in [0, 2/3]. 0 = uniform (no concentration), 2/3 = fully concentrated.
 
     Raises:
         ValueError: If distribution is empty.

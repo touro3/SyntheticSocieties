@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # ==============================================================================
 # PIPELINE FASE D: Simulação em Larga Escala e Análise Topológica

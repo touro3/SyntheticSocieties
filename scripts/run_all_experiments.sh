@@ -1,4 +1,5 @@
 #!/bin/bash
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # ==============================================================================
 # FULL PAPER REPRODUCTION PIPELINE
 #
@@ -11,8 +12,8 @@
 #   - artifacts/persona_fidelity/ populated (Phase A output)
 #
 # Usage:
-#   bash run_all_experiments.sh           # Run everything
-#   bash run_all_experiments.sh --no-llm  # Skip LLM phases (baselines only)
+#   bash scripts/run_all_experiments.sh           # Run everything
+#   bash scripts/run_all_experiments.sh --no-llm  # Skip LLM phases (baselines only)
 # ==============================================================================
 
 # ---                                                                           
@@ -199,7 +200,7 @@ echo "$DIVIDER"
 echo ""
 echo "[Phase C] Baselines & Validation..."
 echo "$DIVIDER"
-bash pipeline_phase_c.sh
+bash scripts/pipeline_phase_c.sh
 echo ""
 
 # ── Phase D: Large-Scale Simulation (500 agents) ────────────────────────
@@ -207,7 +208,7 @@ echo ""
 if [ "$NO_LLM" = false ]; then
     echo "[Phase D] Large-Scale Simulation (500 agents, 30 rounds)..."
     echo "$DIVIDER"
-    bash pipeline_phase_d.sh
+    bash scripts/pipeline_phase_d.sh
     echo ""
 fi
 
@@ -216,7 +217,7 @@ fi
 if [ "$NO_LLM" = false ]; then
     echo "[Stress Test] Bad Apple Injection (5% adversarial agents)..."
     echo "$DIVIDER"
-    bash pipeline_bad_apple.sh
+    bash scripts/pipeline_bad_apple.sh
     echo ""
 fi
 
@@ -225,7 +226,7 @@ fi
 if [ "$NO_LLM" = false ]; then
     echo "[Stress Test] Macroeconomic Shock (50% wealth shock at round 15)..."
     echo "$DIVIDER"
-    bash pipeline_macro_shock.sh
+    bash scripts/pipeline_macro_shock.sh
     echo ""
 fi
 
@@ -234,7 +235,7 @@ fi
 if [ "$NO_LLM" = false ]; then
     echo "[Stress Test] Topology Comparison (small-world vs fully-connected)..."
     echo "$DIVIDER"
-    bash pipeline_topology.sh
+    bash scripts/pipeline_topology.sh
     echo ""
 fi
 

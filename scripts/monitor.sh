@@ -1,6 +1,7 @@
 #!/bin/bash
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-# watch -n 5 ./monitor.sh
+# watch -n 5 ./scripts/monitor.sh
 
 # CONFIG
 GPU_LIMIT=90

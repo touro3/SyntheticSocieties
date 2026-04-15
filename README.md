@@ -141,13 +141,13 @@ pytest tests/test_behavioral_realism.py tests/test_persona_decay.py \
 ## Experiment Pipelines
 
 ```bash
-bash pipeline_bad_apple.sh      # 5% adversarial agent injection
-bash pipeline_macro_shock.sh    # 50% wealth shock at round 15
-bash pipeline_topology.sh       # Network topology comparison (small-world vs random)
-bash pipeline_phase_c.sh        # 100 agents, 100 rounds, LLM with RAG
-bash pipeline_phase_d.sh        # Large-scale 500-agent simulation
-bash run_all_experiments.sh     # Full paper reproduction (all conditions + analysis)
-bash run_all_experiments.sh --no-llm  # Skip GPU-dependent phases
+bash scripts/pipeline_bad_apple.sh      # 5% adversarial agent injection
+bash scripts/pipeline_macro_shock.sh    # 50% wealth shock at round 15
+bash scripts/pipeline_topology.sh       # Network topology comparison (small-world vs random)
+bash scripts/pipeline_phase_c.sh        # 100 agents, 100 rounds, LLM with RAG
+bash scripts/pipeline_phase_d.sh        # Large-scale 500-agent simulation
+bash scripts/run_all_experiments.sh     # Full paper reproduction (all conditions + analysis)
+bash scripts/run_all_experiments.sh --no-llm  # Skip GPU-dependent phases
 ```
 
 ---
@@ -211,7 +211,7 @@ result = compute_cross_cultural_correlation(cluster_results)
 ```
 
 Dry-run result (mock policy, rule-based agents): **Spearman ρ = 1.000 (p = 0.000)**.
-GPU experiment pending: `bash pipeline_cross_cultural.sh --include-llm`
+GPU experiment pending: `bash scripts/pipeline_cross_cultural.sh --include-llm`
 
 New files: `population/country_clusters.py`, `metrics/cross_cultural.py`,
 `data/cross_cultural_benchmarks.json`, `configs/cross_cultural/`, `scripts/run_cross_cultural.py`,
@@ -407,8 +407,8 @@ Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → **606*
 | `docs/causal_model.md` | Causal DAG, confound table, mediation decomposition |
 | `docs/hypotheses.md` | Formalized experimental hypotheses H1–H8 |
 | `docs/evaluation_protocol.md` | Calibration vs evaluation split methodology |
-| `MASTERS_ELEVATION_PLAN.md` | Research elevation roadmap (Phases 16–26) |
-| `BGF_PROGRESS_CHECKLIST.md` | Phase completion tracker |
+| `docs/MASTERS_ELEVATION_PLAN.md` | Research elevation roadmap (Phases 16–26) |
+| `docs/BGF_PROGRESS_CHECKLIST.md` | Phase completion tracker |
 
 ---
 

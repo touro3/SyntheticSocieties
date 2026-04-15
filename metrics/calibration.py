@@ -114,6 +114,13 @@ def calibration_report(policies: list[str] = None) -> str:
     """
     Generate calibration vs evaluation report for all policies.
     Returns formatted string.
+
+    Statistical note: With only one held-out evaluation seed (seed=7),
+    the calibration-evaluation gap estimate has zero degrees of freedom
+    for variance estimation — it is a point estimate with no uncertainty
+    bounds. The LOW/MEDIUM/HIGH risk labels below should be treated as
+    directional signals, not statistically validated claims. A minimum of
+    5 held-out seeds is recommended for reliable generalization assessment.
     """
     if policies is None:
         policies = ["llm", "template", "rule_based", "random"]
@@ -123,6 +130,8 @@ def calibration_report(policies: list[str] = None) -> str:
     lines.append("  Calibration vs Evaluation Report")
     lines.append(f"  Calibration seeds: {CALIBRATION_SEEDS}")
     lines.append(f"  Evaluation seeds:  {EVALUATION_SEEDS}")
+    lines.append("  WARNING: n=1 evaluation seed — gap estimates have no")
+    lines.append("  variance bounds. Risk labels are directional only.")
     lines.append("=" * 70)
     lines.append("")
 

@@ -15,6 +15,7 @@
 #   analysis/tables/cross_cultural_correlation.csv
 #   analysis/figures/cross_cultural_validation.png
 set -e
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 source venv/bin/activate
 

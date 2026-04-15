@@ -71,17 +71,34 @@ _FAKE_CLUSTERS = [
 
 @pytest.fixture(autouse=True)
 def _patch_clusters_if_missing(monkeypatch):
-    """Replace load_clusters / get_cluster_by_name with in-memory stubs in CI."""
+    """Replace load_clusters / get_cluster_by_name with in-memory stubs in CI.
+
+    Both bindings must be patched because this test module does
+    ``from population.country_clusters import load_clusters`` at import time,
+    so `tests.test_cross_cultural.load_clusters` is a separate name that
+    resolves before any patch on the source module takes effect. We patch
+    both the test module's local binding (where the tests actually call it)
+    and the source module (defensively, for any indirect callers).
+    """
     if not _DATA_MISSING:
         return
-    monkeypatch.setattr(
-        "population.country_clusters.load_clusters",
-        lambda *args, **kwargs: _FAKE_CLUSTERS,
-    )
-    monkeypatch.setattr(
-        "population.country_clusters.get_cluster_by_name",
-        lambda name, *args, **kwargs: {c.name: c for c in _FAKE_CLUSTERS}[name],
-    )
+
+    import sys
+
+    def _fake_load_clusters(*args, **kwargs):
+        return list(_FAKE_CLUSTERS)
+
+    def _fake_get_cluster_by_name(name, *args, **kwargs):
+        by_name = {c.name: c for c in _FAKE_CLUSTERS}
+        if name not in by_name:
+            raise KeyError(f"Unknown cluster '{name}'. Available: {list(by_name)}")
+        return by_name[name]
+
+    test_module = sys.modules[__name__]
+    monkeypatch.setattr(test_module, "load_clusters", _fake_load_clusters)
+    monkeypatch.setattr(test_module, "get_cluster_by_name", _fake_get_cluster_by_name)
+    monkeypatch.setattr("population.country_clusters.load_clusters", _fake_load_clusters)
+    monkeypatch.setattr("population.country_clusters.get_cluster_by_name", _fake_get_cluster_by_name)
 
 
 # ── benchmarks.json integrity ─────────────────────────────────────────────────

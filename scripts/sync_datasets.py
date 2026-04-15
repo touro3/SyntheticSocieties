@@ -15,9 +15,13 @@ from decision.dataset_router import DatasetRegistry
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Stream-download datasets from the registry without loading them into memory.")
+    parser = argparse.ArgumentParser(
+        description="Stream-download datasets from the registry without loading them into memory."
+    )
     parser.add_argument("--registry-path", type=str, default="data/dataset_registry.json")
-    parser.add_argument("--dataset-ids", type=str, default=None, help="Comma-separated dataset ids. Default: all with download_url.")
+    parser.add_argument(
+        "--dataset-ids", type=str, default=None, help="Comma-separated dataset ids. Default: all with download_url."
+    )
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--chunk-mb", type=int, default=4)
     return parser.parse_args()

@@ -26,34 +26,37 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import matplotlib
+
 matplotlib.use("Agg")
 
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from metrics.inequality import gini_coefficient, lorenz_curve
-from metrics.distribution import jensen_shannon_divergence, kl_divergence, wasserstein_distance
 from metrics.calibration import calibration_evaluation_split
+from metrics.distribution import jensen_shannon_divergence, kl_divergence, wasserstein_distance
+from metrics.inequality import gini_coefficient, lorenz_curve
 
 # ── Style ──────────────────────────────────────────────────────────────────
 
-plt.rcParams.update({
-    "figure.facecolor": "#1a1a2e",
-    "axes.facecolor": "#16213e",
-    "axes.edgecolor": "#e94560",
-    "axes.labelcolor": "#e8e8e8",
-    "text.color": "#e8e8e8",
-    "xtick.color": "#e8e8e8",
-    "ytick.color": "#e8e8e8",
-    "grid.color": "#2a2a4a",
-    "grid.alpha": 0.4,
-    "font.family": "sans-serif",
-    "font.size": 10,
-    "axes.titlesize": 13,
-    "figure.titlesize": 15,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": "#1a1a2e",
+        "axes.facecolor": "#16213e",
+        "axes.edgecolor": "#e94560",
+        "axes.labelcolor": "#e8e8e8",
+        "text.color": "#e8e8e8",
+        "xtick.color": "#e8e8e8",
+        "ytick.color": "#e8e8e8",
+        "grid.color": "#2a2a4a",
+        "grid.alpha": 0.4,
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.titlesize": 13,
+        "figure.titlesize": 15,
+    }
+)
 
 COLORS = {
     "llm": "#e94560",
@@ -139,6 +142,7 @@ def load_ablation_wealth(mode: str, seeds: list[int] | None = None) -> list[floa
 # PLOT 1: LLM-ALONE VS ESS-GROUNDED (PRIORITY)
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def plot_llm_grounding_comparison():
     """Compare LLM with no persona (ungrounded) vs LLM with ESS personas."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -168,13 +172,25 @@ def plot_llm_grounding_comparison():
     bins = np.linspace(0, max(max(grounded_wealth, default=0), max(ungrounded_wealth, default=0)) * 1.1, 20)
 
     if grounded_wealth:
-        ax.hist(grounded_wealth, bins=bins, alpha=0.6, color=COLORS["llm"],
-                label=f"ESS-Grounded (μ={np.mean(grounded_wealth):.0f}, G={gini_coefficient(grounded_wealth):.3f})",
-                edgecolor="white", linewidth=0.5)
+        ax.hist(
+            grounded_wealth,
+            bins=bins,
+            alpha=0.6,
+            color=COLORS["llm"],
+            label=f"ESS-Grounded (μ={np.mean(grounded_wealth):.0f}, G={gini_coefficient(grounded_wealth):.3f})",
+            edgecolor="white",
+            linewidth=0.5,
+        )
     if ungrounded_wealth:
-        ax.hist(ungrounded_wealth, bins=bins, alpha=0.6, color=COLORS["ungrounded"],
-                label=f"Ungrounded (μ={np.mean(ungrounded_wealth):.0f}, G={gini_coefficient(ungrounded_wealth):.3f})",
-                edgecolor="white", linewidth=0.5)
+        ax.hist(
+            ungrounded_wealth,
+            bins=bins,
+            alpha=0.6,
+            color=COLORS["ungrounded"],
+            label=f"Ungrounded (μ={np.mean(ungrounded_wealth):.0f}, G={gini_coefficient(ungrounded_wealth):.3f})",
+            edgecolor="white",
+            linewidth=0.5,
+        )
     ax.set_xlabel("Final Wealth")
     ax.set_ylabel("Count")
     ax.set_title("A. Wealth Distribution")
@@ -191,17 +207,32 @@ def plot_llm_grounding_comparison():
     grounded_pcts = [grounded_actions.get(a, 0) / grounded_total for a in action_types]
     ungrounded_pcts = [ungrounded_actions.get(a, 0) / ungrounded_total for a in action_types]
 
-    bars1 = ax.bar(x - width/2, grounded_pcts, width, label="ESS-Grounded",
-                   color=COLORS["llm"], edgecolor="white", linewidth=0.5)
-    bars2 = ax.bar(x + width/2, ungrounded_pcts, width, label="Ungrounded",
-                   color=COLORS["ungrounded"], edgecolor="white", linewidth=0.5)
+    bars1 = ax.bar(
+        x - width / 2, grounded_pcts, width, label="ESS-Grounded", color=COLORS["llm"], edgecolor="white", linewidth=0.5
+    )
+    bars2 = ax.bar(
+        x + width / 2,
+        ungrounded_pcts,
+        width,
+        label="Ungrounded",
+        color=COLORS["ungrounded"],
+        edgecolor="white",
+        linewidth=0.5,
+    )
 
     for bars in [bars1, bars2]:
         for bar in bars:
             h = bar.get_height()
             if h > 0.05:
-                ax.text(bar.get_x() + bar.get_width()/2, h + 0.02, f"{h:.0%}",
-                        ha="center", va="bottom", fontsize=8, color="#e8e8e8")
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    h + 0.02,
+                    f"{h:.0%}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                    color="#e8e8e8",
+                )
 
     ax.set_xticks(x)
     ax.set_xticklabels(action_types)
@@ -220,8 +251,7 @@ def plot_llm_grounding_comparison():
     ]:
         if data:
             lc = lorenz_curve(data)
-            ax.plot(lc["population_share"], lc["value_share"], label=label,
-                    color=color, linewidth=2)
+            ax.plot(lc["population_share"], lc["value_share"], label=label, color=color, linewidth=2)
 
     ax.plot([0, 1], [0, 1], "--", color="#666", linewidth=1, label="Perfect Equality")
     ax.set_xlabel("Population Share")
@@ -261,11 +291,19 @@ def plot_llm_grounding_comparison():
     x = np.arange(len(conditions))
     width = 0.25
     for j, (metric_name, values) in enumerate(metrics.items()):
-        bars = ax.bar(x + j * width - width, values, width, label=metric_name,
-                      alpha=0.85, edgecolor="white", linewidth=0.5)
+        bars = ax.bar(
+            x + j * width - width, values, width, label=metric_name, alpha=0.85, edgecolor="white", linewidth=0.5
+        )
         for bar, val in zip(bars, values):
-            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
-                    f"{val:.2f}", ha="center", va="bottom", fontsize=7, color="#e8e8e8")
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.02,
+                f"{val:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=7,
+                color="#e8e8e8",
+            )
 
     ax.set_xticks(x)
     ax.set_xticklabels(conditions, fontsize=8)
@@ -284,6 +322,7 @@ def plot_llm_grounding_comparison():
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 2: POLICY COMPARISON HEATMAP
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def plot_policy_heatmap():
     """Heatmap of all metrics across all policies."""
@@ -355,6 +394,7 @@ def plot_policy_heatmap():
 # PLOT 3: ABLATION EFFECT
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def plot_ablation_effect():
     """Show how removing prompt components affects LLM behavior."""
     modes = ["rich_persona", "minimal_persona", "no_persona"]
@@ -368,8 +408,14 @@ def plot_ablation_effect():
     for mode, label in zip(modes, mode_labels):
         wealth = load_ablation_wealth(mode)
         if wealth:
-            ax.hist(wealth, bins=15, alpha=0.5, label=f"{label.split(chr(10))[0]} (μ={np.mean(wealth):.0f})",
-                    edgecolor="white", linewidth=0.5)
+            ax.hist(
+                wealth,
+                bins=15,
+                alpha=0.5,
+                label=f"{label.split(chr(10))[0]} (μ={np.mean(wealth):.0f})",
+                edgecolor="white",
+                linewidth=0.5,
+            )
     ax.set_xlabel("Final Wealth")
     ax.set_ylabel("Count")
     ax.set_title("Wealth Distribution")
@@ -389,8 +435,15 @@ def plot_ablation_effect():
             actions.update(sm.get("event_action_counts", {}))
         total = max(sum(actions.values()), 1)
         pcts = [actions.get(a, 0) / total for a in action_types]
-        ax.bar(x + i * width - width, pcts, width, label=label.split("\n")[0],
-               color=colors_list[i], edgecolor="white", linewidth=0.5)
+        ax.bar(
+            x + i * width - width,
+            pcts,
+            width,
+            label=label.split("\n")[0],
+            color=colors_list[i],
+            edgecolor="white",
+            linewidth=0.5,
+        )
 
     ax.set_xticks(x)
     ax.set_xticklabels(action_types)
@@ -410,8 +463,15 @@ def plot_ablation_effect():
     ax.set_ylabel("Gini Coefficient")
     ax.set_title("Inequality")
     for bar, g in zip(bars, ginis):
-        ax.text(bar.get_x() + bar.get_width()/2, g + 0.005, f"{g:.3f}",
-                ha="center", va="bottom", fontsize=9, color="#e8e8e8")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            g + 0.005,
+            f"{g:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="#e8e8e8",
+        )
 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     out = OUTPUT_DIR / "ablation_effect.png"
@@ -424,6 +484,7 @@ def plot_ablation_effect():
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 4: DISTRIBUTION DIVERGENCES
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def plot_distribution_divergences():
     """JSD, KL, Wasserstein between policies and ESS-grounded LLM."""
@@ -466,16 +527,21 @@ def plot_distribution_divergences():
                 all_values.append(val)
                 all_colors.append(COLORS.get(mode, "#999"))
 
-        bars = ax.barh(range(len(all_labels)), all_values, color=all_colors,
-                       edgecolor="white", linewidth=0.5)
+        bars = ax.barh(range(len(all_labels)), all_values, color=all_colors, edgecolor="white", linewidth=0.5)
         ax.set_yticks(range(len(all_labels)))
         ax.set_yticklabels(all_labels, fontsize=8)
         ax.set_xlabel(metric_name)
         ax.set_title(metric_name)
 
         for bar, val in zip(bars, all_values):
-            ax.text(bar.get_width() + 0.001, bar.get_y() + bar.get_height()/2,
-                    f"{val:.4f}", va="center", fontsize=8, color="#e8e8e8")
+            ax.text(
+                bar.get_width() + 0.001,
+                bar.get_y() + bar.get_height() / 2,
+                f"{val:.4f}",
+                va="center",
+                fontsize=8,
+                color="#e8e8e8",
+            )
 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     out = OUTPUT_DIR / "distribution_divergences.png"
@@ -489,6 +555,7 @@ def plot_distribution_divergences():
 # PLOT 5: LORENZ CURVES (ALL POLICIES)
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def plot_lorenz_all():
     """Lorenz curves for all policies."""
     fig, ax = plt.subplots(figsize=(8, 7))
@@ -499,9 +566,13 @@ def plot_lorenz_all():
         if wealth:
             lc = lorenz_curve(wealth)
             g = gini_coefficient(wealth)
-            ax.plot(lc["population_share"], lc["value_share"],
-                    label=f"{LABELS[policy]} (G={g:.3f})",
-                    color=COLORS[policy], linewidth=2.5)
+            ax.plot(
+                lc["population_share"],
+                lc["value_share"],
+                label=f"{LABELS[policy]} (G={g:.3f})",
+                color=COLORS[policy],
+                linewidth=2.5,
+            )
 
     ax.plot([0, 1], [0, 1], "--", color="#666", linewidth=1, label="Perfect Equality")
     ax.set_xlabel("Cumulative Population Share")
@@ -520,6 +591,7 @@ def plot_lorenz_all():
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 6: CALIBRATION GAP
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def plot_calibration_gap():
     """Calibration vs evaluation metrics gap."""
@@ -545,10 +617,26 @@ def plot_calibration_gap():
 
         x = np.arange(len(labels))
         width = 0.35
-        ax.bar(x - width/2, cal_vals, width, label="Calibration\n(seeds 42, 123)",
-               color=COLORS["llm"], alpha=0.8, edgecolor="white", linewidth=0.5)
-        ax.bar(x + width/2, eval_vals, width, label="Evaluation\n(seed 7)",
-               color=COLORS["ungrounded"], alpha=0.8, edgecolor="white", linewidth=0.5)
+        ax.bar(
+            x - width / 2,
+            cal_vals,
+            width,
+            label="Calibration\n(seeds 42, 123)",
+            color=COLORS["llm"],
+            alpha=0.8,
+            edgecolor="white",
+            linewidth=0.5,
+        )
+        ax.bar(
+            x + width / 2,
+            eval_vals,
+            width,
+            label="Evaluation\n(seed 7)",
+            color=COLORS["ungrounded"],
+            alpha=0.8,
+            edgecolor="white",
+            linewidth=0.5,
+        )
         ax.set_xticks(x)
         ax.set_xticklabels(labels, fontsize=8)
         ax.set_title(title)
@@ -565,6 +653,7 @@ def plot_calibration_gap():
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 7: PERTURBATION ROBUSTNESS
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def plot_perturbation_robustness():
     """Show LLM sensitivity to prompt perturbations."""
@@ -605,8 +694,12 @@ def plot_perturbation_robustness():
         if mode in pert_data:
             all_data.append((label, pert_data[mode]["wealth"], COLORS.get(mode, "#999")))
 
-    bp = ax.boxplot([d[1] for d in all_data if d[1]], tick_labels=[d[0] for d in all_data if d[1]],
-                    patch_artist=True, medianprops=dict(color="white", linewidth=2))
+    bp = ax.boxplot(
+        [d[1] for d in all_data if d[1]],
+        tick_labels=[d[0] for d in all_data if d[1]],
+        patch_artist=True,
+        medianprops=dict(color="white", linewidth=2),
+    )
     for patch, (_, _, color) in zip(bp["boxes"], [d for d in all_data if d[1]]):
         patch.set_facecolor(color)
         patch.set_alpha(0.7)
@@ -620,15 +713,21 @@ def plot_perturbation_robustness():
     width = 0.2
     offset = 0
     base_total = max(sum(base_actions.values()), 1)
-    bars = ax.bar(x - 1.5 * width, [base_actions.get(a, 0)/base_total for a in action_types],
-                  width, label="Baseline", color=COLORS["llm"], edgecolor="white", linewidth=0.5)
+    bars = ax.bar(
+        x - 1.5 * width,
+        [base_actions.get(a, 0) / base_total for a in action_types],
+        width,
+        label="Baseline",
+        color=COLORS["llm"],
+        edgecolor="white",
+        linewidth=0.5,
+    )
     for mode, label in zip(modes, mode_labels):
         if mode in pert_data:
             offset += 1
             total = max(sum(pert_data[mode]["actions"].values()), 1)
-            pcts = [pert_data[mode]["actions"].get(a, 0)/total for a in action_types]
-            ax.bar(x + (offset - 1.5) * width, pcts, width, label=label,
-                   edgecolor="white", linewidth=0.5, alpha=0.8)
+            pcts = [pert_data[mode]["actions"].get(a, 0) / total for a in action_types]
+            ax.bar(x + (offset - 1.5) * width, pcts, width, label=label, edgecolor="white", linewidth=0.5, alpha=0.8)
     ax.set_xticks(x)
     ax.set_xticklabels(action_types)
     ax.set_ylabel("Proportion")
@@ -652,8 +751,15 @@ def plot_perturbation_robustness():
     ax.set_ylabel("Gini")
     ax.set_title("Inequality Sensitivity")
     for bar, g in zip(bars, ginis):
-        ax.text(bar.get_x() + bar.get_width()/2, g + 0.005, f"{g:.3f}",
-                ha="center", va="bottom", fontsize=9, color="#e8e8e8")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            g + 0.005,
+            f"{g:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="#e8e8e8",
+        )
 
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     out = OUTPUT_DIR / "perturbation_robustness.png"
@@ -667,16 +773,24 @@ def plot_perturbation_robustness():
 # PLOT 8: V0-V5 PROMPT ABLATION LADDER (LLM BEHAVIOR RECOVERY)
 # ══════════════════════════════════════════════════════════════════════════
 
+
 def plot_ladder_ablation():
     """Show the effect of the V0->V5 structured ablation ladder on LLM behavior collapse."""
     levels = list(range(6))
-    labels = ["V0: Base", "V1: Stress\nSalience", "V2: Coop\nIncentives", "V3: Trust\nMemory", "V4: Balanced\nPhrasing", "V5: T=0.7\nDecoder"]
-    
+    labels = [
+        "V0: Base",
+        "V1: Stress\nSalience",
+        "V2: Coop\nIncentives",
+        "V3: Trust\nMemory",
+        "V4: Balanced\nPhrasing",
+        "V5: T=0.7\nDecoder",
+    ]
+
     ginis = []
     coop_rates = []
     work_rates = []
     save_rates = []
-    
+
     data_found = False
     for lvl in levels:
         wealth = []
@@ -687,34 +801,42 @@ def plot_ladder_ablation():
                 data_found = True
                 wealth.extend(sm.get("wealth", {}).get("values", []))
                 actions.update(sm.get("event_action_counts", {}))
-        
+
         ginis.append(gini_coefficient(wealth) if wealth else 0)
         tot = max(sum(actions.values()), 1)
         coop_rates.append(actions.get("cooperate", 0) / tot)
         work_rates.append(actions.get("work", 0) / tot)
         save_rates.append(actions.get("save", 0) / tot)
-    
+
     if not data_found:
         print("  ⚠ No V0-V5 ablation ladder data found, skipping plot")
         return None
-        
+
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle("V0-V5 Ablation Ladder: Resolving Action Collapse", fontsize=14, fontweight="bold")
-    
+
     # Action Rates (Stacked Bar)
     ax = axes[0]
     x = np.arange(len(levels))
-    
+
     ax.bar(x, work_rates, label="Work", color="#e94560", edgecolor="white", linewidth=0.5)
     ax.bar(x, save_rates, bottom=work_rates, label="Save", color="#0f3460", edgecolor="white", linewidth=0.5)
-    ax.bar(x, coop_rates, bottom=np.array(work_rates)+np.array(save_rates), label="Cooperate", color="#16c79a", edgecolor="white", linewidth=0.5)
-    
+    ax.bar(
+        x,
+        coop_rates,
+        bottom=np.array(work_rates) + np.array(save_rates),
+        label="Cooperate",
+        color="#16c79a",
+        edgecolor="white",
+        linewidth=0.5,
+    )
+
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
     ax.set_ylabel("Action Proportion")
     ax.set_title("A. Action Distribution Recovery")
     ax.legend()
-    
+
     # Equality
     ax = axes[1]
     ax.plot(x, ginis, marker="o", color="#50c4ed", linewidth=2, markersize=8)
@@ -724,8 +846,8 @@ def plot_ladder_ablation():
     ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
     ax.set_ylabel("Gini Coefficient")
     ax.set_title("B. Wealth Inequality Dynamics")
-    ax.set_ylim(0, max(ginis)*1.2 if max(ginis) > 0 else 1)
-    
+    ax.set_ylim(0, max(ginis) * 1.2 if max(ginis) > 0 else 1)
+
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     out = OUTPUT_DIR / "ladder_ablation.png"
     fig.savefig(out, dpi=200, bbox_inches="tight")
@@ -737,6 +859,7 @@ def plot_ladder_ablation():
 # ══════════════════════════════════════════════════════════════════════════
 # PLOT 9: COMPREHENSIVE RESULTS DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def plot_results_dashboard():
     """Comprehensive 2x3 dashboard combining key results."""
@@ -751,8 +874,9 @@ def plot_results_dashboard():
     means = [np.mean(load_wealth(p)) if load_wealth(p) else 0 for p in policies]
     stds = [np.std(load_wealth(p)) if load_wealth(p) else 0 for p in policies]
     colors_list = [COLORS[p] for p in policies]
-    bars = ax.bar(range(len(policies)), means, yerr=stds, color=colors_list,
-                  edgecolor="white", linewidth=0.5, capsize=3)
+    bars = ax.bar(
+        range(len(policies)), means, yerr=stds, color=colors_list, edgecolor="white", linewidth=0.5, capsize=3
+    )
     ax.set_xticks(range(len(policies)))
     ax.set_xticklabels([LABELS[p].split("(")[0].strip() for p in policies], fontsize=9)
     ax.set_ylabel("Mean Wealth")
@@ -761,11 +885,17 @@ def plot_results_dashboard():
     # Panel 2: Gini Coefficients
     ax = fig.add_subplot(gs[0, 1])
     ginis = [gini_coefficient(load_wealth(p)) if load_wealth(p) else 0 for p in policies]
-    bars = ax.bar(range(len(policies)), ginis, color=colors_list,
-                  edgecolor="white", linewidth=0.5)
+    bars = ax.bar(range(len(policies)), ginis, color=colors_list, edgecolor="white", linewidth=0.5)
     for bar, g in zip(bars, ginis):
-        ax.text(bar.get_x() + bar.get_width()/2, g + 0.005, f"{g:.3f}",
-                ha="center", va="bottom", fontsize=9, color="#e8e8e8")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            g + 0.005,
+            f"{g:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="#e8e8e8",
+        )
     ax.set_xticks(range(len(policies)))
     ax.set_xticklabels([LABELS[p].split("(")[0].strip() for p in policies], fontsize=9)
     ax.set_ylabel("Gini Coefficient")
@@ -782,8 +912,15 @@ def plot_results_dashboard():
             ac = load_actions(p)
             total = max(sum(ac.values()), 1)
             vals.append(ac.get(action, 0) / total)
-        ax.bar(range(len(policies)), vals, bottom=bottoms, label=action,
-               color=action_colors[j], edgecolor="white", linewidth=0.5)
+        ax.bar(
+            range(len(policies)),
+            vals,
+            bottom=bottoms,
+            label=action,
+            color=action_colors[j],
+            edgecolor="white",
+            linewidth=0.5,
+        )
         bottoms += np.array(vals)
     ax.set_xticks(range(len(policies)))
     ax.set_xticklabels([LABELS[p].split("(")[0].strip() for p in policies], fontsize=9)
@@ -797,8 +934,13 @@ def plot_results_dashboard():
         wealth = load_wealth(p)
         if wealth:
             lc = lorenz_curve(wealth)
-            ax.plot(lc["population_share"], lc["value_share"],
-                    color=COLORS[p], linewidth=2, label=LABELS[p].split("(")[0].strip())
+            ax.plot(
+                lc["population_share"],
+                lc["value_share"],
+                color=COLORS[p],
+                linewidth=2,
+                label=LABELS[p].split("(")[0].strip(),
+            )
     ax.plot([0, 1], [0, 1], "--", color="#666", linewidth=1)
     ax.set_xlabel("Population Share")
     ax.set_ylabel("Wealth Share")
@@ -817,10 +959,16 @@ def plot_results_dashboard():
         abl_means.append(np.mean(w) if w else 0)
 
     x = np.arange(len(abl_modes))
-    ax.bar(x - 0.2, [m / 100 for m in abl_means], 0.4, label="Wealth (÷100)",
-           color=COLORS["llm"], edgecolor="white", linewidth=0.5)
-    ax.bar(x + 0.2, abl_ginis, 0.4, label="Gini",
-           color=COLORS["ungrounded"], edgecolor="white", linewidth=0.5)
+    ax.bar(
+        x - 0.2,
+        [m / 100 for m in abl_means],
+        0.4,
+        label="Wealth (÷100)",
+        color=COLORS["llm"],
+        edgecolor="white",
+        linewidth=0.5,
+    )
+    ax.bar(x + 0.2, abl_ginis, 0.4, label="Gini", color=COLORS["ungrounded"], edgecolor="white", linewidth=0.5)
     ax.set_xticks(x)
     ax.set_xticklabels(abl_labels, fontsize=9)
     ax.set_title("E. Ablation: Persona Effect")
@@ -834,8 +982,7 @@ def plot_results_dashboard():
         avg_gap = np.mean(list(result["gap"].values()))
         gap_data[p] = avg_gap
 
-    bars = ax.bar(range(len(policies)), list(gap_data.values()),
-                  color=colors_list, edgecolor="white", linewidth=0.5)
+    bars = ax.bar(range(len(policies)), list(gap_data.values()), color=colors_list, edgecolor="white", linewidth=0.5)
     ax.set_xticks(range(len(policies)))
     ax.set_xticklabels([LABELS[p].split("(")[0].strip() for p in policies], fontsize=9)
     ax.set_ylabel("Average Gap (%)")
@@ -844,8 +991,9 @@ def plot_results_dashboard():
     ax.axhline(y=10, color="#f5a623", linestyle="--", linewidth=1, alpha=0.7, label="MEDIUM threshold")
     ax.legend(fontsize=7)
     for bar, g in zip(bars, gap_data.values()):
-        ax.text(bar.get_x() + bar.get_width()/2, g + 1, f"{g:.1f}%",
-                ha="center", va="bottom", fontsize=9, color="#e8e8e8")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2, g + 1, f"{g:.1f}%", ha="center", va="bottom", fontsize=9, color="#e8e8e8"
+        )
 
     fig.subplots_adjust(top=0.92, hspace=0.32, wspace=0.28)
 
@@ -859,6 +1007,7 @@ def plot_results_dashboard():
 # ══════════════════════════════════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════
+
 
 def main():
     global SEEDS

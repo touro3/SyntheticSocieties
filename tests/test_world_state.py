@@ -1,4 +1,5 @@
 """Tests for WorldState enrichment."""
+
 from environment.world_state import WorldState
 
 

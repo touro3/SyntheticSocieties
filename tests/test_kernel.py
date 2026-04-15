@@ -76,8 +76,7 @@ def test_batched_mode_respects_ablation_level(tmp_path):
     # Wire each agent with an LLMPolicy that has a non-default ablation_level.
     fake_backend = MagicMock()
     fake_backend.generate_batch.return_value = [
-        ('{"action_type": "work", "amount": 8, "reasoning_summary": "test", "confidence": 0.9}', 0.1)
-        for _ in agents
+        ('{"action_type": "work", "amount": 8, "reasoning_summary": "test", "confidence": 0.9}', 0.1) for _ in agents
     ]
 
     policy = LLMPolicy(
@@ -92,9 +91,7 @@ def test_batched_mode_respects_ablation_level(tmp_path):
     kernel = SimulationKernel(agents=agents, world=world, logger=logger)
 
     captured_calls = []
-    original_build = __import__(
-        "decision.prompt_builder", fromlist=["build_prompt"]
-    ).build_prompt
+    original_build = __import__("decision.prompt_builder", fromlist=["build_prompt"]).build_prompt
 
     def spy_build_prompt(*args, **kwargs):
         captured_calls.append(kwargs.get("ablation_level"))
@@ -104,9 +101,9 @@ def test_batched_mode_respects_ablation_level(tmp_path):
         kernel.run_round_batched()
 
     assert len(captured_calls) == len(agents), "build_prompt should be called once per agent"
-    assert all(
-        level == 2 for level in captured_calls
-    ), f"Expected ablation_level=2 for all agents, got: {captured_calls}"
+    assert all(level == 2 for level in captured_calls), (
+        f"Expected ablation_level=2 for all agents, got: {captured_calls}"
+    )
 
 
 def test_ablated_policy_runs_via_sequential_path(tmp_path):

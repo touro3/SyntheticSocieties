@@ -11,13 +11,11 @@ from metrics.feature_importance import (
     PROFILE_MEDIUM,
     PROFILE_MINIMAL,
     AgentRoundRecord,
-    FeatureCoefficient,
     FeatureImportanceResult,
     build_feature_matrix,
     compute_ablation_table,
     run_logistic_regression,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

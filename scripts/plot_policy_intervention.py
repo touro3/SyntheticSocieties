@@ -49,17 +49,19 @@ def main() -> None:
         data = json.load(f)
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
     import numpy as np
 
-    plt.rcParams.update({
-        "font.size": 11,
-        "axes.titlesize": 12,
-        "axes.labelsize": 11,
-        "figure.dpi": 150,
-    })
+    plt.rcParams.update(
+        {
+            "font.size": 11,
+            "axes.titlesize": 12,
+            "axes.labelsize": 11,
+            "figure.dpi": 150,
+        }
+    )
 
     summary = data["summary"]
     intervention_round = data["intervention_round"]
@@ -76,6 +78,7 @@ def main() -> None:
     colors = ["#aec6e8", "#5ba3d9", "#1f6fb2", "#0a3d6b"]
     if len(colors) < len(summary):
         import matplotlib.cm as cm
+
         cmap = cm.get_cmap("Blues", len(summary) + 2)
         colors = [cmap(i + 1) for i in range(len(summary))]
 
@@ -104,8 +107,7 @@ def main() -> None:
     # ── Panel B: ΔCooperation by intensity ──────────────────────────────
     ax = axes[1]
     x = np.arange(len(summary))
-    bars = ax.bar(x, delta_coops, yerr=delta_stds, capsize=5,
-                  color=colors, edgecolor="black", linewidth=0.7)
+    bars = ax.bar(x, delta_coops, yerr=delta_stds, capsize=5, color=colors, edgecolor="black", linewidth=0.7)
     ax.axhline(0, color="black", linewidth=0.8)
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
@@ -129,8 +131,7 @@ def main() -> None:
     # ── Panel C: Gini by intensity ───────────────────────────────────────
     ax = axes[2]
     ax.bar(x, ginis, color=colors, edgecolor="black", linewidth=0.7)
-    ax.axhline(0.31, color="#e67e22", linestyle="--", lw=1.5,
-               label="EU Median Gini ≈ 0.31")
+    ax.axhline(0.31, color="#e67e22", linestyle="--", lw=1.5, label="EU Median Gini ≈ 0.31")
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.set_xlabel("Trust-boost Intensity δ")
@@ -146,7 +147,8 @@ def main() -> None:
     fig.suptitle(
         "Policy Intervention Analysis: Trust-Building at Round 15\n"
         "(Rule-based ESS policy, 200 agents, 30 rounds, 3 seeds)",
-        fontsize=11, y=1.01,
+        fontsize=11,
+        y=1.01,
     )
     plt.tight_layout()
 

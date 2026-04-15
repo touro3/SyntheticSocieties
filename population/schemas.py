@@ -11,5 +11,5 @@ class PopulationSpec:
     income_step: float
     initial_wealth: float
     wealth_step: float
-    data_source: Optional[str] = None       # Path to ESS Parquet file
-    sample_mode: str = "resample"           # "resample" (with replacement) or "subsample"
+    data_source: Optional[str] = None  # Path to ESS Parquet file
+    sample_mode: str = "resample"  # "resample" (with replacement) or "subsample"

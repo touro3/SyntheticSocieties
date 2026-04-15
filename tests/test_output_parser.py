@@ -1,4 +1,5 @@
 """Tests for output parser — no GPU required."""
+
 from decision.output_parser import parse_llm_output
 
 
@@ -89,6 +90,7 @@ def test_confidence_clamping():
 
 # ── P4.7: Edge cases ───────────────────────────────────────────────────────────
 
+
 def test_cooperate_empty_neighbors_no_crash():
     """cooperate JSON with empty neighbor list must not raise."""
     text = '{"action_type": "cooperate", "target_agent_id": "a1", "amount": 5.0, "reasoning_summary": "help", "confidence": 0.8}'
@@ -139,6 +141,7 @@ def test_keyword_fallback_cooperate_no_neighbors_falls_back_to_work():
 def test_parse_stats_increment_on_success():
     """parse_llm_output increments the correct stats counter after a successful parse."""
     from decision.output_parser import get_parse_stats, reset_parse_stats
+
     reset_parse_stats()
     parse_llm_output('{"action_type": "work", "amount": 8.0, "reasoning_summary": "ok", "confidence": 0.9}')
     stats = get_parse_stats()
@@ -148,6 +151,7 @@ def test_parse_stats_increment_on_success():
 def test_parse_stats_keyword_fallback_counted():
     """Keyword fallback path increments keyword_fallback stat."""
     from decision.output_parser import get_parse_stats, reset_parse_stats
+
     reset_parse_stats()
     parse_llm_output("I want to earn money and work hard today.")
     stats = get_parse_stats()

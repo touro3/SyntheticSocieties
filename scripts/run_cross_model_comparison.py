@@ -82,13 +82,15 @@ class _MockBackend:
         self._call_count += 1
         actions = ["work", "save", self._bias]
         action = actions[self._call_count % len(actions)]
-        response = json.dumps({
-            "action_type": action,
-            "target_agent_id": None,
-            "amount": 10,
-            "reasoning_summary": "mock",
-            "confidence": 0.8,
-        })
+        response = json.dumps(
+            {
+                "action_type": action,
+                "target_agent_id": None,
+                "amount": 10,
+                "reasoning_summary": "mock",
+                "confidence": 0.8,
+            }
+        )
         return response, 0.001
 
 
@@ -106,9 +108,7 @@ def _parse_seed_list(value: str) -> list[int]:
         try:
             seeds.append(int(token))
         except ValueError as exc:
-            raise argparse.ArgumentTypeError(
-                f"Invalid seed '{token}': expected integer values."
-            ) from exc
+            raise argparse.ArgumentTypeError(f"Invalid seed '{token}': expected integer values.") from exc
     return seeds
 
 
@@ -137,22 +137,28 @@ def _run_condition(
     if dry_run:
         # Synthetic results to validate the pipeline without GPU
         import random
+
         rng = random.Random(f"{model_name}:{condition}:{seed}")
         if condition == "A":
             # Ungrounded: high cooperation bias
-            counts = {"cooperate": 60 + rng.randint(0, 10),
-                      "work": 20 + rng.randint(0, 5),
-                      "save": 20 + rng.randint(0, 5)}
+            counts = {
+                "cooperate": 60 + rng.randint(0, 10),
+                "work": 20 + rng.randint(0, 5),
+                "save": 20 + rng.randint(0, 5),
+            }
         else:
             # Grounded: lower cooperation, closer to uniform
-            counts = {"cooperate": 35 + rng.randint(0, 5),
-                      "work": 35 + rng.randint(0, 5),
-                      "save": 30 + rng.randint(0, 5)}
+            counts = {
+                "cooperate": 35 + rng.randint(0, 5),
+                "work": 35 + rng.randint(0, 5),
+                "save": 30 + rng.randint(0, 5),
+            }
 
         total = sum(counts.values())
         coop_rate = counts["cooperate"] / total
 
         from metrics.behavioral_realism import rlhf_bias_index_from_counts
+
         rlhf_bias = rlhf_bias_index_from_counts(counts)
 
         # Synthetic Gini: grounded has more inequality (less over-cooperation)
@@ -174,17 +180,18 @@ def _run_condition(
     # then reuse the same helpers as run_config_simulation.py.
     import sys
     from pathlib import Path as _Path
+
     sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-    from decision.model_config import ModelConfig, get_backend
+    from bgf_logging.event_logger import EventLogger
     from decision.ablated_llm_policy import AblatedLLMPolicy
     from decision.llm_policy import LLMPolicy
-    from population.generator import generate_empirical_population
-    from simulation.kernel import SimulationKernel
-    from bgf_logging.event_logger import EventLogger
+    from decision.model_config import ModelConfig, get_backend
     from metrics.behavioral_realism import rlhf_bias_index_from_counts
     from metrics.inequality import gini_coefficient
+    from population.generator import generate_empirical_population
     from scripts.run_config_simulation import build_network, build_world
+    from simulation.kernel import SimulationKernel
 
     # Minimal config dict matching what population/kernel helpers expect
     n_agents = model_spec["n_agents"]
@@ -208,12 +215,18 @@ def _run_condition(
             "resources": {"jobs": 100.0},
         },
         "agent_defaults": {
-            "min_age": 25, "max_age": 60,
-            "base_income": 1000.0, "income_step": 100.0,
-            "education": "college", "occupation": "worker",
-            "location": "urban", "political_preference": "center",
-            "risk_tolerance": 0.5, "social_class": "middle",
-            "initial_wealth": 50.0, "wealth_step": 10.0,
+            "min_age": 25,
+            "max_age": 60,
+            "base_income": 1000.0,
+            "income_step": 100.0,
+            "education": "college",
+            "occupation": "worker",
+            "location": "urban",
+            "political_preference": "center",
+            "risk_tolerance": 0.5,
+            "social_class": "middle",
+            "initial_wealth": 50.0,
+            "wealth_step": 10.0,
             "memory_size": 10,
         },
         "llm": {
@@ -247,7 +260,7 @@ def _run_condition(
         policy = LLMPolicy(backend=backend, ablation_level=5)
 
     import tempfile
-    from bgf_logging.event_logger import EventLogger
+
     from metrics.cross_model import extract_action_counts, extract_final_wealth
 
     agents = generate_empirical_population(config, policy)
@@ -311,20 +324,26 @@ def _save_results(path: Path, results: list[CrossModelResult]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run cross-model A vs B comparison")
     parser.add_argument(
-        "--models", nargs="+", choices=list(_MODELS.keys()),
+        "--models",
+        nargs="+",
+        choices=list(_MODELS.keys()),
         default=list(_MODELS.keys()),
         help="Models to run (default: all)",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Use mock backend — validates pipeline without GPU/API",
     )
     parser.add_argument(
-        "--out", type=Path, default=_RESULTS_PATH,
+        "--out",
+        type=Path,
+        default=_RESULTS_PATH,
         help="Output JSON path for results",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Re-run all models even if results already exist",
     )
     parser.add_argument(
@@ -348,22 +367,24 @@ def main() -> None:
     existing = {} if (args.dry_run or args.force or len(args.seeds) > 1) else _load_existing(args.out)
     if existing:
         print(f"\nResuming — found {len(existing)} existing result(s) in {args.out}")
-        for (m, c) in existing:
+        for m, c in existing:
             print(f"  Skipping {m} Condition {c} (already done)")
 
     all_results: list[CrossModelResult] = []
 
     # Seed existing results into all_results so the table is complete
     for row in existing.values():
-        all_results.append(CrossModelResult(
-            model_id=row["model_id"],
-            condition=row["condition"],
-            cooperation_rate=row["cooperation_rate"],
-            gini=row["gini"],
-            rlhf_bias_index=row["rlhf_bias_index"],
-            n_agents=row.get("n_agents", 0),
-            n_rounds=row.get("n_rounds", 0),
-        ))
+        all_results.append(
+            CrossModelResult(
+                model_id=row["model_id"],
+                condition=row["condition"],
+                cooperation_rate=row["cooperation_rate"],
+                gini=row["gini"],
+                rlhf_bias_index=row["rlhf_bias_index"],
+                n_agents=row.get("n_agents", 0),
+                n_rounds=row.get("n_rounds", 0),
+            )
+        )
 
     for model_name in args.models:
         spec = _MODELS[model_name]
@@ -397,14 +418,14 @@ def main() -> None:
         delta = row.get("bias_reduction_pct", "?")
         effective = "✓" if row.get("grounding_effective") else "✗"
         print(
-            f"  {row['model']:<20} | Bias A={bias_a:<6} B={bias_b:<6} "
-            f"| Δ={delta}% | Grounding effective: {effective}"
+            f"  {row['model']:<20} | Bias A={bias_a:<6} B={bias_b:<6} | Δ={delta}% | Grounding effective: {effective}"
         )
 
     # Generate figure if we have at least one complete A+B pair
     if any(row.get("grounding_effective") is not None for row in table):
         print("\nGenerating figure...")
         from scripts.plot_cross_model_comparison import plot_cross_model_comparison
+
         plot_cross_model_comparison(args.out, _FIGURE_PATH)
     else:
         print("\nNot enough data to generate figure (need at least one A+B pair).")

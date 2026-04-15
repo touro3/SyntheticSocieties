@@ -25,6 +25,7 @@ def distributions_path():
 
 def test_ess_clean_parquet_exists_and_loads(ess_clean_path):
     import pandas as pd
+
     df = pd.read_parquet(ess_clean_path)
     assert len(df) > 0, "Dataset should have rows"
     assert len(df.columns) > 10, "Dataset should have many columns"
@@ -32,10 +33,16 @@ def test_ess_clean_parquet_exists_and_loads(ess_clean_path):
 
 def test_ess_clean_has_expected_columns(ess_clean_path):
     import pandas as pd
+
     df = pd.read_parquet(ess_clean_path)
     expected = [
-        "respondent_id", "country", "gender", "age",
-        "trust_people", "life_satisfaction", "happiness",
+        "respondent_id",
+        "country",
+        "gender",
+        "age",
+        "trust_people",
+        "life_satisfaction",
+        "happiness",
     ]
     for col in expected:
         assert col in df.columns, f"Missing expected column: {col}"
@@ -44,7 +51,7 @@ def test_ess_clean_has_expected_columns(ess_clean_path):
 def test_ess_clean_no_raw_missing_codes(ess_clean_path):
     """ESS missing codes (66, 77, 88, 99) should be replaced with NaN."""
     import pandas as pd
-    import numpy as np
+
     df = pd.read_parquet(ess_clean_path)
 
     # Check normalized 0-1 columns — they should not have raw ESS codes
@@ -58,6 +65,7 @@ def test_ess_clean_no_raw_missing_codes(ess_clean_path):
 
 def test_ess_distributions_json_structure(distributions_path):
     import json
+
     with open(distributions_path) as f:
         dists = json.load(f)
 
@@ -70,6 +78,7 @@ def test_ess_distributions_json_structure(distributions_path):
 
 def test_ess_schema_columns():
     from data.ess_schema import get_ess_columns, get_rename_mapping
+
     cols = get_ess_columns()
     assert "idno" in cols
     assert "cntry" in cols
@@ -83,6 +92,7 @@ def test_ess_schema_columns():
 
 def test_ess_schema_variable_groups():
     from data.ess_schema import ALL_VARIABLE_GROUPS
+
     assert "demographics" in ALL_VARIABLE_GROUPS
     assert "trust" in ALL_VARIABLE_GROUPS
     assert "risk_personality" in ALL_VARIABLE_GROUPS

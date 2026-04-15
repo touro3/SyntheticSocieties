@@ -17,18 +17,13 @@ Usage
 
 from __future__ import annotations
 
-import ast
 import json
 import sys
 from pathlib import Path
-from typing import Optional
-
-import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from metrics.inequality import gini_coefficient
 from scripts.compute_paper_numbers import (
     _metrics_from_events,
     _metrics_from_parquet,
@@ -117,17 +112,10 @@ def compute_three_condition_stats() -> dict:
         "phase_c_large_scale": phase_c_b,
         # Prefer large-scale phase_c for final reporting
         "coop_rate_overall": (
-            phase_c_b.get("coop_rate_overall") if phase_c_b
-            else grounded_pooled["coop_rate"].get("mean")
+            phase_c_b.get("coop_rate_overall") if phase_c_b else grounded_pooled["coop_rate"].get("mean")
         ),
-        "brlhf": (
-            phase_c_b.get("brlhf") if phase_c_b
-            else grounded_pooled["brlhf"].get("mean")
-        ),
-        "gini_final": (
-            phase_c_b.get("gini_final") if phase_c_b
-            else grounded_pooled["gini_final"].get("mean")
-        ),
+        "brlhf": (phase_c_b.get("brlhf") if phase_c_b else grounded_pooled["brlhf"].get("mean")),
+        "gini_final": (phase_c_b.get("gini_final") if phase_c_b else grounded_pooled["gini_final"].get("mean")),
     }
 
     stats = {
@@ -145,9 +133,7 @@ def _latex_table(stats: dict) -> str:
     c = stats["condition_c_full_grounded"]
 
     def row(label, setup, coop, brlhf, gini):
-        return (
-            f"  {label} & {setup} & {coop} & {brlhf} & {gini} \\\\"
-        )
+        return f"  {label} & {setup} & {coop} & {brlhf} & {gini} \\\\"
 
     def fmt_val(v):
         if v is None:
@@ -168,18 +154,27 @@ def _latex_table(stats: dict) -> str:
         r"\toprule",
         r"  Condition & Setup & Coop Rate & $B_{\mathrm{RLHF}}$ & Gini (final) \\",
         r"\midrule",
-        row("A: Ablated LLM", "No persona/RAG",
+        row(
+            "A: Ablated LLM",
+            "No persona/RAG",
             fmt_val(a.get("coop_rate_overall")),
             fmt_val(a.get("brlhf")),
-            fmt_val(a.get("gini_final"))),
-        row("B: ESS persona only", "Persona, no RAG (20 agents)",
+            fmt_val(a.get("gini_final")),
+        ),
+        row(
+            "B: ESS persona only",
+            "Persona, no RAG (20 agents)",
             fmt_val(b.get("coop_rate_overall")),
             fmt_val(b.get("brlhf")),
-            fmt_val(b.get("gini_final"))),
-        row("C: Full BGF grounding", "Persona + RAG (50 agents)",
+            fmt_val(b.get("gini_final")),
+        ),
+        row(
+            "C: Full BGF grounding",
+            "Persona + RAG (50 agents)",
             fmt_val(c.get("coop_rate_overall")),
             fmt_val(c.get("brlhf")),
-            fmt_val(c.get("gini_final"))),
+            fmt_val(c.get("gini_final")),
+        ),
         r"\bottomrule",
         r"\end{tabular}",
         r"\end{table}",

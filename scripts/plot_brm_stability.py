@@ -36,8 +36,8 @@ from metrics.statistical_inference import bootstrap_ci
 
 # ESS empirical benchmarks
 _EMP_GINI = 0.31
-_EMP_COOP_A = 0.35   # ungrounded expected (human rate)
-_EMP_COOP_B = 0.35   # same target (grounded should match; A fails to)
+_EMP_COOP_A = 0.35  # ungrounded expected (human rate)
+_EMP_COOP_B = 0.35  # same target (grounded should match; A fails to)
 _EMP_WEALTH_MEAN = 90.0
 
 
@@ -46,7 +46,7 @@ def _approx_wealth_dist(wealth_mean: float, gini: float, n: int = 100, rng_seed:
     # For lognormal: Gini ≈ 2*Φ(σ/√2) - 1, so σ ≈ √2 * Φ⁻¹((Gini+1)/2)
     # Simplified: use sigma=0.5 as reasonable default
     sigma = max(0.15, min(1.2, gini * 2.0))
-    mu = np.log(max(wealth_mean, 1.0)) - 0.5 * sigma ** 2
+    mu = np.log(max(wealth_mean, 1.0)) - 0.5 * sigma**2
     rng = np.random.default_rng(rng_seed)
     return list(np.clip(rng.lognormal(mu, sigma, n), 1.0, wealth_mean * 5))
 
@@ -87,17 +87,19 @@ def load_and_compute_brm(csv_path: Path) -> list[dict]:
             act_dist = {"work": work_rate, "save": save_rate, "cooperate": coop}
             b_rlhf = compute_rlhf_bias_index(act_dist)
 
-            records.append({
-                "condition": condition,
-                "condition_key": condition_key,
-                "seed": seed,
-                "brm_composite": round(brm["composite"], 4),
-                "brm_coop": round(brm["coop_component"], 4),
-                "brm_gini": round(brm["gini_component"], 4),
-                "b_rlhf": round(b_rlhf, 4),
-                "coop_rate": coop,
-                "gini": gini,
-            })
+            records.append(
+                {
+                    "condition": condition,
+                    "condition_key": condition_key,
+                    "seed": seed,
+                    "brm_composite": round(brm["composite"], 4),
+                    "brm_coop": round(brm["coop_component"], 4),
+                    "brm_gini": round(brm["gini_component"], 4),
+                    "b_rlhf": round(b_rlhf, 4),
+                    "coop_rate": coop,
+                    "gini": gini,
+                }
+            )
 
     return records
 
@@ -140,7 +142,10 @@ def main() -> None:
 
     # Pack into simple objects for readability below
     class CI:
-        def __init__(self, lo, hi): self.lower = lo; self.upper = hi
+        def __init__(self, lo, hi):
+            self.lower = lo
+            self.upper = hi
+
     ci_a = CI(ci_a_lo, ci_a_hi)
     ci_b = CI(ci_b_lo, ci_b_hi)
     ci_diff = CI(ci_diff_lo, ci_diff_hi)
@@ -151,6 +156,7 @@ def main() -> None:
     print(f"[plot_brm_stability] Non-overlapping CIs: {'YES ✓' if ci_a.upper < ci_b.lower else 'NO — check scale'}")
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -177,15 +183,12 @@ def main() -> None:
 
         # Jitter overlay
         jitter = np.random.default_rng(42).uniform(-0.05, 0.05, len(values))
-        ax.scatter([pos + j for j in jitter], values,
-                   color=colors[cond], alpha=0.9, s=40, zorder=3)
+        ax.scatter([pos + j for j in jitter], values, color=colors[cond], alpha=0.9, s=40, zorder=3)
 
         # CI bar
         ci = ci_a if cond == "A" else ci_b
-        ax.plot([pos - 0.15, pos + 0.15], [ci.lower, ci.lower],
-                color=colors[cond], lw=2, linestyle="--")
-        ax.plot([pos - 0.15, pos + 0.15], [ci.upper, ci.upper],
-                color=colors[cond], lw=2, linestyle="--")
+        ax.plot([pos - 0.15, pos + 0.15], [ci.lower, ci.lower], color=colors[cond], lw=2, linestyle="--")
+        ax.plot([pos - 0.15, pos + 0.15], [ci.upper, ci.upper], color=colors[cond], lw=2, linestyle="--")
 
     ax.set_xticks(positions)
     ax.set_xticklabels([labels_map[c] for c in data_by_cond])
@@ -197,9 +200,14 @@ def main() -> None:
     # Annotate means with CIs
     for pos, (cond, values) in zip(positions, data_by_cond.items()):
         ci = ci_a if cond == "A" else ci_b
-        ax.text(pos, max(values) + 0.04,
-                f"μ={np.mean(values):.3f}\n[{ci.lower:.3f}, {ci.upper:.3f}]",
-                ha="center", fontsize=8.5, color=colors[cond])
+        ax.text(
+            pos,
+            max(values) + 0.04,
+            f"μ={np.mean(values):.3f}\n[{ci.lower:.3f}, {ci.upper:.3f}]",
+            ha="center",
+            fontsize=8.5,
+            color=colors[cond],
+        )
 
     # ── Panel B: Bootstrap distribution of ΔBRM ────────────────────────
     ax = axes[1]
@@ -217,8 +225,7 @@ def main() -> None:
     ax.axvline(0, color="black", lw=1.5, linestyle="--", label="No effect (0)")
     ax.axvline(ci_diff.lower, color="#27ae60", lw=1.5, linestyle=":", label="95% CI bounds")
     ax.axvline(ci_diff.upper, color="#27ae60", lw=1.5, linestyle=":")
-    ax.axvline(np.mean(differences), color="#1a5e2a", lw=2.0,
-               label=f"Observed Δ = {np.mean(differences):+.3f}")
+    ax.axvline(np.mean(differences), color="#1a5e2a", lw=2.0, label=f"Observed Δ = {np.mean(differences):+.3f}")
 
     ax.set_xlabel("ΔBRM (B − A)")
     ax.set_ylabel("Bootstrap frequency")
@@ -228,18 +235,20 @@ def main() -> None:
 
     overlap = ci_a.upper >= ci_b.lower
     ax.text(
-        0.05, 0.93,
+        0.05,
+        0.93,
         f"95% CI: [{ci_diff.lower:+.3f}, {ci_diff.upper:+.3f}]\n"
         f"{'CI excludes 0 → significant ✓' if ci_diff.lower > 0 else 'CI includes 0 → n.s.'}",
-        transform=ax.transAxes, fontsize=8.5,
+        transform=ax.transAxes,
+        fontsize=8.5,
         verticalalignment="top",
         bbox=dict(boxstyle="round", facecolor="#e8f5e9" if ci_diff.lower > 0 else "#ffeeba", alpha=0.8),
     )
 
     fig.suptitle(
-        f"BRM Metric Stability: Conditions A vs. B\n"
-        f"({len(brm_a)} seeds per condition; bootstrap n=2,000)",
-        fontsize=11, y=1.01,
+        f"BRM Metric Stability: Conditions A vs. B\n({len(brm_a)} seeds per condition; bootstrap n=2,000)",
+        fontsize=11,
+        y=1.01,
     )
     plt.tight_layout()
 

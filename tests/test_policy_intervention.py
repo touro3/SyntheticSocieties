@@ -7,13 +7,12 @@ import pytest
 from metrics.policy_intervention import (
     InterventionResult,
     InterventionSummary,
+    _gini,
+    _hash_uniform,
     aggregate_by_intensity,
     run_intervention_sweep,
     run_single_intervention,
-    _gini,
-    _hash_uniform,
 )
-
 
 # ── Unit tests ────────────────────────────────────────────────────────────
 
@@ -75,18 +74,12 @@ class TestRunSingleIntervention:
         assert result.wealth_mean_final > 0.0
 
     def test_delta_cooperation_sign_with_boost(self):
-        no_boost = run_single_intervention(
-            intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15
-        )
-        boosted = run_single_intervention(
-            intensity=0.20, n_agents=100, n_rounds=30, seed=42, intervention_round=15
-        )
+        no_boost = run_single_intervention(intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15)
+        boosted = run_single_intervention(intensity=0.20, n_agents=100, n_rounds=30, seed=42, intervention_round=15)
         assert boosted.delta_cooperation > no_boost.delta_cooperation
 
     def test_zero_intensity_delta_near_zero(self):
-        result = run_single_intervention(
-            intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15
-        )
+        result = run_single_intervention(intensity=0.0, n_agents=100, n_rounds=30, seed=42, intervention_round=15)
         assert abs(result.delta_cooperation) < 0.15
 
     def test_fields_consistent(self):
@@ -110,9 +103,7 @@ class TestRunSingleIntervention:
         assert r1.gini_final != r2.gini_final
 
     def test_intervention_round_zero(self):
-        result = run_single_intervention(
-            intensity=0.10, n_agents=30, n_rounds=10, seed=42, intervention_round=0
-        )
+        result = run_single_intervention(intensity=0.10, n_agents=30, n_rounds=10, seed=42, intervention_round=0)
         assert isinstance(result, InterventionResult)
         assert len(result.per_round_cooperation) == 10
 
@@ -172,9 +163,7 @@ class TestAggregateByIntensity:
         assert intensities == sorted(intensities)
 
     def test_summary_type(self):
-        results = run_intervention_sweep(
-            intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=5
-        )
+        results = run_intervention_sweep(intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=5)
         summaries = aggregate_by_intensity(results)
         assert isinstance(summaries[0], InterventionSummary)
 
@@ -206,21 +195,21 @@ class TestAggregateByIntensity:
             assert deltas[i] >= deltas[i - 1] - 0.01
 
     def test_per_round_length_matches_n_rounds(self):
-        results = run_intervention_sweep(
-            intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=15
-        )
+        results = run_intervention_sweep(intensities=(0.0,), seeds=(42,), n_agents=20, n_rounds=15)
         summaries = aggregate_by_intensity(results)
         assert len(summaries[0].per_round_cooperation) == 15
-from tests.conftest import make_agent
+
+
 from environment.policy_intervention import (
     InterventionEngine,
     PolicyIntervention,
     SweepPoint,
     sensitivity_index,
 )
-
+from tests.conftest import make_agent
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_agents(wealths: list[float]) -> list:
     agents = []
@@ -235,6 +224,7 @@ def total_wealth(agents: list) -> float:
 
 
 # ── PolicyIntervention validation ─────────────────────────────────────────────
+
 
 def test_invalid_negative_parameter():
     with pytest.raises(ValueError, match="non-negative"):
@@ -259,14 +249,13 @@ def test_custom_label_preserved():
 
 # ── redistribute_top_pct ──────────────────────────────────────────────────────
 
+
 def test_redistribute_top_pct_conserves_wealth():
     """Total wealth should be conserved (±floating-point tolerance)."""
     agents = make_agents([200.0, 150.0, 100.0, 50.0, 10.0])
     before = total_wealth(agents)
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)])
     engine.apply(round_id=1, agents=agents)
 
     after = total_wealth(agents)
@@ -278,9 +267,7 @@ def test_redistribute_top_pct_reduces_gini():
     agents = make_agents([500.0, 100.0, 100.0, 100.0, 100.0])
     richest_before = max(a.state.wealth for a in agents)
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)])
     engine.apply(round_id=1, agents=agents)
 
     richest_after = max(a.state.wealth for a in agents)
@@ -293,9 +280,7 @@ def test_redistribute_does_not_fire_at_wrong_round():
     agents = make_agents([200.0, 50.0])
     before = [a.state.wealth for a in agents]
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=5, rule="redistribute_top_pct", parameter=0.20)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=5, rule="redistribute_top_pct", parameter=0.20)])
     engine.apply(round_id=3, agents=agents)
 
     for i, a in enumerate(agents):
@@ -304,11 +289,10 @@ def test_redistribute_does_not_fire_at_wrong_round():
 
 # ── wealth_floor ─────────────────────────────────────────────────────────────
 
+
 def test_wealth_floor_lifts_poor():
     agents = make_agents([200.0, 150.0, 10.0, 5.0])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=50.0)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=50.0)])
     engine.apply(round_id=1, agents=agents)
 
     for a in agents:
@@ -319,9 +303,7 @@ def test_wealth_floor_no_effect_if_all_above():
     agents = make_agents([100.0, 200.0, 300.0])
     before = [a.state.wealth for a in agents]
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=50.0)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=50.0)])
     events = engine.apply(round_id=1, agents=agents)
 
     assert events[0].n_agents_affected == 0
@@ -333,9 +315,7 @@ def test_wealth_floor_conserves_wealth():
     agents = make_agents([300.0, 200.0, 20.0, 5.0])
     before = total_wealth(agents)
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=80.0)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="wealth_floor", parameter=80.0)])
     engine.apply(round_id=1, agents=agents)
 
     after = total_wealth(agents)
@@ -344,15 +324,14 @@ def test_wealth_floor_conserves_wealth():
 
 # ── cooperation_bonus ─────────────────────────────────────────────────────────
 
+
 def test_cooperation_bonus_only_rewards_cooperators():
     agents = make_agents([100.0, 100.0, 100.0])
     agents[0].state.last_action = "cooperate"
     agents[1].state.last_action = "work"
     agents[2].state.last_action = "save"
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="cooperation_bonus", parameter=5.0)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="cooperation_bonus", parameter=5.0)])
     engine.apply(round_id=1, agents=agents)
 
     assert agents[0].state.wealth == 105.0
@@ -365,9 +344,7 @@ def test_cooperation_bonus_no_cooperators_no_effect():
     for a in agents:
         a.state.last_action = "work"
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="cooperation_bonus", parameter=10.0)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="cooperation_bonus", parameter=10.0)])
     events = engine.apply(round_id=1, agents=agents)
 
     assert events[0].n_agents_affected == 0
@@ -376,15 +353,14 @@ def test_cooperation_bonus_no_cooperators_no_effect():
 
 # ── tax_income ───────────────────────────────────────────────────────────────
 
+
 def test_tax_income_workers_pay_non_workers_receive():
     agents = make_agents([100.0, 100.0, 100.0])
     agents[0].state.last_action = "work"
     agents[1].state.last_action = "work"
     agents[2].state.last_action = "save"
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="tax_income", parameter=0.30)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="tax_income", parameter=0.30)])
     engine.apply(round_id=1, agents=agents)
 
     # Workers should lose net (paid tax > received dividend share)
@@ -397,9 +373,7 @@ def test_tax_income_no_workers_no_effect():
     for a in agents:
         a.state.last_action = "save"
 
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="tax_income", parameter=0.15)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="tax_income", parameter=0.15)])
     events = engine.apply(round_id=1, agents=agents)
 
     assert events[0].n_agents_affected == 0
@@ -407,11 +381,10 @@ def test_tax_income_no_workers_no_effect():
 
 # ── Single-fire behaviour ─────────────────────────────────────────────────────
 
+
 def test_single_fire_does_not_repeat():
     agents = make_agents([200.0, 50.0])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)])
 
     events_r1 = engine.apply(round_id=1, agents=agents)
     wealth_after_r1 = [a.state.wealth for a in agents]
@@ -426,10 +399,9 @@ def test_single_fire_does_not_repeat():
 
 def test_repeat_fires_every_round():
     agents = make_agents([200.0, 50.0])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="cooperation_bonus",
-                           parameter=0.0, repeat=True)
-    ])
+    engine = InterventionEngine(
+        [PolicyIntervention(trigger_round=1, rule="cooperation_bonus", parameter=0.0, repeat=True)]
+    )
 
     e1 = engine.apply(round_id=1, agents=agents)
     e2 = engine.apply(round_id=2, agents=agents)
@@ -442,12 +414,12 @@ def test_repeat_fires_every_round():
 
 # ── InterventionEngine.has_fired / pending ────────────────────────────────────
 
+
 def test_has_fired_after_apply():
     agents = make_agents([100.0, 50.0])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=2, rule="wealth_floor",
-                           parameter=30.0, label="floor_30")
-    ])
+    engine = InterventionEngine(
+        [PolicyIntervention(trigger_round=2, rule="wealth_floor", parameter=30.0, label="floor_30")]
+    )
 
     assert not engine.has_fired("floor_30")
     engine.apply(round_id=2, agents=agents)
@@ -455,12 +427,12 @@ def test_has_fired_after_apply():
 
 
 def test_pending_lists_unfired():
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=5, rule="tax_income",
-                           parameter=0.10, label="tax_r5"),
-        PolicyIntervention(trigger_round=10, rule="wealth_floor",
-                           parameter=20.0, label="floor_r10"),
-    ])
+    engine = InterventionEngine(
+        [
+            PolicyIntervention(trigger_round=5, rule="tax_income", parameter=0.10, label="tax_r5"),
+            PolicyIntervention(trigger_round=10, rule="wealth_floor", parameter=20.0, label="floor_r10"),
+        ]
+    )
 
     pending = engine.pending(round_id=1)
     assert len(pending) == 2
@@ -468,11 +440,10 @@ def test_pending_lists_unfired():
 
 # ── InterventionEvent content ─────────────────────────────────────────────────
 
+
 def test_event_records_total_transferred():
     agents = make_agents([200.0, 100.0, 50.0])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.20)])
     events = engine.apply(round_id=1, agents=agents)
 
     assert len(events) == 1
@@ -493,9 +464,7 @@ def test_empty_engine_returns_no_events():
 def test_no_agent_below_zero():
     """Wealth must never go negative after an intervention."""
     agents = make_agents([1.0, 0.5, 0.1])
-    engine = InterventionEngine([
-        PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.99)
-    ])
+    engine = InterventionEngine([PolicyIntervention(trigger_round=1, rule="redistribute_top_pct", parameter=0.99)])
     engine.apply(round_id=1, agents=agents)
 
     for a in agents:
@@ -503,6 +472,7 @@ def test_no_agent_below_zero():
 
 
 # ── sensitivity_index ─────────────────────────────────────────────────────────
+
 
 def test_sensitivity_index_negative_for_redistribution():
     """Higher redistribution parameter should produce more negative Gini delta."""
@@ -533,9 +503,12 @@ def test_sensitivity_index_coop_outcome():
 
 def test_sweep_point_delta_properties():
     sp = SweepPoint(
-        parameter=0.20, label="test",
-        pre_gini=0.40, post_gini=0.35,
-        pre_coop_rate=0.30, post_coop_rate=0.38,
+        parameter=0.20,
+        label="test",
+        pre_gini=0.40,
+        post_gini=0.35,
+        pre_coop_rate=0.30,
+        post_coop_rate=0.38,
     )
     assert abs(sp.delta_gini - (-0.05)) < 1e-6
     assert abs(sp.delta_coop - 0.08) < 1e-6

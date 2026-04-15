@@ -31,10 +31,8 @@ def build_experiment_record(run_dir: str | Path) -> dict[str, Any]:
         "policy_type": metadata["policy_type"],
         "population_size": metadata["population_size"],
         "rounds": metadata["rounds"],
-
         "network_type": metadata.get("network_type", config["network"]["type"]),
         "network_edge_prob": metadata.get("network_edge_prob", config["network"].get("edge_prob")),
-
         "wealth_mean": summary["wealth"]["mean"],
         "wealth_median": summary["wealth"]["median"],
         "wealth_variance": summary["wealth"]["variance"],
@@ -47,7 +45,6 @@ def build_experiment_record(run_dir: str | Path) -> dict[str, Any]:
         "num_work": summary.get("event_action_counts", {}).get("work", 0),
         "num_save": summary.get("event_action_counts", {}).get("save", 0),
         "num_cooperate": summary.get("event_action_counts", {}).get("cooperate", 0),
-
         "config_path": str(run_dir / "config.yaml"),
         "metadata_path": str(run_dir / "metadata.json"),
         "summary_path": str(run_dir / "summary.json"),

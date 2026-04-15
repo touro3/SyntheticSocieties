@@ -29,14 +29,10 @@ class RoundProcessor:
 
         Returns the executed event dict (or rejection dict).
         """
-        validation = self.world.validate_action(
-            proposed_action, agent, self.agent_lookup
-        )
+        validation = self.world.validate_action(proposed_action, agent, self.agent_lookup)
 
         if validation.valid:
-            executed_event = self.world.execute_action(
-                proposed_action, agent, self.agent_lookup
-            )
+            executed_event = self.world.execute_action(proposed_action, agent, self.agent_lookup)
             agent.apply_local_update(executed_event)
             self._apply_target_delta(executed_event)
             self._record_memory(agent, proposed_action, executed_event, round_id)
@@ -80,17 +76,13 @@ class RoundProcessor:
                 # Check if target also cooperated with source this round
                 # (true reciprocation). For now, unilateral cooperation is
                 # NOT reciprocated — the trust gradient must be earned.
-                source.state.update_trust_from_cooperation(
-                    target_id, was_reciprocated=False
-                )
+                source.state.update_trust_from_cooperation(target_id, was_reciprocated=False)
             if target_id in self.agent_lookup:
                 target = self.agent_lookup[target_id]
                 # Target received help — build mild trust toward the source.
                 # was_reciprocated=True here means "the source demonstrated
                 # goodwill toward me" (they invested in me).
-                target.state.update_trust_from_cooperation(
-                    source_id, was_reciprocated=True
-                )
+                target.state.update_trust_from_cooperation(source_id, was_reciprocated=True)
 
             # Dynamic network evolution: cooperation creates/strengthens edges
             network = getattr(self.world, "network_manager", None)
@@ -98,8 +90,11 @@ class RoundProcessor:
                 network.add_edge(source_id, target_id)
 
     def _record_memory(
-        self, agent: Agent, proposed_action: ProposedAction,
-        executed_event: dict, round_id: int,
+        self,
+        agent: Agent,
+        proposed_action: ProposedAction,
+        executed_event: dict,
+        round_id: int,
     ) -> None:
         ttl = HierarchicalMemory.default_ttl(proposed_action.action_type)
         agent.memory.add(
@@ -139,7 +134,11 @@ class RoundProcessor:
             )
 
     def _update_graph_rag(
-        self, policy, agent: Agent, proposed_action: ProposedAction, round_id: int,
+        self,
+        policy,
+        agent: Agent,
+        proposed_action: ProposedAction,
+        round_id: int,
     ) -> None:
         graph_rag = getattr(policy, "graph_rag", None)
         if graph_rag is None:
@@ -155,8 +154,13 @@ class RoundProcessor:
         )
 
     def _log_event(
-        self, round_id: int, agent: Agent, perception: dict,
-        proposed_action: ProposedAction, validation, executed_event: dict,
+        self,
+        round_id: int,
+        agent: Agent,
+        perception: dict,
+        proposed_action: ProposedAction,
+        validation,
+        executed_event: dict,
     ) -> None:
         self.logger.log_event(
             {

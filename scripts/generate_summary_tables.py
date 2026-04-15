@@ -75,15 +75,17 @@ def generate_condition_comparison(df: pd.DataFrame) -> pd.DataFrame:
         b_vals = condition_b[col].dropna()
         if a_vals.empty and b_vals.empty:
             continue
-        rows.append({
-            "metric": col,
-            "condition_a_mean": round(a_vals.mean(), 4) if not a_vals.empty else None,
-            "condition_a_std": round(a_vals.std(), 4) if len(a_vals) > 1 else None,
-            "condition_b_mean": round(b_vals.mean(), 4) if not b_vals.empty else None,
-            "condition_b_std": round(b_vals.std(), 4) if len(b_vals) > 1 else None,
-            "n_a": len(a_vals),
-            "n_b": len(b_vals),
-        })
+        rows.append(
+            {
+                "metric": col,
+                "condition_a_mean": round(a_vals.mean(), 4) if not a_vals.empty else None,
+                "condition_a_std": round(a_vals.std(), 4) if len(a_vals) > 1 else None,
+                "condition_b_mean": round(b_vals.mean(), 4) if not b_vals.empty else None,
+                "condition_b_std": round(b_vals.std(), 4) if len(b_vals) > 1 else None,
+                "n_a": len(a_vals),
+                "n_b": len(b_vals),
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -93,8 +95,9 @@ def generate_policy_comparison(df: pd.DataFrame) -> pd.DataFrame:
     if "policy_type" not in df.columns:
         return pd.DataFrame()
 
-    numeric_cols = [c for c in df.select_dtypes(include="number").columns
-                    if c not in ("seed", "num_agents", "num_rounds")]
+    numeric_cols = [
+        c for c in df.select_dtypes(include="number").columns if c not in ("seed", "num_agents", "num_rounds")
+    ]
 
     return df.groupby("policy_type")[numeric_cols].agg(["mean", "std", "count"]).round(4)
 

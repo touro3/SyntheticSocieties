@@ -57,16 +57,16 @@ from sklearn.preprocessing import StandardScaler
 # ── Configuration ────────────────────────────────────────────────────────────
 
 FEATURES = [
-    "trust_people",       # ESS: interpersonal trust (0-1)
-    "trust_fairness",     # ESS: belief others play fair (0-1)
+    "trust_people",  # ESS: interpersonal trust (0-1)
+    "trust_fairness",  # ESS: belief others play fair (0-1)
     "trust_helpfulness",  # ESS: belief others are helpful (0-1)
-    "risk_taking",        # ESS: self-reported risk tolerance (0-1, reversed in profiles)
-    "social_meeting_freq",# ESS: frequency of social meetings (0-1)
-    "social_activity",    # ESS: social engagement index (0-1)
+    "risk_taking",  # ESS: self-reported risk tolerance (0-1, reversed in profiles)
+    "social_meeting_freq",  # ESS: frequency of social meetings (0-1)
+    "social_activity",  # ESS: social engagement index (0-1)
     "reduce_inequality",  # ESS: support for redistribution (pro-social value)
 ]
 
-TARGET = "volunteered"       # ESS: 1=volunteered, 2=did not volunteer
+TARGET = "volunteered"  # ESS: 1=volunteered, 2=did not volunteer
 OUTPUT_PATH = Path("data/cooperation_model.json")
 
 
@@ -99,8 +99,7 @@ def load_and_prepare(ess_path: Path) -> tuple[np.ndarray, np.ndarray, pd.DataFra
     return X, y, df
 
 
-def cross_validate(pipeline: Pipeline, X: np.ndarray, y: np.ndarray,
-                   n_folds: int) -> dict:
+def cross_validate(pipeline: Pipeline, X: np.ndarray, y: np.ndarray, n_folds: int) -> dict:
     """10-fold stratified CV → AUC, Brier score, per-fold stats."""
     cv = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
@@ -129,8 +128,7 @@ def cross_validate(pipeline: Pipeline, X: np.ndarray, y: np.ndarray,
     }
 
 
-def bootstrap_coefficients(X: np.ndarray, y: np.ndarray,
-                            n_resamples: int, C: float) -> dict:
+def bootstrap_coefficients(X: np.ndarray, y: np.ndarray, n_resamples: int, C: float) -> dict:
     """Bootstrap 95% CIs for logistic regression coefficients.
 
     Each resample: stratified sample with replacement, fit logistic regression,
@@ -149,10 +147,12 @@ def bootstrap_coefficients(X: np.ndarray, y: np.ndarray,
         # Stratified bootstrap: sample class 0 and class 1 separately
         idx0 = np.where(y == 0)[0]
         idx1 = np.where(y == 1)[0]
-        boot_idx = np.concatenate([
-            rng.choice(idx0, size=len(idx0), replace=True),
-            rng.choice(idx1, size=len(idx1), replace=True),
-        ])
+        boot_idx = np.concatenate(
+            [
+                rng.choice(idx0, size=len(idx0), replace=True),
+                rng.choice(idx1, size=len(idx1), replace=True),
+            ]
+        )
         rng.shuffle(boot_idx)
         X_b, y_b = X_scaled[boot_idx], y[boot_idx]
 
@@ -164,7 +164,7 @@ def bootstrap_coefficients(X: np.ndarray, y: np.ndarray,
         boot_coefs.append(lr.coef_[0].tolist())
         boot_intercepts.append(float(lr.intercept_[0]))
 
-    boot_coefs = np.array(boot_coefs)       # shape: (n_resamples, n_features)
+    boot_coefs = np.array(boot_coefs)  # shape: (n_resamples, n_features)
     boot_intercepts = np.array(boot_intercepts)
 
     ci_results = {}
@@ -187,16 +187,14 @@ def bootstrap_coefficients(X: np.ndarray, y: np.ndarray,
     return ci_results
 
 
-def compute_calibration(pipeline: Pipeline, X: np.ndarray, y: np.ndarray,
-                        n_folds: int, n_bins: int = 10) -> dict:
+def compute_calibration(pipeline: Pipeline, X: np.ndarray, y: np.ndarray, n_folds: int, n_bins: int = 10) -> dict:
     """Reliability diagram data via CV predictions."""
     cv = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
     y_prob = cross_val_predict(pipeline, X, y, cv=cv, method="predict_proba")[:, 1]
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        frac_pos, mean_pred = calibration_curve(y, y_prob, n_bins=n_bins,
-                                                strategy="uniform")
+        frac_pos, mean_pred = calibration_curve(y, y_prob, n_bins=n_bins, strategy="uniform")
 
     # Expected calibration error
     bin_size = 1.0 / n_bins
@@ -210,13 +208,14 @@ def compute_calibration(pipeline: Pipeline, X: np.ndarray, y: np.ndarray,
     }
 
 
-def fit_final_model(X: np.ndarray, y: np.ndarray,
-                    C: float) -> tuple[Pipeline, dict]:
+def fit_final_model(X: np.ndarray, y: np.ndarray, C: float) -> tuple[Pipeline, dict]:
     """Fit final logistic regression on full dataset. Return pipeline + params."""
-    pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("lr", LogisticRegression(C=C, max_iter=1000, random_state=0)),
-    ])
+    pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("lr", LogisticRegression(C=C, max_iter=1000, random_state=0)),
+        ]
+    )
     pipeline.fit(X, y)
 
     scaler = pipeline.named_steps["scaler"]
@@ -225,16 +224,13 @@ def fit_final_model(X: np.ndarray, y: np.ndarray,
     params = {
         "feature_means": scaler.mean_.tolist(),
         "feature_stds": scaler.scale_.tolist(),
-        "coef_standardized": lr.coef_[0].tolist(),    # coefficients on standardized scale
+        "coef_standardized": lr.coef_[0].tolist(),  # coefficients on standardized scale
         "intercept_standardized": float(lr.intercept_[0]),
         # Coefficients on original (unstandardized) scale:
         #   coef_orig[i] = coef_std[i] / feature_std[i]
         #   intercept_orig = intercept_std - sum(coef_std * mean / std)
         "coef_original": (lr.coef_[0] / scaler.scale_).tolist(),
-        "intercept_original": float(
-            lr.intercept_[0]
-            - np.dot(lr.coef_[0], scaler.mean_ / scaler.scale_)
-        ),
+        "intercept_original": float(lr.intercept_[0] - np.dot(lr.coef_[0], scaler.mean_ / scaler.scale_)),
         "regularization_C": C,
     }
     return pipeline, params
@@ -247,10 +243,12 @@ def find_best_C(X: np.ndarray, y: np.ndarray, n_folds: int) -> float:
     best_C, best_auc = candidates[0], -1.0
 
     for C in candidates:
-        pipe = Pipeline([
-            ("scaler", StandardScaler()),
-            ("lr", LogisticRegression(C=C, max_iter=1000, random_state=0)),
-        ])
+        pipe = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("lr", LogisticRegression(C=C, max_iter=1000, random_state=0)),
+            ]
+        )
         y_prob = cross_val_predict(pipe, X, y, cv=cv, method="predict_proba")[:, 1]
         auc = roc_auc_score(y, y_prob)
         if auc > best_auc:
@@ -275,7 +273,9 @@ def print_model_card(model_json: dict) -> None:
     print(f"  Validation  : {cv['n_folds']}-fold stratified CV")
     print()
     print(f"  CV AUC      : {cv['auc_mean']:.4f}  ±{cv['auc_std']:.4f}  (per-fold)")
-    print(f"  Brier score : {cv['brier_score']:.4f}  (lower = better; null={cv['base_rate'] * (1 - cv['base_rate']):.4f})")
+    print(
+        f"  Brier score : {cv['brier_score']:.4f}  (lower = better; null={cv['base_rate'] * (1 - cv['base_rate']):.4f})"
+    )
     print(f"  ECE         : {model_json['calibration']['ece']:.4f}  (expected calibration error)")
     print()
     print("  Feature coefficients (standardized, 95% bootstrap CI):")
@@ -294,8 +294,8 @@ def print_model_card(model_json: dict) -> None:
     print("  Known limitation: Austria-only data; cross-country generalization")
     print("  is untested. Cross-cultural cooperation baselines may differ.")
     print()
-    print(f"  Replaces heuristic: 0.2 + 0.6 * trust * (1 - risk)")
-    print(f"  Now uses: logistic(β·x) with empirically estimated β")
+    print("  Replaces heuristic: 0.2 + 0.6 * trust * (1 - risk)")
+    print("  Now uses: logistic(β·x) with empirically estimated β")
     print("=" * 68)
 
 
@@ -309,17 +309,19 @@ def main(ess_path: Path, n_bootstrap: int, cv_folds: int, output_path: Path) -> 
     best_C = find_best_C(X, y, cv_folds)
 
     # Build final pipeline with best C for all subsequent steps
-    final_pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("lr", LogisticRegression(C=best_C, max_iter=1000, random_state=0)),
-    ])
+    final_pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            ("lr", LogisticRegression(C=best_C, max_iter=1000, random_state=0)),
+        ]
+    )
 
     print(f"\nRunning {cv_folds}-fold stratified cross-validation ...")
     cv_metrics = cross_validate(final_pipeline, X, y, cv_folds)
     print(f"  AUC={cv_metrics['auc_mean']:.4f} ± {cv_metrics['auc_std']:.4f}")
     print(f"  Brier={cv_metrics['brier_score']:.4f}")
 
-    print(f"\nComputing calibration curve ...")
+    print("\nComputing calibration curve ...")
     calib = compute_calibration(final_pipeline, X, y, cv_folds)
     print(f"  ECE={calib['ece']:.4f}")
 
@@ -345,13 +347,13 @@ def main(ess_path: Path, n_bootstrap: int, cv_folds: int, output_path: Path) -> 
             "target_encoding": "1=volunteered (cooperate), 0=did not volunteer",
             "features": FEATURES,
             "feature_ess_notes": {
-                "trust_people":        "ESS ppltrst: most people can be trusted (0-1)",
-                "trust_fairness":      "ESS pplfair: most people try to be fair (0-1)",
-                "trust_helpfulness":   "ESS pplhlp: most people try to be helpful (0-1)",
-                "risk_taking":         "ESS risk: willing to take risks (0-1); note: BGF profiles use risk_tolerance which is this variable",
+                "trust_people": "ESS ppltrst: most people can be trusted (0-1)",
+                "trust_fairness": "ESS pplfair: most people try to be fair (0-1)",
+                "trust_helpfulness": "ESS pplhlp: most people try to be helpful (0-1)",
+                "risk_taking": "ESS risk: willing to take risks (0-1); note: BGF profiles use risk_tolerance which is this variable",
                 "social_meeting_freq": "ESS sclmeet: how often meet socially (0-1)",
-                "social_activity":     "ESS sclact: take part in social activities (0-1)",
-                "reduce_inequality":   "ESS gincdif: government should reduce income differences (0-1)",
+                "social_activity": "ESS sclact: take part in social activities (0-1)",
+                "reduce_inequality": "ESS gincdif: government should reduce income differences (0-1)",
             },
             "model_type": "LogisticRegression(L2)",
             "n_bootstrap": n_bootstrap,

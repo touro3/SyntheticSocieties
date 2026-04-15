@@ -47,6 +47,7 @@ jobs:
             matplotlib==3.9.2 \
             pytest==8.3.2 \
             pytest-cov \
+            pytest-timeout \
             openai \
             polars==1.8.2 \
             orjson==3.10.7
@@ -150,7 +151,7 @@ jobs:
           pip install \
             numpy==1.26.4 scipy==1.11.4 pandas==2.2.2 pyarrow==17.0.0 \
             duckdb==1.1.0 pydantic==2.8.2 networkx==3.3 scikit-learn==1.5.2 \
-            matplotlib==3.9.2 pytest==8.3.2 pytest-cov openai polars==1.8.2 \
+            matplotlib==3.9.2 pytest==8.3.2 pytest-cov pytest-timeout openai polars==1.8.2 \
             orjson==3.10.7
           pip install -e . --no-deps
       - name: Run tests with coverage

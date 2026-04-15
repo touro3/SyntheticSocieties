@@ -1,6 +1,6 @@
-import pandas as pd
 from pathlib import Path
 
+import pandas as pd
 
 INPUT = "data/ESS11INTe04_1.csv"
 OUTPUT = "data/behavior/ess_behavior_dataset.csv"
@@ -46,7 +46,6 @@ def clean_dataset(df):
 
 
 def generate_behavior_proxy(df):
-
     """
     Create a simple behavioral proxy.
     This is necessary because the interview dataset

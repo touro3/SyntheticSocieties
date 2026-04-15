@@ -52,25 +52,26 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_STATE_FILE   = "run_state.json"
-_CHECKPOINT   = "checkpoint.json"
-_GRAPH_EVENTS = "events.jsonl"   # used for GraphRAG replay on resume
+_STATE_FILE = "run_state.json"
+_CHECKPOINT = "checkpoint.json"
+_GRAPH_EVENTS = "events.jsonl"  # used for GraphRAG replay on resume
 
 
 # ── RunState dataclass ────────────────────────────────────────────────────────
+
 
 @dataclass
 class RunState:
     """Mutable snapshot of a simulation run's lifecycle state."""
 
-    experiment_id:  str
-    status:         str          # pending | running | complete | failed
-    total_rounds:   int
+    experiment_id: str
+    status: str  # pending | running | complete | failed
+    total_rounds: int
     completed_rounds: int = 0
-    started_at:     float = field(default_factory=time.time)
-    updated_at:     float = field(default_factory=time.time)
-    finished_at:    Optional[float] = None
-    error_message:  Optional[str] = None
+    started_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    finished_at: Optional[float] = None
+    error_message: Optional[str] = None
 
     # ── Serialisation ─────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ class RunState:
 
 # ── RunStateManager ───────────────────────────────────────────────────────────
 
+
 class RunStateManager:
     """
     Manages the run_state.json lifecycle for one experiment directory.
@@ -113,8 +115,8 @@ class RunStateManager:
     """
 
     def __init__(self, exp_dir: str | Path):
-        self._dir   = Path(exp_dir)
-        self._path  = self._dir / _STATE_FILE
+        self._dir = Path(exp_dir)
+        self._path = self._dir / _STATE_FILE
         self._state: Optional[RunState] = None
 
     # ── Properties ────────────────────────────────────────────────────────────
@@ -160,9 +162,9 @@ class RunStateManager:
         """Mark the run as successfully completed."""
         if self._state is None:
             return
-        self._state.status       = "complete"
-        self._state.finished_at  = time.time()
-        self._state.updated_at   = time.time()
+        self._state.status = "complete"
+        self._state.finished_at = time.time()
+        self._state.updated_at = time.time()
         self._write()
         logger.info("RunState complete: %s", self._state.experiment_id)
 
@@ -170,13 +172,15 @@ class RunStateManager:
         """Mark the run as failed (preserves completed_rounds for resume)."""
         if self._state is None:
             return
-        self._state.status        = "failed"
+        self._state.status = "failed"
         self._state.error_message = error_message[:500]
-        self._state.updated_at    = time.time()
+        self._state.updated_at = time.time()
         self._write()
         logger.error(
             "RunState failed: %s at round %d — %s",
-            self._state.experiment_id, self._state.completed_rounds, error_message,
+            self._state.experiment_id,
+            self._state.completed_rounds,
+            error_message,
         )
 
     # ── Load existing state ───────────────────────────────────────────────────
@@ -199,14 +203,13 @@ class RunStateManager:
         if self._state is None:
             return
         try:
-            self._path.write_text(
-                json.dumps(self._state.to_dict(), indent=2), encoding="utf-8"
-            )
+            self._path.write_text(json.dumps(self._state.to_dict(), indent=2), encoding="utf-8")
         except Exception as exc:
             logger.warning("Failed to write run_state.json: %s", exc)
 
 
 # ── auto_resume() ─────────────────────────────────────────────────────────────
+
 
 def auto_resume(
     exp_dir: str | Path,
@@ -249,20 +252,24 @@ def auto_resume(
         # Already done — caller can skip the run
         logger.info(
             "auto_resume: %s already complete (%d rounds). Nothing to do.",
-            experiment_id, existing.total_rounds,
+            experiment_id,
+            existing.total_rounds,
         )
         return existing.total_rounds, None, mgr
 
     if existing.is_resumable or existing.is_failed:
         start = existing.resume_round
-        ckpt  = mgr.checkpoint_path
+        ckpt = mgr.checkpoint_path
         logger.info(
             "auto_resume: resuming %s from round %d (status was '%s'). Checkpoint: %s",
-            experiment_id, start, existing.status, ckpt,
+            experiment_id,
+            start,
+            existing.status,
+            ckpt,
         )
         # Re-open the state as running so we track the resumed run
-        existing.status      = "running"
-        existing.updated_at  = time.time()
+        existing.status = "running"
+        existing.updated_at = time.time()
         existing.error_message = None
         mgr._state = existing
         mgr._write()
@@ -271,13 +278,15 @@ def auto_resume(
     # Fallback: unexpected status — start fresh
     logger.warning(
         "auto_resume: unexpected status '%s' for %s — starting fresh.",
-        existing.status, experiment_id,
+        existing.status,
+        experiment_id,
     )
     mgr.start(total_rounds=total_rounds, experiment_id=experiment_id)
     return 0, None, mgr
 
 
 # ── Utility: replay GraphRAG from saved events ────────────────────────────────
+
 
 def replay_graph_rag(exp_dir: str | Path, graph_rag: object) -> None:
     """Rebuild a GraphRAG instance from saved events.jsonl.
@@ -302,6 +311,7 @@ def replay_graph_rag(exp_dir: str | Path, graph_rag: object) -> None:
 
 # ── scan_incomplete_runs() ────────────────────────────────────────────────────
 
+
 def scan_incomplete_runs(experiments_root: str | Path = "experiments") -> list[dict]:
     """Scan an experiments directory and return all incomplete (resumable) runs.
 
@@ -318,17 +328,19 @@ def scan_incomplete_runs(experiments_root: str | Path = "experiments") -> list[d
     results = []
     for state_file in sorted(root.rglob(_STATE_FILE)):
         try:
-            data  = json.loads(state_file.read_text(encoding="utf-8"))
+            data = json.loads(state_file.read_text(encoding="utf-8"))
             state = RunState.from_dict(data)
             if not state.is_complete:
-                results.append({
-                    "experiment_id":    state.experiment_id,
-                    "exp_dir":          str(state_file.parent),
-                    "completed_rounds": state.completed_rounds,
-                    "total_rounds":     state.total_rounds,
-                    "status":           state.status,
-                    "updated_at":       state.updated_at,
-                })
+                results.append(
+                    {
+                        "experiment_id": state.experiment_id,
+                        "exp_dir": str(state_file.parent),
+                        "completed_rounds": state.completed_rounds,
+                        "total_rounds": state.total_rounds,
+                        "status": state.status,
+                        "updated_at": state.updated_at,
+                    }
+                )
         except Exception:
             continue
 

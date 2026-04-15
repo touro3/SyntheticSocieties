@@ -60,10 +60,17 @@ def main() -> None:
     x = np.arange(len(group_names))
     width = 0.35
 
-    bars1 = ax.bar(x - width / 2, ess_trust, width, label="ESS Trust Mean",
-                   color="steelblue", alpha=0.85)
-    bars2 = ax.bar(x + width / 2, coop_rates, width, label="Simulated Coop Rate",
-                   color="darkorange", alpha=0.85, yerr=coop_stds, capsize=4)
+    bars1 = ax.bar(x - width / 2, ess_trust, width, label="ESS Trust Mean", color="steelblue", alpha=0.85)
+    bars2 = ax.bar(
+        x + width / 2,
+        coop_rates,
+        width,
+        label="Simulated Coop Rate",
+        color="darkorange",
+        alpha=0.85,
+        yerr=coop_stds,
+        capsize=4,
+    )
 
     ax.set_xlabel("Trust Sub-Population", fontsize=10)
     ax.set_ylabel("Value [0, 1]", fontsize=10)
@@ -93,8 +100,10 @@ def main() -> None:
     sig_marker = "*" if correlation["is_significant"] else ""
     ax2.annotate(
         f"Spearman r = {r:.3f}{sig_marker}\np = {p:.3f}",
-        xy=(0.05, 0.92), xycoords="axes fraction",
-        fontsize=10, va="top",
+        xy=(0.05, 0.92),
+        xycoords="axes fraction",
+        fontsize=10,
+        va="top",
         bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", edgecolor="gray"),
     )
 

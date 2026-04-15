@@ -113,9 +113,9 @@ def expected_cooperation_rate(profile: Any) -> float:
         return _heuristic_cooperation_rate(profile)
 
     params = model["model_params"]
-    coefs = params["coef_original"]          # coefficients on original scale
+    coefs = params["coef_original"]  # coefficients on original scale
     intercept = params["intercept_original"]
-    feat_means = params["feature_means"]     # training means for imputation
+    feat_means = params["feature_means"]  # training means for imputation
 
     # Build feature vector with imputation for missing profile attributes
     trust_people = getattr(profile, "trust_people", None)
@@ -123,13 +123,13 @@ def expected_cooperation_rate(profile: Any) -> float:
     social_activity = getattr(profile, "social_activity", None)
 
     feat_vals = [
-        trust_people   if trust_people   is not None else feat_means[0],  # trust_people
-        feat_means[1],                                                      # trust_fairness (imputed)
-        feat_means[2],                                                      # trust_helpfulness (imputed)
-        risk_tolerance if risk_tolerance is not None else feat_means[3],   # risk_taking
-        feat_means[4],                                                      # social_meeting_freq (imputed)
-        social_activity if social_activity is not None else feat_means[5], # social_activity
-        feat_means[6],                                                      # reduce_inequality (imputed)
+        trust_people if trust_people is not None else feat_means[0],  # trust_people
+        feat_means[1],  # trust_fairness (imputed)
+        feat_means[2],  # trust_helpfulness (imputed)
+        risk_tolerance if risk_tolerance is not None else feat_means[3],  # risk_taking
+        feat_means[4],  # social_meeting_freq (imputed)
+        social_activity if social_activity is not None else feat_means[5],  # social_activity
+        feat_means[6],  # reduce_inequality (imputed)
     ]
 
     log_odds = intercept + sum(c * x for c, x in zip(coefs, feat_vals))
@@ -282,9 +282,7 @@ def compute_decay_summary(
     for agent in agents_list:
         aid = agent.profile.agent_id
         agent_events = events_by_agent.get(aid, [])
-        per_agent[aid] = compute_per_round_persona_fidelity(
-            agent_events, agent.profile, window=window
-        )
+        per_agent[aid] = compute_per_round_persona_fidelity(agent_events, agent.profile, window=window)
 
     # Aggregate: mean fidelity per round
     round_fidelities: dict[int, list[float]] = defaultdict(list)
@@ -292,9 +290,7 @@ def compute_decay_summary(
         for r, f in zip(result["rounds"], result["fidelity"]):
             round_fidelities[r].append(f)
 
-    mean_fidelity_per_round = {
-        r: float(np.mean(fs)) for r, fs in sorted(round_fidelities.items())
-    }
+    mean_fidelity_per_round = {r: float(np.mean(fs)) for r, fs in sorted(round_fidelities.items())}
 
     # Aggregate decay rate
     decay_rates = [r["decay_rate"] for r in per_agent.values() if r["rounds"]]

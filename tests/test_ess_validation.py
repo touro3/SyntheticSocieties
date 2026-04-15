@@ -4,19 +4,17 @@ import json
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from scripts.validate_ess_data import (
     ValidationResult,
+    run_validation,
     validate_columns,
     validate_distributions,
     validate_missing_rates,
     validate_parquet,
     validate_ranges,
     validate_registry,
-    run_validation,
 )
-
 
 # ── ValidationResult ─────────────────────────────────────────────────────────
 
@@ -76,10 +74,16 @@ class TestValidateParquet:
 
 class TestValidateColumns:
     def test_all_present(self):
-        df = pd.DataFrame({
-            "country": ["FR"], "gender": [1], "age": [30],
-            "trust_people": [0.5], "life_satisfaction": [0.7], "happiness": [0.6],
-        })
+        df = pd.DataFrame(
+            {
+                "country": ["FR"],
+                "gender": [1],
+                "age": [30],
+                "trust_people": [0.5],
+                "life_satisfaction": [0.7],
+                "happiness": [0.6],
+            }
+        )
         r = ValidationResult()
         validate_columns(df, r)
         assert r.n_fail == 0
@@ -91,10 +95,16 @@ class TestValidateColumns:
         assert r.n_fail > 0  # gender, trust_people, etc. missing
 
     def test_all_nan_column(self):
-        df = pd.DataFrame({
-            "country": ["FR"], "gender": [np.nan], "age": [30],
-            "trust_people": [0.5], "life_satisfaction": [0.7], "happiness": [0.6],
-        })
+        df = pd.DataFrame(
+            {
+                "country": ["FR"],
+                "gender": [np.nan],
+                "age": [30],
+                "trust_people": [0.5],
+                "life_satisfaction": [0.7],
+                "happiness": [0.6],
+            }
+        )
         r = ValidationResult()
         validate_columns(df, r)
         assert any("gender" in c["name"] and c["status"] == "FAIL" for c in r.checks)
@@ -151,11 +161,13 @@ class TestValidateRegistry:
 
     def test_valid_registry(self, tmp_path):
         registry = {
-            "datasets": [{
-                "id": "test",
-                "local_path": str(tmp_path / "ess_clean.parquet"),
-                "target_items": [{"name": "trust_people"}],
-            }]
+            "datasets": [
+                {
+                    "id": "test",
+                    "local_path": str(tmp_path / "ess_clean.parquet"),
+                    "target_items": [{"name": "trust_people"}],
+                }
+            ]
         }
         (tmp_path / "ess_clean.parquet").write_bytes(b"")  # dummy file
         (tmp_path / "dataset_registry.json").write_text(json.dumps(registry))
@@ -164,9 +176,7 @@ class TestValidateRegistry:
         assert r.n_fail == 0
 
     def test_missing_local_file_fails(self, tmp_path):
-        registry = {
-            "datasets": [{"id": "test", "local_path": str(tmp_path / "missing.parquet"), "target_items": []}]
-        }
+        registry = {"datasets": [{"id": "test", "local_path": str(tmp_path / "missing.parquet"), "target_items": []}]}
         (tmp_path / "dataset_registry.json").write_text(json.dumps(registry))
         r = ValidationResult()
         validate_registry(tmp_path, r)
@@ -202,14 +212,16 @@ class TestValidateDistributions:
 
 class TestRunValidation:
     def test_full_valid_run(self, tmp_path):
-        df = pd.DataFrame({
-            "country": ["FR", "DE", "UK"],
-            "gender": [1, 2, 1],
-            "age": [30, 40, 50],
-            "trust_people": [0.5, 0.7, 0.3],
-            "life_satisfaction": [0.6, 0.8, 0.4],
-            "happiness": [0.7, 0.9, 0.5],
-        })
+        df = pd.DataFrame(
+            {
+                "country": ["FR", "DE", "UK"],
+                "gender": [1, 2, 1],
+                "age": [30, 40, 50],
+                "trust_people": [0.5, 0.7, 0.3],
+                "life_satisfaction": [0.6, 0.8, 0.4],
+                "happiness": [0.7, 0.9, 0.5],
+            }
+        )
         df.to_parquet(tmp_path / "ess_clean.parquet")
         result = run_validation(tmp_path)
         assert result.n_fail == 0

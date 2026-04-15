@@ -3,18 +3,18 @@
 Covers MemoryLevel enum and build_memory_block() behaviour at each level.
 Run with: pytest tests/test_memory_ablation.py -v
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from agents.memory import HierarchicalMemory, MemoryItem, MemoryLevel
 from decision.prompt_builder import build_memory_block
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _item(round_id: int, event_type: str = "work", partner_id: str = "peer",
-          content: str = "", wealth_delta: float = 8.0) -> MemoryItem:
+
+def _item(
+    round_id: int, event_type: str = "work", partner_id: str = "peer", content: str = "", wealth_delta: float = 8.0
+) -> MemoryItem:
     return MemoryItem(
         round_id=round_id,
         partner_id=partner_id,
@@ -31,14 +31,15 @@ def _make_memory(n_recent: int = 3, n_archive: int = 5) -> HierarchicalMemory:
         mem.archive.append(_item(i, event_type="work"))
     for i in range(n_recent):
         mem.recent.append(
-            _item(n_archive + i, event_type="cooperate",
-                  partner_id=f"agent_{i}", content="cooperated",
-                  wealth_delta=4.0)
+            _item(
+                n_archive + i, event_type="cooperate", partner_id=f"agent_{i}", content="cooperated", wealth_delta=4.0
+            )
         )
     return mem
 
 
 # ── MemoryLevel enum ──────────────────────────────────────────────────────────
+
 
 class TestMemoryLevelEnum:
     def test_enum_values(self):
@@ -55,10 +56,12 @@ class TestMemoryLevelEnum:
 
     def test_is_intenum(self):
         from enum import IntEnum
+
         assert issubclass(MemoryLevel, IntEnum)
 
 
 # ── HierarchicalMemory.level attribute ───────────────────────────────────────
+
 
 class TestMemoryLevelAttribute:
     def test_default_level_is_m3(self):
@@ -94,6 +97,7 @@ class TestMemoryLevelAttribute:
 
 # ── build_memory_block() — M0 ─────────────────────────────────────────────────
 
+
 class TestBuildMemoryBlockM0:
     def test_returns_placeholder_string(self):
         mem = _make_memory()
@@ -119,6 +123,7 @@ class TestBuildMemoryBlockM0:
 
 
 # ── build_memory_block() — M1 ─────────────────────────────────────────────────
+
 
 class TestBuildMemoryBlockM1:
     def test_includes_recent_events(self):
@@ -156,6 +161,7 @@ class TestBuildMemoryBlockM1:
 
 # ── build_memory_block() — M2 ─────────────────────────────────────────────────
 
+
 class TestBuildMemoryBlockM2:
     def test_includes_recent_events(self):
         mem = _make_memory(n_recent=3, n_archive=5)
@@ -192,6 +198,7 @@ class TestBuildMemoryBlockM2:
 
 # ── build_memory_block() — M3 ─────────────────────────────────────────────────
 
+
 class TestBuildMemoryBlockM3:
     def test_includes_reflection_when_items_exist(self):
         mem = _make_memory(n_recent=3, n_archive=5)
@@ -212,6 +219,7 @@ class TestBuildMemoryBlockM3:
 
 
 # ── Level read from memory.level attribute ────────────────────────────────────
+
 
 class TestBuildMemoryBlockLevelFromMemory:
     def test_reads_m0_from_memory_attribute(self):

@@ -1,8 +1,9 @@
 """Tests for ablated prompt construction — each of the 6 ablation modes."""
 
-import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from agents.memory import HierarchicalMemory, MemoryItem
 from agents.profile import AgentProfile
@@ -10,12 +11,12 @@ from agents.state import AgentState
 from decision.ablated_llm_policy import AblatedLLMPolicy
 from decision.system_prompts import BASE_SYSTEM_PROMPT, SYSTEM_PROMPT_NO_INSTITUTIONS
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 
 class FakeBackend:
     """Minimal backend stub for testing prompt construction only."""
+
     def generate(self, messages, temperature=None):
         return '{"action_type": "work", "amount": 10}', 0.1
 
@@ -123,8 +124,10 @@ class TestMinimalPersona:
         msgs = _build("minimal_persona", backend, profile, state, memory, context)
         user_content = msgs[1]["content"]
         # Full persona would include trust level, education, etc. Minimal should not.
-        assert "trust" not in user_content.split("Round 3.")[1].split("Current situation")[0].lower() or \
-               "Your trust" not in user_content.split("Round 3.")[1].split("Current situation")[0]
+        assert (
+            "trust" not in user_content.split("Round 3.")[1].split("Current situation")[0].lower()
+            or "Your trust" not in user_content.split("Round 3.")[1].split("Current situation")[0]
+        )
 
 
 # ── rich_persona ─────────────────────────────────────────────────────────────
@@ -299,7 +302,9 @@ class TestRAGIntegration:
         # Build a state object that has trust_network (not standard AgentState,
         # but the branch in build_state_block uses hasattr so a SimpleNamespace works).
         state_with_trust = SimpleNamespace(
-            wealth=100.0, stress=0.8, satisfaction=0.6,
+            wealth=100.0,
+            stress=0.8,
+            satisfaction=0.6,
             trust_network={"agent_5": 0.9},
         )
 
@@ -310,7 +315,9 @@ class TestRAGIntegration:
     def test_rich_persona_state_block_includes_trust_network(self, backend, profile, memory, context):
         """rich_persona uses ablation_level=5, so trust_network IS shown when present."""
         state_with_trust = SimpleNamespace(
-            wealth=100.0, stress=0.8, satisfaction=0.6,
+            wealth=100.0,
+            stress=0.8,
+            satisfaction=0.6,
             trust_network={"agent_5": 0.9},
         )
 

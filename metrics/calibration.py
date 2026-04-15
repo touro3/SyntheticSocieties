@@ -61,6 +61,7 @@ def compute_metrics(exp_ids: list[str]) -> dict:
 
     # Gini — delegate to canonical implementation
     from metrics.inequality import gini_coefficient as _gini
+
     if n > 1 and arr.sum() > 0:
         gini = _gini(arr)
     else:
@@ -157,23 +158,15 @@ def calibration_report(policies: list[str] = None) -> str:
             continue
 
         lines.append(
-            f"  {label:<18} {'CAL':<8} "
-            f"{cal['mean_wealth']:>10.1f} {cal['gini']:>8.3f} "
-            f"{cal['coop_rate'] * 100:>7.1f}%"
+            f"  {label:<18} {'CAL':<8} {cal['mean_wealth']:>10.1f} {cal['gini']:>8.3f} {cal['coop_rate'] * 100:>7.1f}%"
         )
         lines.append(
-            f"  {'':<18} {'EVAL':<8} "
-            f"{ev['mean_wealth']:>10.1f} {ev['gini']:>8.3f} "
-            f"{ev['coop_rate'] * 100:>7.1f}%"
+            f"  {'':<18} {'EVAL':<8} {ev['mean_wealth']:>10.1f} {ev['gini']:>8.3f} {ev['coop_rate'] * 100:>7.1f}%"
         )
 
         avg_gap = np.mean(list(gap.values()))
         risk = "LOW" if avg_gap < 10 else "MEDIUM" if avg_gap < 25 else "HIGH"
-        lines.append(
-            f"  {'':<18} {'GAP':<8} "
-            f"{'':>10} {'':>8} {'':>8} "
-            f"{avg_gap:>7.1f}%  ← {risk} risk"
-        )
+        lines.append(f"  {'':<18} {'GAP':<8} {'':>10} {'':>8} {'':>8} {avg_gap:>7.1f}%  ← {risk} risk")
         lines.append("")
 
     lines.append("=" * 70)

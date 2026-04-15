@@ -37,7 +37,12 @@ class LLMPolicy(LLMPolicyBase):
         self.prompt_budget = prompt_budget
 
     def propose_action(
-        self, profile, state, memory, context: dict, round_id: int,
+        self,
+        profile,
+        state,
+        memory,
+        context: dict,
+        round_id: int,
     ) -> ProposedAction:
         neighbors = get_neighbors(context)
 
@@ -49,7 +54,9 @@ class LLMPolicy(LLMPolicyBase):
         pop_context = None
         if self.sql_rag:
             pop_context = self.sql_rag.get_peer_group_context(
-                age=profile.age, gender=profile.gender, country=profile.country,
+                age=profile.age,
+                gender=profile.gender,
+                country=profile.country,
                 agent_trust=getattr(profile, "trust_people", None),
                 agent_risk=getattr(profile, "risk_tolerance", None),
                 agent_satisfaction=getattr(profile, "life_satisfaction", None),
@@ -57,9 +64,14 @@ class LLMPolicy(LLMPolicyBase):
 
         # Build prompt
         messages = build_prompt(
-            profile=profile, state=state, memory=memory, context=context,
-            round_id=round_id, memory_window=self.memory_window,
-            social_context=social_context, population_context=pop_context,
+            profile=profile,
+            state=state,
+            memory=memory,
+            context=context,
+            round_id=round_id,
+            memory_window=self.memory_window,
+            social_context=social_context,
+            population_context=pop_context,
             ablation_level=self.ablation_level,
             max_tokens=self.prompt_budget,
         )
@@ -67,9 +79,8 @@ class LLMPolicy(LLMPolicyBase):
         # Apply perturbation if configured
         if self.perturbation_mode:
             from decision.prompt_perturbation import apply_perturbation
-            seed = int(
-                hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16
-            )
+
+            seed = int(hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16)
             messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
         # Generate with retries (shared logic from LLMPolicyBase)
@@ -81,15 +92,25 @@ class LLMPolicy(LLMPolicyBase):
 
         # Log
         prompt_text = build_prompt_text(
-            profile, state, memory, context, round_id, self.memory_window,
-            social_context=social_context, population_context=pop_context,
+            profile,
+            state,
+            memory,
+            context,
+            round_id,
+            self.memory_window,
+            social_context=social_context,
+            population_context=pop_context,
             ablation_level=self.ablation_level,
             max_tokens=self.prompt_budget,
         )
         self._log_prompt(
-            round_id=round_id, agent_id=profile.agent_id,
-            prompt_text=prompt_text, raw_text=raw_text,
-            action=action, latency=latency, parse_meta=parse_meta,
+            round_id=round_id,
+            agent_id=profile.agent_id,
+            prompt_text=prompt_text,
+            raw_text=raw_text,
+            action=action,
+            latency=latency,
+            parse_meta=parse_meta,
             extra_meta={
                 "rag_context": {
                     "sql_rag_present": bool(pop_context),

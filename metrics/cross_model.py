@@ -210,9 +210,7 @@ def build_comparison_table(results: list[CrossModelResult]) -> list[dict]:
         List of row dicts, one per model, with A/B metrics and delta.
     """
     # Index by (model_id, condition)
-    indexed: dict[tuple[str, str], CrossModelResult] = {
-        (r.model_id, r.condition): r for r in results
-    }
+    indexed: dict[tuple[str, str], CrossModelResult] = {(r.model_id, r.condition): r for r in results}
 
     models = sorted({r.model_id for r in results})
     rows = []

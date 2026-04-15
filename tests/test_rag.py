@@ -104,11 +104,13 @@ def test_graph_rag_context_changes_after_cooperation_event():
     # Before any event: agent is not in graph at all
     assert "no recorded interactions" in ctx_before.lower() or "not yet initialized" in ctx_before.lower()
 
-    rag.add_event({
-        "agent_id": "agent_1",
-        "action": {"action_type": "cooperate", "target_agent_id": "agent_0"},
-        "round_id": 1,
-    })
+    rag.add_event(
+        {
+            "agent_id": "agent_1",
+            "action": {"action_type": "cooperate", "target_agent_id": "agent_0"},
+            "round_id": 1,
+        }
+    )
 
     ctx_after = rag.get_social_context("agent_0")
     assert ctx_after != ctx_before
@@ -132,6 +134,7 @@ def test_sql_rag_different_demographics_yield_different_context():
 
 
 # ── C2: SQL RAG income cohort filter tests ────────────────────────────────────
+
 
 def test_sql_rag_income_filter_tightens_cohort():
     """Passing income_decile should produce a different (tighter) context than omitting it."""
@@ -173,6 +176,7 @@ def test_sql_rag_income_line_with_income_arg():
 
 
 # ── H3: Graph RAG reciprocity rate tests ──────────────────────────────────────
+
 
 def test_graph_rag_reciprocity_rate_full():
     """Mutual cooperation should report correct reciprocation percentage."""
@@ -226,6 +230,7 @@ def test_graph_rag_query_owed():
 
 # ── Original kernel integration test (unchanged) ──────────────────────────────
 
+
 def test_graph_rag_initialized_by_kernel_execution(tmp_path):
     policy = CooperativePolicy()
     agents = [
@@ -233,9 +238,7 @@ def test_graph_rag_initialized_by_kernel_execution(tmp_path):
         _make_agent("agent_1", policy),
     ]
 
-    network_manager = NetworkManager.fully_connected(
-        [agent.profile.agent_id for agent in agents]
-    )
+    network_manager = NetworkManager.fully_connected([agent.profile.agent_id for agent in agents])
     world = World(
         state=WorldState(),
         institution_manager=InstitutionManager(),
@@ -255,6 +258,7 @@ def test_graph_rag_initialized_by_kernel_execution(tmp_path):
 
 # ── P4.6: RAG failure path tests ──────────────────────────────────────────────
 
+
 class TestGraphRagNoneReturnGraceful:
     """graph_rag.get_social_context() returning None must not crash prompt building."""
 
@@ -270,6 +274,7 @@ class TestGraphRagNoneReturnGraceful:
     def test_llm_policy_base_graph_rag_context_returns_none_when_no_rag(self):
         """graph_rag_context() returns None when graph_rag attribute is absent."""
         from decision.llm_policy_base import LLMPolicyBase
+
         policy = LLMPolicyBase.__new__(LLMPolicyBase)
         # No graph_rag attribute set
         assert policy.graph_rag_context("any_agent") is None
@@ -277,6 +282,7 @@ class TestGraphRagNoneReturnGraceful:
     def test_llm_policy_base_graph_rag_context_handles_none_attribute(self):
         """graph_rag_context() returns None when graph_rag is explicitly set to None."""
         from decision.llm_policy_base import LLMPolicyBase
+
         policy = LLMPolicyBase.__new__(LLMPolicyBase)
         policy.graph_rag = None
         assert policy.graph_rag_context("any_agent") is None
@@ -284,12 +290,14 @@ class TestGraphRagNoneReturnGraceful:
     def test_llm_policy_base_sql_rag_context_returns_none_when_no_rag(self):
         """sql_rag_context() returns None when sql_rag attribute is absent."""
         from decision.llm_policy_base import LLMPolicyBase
+
         policy = LLMPolicyBase.__new__(LLMPolicyBase)
         assert policy.sql_rag_context(age=35, gender="male", country="DE") is None
 
     def test_llm_policy_base_sql_rag_context_handles_none_attribute(self):
         """sql_rag_context() returns None when sql_rag is explicitly set to None."""
         from decision.llm_policy_base import LLMPolicyBase
+
         policy = LLMPolicyBase.__new__(LLMPolicyBase)
         policy.sql_rag = None
         assert policy.sql_rag_context(age=35, gender="male", country="DE") is None
@@ -297,10 +305,11 @@ class TestGraphRagNoneReturnGraceful:
     def test_llm_policy_propose_action_with_rag_returning_none(self):
         """LLMPolicy must not crash when both RAG contexts return None."""
         from unittest.mock import MagicMock
-        from decision.llm_policy import LLMPolicy
+
         from agents.memory import HierarchicalMemory
         from agents.profile import AgentProfile
         from agents.state import AgentState
+        from decision.llm_policy import LLMPolicy
 
         mock_rag = MagicMock()
         mock_rag.get_social_context.return_value = None
@@ -315,9 +324,15 @@ class TestGraphRagNoneReturnGraceful:
         policy = LLMPolicy(backend=mock_backend, graph_rag=mock_rag, sql_rag=mock_rag, max_retries=0)
 
         profile = AgentProfile(
-            agent_id="a0", age=35, income=1000.0, education="college",
-            occupation="worker", location="italy", political_preference="center",
-            risk_tolerance=0.5, social_class="middle",
+            agent_id="a0",
+            age=35,
+            income=1000.0,
+            education="college",
+            occupation="worker",
+            location="italy",
+            political_preference="center",
+            risk_tolerance=0.5,
+            social_class="middle",
         )
         state = AgentState(wealth=100.0)
         memory = HierarchicalMemory(max_recent=5)

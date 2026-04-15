@@ -1,9 +1,7 @@
 """Tests for metrics/calibration.py — calibration/evaluation split, metric computation."""
 
 import json
-from pathlib import Path
 
-import numpy as np
 import pytest
 
 from metrics.calibration import (
@@ -15,7 +13,6 @@ from metrics.calibration import (
     compute_metrics,
     load_summary,
 )
-
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,10 +80,14 @@ class TestComputeMetrics:
         ]:
             d = tmp_path / exp_id
             d.mkdir()
-            (d / "summary.json").write_text(json.dumps({
-                "wealth": {"values": wealth},
-                "event_action_counts": actions,
-            }))
+            (d / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "wealth": {"values": wealth},
+                        "event_action_counts": actions,
+                    }
+                )
+            )
 
         result = compute_metrics(["exp1", "exp2"])
         assert result["n_agents"] == 5
@@ -100,10 +101,14 @@ class TestComputeMetrics:
         monkeypatch.setattr("metrics.calibration.EXPERIMENTS_DIR", tmp_path)
         d = tmp_path / "uniform"
         d.mkdir()
-        (d / "summary.json").write_text(json.dumps({
-            "wealth": {"values": [50, 50, 50, 50]},
-            "event_action_counts": {"work": 4},
-        }))
+        (d / "summary.json").write_text(
+            json.dumps(
+                {
+                    "wealth": {"values": [50, 50, 50, 50]},
+                    "event_action_counts": {"work": 4},
+                }
+            )
+        )
         result = compute_metrics(["uniform"])
         assert result["gini"] == pytest.approx(0.0)
 
@@ -111,10 +116,14 @@ class TestComputeMetrics:
         monkeypatch.setattr("metrics.calibration.EXPERIMENTS_DIR", tmp_path)
         d = tmp_path / "single"
         d.mkdir()
-        (d / "summary.json").write_text(json.dumps({
-            "wealth": {"values": [100]},
-            "event_action_counts": {"work": 1},
-        }))
+        (d / "summary.json").write_text(
+            json.dumps(
+                {
+                    "wealth": {"values": [100]},
+                    "event_action_counts": {"work": 1},
+                }
+            )
+        )
         result = compute_metrics(["single"])
         assert result["gini"] == 0.0
 
@@ -150,18 +159,26 @@ class TestCalibrationEvaluationSplit:
         for seed in CALIBRATION_SEEDS:
             d = tmp_path / f"cmp_llm_s{seed}"
             d.mkdir()
-            (d / "summary.json").write_text(json.dumps({
-                "wealth": {"values": [100, 100]},
-                "event_action_counts": {"work": 2},
-            }))
+            (d / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "wealth": {"values": [100, 100]},
+                        "event_action_counts": {"work": 2},
+                    }
+                )
+            )
         # Create evaluation experiment
         for seed in EVALUATION_SEEDS:
             d = tmp_path / f"cmp_llm_s{seed}"
             d.mkdir()
-            (d / "summary.json").write_text(json.dumps({
-                "wealth": {"values": [80, 80]},
-                "event_action_counts": {"cooperate": 2},
-            }))
+            (d / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "wealth": {"values": [80, 80]},
+                        "event_action_counts": {"cooperate": 2},
+                    }
+                )
+            )
 
         result = calibration_evaluation_split("llm")
         assert result["calibration"]["mean_wealth"] == pytest.approx(100.0)

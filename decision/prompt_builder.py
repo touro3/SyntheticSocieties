@@ -48,12 +48,12 @@ class AblationLevel(IntEnum):
     comparisons continue to work unchanged.
     """
 
-    BASELINE = 0          # No grounding — equivalent to Condition A
-    STRESS_AWARE = 1      # Adds: stress salience warning
-    COOPERATION = 2       # Adds: cooperation-incentive hint
-    TRUST_SURFACED = 3    # Adds: trust network surfaced in state
-    BALANCED = 4          # Adds: balanced system-prompt phrasing
-    FULL = 5              # Full grounding — default for Condition B
+    BASELINE = 0  # No grounding — equivalent to Condition A
+    STRESS_AWARE = 1  # Adds: stress salience warning
+    COOPERATION = 2  # Adds: cooperation-incentive hint
+    TRUST_SURFACED = 3  # Adds: trust network surfaced in state
+    BALANCED = 4  # Adds: balanced system-prompt phrasing
+    FULL = 5  # Full grounding — default for Condition B
 
 
 def get_neighbors(context: dict) -> list[str]:
@@ -69,7 +69,6 @@ def get_neighbors(context: dict) -> list[str]:
         List of neighbor agent IDs (may be empty).
     """
     return context.get("network", {}).get("neighbors", [])
-
 
 
 def build_persona_block(profile: AgentProfile) -> str:
@@ -153,10 +152,10 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
         f"stress={state.stress:.2f}, "
         f"satisfaction={state.satisfaction:.2f}."
     )
-    
+
     # Neutral stress observation (no action recommendations)
     if ablation_level >= AblationLevel.STRESS_AWARE and state.stress >= STRESS_CRITICAL:
-        base += f"\n[Your stress level is critically high ({state.stress:.2f}).]" 
+        base += f"\n[Your stress level is critically high ({state.stress:.2f}).]"
 
     # V3: Surface Agent Trust Dictionary directly in state
     if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
@@ -164,9 +163,8 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
         active_trust = {k: round(v, 2) for k, v in state.trust_network.items() if v > 0}
         if active_trust:
             base += f"\n[Your internal trust toward specific neighbors based on their past help: {active_trust}]"
-            
-    return base
 
+    return base
 
 
 def build_memory_block(
@@ -222,9 +220,7 @@ def build_memory_block(
         lines = []
         archive_count = len(getattr(memory, "archive", []))
         if archive_count > 0:
-            lines.append(
-                f"[Memory archive: {archive_count} older events stored, not shown]"
-            )
+            lines.append(f"[Memory archive: {archive_count} older events stored, not shown]")
         if not recent:
             if not lines:
                 return "You have no memories of past interactions yet."
@@ -284,7 +280,8 @@ _DRIFT_THRESHOLD = 0.25
 
 
 def _build_persona_anchor(
-    memory: HierarchicalMemory, profile: AgentProfile,
+    memory: HierarchicalMemory,
+    profile: AgentProfile,
 ) -> Optional[str]:
     """Generate a persona re-anchoring string for POST-HOC ANALYSIS ONLY.
 
@@ -406,9 +403,7 @@ def build_prompt(
     # Uses SHA-256 (not Python's built-in hash()) for cross-process stability:
     # hash() is randomized per-interpreter since Python 3.3 (PYTHONHASHSEED),
     # which would produce different action orderings across machines/processes.
-    shuffle_seed = int(
-        hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16
-    )
+    shuffle_seed = int(hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16)
     system_text = get_shuffled_system_prompt(seed=shuffle_seed)
 
     # No extra guidance — prompt must not bias toward specific actions.
@@ -451,7 +446,6 @@ def build_prompt(
     ]
 
 
-
 def build_prompt_staged(
     profile: AgentProfile,
     state: AgentState,
@@ -480,11 +474,7 @@ def build_prompt_staged(
     cannibalises persona or vice-versa. The final action instruction is always
     appended last and is never trimmed.
     """
-    system_text = (
-        BALANCED_SYSTEM_PROMPT
-        if ablation_level >= AblationLevel.BALANCED
-        else BASE_SYSTEM_PROMPT
-    )
+    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
 
     # ── Stage 1: Identity ────────────────────────────────────────────────────
     persona = build_persona_block(profile)
@@ -516,12 +506,12 @@ def build_prompt_staged(
         max_tokens=budget,
     )
 
-    persona_t  = trimmed["persona"]
-    state_t    = trimmed["state"]
-    memory_t   = trimmed["memory"]
-    context_t  = trimmed["context"]
-    pop_t      = trimmed["population_context"]
-    social_t   = trimmed["social_context"]
+    persona_t = trimmed["persona"]
+    state_t = trimmed["state"]
+    memory_t = trimmed["memory"]
+    context_t = trimmed["context"]
+    pop_t = trimmed["population_context"]
+    social_t = trimmed["social_context"]
 
     # ── Assemble ──────────────────────────────────────────────────────────────
     parts = [f"Round {round_id}.", persona_t, state_t]
@@ -559,9 +549,16 @@ def build_prompt_text(
     Build a plain-text version of the prompt (for logging/debugging).
     """
     messages = build_prompt(
-        profile, state, memory, context, round_id, memory_window,
-        social_context=social_context, population_context=population_context,
-        ablation_level=ablation_level, max_tokens=max_tokens,
+        profile,
+        state,
+        memory,
+        context,
+        round_id,
+        memory_window,
+        social_context=social_context,
+        population_context=population_context,
+        ablation_level=ablation_level,
+        max_tokens=max_tokens,
     )
     parts = []
     for msg in messages:
@@ -570,6 +567,7 @@ def build_prompt_text(
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _level_word(value: float) -> str:
     """Convert a [0, 1] score to a descriptive word."""

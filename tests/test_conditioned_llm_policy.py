@@ -15,16 +15,23 @@ from agents.state import AgentState
 from decision.conditioned_llm_policy import ConditionedLLMPolicy
 from decision.schemas import ProposedAction
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _profile(**kw) -> AgentProfile:
     defaults = dict(
-        agent_id="a0", age=35, income=1000.0, education="college",
-        occupation="worker", location="italy", political_preference="center",
-        risk_tolerance=0.5, social_class="middle", trust_people=0.6,
+        agent_id="a0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="italy",
+        political_preference="center",
+        risk_tolerance=0.5,
+        social_class="middle",
+        trust_people=0.6,
     )
     defaults.update(kw)
     return AgentProfile(**defaults)
@@ -61,6 +68,7 @@ def _context(neighbors: list[str] | None = None) -> dict:
 # ACTION_BOUNDS
 # ---------------------------------------------------------------------------
 
+
 class TestActionBounds:
     def test_work_bounds_defined(self):
         assert "work" in ConditionedLLMPolicy.ACTION_BOUNDS
@@ -80,6 +88,7 @@ class TestActionBounds:
 # ---------------------------------------------------------------------------
 # _sanitize_action — amount clamping
 # ---------------------------------------------------------------------------
+
 
 class TestSanitizeAction:
     def _action(self, action_type: str, amount: float, target: str | None = None) -> ProposedAction:
@@ -137,41 +146,32 @@ class TestSanitizeAction:
 # propose_action — system prompt modes
 # ---------------------------------------------------------------------------
 
+
 class TestProposeAction:
     def test_returns_proposed_action(self):
         policy = _make_policy()
-        result = policy.propose_action(
-            _profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1
-        )
+        result = policy.propose_action(_profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1)
         assert isinstance(result, ProposedAction)
 
     def test_balanced_mode(self):
         policy = _make_policy(system_prompt_mode="balanced")
-        result = policy.propose_action(
-            _profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1
-        )
+        result = policy.propose_action(_profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1)
         assert result.action_type in ("work", "save", "cooperate")
 
     def test_base_mode(self):
         policy = _make_policy(system_prompt_mode="base")
-        result = policy.propose_action(
-            _profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1
-        )
+        result = policy.propose_action(_profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1)
         assert isinstance(result, ProposedAction)
 
     def test_fallback_when_backend_fails(self):
         bad_backend = MagicMock()
         bad_backend.generate.side_effect = RuntimeError("GPU OOM")
         policy = ConditionedLLMPolicy(backend=bad_backend, max_retries=0)
-        result = policy.propose_action(
-            _profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1
-        )
+        result = policy.propose_action(_profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1)
         assert isinstance(result, ProposedAction)
 
     def test_fallback_when_parse_fails(self):
         bad_backend = _mock_backend("this is not json at all")
         policy = ConditionedLLMPolicy(backend=bad_backend, max_retries=0)
-        result = policy.propose_action(
-            _profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1
-        )
+        result = policy.propose_action(_profile(), _state(), MemoryBuffer(max_items=5), _context(), round_id=1)
         assert isinstance(result, ProposedAction)

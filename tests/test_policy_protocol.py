@@ -1,13 +1,13 @@
 """Tests for the PolicyProtocol structural contract."""
+
 import pytest
-from decision.policy_protocol import PolicyProtocol
+
+from decision.auditable_random_policy import AuditableRandomPolicy
 from decision.mock_policy import MockPolicy
+from decision.policy_protocol import PolicyProtocol
 from decision.random_policy import RandomPolicy
 from decision.rule_based_policy import RuleBasedPolicy
 from decision.template_policy import TemplatePolicy
-from decision.auditable_random_policy import AuditableRandomPolicy
-from decision.data_driven_policy import DataDrivenPolicy
-
 
 BASELINE_POLICIES = [
     MockPolicy,

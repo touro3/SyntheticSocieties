@@ -14,14 +14,11 @@ Validates:
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from decision.model_config import ModelConfig, get_backend
-
 
 # ── ModelConfig dataclass ─────────────────────────────────────────────────────
 
@@ -82,6 +79,7 @@ def test_mistral_7b_custom_cache_dir():
 
 def test_get_backend_huggingface_returns_llm_backend():
     from decision.llm_backend import LLMBackend
+
     cfg = ModelConfig(model_id="mistralai/Mistral-7B-Instruct-v0.3", backend_type="huggingface")
     backend = get_backend(cfg)
     assert isinstance(backend, LLMBackend)
@@ -90,6 +88,7 @@ def test_get_backend_huggingface_returns_llm_backend():
 
 def test_get_backend_openai_returns_openai_backend():
     from decision.openai_backend import OpenAIBackend
+
     cfg = ModelConfig(model_id="gpt-4o-mini", backend_type="openai")
     backend = get_backend(cfg)
     assert isinstance(backend, OpenAIBackend)
@@ -148,12 +147,14 @@ def test_get_backend_default_max_retries():
 def test_openai_backend_conforms_to_protocol():
     from decision.backend_protocol import LLMBackendProtocol
     from decision.openai_backend import OpenAIBackend
+
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="sk-test")
     assert isinstance(backend, LLMBackendProtocol)
 
 
 def test_openai_backend_raises_import_error_without_package():
     from decision.openai_backend import OpenAIBackend
+
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="sk-test")
     with patch.dict("sys.modules", {"openai": None}):
         with pytest.raises(ImportError, match="openai"):
@@ -162,6 +163,7 @@ def test_openai_backend_raises_import_error_without_package():
 
 def test_openai_backend_raises_value_error_no_api_key(monkeypatch):
     from decision.openai_backend import OpenAIBackend
+
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key=None)
     # Can't import openai in test env, but ValueError is checked first if key absent
@@ -172,6 +174,7 @@ def test_openai_backend_raises_value_error_no_api_key(monkeypatch):
 
 def test_openai_backend_reads_api_key_from_env(monkeypatch):
     from decision.openai_backend import OpenAIBackend
+
     monkeypatch.setenv("OPENAI_API_KEY", "sk-env-key")
     backend = OpenAIBackend(model_id="gpt-4o-mini")
     assert backend.api_key == "sk-env-key"
@@ -179,6 +182,7 @@ def test_openai_backend_reads_api_key_from_env(monkeypatch):
 
 def test_openai_backend_explicit_key_overrides_env(monkeypatch):
     from decision.openai_backend import OpenAIBackend
+
     monkeypatch.setenv("OPENAI_API_KEY", "sk-env-key")
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="sk-explicit")
     assert backend.api_key == "sk-explicit"
@@ -193,14 +197,10 @@ def test_openai_backend_generate_with_mock_client():
     mock_client = MagicMock()
     mock_choice = MagicMock()
     mock_choice.message.content = '{"action_type": "work", "amount": 10}'
-    mock_client.chat.completions.create.return_value = MagicMock(
-        choices=[mock_choice]
-    )
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
     backend._client = mock_client
 
-    text, latency = backend.generate(
-        messages=[{"role": "user", "content": "decide"}]
-    )
+    text, latency = backend.generate(messages=[{"role": "user", "content": "decide"}])
     assert "work" in text
     assert latency >= 0.0
     mock_client.chat.completions.create.assert_called_once()
@@ -213,9 +213,7 @@ def test_openai_backend_temperature_override():
     mock_client = MagicMock()
     mock_choice = MagicMock()
     mock_choice.message.content = '{"action_type": "save", "amount": 5}'
-    mock_client.chat.completions.create.return_value = MagicMock(
-        choices=[mock_choice]
-    )
+    mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
     backend._client = mock_client
 
     backend.generate(messages=[{"role": "user", "content": "decide"}], temperature=0.9)
@@ -228,6 +226,7 @@ def test_openai_backend_temperature_override():
 
 def test_cross_model_result_to_dict():
     from metrics.cross_model import CrossModelResult
+
     r = CrossModelResult(
         model_id="mistral-7b",
         condition="A",
@@ -246,6 +245,7 @@ def test_cross_model_result_to_dict():
 
 def test_build_comparison_table_bias_reduction():
     from metrics.cross_model import CrossModelResult, build_comparison_table
+
     results = [
         CrossModelResult("mistral-7b", "A", cooperation_rate=0.7, gini=0.15, rlhf_bias_index=0.40),
         CrossModelResult("mistral-7b", "B", cooperation_rate=0.35, gini=0.28, rlhf_bias_index=0.10),
@@ -261,6 +261,7 @@ def test_build_comparison_table_bias_reduction():
 
 def test_build_comparison_table_multiple_models():
     from metrics.cross_model import CrossModelResult, build_comparison_table
+
     results = [
         CrossModelResult("mistral-7b", "A", 0.7, 0.15, 0.40),
         CrossModelResult("mistral-7b", "B", 0.35, 0.28, 0.10),
@@ -276,6 +277,7 @@ def test_build_comparison_table_multiple_models():
 
 def test_build_comparison_table_missing_condition():
     from metrics.cross_model import CrossModelResult, build_comparison_table
+
     # Only Condition A — B is missing
     results = [CrossModelResult("mistral-7b", "A", 0.7, 0.15, 0.40)]
     table = build_comparison_table(results)
@@ -288,6 +290,7 @@ def test_build_comparison_table_missing_condition():
 
 def test_extract_action_counts_from_jsonl(tmp_path):
     from metrics.cross_model import extract_action_counts
+
     events = tmp_path / "events.jsonl"
     events.write_text(
         '{"agent_id": "a0", "action": "work", "wealth": 100}\n'
@@ -303,6 +306,7 @@ def test_extract_action_counts_from_jsonl(tmp_path):
 
 def test_extract_final_wealth_from_jsonl(tmp_path):
     from metrics.cross_model import extract_final_wealth
+
     events = tmp_path / "events.jsonl"
     events.write_text(
         '{"agent_id": "a0", "wealth": 100}\n'
@@ -311,33 +315,35 @@ def test_extract_final_wealth_from_jsonl(tmp_path):
     )
     wealth = extract_final_wealth(events)
     assert 120.0 in wealth  # a0's final wealth
-    assert 80.0 in wealth   # a1's wealth
+    assert 80.0 in wealth  # a1's wealth
 
 
 def test_extract_action_counts_skips_malformed(tmp_path):
     from metrics.cross_model import extract_action_counts
+
     events = tmp_path / "events.jsonl"
-    events.write_text(
-        '{"agent_id": "a0", "action": "work"}\n'
-        'not valid json\n'
-        '{"agent_id": "a1", "action": "work"}\n'
-    )
+    events.write_text('{"agent_id": "a0", "action": "work"}\nnot valid json\n{"agent_id": "a1", "action": "work"}\n')
     counts = extract_action_counts(events)
     assert counts["work"] == 2
 
 
 def test_compute_cross_model_result(tmp_path):
     from metrics.cross_model import compute_cross_model_result
+
     events = tmp_path / "events.jsonl"
     lines = []
     for i in range(10):
         action = ["work", "cooperate", "save"][i % 3]
-        lines.append(json.dumps({
-            "agent_id": f"a{i % 5}",
-            "action": action,
-            "wealth": 100.0 + i * 5,
-            "round": i // 5,
-        }))
+        lines.append(
+            json.dumps(
+                {
+                    "agent_id": f"a{i % 5}",
+                    "action": action,
+                    "wealth": 100.0 + i * 5,
+                    "round": i // 5,
+                }
+            )
+        )
     events.write_text("\n".join(lines))
 
     result = compute_cross_model_result(events, "test-model", "A")

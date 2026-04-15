@@ -190,13 +190,9 @@ def run_logistic_regression(
         ValueError: If X and y have incompatible shapes.
     """
     if X.shape[0] != len(y):
-        raise ValueError(
-            f"X has {X.shape[0]} rows but y has {len(y)} elements."
-        )
+        raise ValueError(f"X has {X.shape[0]} rows but y has {len(y)} elements.")
     if X.shape[1] != len(feature_names):
-        raise ValueError(
-            f"X has {X.shape[1]} columns but {len(feature_names)} feature names given."
-        )
+        raise ValueError(f"X has {X.shape[1]} columns but {len(feature_names)} feature names given.")
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -289,9 +285,7 @@ def records_from_profile_actions(
         ValueError: If profiles and action_sequences have different lengths.
     """
     if len(profiles) != len(action_sequences):
-        raise ValueError(
-            f"Got {len(profiles)} profiles but {len(action_sequences)} action sequences."
-        )
+        raise ValueError(f"Got {len(profiles)} profiles but {len(action_sequences)} action sequences.")
 
     records: list[AgentRoundRecord] = []
     for profile, actions in zip(profiles, action_sequences):

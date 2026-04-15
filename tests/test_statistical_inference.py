@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 import numpy as np
+import pytest
 
 from metrics.statistical_inference import (
     apply_fdr_to_results,
@@ -11,7 +11,6 @@ from metrics.statistical_inference import (
     bootstrap_ci,
     report_metric,
 )
-
 
 # ── benjamini_hochberg ────────────────────────────────────────────────────────
 

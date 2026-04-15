@@ -3,15 +3,12 @@
 import json
 
 import networkx as nx
-import numpy as np
-import pytest
 
 from scripts.plot_network_evolution import (
     build_cumulative_graphs,
     compute_metrics_over_rounds,
     load_cooperation_events,
 )
-
 
 # ── load_cooperation_events ──────────────────────────────────────────────────
 

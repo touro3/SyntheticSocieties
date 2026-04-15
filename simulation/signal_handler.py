@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # Signals we intercept
 _HANDLED_SIGNALS = (signal.SIGTERM, signal.SIGINT)
 try:
-    _HANDLED_SIGNALS += (signal.SIGHUP,)   # not available on Windows
+    _HANDLED_SIGNALS += (signal.SIGHUP,)  # not available on Windows
 except AttributeError:
     pass
 
@@ -68,7 +68,7 @@ class GracefulShutdown:
     """
 
     def __init__(self) -> None:
-        self._stop_event   = threading.Event()
+        self._stop_event = threading.Event()
         self._signal_name: Optional[str] = None
         self._prev_handlers: dict[int, object] = {}
 
@@ -117,14 +117,10 @@ class GracefulShutdown:
     def _handle(self, signum: int, frame: Optional[FrameType]) -> None:
         name = signal.Signals(signum).name
         if not self._stop_event.is_set():
-            logger.warning(
-                "Signal %s received — will stop after current round completes.", name
-            )
+            logger.warning("Signal %s received — will stop after current round completes.", name)
             self._signal_name = name
             self._stop_event.set()
         else:
             # Second signal: force exit immediately
-            logger.error(
-                "Second signal %s received — forcing immediate exit.", name
-            )
+            logger.error("Second signal %s received — forcing immediate exit.", name)
             raise SystemExit(1)

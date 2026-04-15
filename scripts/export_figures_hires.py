@@ -14,7 +14,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import shutil
 from pathlib import Path
 
 import matplotlib
@@ -76,8 +75,7 @@ def _png_to_hires_pdf(
     ax.imshow(img)
     ax.axis("off")
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    fig.savefig(str(dest_pdf), format="pdf", dpi=dpi, bbox_inches="tight",
-                pad_inches=0)
+    fig.savefig(str(dest_pdf), format="pdf", dpi=dpi, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
     return True
 
@@ -110,8 +108,7 @@ def _copy_hires_png(
     ax.imshow(img)
     ax.axis("off")
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    fig.savefig(str(dest_png), format="png", dpi=dpi, bbox_inches="tight",
-                pad_inches=0)
+    fig.savefig(str(dest_png), format="png", dpi=dpi, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
     return True
 
@@ -163,9 +160,7 @@ def export_figures(
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Export publication-quality figures for the BGF LaTeX paper."
-    )
+    parser = argparse.ArgumentParser(description="Export publication-quality figures for the BGF LaTeX paper.")
     parser.add_argument(
         "--source-dir",
         type=Path,

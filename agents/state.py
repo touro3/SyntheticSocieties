@@ -19,9 +19,7 @@ class AgentState:
         """Alias for trust dict — used by prompt_builder's TRUST_SURFACED level."""
         return self.trust
 
-    def update_trust_from_cooperation(
-        self, partner_id: str, was_reciprocated: bool, decay: float = 0.95
-    ) -> None:
+    def update_trust_from_cooperation(self, partner_id: str, was_reciprocated: bool, decay: float = 0.95) -> None:
         """Update trust toward a partner based on cooperation outcomes.
 
         Trust increases when cooperation is reciprocated and decreases
@@ -53,4 +51,3 @@ class AgentState:
             "last_action": self.last_action,
             "trust": dict(self.trust) if self.trust else {},
         }
-

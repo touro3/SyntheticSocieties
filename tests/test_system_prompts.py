@@ -1,13 +1,21 @@
 """Tests for centralized system prompts registry."""
+
 import pytest
-from decision.system_prompts import get_system_prompt, SYSTEM_PROMPTS
+
+from decision.system_prompts import SYSTEM_PROMPTS, get_system_prompt
 
 
 class TestGetSystemPrompt:
-    @pytest.mark.parametrize("mode", [
-        "base", "balanced", "experimental_base",
-        "experimental_balanced", "no_institutions",
-    ])
+    @pytest.mark.parametrize(
+        "mode",
+        [
+            "base",
+            "balanced",
+            "experimental_base",
+            "experimental_balanced",
+            "no_institutions",
+        ],
+    )
     def test_returns_known_modes(self, mode):
         result = get_system_prompt(mode)
         assert isinstance(result, str)

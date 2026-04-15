@@ -18,7 +18,6 @@ from metrics.trust_gradient import (
     compute_trust_recovery_correlation,
 )
 
-
 # ── TrustGroup dataclass ─────────────────────────────────────────────────────
 
 
@@ -66,10 +65,7 @@ class TestTrustGroup:
 
 class TestComputeTrustGradient:
     def _make_results(self, coop_rates: list[float]) -> dict[str, dict]:
-        return {
-            g.name: {"coop_rate": r, "gini": 0.3, "mean_wealth": 50.0}
-            for g, r in zip(TRUST_GROUPS, coop_rates)
-        }
+        return {g.name: {"coop_rate": r, "gini": 0.3, "mean_wealth": 50.0} for g, r in zip(TRUST_GROUPS, coop_rates)}
 
     def test_returns_dict(self):
         results = self._make_results([0.2, 0.3, 0.4, 0.5])
@@ -109,10 +105,7 @@ class TestComputeTrustGradient:
 
 class TestComputeTrustRecoveryCorrelation:
     def _make_results(self, coop_rates: list[float]) -> dict[str, dict]:
-        return {
-            g.name: {"coop_rate": r, "gini": 0.3, "mean_wealth": 50.0}
-            for g, r in zip(TRUST_GROUPS, coop_rates)
-        }
+        return {g.name: {"coop_rate": r, "gini": 0.3, "mean_wealth": 50.0} for g, r in zip(TRUST_GROUPS, coop_rates)}
 
     def test_perfect_positive_correlation(self):
         """Simulated coop perfectly tracks ESS trust → r ≈ 1.0."""
@@ -169,11 +162,13 @@ class TestComputeTrustRecoveryCorrelation:
 
     def test_custom_groups_respected(self):
         custom = [
-            TrustGroup("A", "low",       (0.2, 0.4), 0.30),
-            TrustGroup("B", "high",      (0.6, 0.8), 0.70),
+            TrustGroup("A", "low", (0.2, 0.4), 0.30),
+            TrustGroup("B", "high", (0.6, 0.8), 0.70),
         ]
-        results = {"A": {"coop_rate": 0.20, "gini": 0.3, "mean_wealth": 50.0},
-                   "B": {"coop_rate": 0.60, "gini": 0.3, "mean_wealth": 50.0}}
+        results = {
+            "A": {"coop_rate": 0.20, "gini": 0.3, "mean_wealth": 50.0},
+            "B": {"coop_rate": 0.60, "gini": 0.3, "mean_wealth": 50.0},
+        }
         out = compute_trust_recovery_correlation(results, cultural_groups=custom)
         assert out["n_groups"] == 2
 

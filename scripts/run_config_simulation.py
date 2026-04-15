@@ -327,10 +327,12 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     if start_round > 0 and hasattr(policy, "graph_rag") and policy.graph_rag is not None:
         try:
             from population.persona_synthesizer import PersonaRecord, enrich_persona_from_graph
+
             for agent in agents:
                 p = agent.profile
                 rec = PersonaRecord(
-                    agent_id=p.agent_id, age=p.age,
+                    agent_id=p.agent_id,
+                    age=p.age,
                     income=getattr(p, "income", 0.0),
                     education=getattr(p, "education", ""),
                     occupation=getattr(p, "occupation", "worker"),
@@ -354,8 +356,9 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             print(f"Warning: graph persona enrichment skipped ({exc})")
 
     # ── Graceful shutdown wiring ──────────────────────────────────────────────
-    from simulation.signal_handler import GracefulShutdown
     from simulation.crash_recovery import RunStateManager
+    from simulation.signal_handler import GracefulShutdown
+
     run_mgr = RunStateManager(run_dir)
     if start_round == 0:
         run_mgr.start(total_rounds=num_rounds, experiment_id=experiment_id)

@@ -32,7 +32,9 @@ PRIMARY_CONDITIONS = {
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run LLM grounding comparison matrix.")
-    parser.add_argument("--artifacts-dir", required=True, type=str, help="Directory created by build_society_from_prompt.py")
+    parser.add_argument(
+        "--artifacts-dir", required=True, type=str, help="Directory created by build_society_from_prompt.py"
+    )
     parser.add_argument("--rounds", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--seeds", type=str, default=None, help="Comma-separated seeds, e.g. 42,43,44")

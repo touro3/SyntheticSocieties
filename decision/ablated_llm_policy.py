@@ -63,10 +63,7 @@ class AblatedLLMPolicy(LLMPolicyBase):
         perturbation_mode: Optional[str] = None,
     ):
         if ablation not in self.VALID_ABLATIONS:
-            raise ValueError(
-                f"Invalid ablation: {ablation}. "
-                f"Valid: {sorted(self.VALID_ABLATIONS)}"
-            )
+            raise ValueError(f"Invalid ablation: {ablation}. Valid: {sorted(self.VALID_ABLATIONS)}")
         self.backend = backend
         self.ablation = ablation
         self.memory_window = memory_window
@@ -89,12 +86,11 @@ class AblatedLLMPolicy(LLMPolicyBase):
         round_id: int,
     ) -> ProposedAction:
         neighbors = get_neighbors(context)
-        messages = self._build_ablated_prompt(
-            profile, state, memory, context, round_id
-        )
+        messages = self._build_ablated_prompt(profile, state, memory, context, round_id)
 
         if self.perturbation_mode:
             from decision.prompt_perturbation import apply_perturbation
+
             seed = hash((round_id, profile.agent_id)) % (2**31)
             messages = apply_perturbation(messages, mode=self.perturbation_mode, seed=seed)
 
@@ -104,13 +100,15 @@ class AblatedLLMPolicy(LLMPolicyBase):
             action = self._fallback_action(state, neighbors, profile=profile)
             parse_meta["fallback"] = True
 
-        prompt_text = "\n".join(
-            f"[{m['role'].upper()}]\n{m['content']}" for m in messages
-        )
+        prompt_text = "\n".join(f"[{m['role'].upper()}]\n{m['content']}" for m in messages)
         self._log_prompt(
-            round_id=round_id, agent_id=profile.agent_id,
-            prompt_text=prompt_text, raw_text=raw_text,
-            action=action, latency=latency, parse_meta=parse_meta,
+            round_id=round_id,
+            agent_id=profile.agent_id,
+            prompt_text=prompt_text,
+            raw_text=raw_text,
+            action=action,
+            latency=latency,
+            parse_meta=parse_meta,
             extra_meta={
                 "ablation": self.ablation,
                 "rag_context": {
@@ -122,9 +120,7 @@ class AblatedLLMPolicy(LLMPolicyBase):
 
         return action
 
-    def _build_ablated_prompt(
-        self, profile, state, memory, context, round_id
-    ) -> list[dict]:
+    def _build_ablated_prompt(self, profile, state, memory, context, round_id) -> list[dict]:
         """Build prompt with specific components removed."""
 
         # System prompt
@@ -159,15 +155,19 @@ class AblatedLLMPolicy(LLMPolicyBase):
             if self.ablation in ("rich_persona", "no_network", "no_institutions"):
                 anchor_profile = profile
             memory_desc = build_memory_block(
-                memory, window=self.memory_window, profile=anchor_profile,
+                memory,
+                window=self.memory_window,
+                profile=anchor_profile,
             )
 
         # Context block
         if self.ablation == "no_network":
-            context_desc = build_context_block({
-                "world": context.get("world", {}),
-                "network": {"neighbors": []},
-            })
+            context_desc = build_context_block(
+                {
+                    "world": context.get("world", {}),
+                    "network": {"neighbors": []},
+                }
+            )
         else:
             context_desc = build_context_block(context)
 
@@ -202,4 +202,3 @@ class AblatedLLMPolicy(LLMPolicyBase):
             {"role": "system", "content": system},
             {"role": "user", "content": user_content},
         ]
-

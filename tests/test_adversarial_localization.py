@@ -25,6 +25,7 @@ loss uniformly across the network.
 The test uses a lightweight inline simulation (no kernel) to isolate the targeting
 mechanism from the full event stack.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,8 +36,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import networkx as nx
-import pytest
-
 
 # ── Lightweight simulation ────────────────────────────────────────────────────
 
@@ -105,7 +104,7 @@ def _simulate(
     non_neighbor_ids = [f"agent_{i}" for i in range(n_spokes + 1, n_agents)]
 
     for nb in neighbor_ids:
-        G.add_edge(bad_apple, nb)      # spoke → bad apple only
+        G.add_edge(bad_apple, nb)  # spoke → bad apple only
 
     for i in range(len(non_neighbor_ids) - 1):
         G.add_edge(non_neighbor_ids[i], non_neighbor_ids[i + 1])
@@ -153,11 +152,7 @@ def _localization_ratio(
     non_neighbors = {a for a in delta if a != bad_apple_id and a not in neighbors}
 
     mean_nb = sum(max(0.0, -delta[a]) for a in neighbors) / max(1, len(neighbors))
-    mean_non_nb = (
-        sum(max(0.0, -delta[a]) for a in non_neighbors) / max(1, len(non_neighbors))
-        if non_neighbors
-        else 0.0
-    )
+    mean_non_nb = sum(max(0.0, -delta[a]) for a in non_neighbors) / max(1, len(non_neighbors)) if non_neighbors else 0.0
     return mean_nb / (mean_non_nb + 1e-6)
 
 
@@ -175,20 +170,12 @@ class TestAdversarialLocalizationH6:
         Non-neighbor agents cooperate within their own chain and never interact
         with the bad apple.
         """
-        delta, ba_neighbors = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15
-        )
-        non_neighbors = {
-            a for a in delta if a != "agent_0" and a not in ba_neighbors
-        }
+        delta, ba_neighbors = _simulate(n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15)
+        non_neighbors = {a for a in delta if a != "agent_0" and a not in ba_neighbors}
 
-        mean_nb_loss = (
-            sum(max(0.0, -delta[a]) for a in ba_neighbors) / max(1, len(ba_neighbors))
-        )
+        mean_nb_loss = sum(max(0.0, -delta[a]) for a in ba_neighbors) / max(1, len(ba_neighbors))
         mean_non_nb_loss = (
-            sum(max(0.0, -delta[a]) for a in non_neighbors) / max(1, len(non_neighbors))
-            if non_neighbors
-            else 0.0
+            sum(max(0.0, -delta[a]) for a in non_neighbors) / max(1, len(non_neighbors)) if non_neighbors else 0.0
         )
 
         assert mean_nb_loss > mean_non_nb_loss, (
@@ -203,9 +190,7 @@ class TestAdversarialLocalizationH6:
         round, losing 5 per round with no reciprocation. Chain agents lose nothing
         to the bad apple. Ratio: 225 (spoke) / 112.5 (chain average) ≈ 2.0 > 1.5.
         """
-        delta, ba_neighbors = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15
-        )
+        delta, ba_neighbors = _simulate(n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15)
 
         ratio = _localization_ratio(delta, "agent_0", ba_neighbors)
 
@@ -222,9 +207,7 @@ class TestAdversarialLocalizationH6:
 
         Asserts: localization ratio < 2.5 (not sharply concentrated).
         """
-        delta, ba_neighbors = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="random", n_rounds=15
-        )
+        delta, ba_neighbors = _simulate(n_agents=10, bad_apple_idx=0, targeting="random", n_rounds=15)
 
         ratio = _localization_ratio(delta, "agent_0", ba_neighbors)
 
@@ -241,12 +224,8 @@ class TestAdversarialLocalizationH6:
         ESS-profile-guided cooperation) localizes adversarial damage; the ungrounded
         baseline (uniform RLHF cooperation) does not.
         """
-        delta_b, nb_b = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15
-        )
-        delta_a, nb_a = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="random", n_rounds=15
-        )
+        delta_b, nb_b = _simulate(n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=15)
+        delta_a, nb_a = _simulate(n_agents=10, bad_apple_idx=0, targeting="random", n_rounds=15)
 
         ratio_b = _localization_ratio(delta_b, "agent_0", nb_b)
         ratio_a = _localization_ratio(delta_a, "agent_0", nb_a)
@@ -264,9 +243,7 @@ class TestAdversarialLocalizationH6:
         functioning and the localization results are meaningless.
         """
         for targeting in ("structured", "random"):
-            delta, _ = _simulate(
-                n_agents=10, bad_apple_idx=0, targeting=targeting, n_rounds=15
-            )
+            delta, _ = _simulate(n_agents=10, bad_apple_idx=0, targeting=targeting, n_rounds=15)
             # Bad apple gains wealth (positive delta vs counterfactual means
             # it did BETTER than if it had worked every round — it received
             # cooperation without reciprocating).
@@ -274,17 +251,13 @@ class TestAdversarialLocalizationH6:
             # vs. the +10/round work baseline. Its delta may be slightly negative
             # if it receives less than 10/round on average. Relax to: wealth > 0.
             assert delta.get("agent_0", -1) > -150.0 * 15, (
-                f"Bad apple should not lose extreme wealth in '{targeting}' mode. "
-                f"Got delta={delta.get('agent_0'):.2f}."
+                f"Bad apple should not lose extreme wealth in '{targeting}' mode. Got delta={delta.get('agent_0'):.2f}."
             )
 
     def test_neighbor_count_matches_network_topology(self):
         """Structural sanity: bad apple should have exactly 4 network neighbors
         (the 4 spokes in the hub-and-spoke topology)."""
-        _, ba_neighbors = _simulate(
-            n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=1
-        )
+        _, ba_neighbors = _simulate(n_agents=10, bad_apple_idx=0, targeting="structured", n_rounds=1)
         assert len(ba_neighbors) == 4, (
-            f"Bad apple (hub) should have exactly 4 neighbors (spokes). "
-            f"Got {len(ba_neighbors)}."
+            f"Bad apple (hub) should have exactly 4 neighbors (spokes). Got {len(ba_neighbors)}."
         )

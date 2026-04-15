@@ -35,6 +35,7 @@ VALID_ACTIONS = {"work", "save", "cooperate"}
 
 # ── Synthetic data generation ─────────────────────────────────────────────────
 
+
 def _generate_synthetic_participants(n: int = 50, seed: int = 42) -> pd.DataFrame:
     """Generate synthetic participant data based on E[coop]=0.2+0.6*trust*(1-risk).
 
@@ -43,16 +44,18 @@ def _generate_synthetic_participants(n: int = 50, seed: int = 42) -> pd.DataFram
     rng = random.Random(seed)
     rows = []
     for i in range(n):
-        pid       = f"synth_{i:04d}"
+        pid = f"synth_{i:04d}"
         pre_trust = rng.uniform(0.1, 0.9)
-        pre_risk  = rng.uniform(0.1, 0.9)
+        pre_risk = rng.uniform(0.1, 0.9)
         # Formula-predicted cooperation probability
         p_coop = max(0.0, min(1.0, 0.2 + 0.6 * pre_trust * (1 - pre_risk)))
         # Remaining rounds split between work (higher p) and save
         p_work = max(0.0, 0.8 - p_coop)
         p_save = max(0.0, 1.0 - p_coop - p_work)
         total = p_coop + p_work + p_save
-        p_coop /= total; p_work /= total; p_save /= total
+        p_coop /= total
+        p_work /= total
+        p_save /= total
 
         wealth = 50.0
         for r in range(1, 11):
@@ -65,22 +68,25 @@ def _generate_synthetic_participants(n: int = 50, seed: int = 42) -> pd.DataFram
                 wealth += 10.0
             else:
                 action = "save"
-            rows.append({
-                "participant_id": pid,
-                "round_id":       r,
-                "action":         action,
-                "target":         "",
-                "wealth_after":   round(wealth, 2),
-                "stress_after":   round(rng.uniform(0.1, 0.6), 3),
-                "pre_trust":      round(pre_trust, 3),
-                "pre_risk":       round(pre_risk, 3),
-                "cooperation_count": 0,
-                "total_rounds":   10,
-            })
+            rows.append(
+                {
+                    "participant_id": pid,
+                    "round_id": r,
+                    "action": action,
+                    "target": "",
+                    "wealth_after": round(wealth, 2),
+                    "stress_after": round(rng.uniform(0.1, 0.6), 3),
+                    "pre_trust": round(pre_trust, 3),
+                    "pre_risk": round(pre_risk, 3),
+                    "cooperation_count": 0,
+                    "total_rounds": 10,
+                }
+            )
     return pd.DataFrame(rows)
 
 
 # ── JSD divergence ────────────────────────────────────────────────────────────
+
 
 def _jsd(p: dict[str, float], q: dict[str, float]) -> float:
     """Jensen-Shannon Divergence between two categorical distributions (nats).
@@ -100,6 +106,7 @@ def _jsd(p: dict[str, float], q: dict[str, float]) -> float:
 
 # ── Spearman correlation ──────────────────────────────────────────────────────
 
+
 def _spearman(x: list[float], y: list[float]) -> float:
     """Compute Spearman rank correlation coefficient."""
     n = len(x)
@@ -117,10 +124,7 @@ def _spearman(x: list[float], y: list[float]) -> float:
     xm = sum(rx) / n
     ym = sum(ry) / n
     num = sum((rx[i] - xm) * (ry[i] - ym) for i in range(n))
-    den = (
-        sum((rx[i] - xm) ** 2 for i in range(n)) *
-        sum((ry[i] - ym) ** 2 for i in range(n))
-    ) ** 0.5
+    den = (sum((rx[i] - xm) ** 2 for i in range(n)) * sum((ry[i] - ym) ** 2 for i in range(n))) ** 0.5
     return num / den if den > 0 else float("nan")
 
 
@@ -148,22 +152,17 @@ def _write_template_csv(path: Path) -> None:
 def _load_human_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(
-            f"Input CSV not found: {path}. "
-            "Create it with columns: participant_id,round_id,action,wealth_after."
+            f"Input CSV not found: {path}. Create it with columns: participant_id,round_id,action,wealth_after."
         )
 
     df = pd.read_csv(path)
     if df.empty:
-        raise ValueError(
-            f"Input CSV exists but has no rows: {path}. "
-            "Add participant-round records and rerun."
-        )
+        raise ValueError(f"Input CSV exists but has no rows: {path}. Add participant-round records and rerun.")
     required = {"participant_id", "round_id", "action", "wealth_after"}
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError(
-            f"Missing required columns: {missing}. "
-            "Expected participant_id, round_id, action, wealth_after."
+            f"Missing required columns: {missing}. Expected participant_id, round_id, action, wealth_after."
         )
 
     df["action"] = df["action"].astype(str).str.strip().str.lower()
@@ -202,20 +201,14 @@ def _quality_checks(
     min_rounds_obs = int(part_round_counts.min()) if n_participants > 0 else 0
     max_rounds_obs = int(part_round_counts.max()) if n_participants > 0 else 0
 
-    dup_rows = int(
-        df.duplicated(subset=["participant_id", "round_id"], keep=False).sum()
-    )
+    dup_rows = int(df.duplicated(subset=["participant_id", "round_id"], keep=False).sum())
 
     participant_ids = [str(x) for x in df["participant_id"].dropna().unique().tolist()]
     sequential_id_pattern = _is_sequential_id_pattern(participant_ids)
 
     # Conservative synthetic/demo heuristic:
     # very small sample + short sessions + synthetic-looking IDs.
-    synthetic_pattern_detected = bool(
-        n_participants <= 10
-        and max_rounds_obs <= 5
-        and sequential_id_pattern
-    )
+    synthetic_pattern_detected = bool(n_participants <= 10 and max_rounds_obs <= 5 and sequential_id_pattern)
 
     return {
         "n_participants": n_participants,
@@ -295,18 +288,22 @@ def _to_markdown_table(human_row: dict, condition_rows: dict[str, dict]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Analyze human baseline data and generate comparison artifacts."
-    )
+    parser = argparse.ArgumentParser(description="Analyze human baseline data and generate comparison artifacts.")
     parser.add_argument("--input-csv", default=None, help="Human baseline CSV path.")
-    parser.add_argument("--synthetic", action="store_true",
-                        help="Generate 50 synthetic participants for offline testing.")
-    parser.add_argument("--simulation-json", default=None,
-                        help="JSON with simulation action distributions per condition "
-                             "for JSD comparison ({condA: {work, save, cooperate}, ...}).")
-    parser.add_argument("--jsd-output-json",
-                        default="analysis/tables/human_vs_simulation_reference.json",
-                        help="Output JSON for JSD + Spearman comparison table.")
+    parser.add_argument(
+        "--synthetic", action="store_true", help="Generate 50 synthetic participants for offline testing."
+    )
+    parser.add_argument(
+        "--simulation-json",
+        default=None,
+        help="JSON with simulation action distributions per condition "
+        "for JSD comparison ({condA: {work, save, cooperate}, ...}).",
+    )
+    parser.add_argument(
+        "--jsd-output-json",
+        default="analysis/tables/human_vs_simulation_reference.json",
+        help="Output JSON for JSD + Spearman comparison table.",
+    )
     parser.add_argument(
         "--output-json",
         default="analysis/tables/human_baseline_metrics.json",
@@ -382,10 +379,7 @@ def main() -> None:
     )
 
     if checks["duplicate_participant_round_rows"] > 0:
-        raise ValueError(
-            "Duplicate participant_id + round_id rows detected. "
-            "Resolve duplicates before analysis."
-        )
+        raise ValueError("Duplicate participant_id + round_id rows detected. Resolve duplicates before analysis.")
 
     if checks["synthetic_pattern_detected"] and not args.allow_synthetic:
         raise ValueError(
@@ -395,9 +389,8 @@ def main() -> None:
         )
 
     if (
-        (not checks["passes_min_participants"] or not checks["passes_min_rounds_per_participant"])
-        and not args.allow_noncompliant
-    ):
+        not checks["passes_min_participants"] or not checks["passes_min_rounds_per_participant"]
+    ) and not args.allow_noncompliant:
         raise ValueError(
             "Human baseline sample does not meet publication thresholds. "
             f"Observed: n_participants={checks['n_participants']}, "
@@ -412,8 +405,7 @@ def main() -> None:
     action_counts = df["action"].value_counts().to_dict()
     total_actions = int(len(df))
     action_dist = {
-        a: (action_counts.get(a, 0) / total_actions if total_actions > 0 else 0.0)
-        for a in sorted(VALID_ACTIONS)
+        a: (action_counts.get(a, 0) / total_actions if total_actions > 0 else 0.0) for a in sorted(VALID_ACTIONS)
     }
 
     coop_pooled = action_dist["cooperate"]
@@ -473,10 +465,7 @@ def main() -> None:
     trust_coop = _compute_trust_coop_spearman(part)
     payload["trust_cooperation_spearman"] = trust_coop
     if trust_coop.get("spearman_rho") is not None:
-        print(
-            f"Spearman ρ(pre_trust, coop_rate) = {trust_coop['spearman_rho']:.4f} "
-            f"(n={trust_coop['n']})"
-        )
+        print(f"Spearman ρ(pre_trust, coop_rate) = {trust_coop['spearman_rho']:.4f} (n={trust_coop['n']})")
 
     output_json = Path(args.output_json)
     output_json.parent.mkdir(parents=True, exist_ok=True)

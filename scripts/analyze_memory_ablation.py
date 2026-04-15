@@ -11,21 +11,22 @@ Usage:
     # Dry-run with synthetic data (no experiments needed):
     python scripts/analyze_memory_ablation.py --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import random
+import sys
 from pathlib import Path
 
-import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 MEMORY_LEVELS = [0, 1, 2, 3]
-LEVEL_LABELS  = {0: "M0 (none)", 1: "M1 (window)", 2: "M2 (archive)", 3: "M3 (full)"}
-CONDITIONS    = ["grounded", "ungrounded"]
-SEEDS         = [42, 123, 7]
+LEVEL_LABELS = {0: "M0 (none)", 1: "M1 (window)", 2: "M2 (archive)", 3: "M3 (full)"}
+CONDITIONS = ["grounded", "ungrounded"]
+SEEDS = [42, 123, 7]
 
 # Metrics extracted per run
 METRIC_KEYS = [
@@ -83,8 +84,8 @@ def generate_synthetic_metrics(level: int, condition: str, seed: int) -> dict:
 
     return {
         "cooperation_rate": max(0.0, min(1.0, base_coop + rng.gauss(0, 0.03))),
-        "wealth_gini":      max(0.0, min(1.0, base_gini + rng.gauss(0, 0.02))),
-        "wealth_mean":      50.0 + rng.gauss(0, 5.0),
+        "wealth_gini": max(0.0, min(1.0, base_gini + rng.gauss(0, 0.02))),
+        "wealth_mean": 50.0 + rng.gauss(0, 5.0),
         "persona_fidelity": max(0.0, min(1.0, base_fidelity + rng.gauss(0, 0.04))),
     }
 
@@ -138,10 +139,7 @@ def print_table(table: dict) -> None:
 
 def save_results(table: dict, out_path: Path) -> None:
     """Serialize table to JSON, converting tuple keys to strings."""
-    serializable = {
-        f"level{level}_{cond}": cells
-        for (level, cond), cells in table.items()
-    }
+    serializable = {f"level{level}_{cond}": cells for (level, cond), cells in table.items()}
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(serializable, indent=2))
     print(f"\nTable saved to: {out_path}")
@@ -151,6 +149,7 @@ def plot_interaction(table: dict, out_path: Path) -> None:
     """Generate cooperation rate interaction plot (requires matplotlib)."""
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -158,8 +157,7 @@ def plot_interaction(table: dict, out_path: Path) -> None:
         return
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    metrics_to_plot = [("cooperation_rate", "Cooperation Rate"),
-                       ("persona_fidelity", "Persona Fidelity")]
+    metrics_to_plot = [("cooperation_rate", "Cooperation Rate"), ("persona_fidelity", "Persona Fidelity")]
 
     for ax, (metric, label) in zip(axes, metrics_to_plot):
         for cond in CONDITIONS:
@@ -189,16 +187,17 @@ def plot_interaction(table: dict, out_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Memory ablation analysis.")
-    parser.add_argument("--exp-dir", type=str, default="experiments/",
-                        help="Path to experiments directory.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Use synthetic data instead of real experiments.")
-    parser.add_argument("--out", type=str,
-                        default="analysis/tables/memory_ablation.json",
-                        help="Output JSON path for the result table.")
-    parser.add_argument("--plot", type=str,
-                        default="analysis/figures/memory_ablation_interaction.png",
-                        help="Output PNG path for the interaction plot.")
+    parser.add_argument("--exp-dir", type=str, default="experiments/", help="Path to experiments directory.")
+    parser.add_argument("--dry-run", action="store_true", help="Use synthetic data instead of real experiments.")
+    parser.add_argument(
+        "--out", type=str, default="analysis/tables/memory_ablation.json", help="Output JSON path for the result table."
+    )
+    parser.add_argument(
+        "--plot",
+        type=str,
+        default="analysis/figures/memory_ablation_interaction.png",
+        help="Output PNG path for the interaction plot.",
+    )
     args = parser.parse_args()
 
     exp_dir = Path(args.exp_dir)

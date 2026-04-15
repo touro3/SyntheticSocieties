@@ -24,15 +24,15 @@ from environment.world_state import WorldState
 from simulation.kernel import SimulationKernel
 from utils.io import set_global_seed
 
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:.*Action collapse detected.*:UserWarning"
-)
+pytestmark = pytest.mark.filterwarnings("ignore:.*Action collapse detected.*:UserWarning")
 
 
 # ── Seed utility tests ────────────────────────────────────────────────────────
 
+
 def test_set_global_seed_seeds_python_random():
     import random
+
     set_global_seed(42)
     v1 = [random.random() for _ in range(5)]
     set_global_seed(42)
@@ -42,6 +42,7 @@ def test_set_global_seed_seeds_python_random():
 
 def test_set_global_seed_seeds_numpy():
     import numpy as np
+
     set_global_seed(42)
     v1 = np.random.rand(5).tolist()
     set_global_seed(42)
@@ -59,6 +60,7 @@ def test_set_global_seed_calls_torch_manual_seed():
 def test_set_global_seed_handles_missing_torch_gracefully():
     """set_global_seed must not raise when torch is not installed."""
     import builtins
+
     real_import = builtins.__import__
 
     def mock_import(name, *args, **kwargs):
@@ -71,6 +73,7 @@ def test_set_global_seed_handles_missing_torch_gracefully():
 
 
 # ── Simulation determinism ────────────────────────────────────────────────────
+
 
 def _build_deterministic_world():
     return World(
@@ -86,22 +89,24 @@ def _build_deterministic_world():
 def _build_agents(n: int = 3) -> list[Agent]:
     agents = []
     for i in range(n):
-        agents.append(Agent(
-            profile=AgentProfile(
-                agent_id=f"agent_{i}",
-                age=30 + i,
-                income=1000.0,
-                education="college",
-                occupation="worker",
-                location="urban",
-                political_preference="center",
-                risk_tolerance=0.5,
-                social_class="middle",
-            ),
-            state=AgentState(wealth=50.0),
-            memory=MemoryBuffer(max_items=10),
-            policy=MockPolicy(),
-        ))
+        agents.append(
+            Agent(
+                profile=AgentProfile(
+                    agent_id=f"agent_{i}",
+                    age=30 + i,
+                    income=1000.0,
+                    education="college",
+                    occupation="worker",
+                    location="urban",
+                    political_preference="center",
+                    risk_tolerance=0.5,
+                    social_class="middle",
+                ),
+                state=AgentState(wealth=50.0),
+                memory=MemoryBuffer(max_items=10),
+                policy=MockPolicy(),
+            )
+        )
     return agents
 
 
@@ -133,9 +138,7 @@ def test_identical_seeds_produce_identical_events(tmp_path):
     events_a = _run_simulation(seed=42, tmp_path=tmp_path, run_id="a")
     events_b = _run_simulation(seed=42, tmp_path=tmp_path, run_id="b")
 
-    assert len(events_a) == len(events_b), (
-        f"Event counts differ: {len(events_a)} vs {len(events_b)}"
-    )
+    assert len(events_a) == len(events_b), f"Event counts differ: {len(events_a)} vs {len(events_b)}"
     for i, (ea, eb) in enumerate(zip(events_a, events_b)):
         assert ea["agent_id"] == eb["agent_id"], f"Event {i}: agent_id mismatch"
         assert ea["action"] == eb["action"], f"Event {i}: action mismatch"
@@ -150,9 +153,7 @@ def test_different_seeds_produce_consistent_structure(tmp_path):
     """
     events_42 = _run_simulation(seed=42, tmp_path=tmp_path, run_id="s42")
     events_7 = _run_simulation(seed=7, tmp_path=tmp_path, run_id="s7")
-    assert len(events_42) == len(events_7), (
-        "Event count must be equal across seeds for deterministic (MockPolicy) runs"
-    )
+    assert len(events_42) == len(events_7), "Event count must be equal across seeds for deterministic (MockPolicy) runs"
 
 
 def test_simulation_run_produces_nonempty_events(tmp_path):

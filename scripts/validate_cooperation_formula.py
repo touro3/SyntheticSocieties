@@ -22,6 +22,7 @@ Usage:
         --out-json analysis/tables/formula_validation.json \
         --out-plot analysis/figures/formula_validation.png
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,15 +33,15 @@ from pathlib import Path
 
 # ── Hand-crafted formula coefficients ────────────────────────────────────────
 
-FORMULA_INTERCEPT    = 0.20
-FORMULA_TRUST_COEF   = 0.60
-FORMULA_RISK_COEF    = -0.60   # E[coop] decreases as risk increases
+FORMULA_INTERCEPT = 0.20
+FORMULA_TRUST_COEF = 0.60
+FORMULA_RISK_COEF = -0.60  # E[coop] decreases as risk increases
 
 
 # ── Synthetic data ────────────────────────────────────────────────────────────
 
-def generate_synthetic(n: int = 50, n_rounds: int = 10, seed: int = 42
-                        ) -> tuple[list[float], list[float], list[float]]:
+
+def generate_synthetic(n: int = 50, n_rounds: int = 10, seed: int = 42) -> tuple[list[float], list[float], list[float]]:
     """Generate (trust, risk, coop_rate) for N synthetic participants.
 
     Ground truth follows the BGF formula exactly (with Gaussian noise).
@@ -66,6 +67,7 @@ def load_from_csv(path: Path) -> tuple[list[float], list[float], list[float]]:
     Requires columns: participant_id, round_id, action, pre_trust, pre_risk.
     """
     import csv
+
     rows: dict[str, dict] = {}
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
@@ -74,7 +76,7 @@ def load_from_csv(path: Path) -> tuple[list[float], list[float], list[float]]:
             if pid not in rows:
                 rows[pid] = {
                     "pre_trust": float(row.get("pre_trust", 0.5)),
-                    "pre_risk":  float(row.get("pre_risk", 0.5)),
+                    "pre_risk": float(row.get("pre_risk", 0.5)),
                     "n_coop": 0,
                     "n_total": 0,
                 }
@@ -93,6 +95,7 @@ def load_from_csv(path: Path) -> tuple[list[float], list[float], list[float]]:
 
 
 # ── OLS / logistic helpers (pure Python, no sklearn required) ─────────────────
+
 
 def _design_matrix(trusts: list[float], risks: list[float]) -> list[list[float]]:
     """Build [1, trust, risk, trust*risk] design matrix rows."""
@@ -130,8 +133,7 @@ def _r_squared(y: list[float], y_hat: list[float]) -> float:
     return 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
 
 
-def _bootstrap_ci(X: list[list[float]], y: list[float],
-                  n_boot: int = 500, seed: int = 0) -> list[tuple[float, float]]:
+def _bootstrap_ci(X: list[list[float]], y: list[float], n_boot: int = 500, seed: int = 0) -> list[tuple[float, float]]:
     """Bootstrap 95% CIs for OLS coefficients."""
     rng = random.Random(seed)
     n = len(y)
@@ -157,10 +159,11 @@ def _bootstrap_ci(X: list[list[float]], y: list[float],
 
 # ── Plotting ──────────────────────────────────────────────────────────────────
 
-def _plot(trusts: list[float], coops: list[float], y_hat: list[float],
-          out_path: Path) -> None:
+
+def _plot(trusts: list[float], coops: list[float], y_hat: list[float], out_path: Path) -> None:
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -205,20 +208,19 @@ def _plot(trusts: list[float], coops: list[float], y_hat: list[float],
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Validate E[coop|profile] formula.")
-    parser.add_argument("--synthetic", action="store_true",
-                        help="Use synthetic data (no CSV required).")
-    parser.add_argument("--input-csv", default="data/human/responses.csv",
-                        help="Prolific responses CSV (requires pre_trust, pre_risk columns).")
-    parser.add_argument("--n-synthetic", type=int, default=50,
-                        help="Number of synthetic participants (default 50).")
-    parser.add_argument("--n-bootstrap", type=int, default=500,
-                        help="Bootstrap samples for CIs (default 500).")
-    parser.add_argument("--out-json",
-                        default="analysis/tables/formula_validation.json")
-    parser.add_argument("--out-plot",
-                        default="analysis/figures/formula_validation.png")
+    parser.add_argument("--synthetic", action="store_true", help="Use synthetic data (no CSV required).")
+    parser.add_argument(
+        "--input-csv",
+        default="data/human/responses.csv",
+        help="Prolific responses CSV (requires pre_trust, pre_risk columns).",
+    )
+    parser.add_argument("--n-synthetic", type=int, default=50, help="Number of synthetic participants (default 50).")
+    parser.add_argument("--n-bootstrap", type=int, default=500, help="Bootstrap samples for CIs (default 500).")
+    parser.add_argument("--out-json", default="analysis/tables/formula_validation.json")
+    parser.add_argument("--out-plot", default="analysis/figures/formula_validation.png")
     args = parser.parse_args()
 
     if args.synthetic:
@@ -261,14 +263,16 @@ def main() -> None:
         matches.append(in_ci)
         flag = "✓" if in_ci else "✗"
         print(f"{label:<12} {fitted:>8.4f} [{ci[0]:>7.4f}, {ci[1]:>7.4f}]  {formula:>7.4f}  {flag:>6}")
-        coef_results.append({
-            "name":    label,
-            "fitted":  round(fitted, 4),
-            "ci_lo":   ci[0],
-            "ci_hi":   ci[1],
-            "formula": formula,
-            "formula_within_ci": in_ci,
-        })
+        coef_results.append(
+            {
+                "name": label,
+                "fitted": round(fitted, 4),
+                "ci_lo": ci[0],
+                "ci_hi": ci[1],
+                "formula": formula,
+                "formula_within_ci": in_ci,
+            }
+        )
 
     print(f"\nR² = {r2:.4f}   AIC ≈ {aic:.2f}   Formula-within-CI: {sum(matches)}/{len(matches)}")
 

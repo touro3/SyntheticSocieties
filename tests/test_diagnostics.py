@@ -1,14 +1,15 @@
 """Tests for bias & failure diagnostics — no GPU required."""
+
+from agents.agent import Agent
+from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import MemoryBuffer
-from agents.agent import Agent
 from decision.mock_policy import MockPolicy
 from metrics.diagnostics import (
-    subgroup_analysis,
+    alignment_bias_detection,
     persona_drift_detection,
     response_diversity,
-    alignment_bias_detection,
+    subgroup_analysis,
 )
 
 
@@ -17,10 +18,17 @@ def _make_agents():
     agents = []
     for i, (trust, gender) in enumerate([(0.8, 1), (0.2, 2), (0.5, 1), (0.9, 2)]):
         profile = AgentProfile(
-            agent_id=f"agent_{i}", age=30 + i * 5, income=1000.0,
-            education="college", occupation="worker", location="urban",
-            political_preference="center", social_class="middle",
-            trust_people=trust, risk_tolerance=0.5, gender=gender,
+            agent_id=f"agent_{i}",
+            age=30 + i * 5,
+            income=1000.0,
+            education="college",
+            occupation="worker",
+            location="urban",
+            political_preference="center",
+            social_class="middle",
+            trust_people=trust,
+            risk_tolerance=0.5,
+            gender=gender,
         )
         state = AgentState(wealth=50.0 + i * 20)
         agents.append(Agent(profile=profile, state=state, memory=MemoryBuffer(), policy=policy))
@@ -32,11 +40,13 @@ def _make_events():
     for r in range(5):
         for i in range(4):
             action = ["work", "cooperate", "save", "work"][i]
-            events.append({
-                "round_id": r,
-                "agent_id": f"agent_{i}",
-                "action": {"action_type": action},
-            })
+            events.append(
+                {
+                    "round_id": r,
+                    "agent_id": f"agent_{i}",
+                    "action": {"action_type": action},
+                }
+            )
     return events
 
 

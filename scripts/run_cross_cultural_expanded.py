@@ -39,8 +39,8 @@ import argparse
 import hashlib
 import json
 import sys
-import time
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -130,8 +130,7 @@ def _assert_no_wvs_columns(ess_df) -> None:
     leaked = sorted(cols & forbidden)
     if leaked:
         raise ValueError(
-            "Potential holdout leakage detected: ESS grounding dataframe contains "
-            f"WVS-like columns: {leaked}"
+            f"Potential holdout leakage detected: ESS grounding dataframe contains WVS-like columns: {leaked}"
         )
 
 
@@ -139,11 +138,12 @@ def _assert_no_wvs_columns(ess_df) -> None:
 
 
 def _make_agent(row: dict, agent_id: str, rng: np.random.Generator, policy):
+    import math
+
     from agents.agent import Agent
     from agents.memory import HierarchicalMemory
     from agents.profile import AgentProfile
     from agents.state import AgentState
-    import math
 
     def _sf(val, default=0.5):
         if val is None:
@@ -207,6 +207,7 @@ def _run_single(
     """Run one cluster simulation for one seed. Returns ClusterSimResult."""
     if dry_run:
         import random
+
         rng2 = random.Random(hash(f"{cluster.name}{seed}{n_agents}"))
         # Synthetic dry-run behavior:
         # grounded -> trust-conditioned gradient
@@ -226,11 +227,11 @@ def _run_single(
             n_rounds=n_rounds,
         )
 
+    from bgf_logging.event_logger import EventLogger
     from environment.institutions import InstitutionManager
     from environment.network import NetworkManager
     from environment.world import World
     from environment.world_state import WorldState
-    from bgf_logging.event_logger import EventLogger
     from metrics.event_metrics import behavior_summary_from_events, load_events
     from metrics.inequality import gini_coefficient
 
@@ -239,13 +240,16 @@ def _run_single(
     # Build policy (policy objects are stateless for rule_based/mock, shareable)
     if policy_type == "mock":
         from decision.mock_policy import MockPolicy
+
         policy = MockPolicy()
     elif policy_type == "rule_based":
         from decision.rule_based_policy import RuleBasedPolicy
+
         policy = RuleBasedPolicy()
     elif policy_type == "llm":
-        from decision.llm_policy import LLMPolicy
         from decision.llm_backend import LLMBackend
+        from decision.llm_policy import LLMPolicy
+
         backend = LLMBackend.get_instance(
             model_id="mistralai/Mistral-7B-Instruct-v0.3",
             dtype="float16",
@@ -265,10 +269,7 @@ def _run_single(
     # Control: sample from the full AT cohort (no cluster conditioning).
     _assert_no_wvs_columns(ess_df)
     if grounded:
-        cohort_df = ess_df[
-            (ess_df["trust_people"] >= cluster.trust_lo) &
-            (ess_df["trust_people"] < cluster.trust_hi)
-        ]
+        cohort_df = ess_df[(ess_df["trust_people"] >= cluster.trust_lo) & (ess_df["trust_people"] < cluster.trust_hi)]
     else:
         cohort_df = ess_df
 
@@ -298,9 +299,7 @@ def _run_single(
 
     agent_ids = [a.profile.agent_id for a in agents]
     k = min(4, n_agents - 1)  # small-world k must be < n_agents
-    network = NetworkManager.small_world(
-        agent_ids=agent_ids, k=k, rewiring_prob=0.1, seed=seed
-    )
+    network = NetworkManager.small_world(agent_ids=agent_ids, k=k, rewiring_prob=0.1, seed=seed)
     world = World(
         state=WorldState(
             public_signal={"economy": "stable"},
@@ -315,6 +314,7 @@ def _run_single(
         events_path = Path(tmpdir) / f"{cluster.name}_n{n_agents}_s{seed}.jsonl"
         logger = EventLogger(str(events_path), overwrite=True)
         from simulation.kernel import SimulationKernel
+
         kernel = SimulationKernel(agents=agents, world=world, logger=logger)
         kernel.run(num_rounds=n_rounds)
         events = load_events(events_path)
@@ -351,6 +351,7 @@ def run_cluster_multiseed(
     for seed_idx, seed in enumerate(seeds):
         if seed_idx > 0 and policy_type == "llm":
             from decision.llm_backend import LLMBackend
+
             LLMBackend.between_seeds()
         if verbose:
             print(f"    seed={seed}", end=" ", flush=True)
@@ -483,9 +484,7 @@ def _save_expanded(
             "gradient_recovered": cc_sz.gradient_recovered,
             "ess_fit": _fit_to_dict(fit_ess_sz),
             "wvs_fit": _fit_to_dict(fit_wvs_sz),
-            "cluster_mean_coops": {
-                r.cluster_name: r.mean_cooperation_rate for r in results
-            },
+            "cluster_mean_coops": {r.cluster_name: r.mean_cooperation_rate for r in results},
         }
 
     if control_results_by_size is not None:
@@ -563,8 +562,8 @@ def _save_csv(
             f"{r.cluster_name},{r.ess_mean_trust},{r.wvs_trust_pct or ''},"
             f"{r.mean_cooperation_rate},{r.ci_lower},{r.ci_upper},"
             f"{r.std_cooperation_rate},{r.n_seeds},{r.mean_gini},{r.n_agents},"
-            f"{round(cc_ess.pearson_r,4)},{round(cc_ess.spearman_rho,4)},"
-            f"{round(wvs_fit.pearson_r,4)},{round(wvs_fit.spearman_rho,4)},"
+            f"{round(cc_ess.pearson_r, 4)},{round(cc_ess.spearman_rho, 4)},"
+            f"{round(wvs_fit.pearson_r, 4)},{round(wvs_fit.spearman_rho, 4)},"
             f"{cc_ess.gradient_recovered},{wvs_fit.gradient_recovered}"
         )
     path.write_text("\n".join(lines) + "\n")
@@ -577,20 +576,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Expanded cross-cultural ESS validation: 6 clusters, multi-seed, robustness sweep"
     )
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Synthetic data — no ESS parquet or GPU needed.")
-    parser.add_argument("--include-llm", action="store_true",
-                        help="LLM policy (Mistral-7B, GPU required).")
-    parser.add_argument("--n-seeds", type=int, default=20,
-                        help="Seeds per cluster (default: 20).")
-    parser.add_argument("--agents", type=int, default=20,
-                        help="Primary agent count (default: 20).")
-    parser.add_argument("--rounds", type=int, default=10,
-                        help="Simulation rounds per run (default: 10).")
-    parser.add_argument("--no-robustness", action="store_true",
-                        help="Skip multi-agent-size robustness sweep.")
-    parser.add_argument("--agent-sizes", type=str, default="20,100,500",
-                        help="Agent sizes for robustness sweep (default: 20,100,500).")
+    parser.add_argument("--dry-run", action="store_true", help="Synthetic data — no ESS parquet or GPU needed.")
+    parser.add_argument("--include-llm", action="store_true", help="LLM policy (Mistral-7B, GPU required).")
+    parser.add_argument("--n-seeds", type=int, default=20, help="Seeds per cluster (default: 20).")
+    parser.add_argument("--agents", type=int, default=20, help="Primary agent count (default: 20).")
+    parser.add_argument("--rounds", type=int, default=10, help="Simulation rounds per run (default: 10).")
+    parser.add_argument("--no-robustness", action="store_true", help="Skip multi-agent-size robustness sweep.")
+    parser.add_argument(
+        "--agent-sizes", type=str, default="20,100,500", help="Agent sizes for robustness sweep (default: 20,100,500)."
+    )
     parser.add_argument(
         "--seeds",
         type=str,
@@ -632,6 +626,7 @@ def main() -> None:
     ess_df = None
     if not dry_run:
         import pandas as pd
+
         ess_df = pd.read_parquet(_ESS_PATH)
         _assert_no_wvs_columns(ess_df)
         # Print cluster cohort sizes for transparency
@@ -644,10 +639,7 @@ def main() -> None:
         multi_results_by_size: dict[int, list[ClusterMultiSeedResult]] = {}
         for sz in agent_sizes:
             is_primary = sz == n_agents_primary
-            print(
-                f"\n── {label} | Agent size: {sz} "
-                f"({'primary' if is_primary else 'robustness'}) ──"
-            )
+            print(f"\n── {label} | Agent size: {sz} ({'primary' if is_primary else 'robustness'}) ──")
             size_results: list[ClusterMultiSeedResult] = []
 
             for cluster in clusters:
@@ -675,10 +667,7 @@ def main() -> None:
             cc = compute_cross_cultural_correlation_multiseed(size_results)
             ess_fit = compute_benchmark_fit(size_results, benchmark="ess")
             wvs_fit = compute_benchmark_fit(size_results, benchmark="wvs")
-            print(
-                f"\n  ESS fit: Pearson r = {cc.pearson_r:+.3f}, "
-                f"Spearman ρ = {cc.spearman_rho:+.3f}"
-            )
+            print(f"\n  ESS fit: Pearson r = {cc.pearson_r:+.3f}, Spearman ρ = {cc.spearman_rho:+.3f}")
             print(
                 f"  WVS holdout: Pearson r = {wvs_fit.pearson_r:+.3f}, "
                 f"Spearman ρ = {wvs_fit.spearman_rho:+.3f}, RMSE = {wvs_fit.rmse:.3f}"
@@ -689,9 +678,7 @@ def main() -> None:
 
     grounded_results_by_size = _run_condition("Grounded", grounded=True)
     control_results_by_size = (
-        _run_condition("Ungrounded control", grounded=False)
-        if args.run_ungrounded_control
-        else None
+        _run_condition("Ungrounded control", grounded=False) if args.run_ungrounded_control else None
     )
 
     # Save results
@@ -733,16 +720,21 @@ def main() -> None:
 
     # Print summary
     print()
-    from metrics.cross_cultural import ClusterSimResult, CrossCulturalResult
+    from metrics.cross_cultural import ClusterSimResult
+
     mock_singles = [
         ClusterSimResult(
-            r.cluster_name, r.ess_mean_trust,
-            r.mean_cooperation_rate, r.mean_gini,
-            r.n_agents, r.n_rounds,
+            r.cluster_name,
+            r.ess_mean_trust,
+            r.mean_cooperation_rate,
+            r.mean_gini,
+            r.n_agents,
+            r.n_rounds,
         )
         for r in primary_results
     ]
-    from metrics.cross_cultural import compute_cross_cultural_correlation, format_cross_cultural_table
+    from metrics.cross_cultural import compute_cross_cultural_correlation
+
     fmt_result = compute_cross_cultural_correlation(mock_singles)
     print(format_cross_cultural_table(fmt_result))
     print(

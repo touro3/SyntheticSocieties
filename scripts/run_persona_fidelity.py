@@ -6,7 +6,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import argparse
-import json
 import time
 from pathlib import Path
 
@@ -34,9 +33,16 @@ from utils.io import ensure_dir, save_json, set_global_seed
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run persona fidelity benchmark using survey-grounded profiles.")
-    parser.add_argument("--society-prompt", required=True, type=str, help="Natural-language description used for semantic dataset routing.")
+    parser.add_argument(
+        "--society-prompt",
+        required=True,
+        type=str,
+        help="Natural-language description used for semantic dataset routing.",
+    )
     parser.add_argument("--registry-path", type=str, default="data/dataset_registry.json")
-    parser.add_argument("--dataset-id", type=str, default=None, help="Force one dataset id instead of semantic routing.")
+    parser.add_argument(
+        "--dataset-id", type=str, default=None, help="Force one dataset id instead of semantic routing."
+    )
     parser.add_argument("--top-k", type=int, default=3)
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--output-root", type=str, default="artifacts/persona_fidelity")
@@ -88,7 +94,9 @@ def main():
     required_columns = registry.required_columns(primary_dataset_id, selected_names)
     frame = registry.load_frame(primary_dataset_id, required_columns)
 
-    if "trust_institutions" not in frame.columns and {"trust_parliament", "trust_legal", "trust_police"}.issubset(frame.columns):
+    if "trust_institutions" not in frame.columns and {"trust_parliament", "trust_legal", "trust_police"}.issubset(
+        frame.columns
+    ):
         frame["trust_institutions"] = frame[["trust_parliament", "trust_legal", "trust_police"]].mean(axis=1)
 
     benchmark_frame = prepare_benchmark_frame(frame, profile_features, target_items)

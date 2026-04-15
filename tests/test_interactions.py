@@ -1,5 +1,7 @@
 """Tests for cooperation wealth transfer — via kernel, not side-effects."""
+
 from conftest import make_agent
+
 from decision.schemas import ProposedAction
 from environment.institutions import InstitutionManager
 from environment.world_state import WorldState
@@ -43,9 +45,10 @@ def test_cooperate_transfer_via_event_dict():
 
 # ── Peer-to-Peer Communication (Information Contagion) ────────────────────────
 
-from agents.memory import HierarchicalMemory, MemoryItem
-from simulation.round_processor import RoundProcessor
 from unittest.mock import MagicMock
+
+from agents.memory import HierarchicalMemory
+from simulation.round_processor import RoundProcessor
 
 
 class TestCommunicateAction:
@@ -89,10 +92,7 @@ class TestCommunicateAction:
         processor.process_agent_action(sender, action, round_id=5)
 
         # Receiver should have a memory item from the communication
-        comm_items = [
-            m for m in receiver.memory.recent
-            if m.event_type == "received_message"
-        ]
+        comm_items = [m for m in receiver.memory.recent if m.event_type == "received_message"]
         assert len(comm_items) == 1
         item = comm_items[0]
         assert "sender" in item.content or item.partner_id == "sender"

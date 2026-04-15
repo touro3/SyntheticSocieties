@@ -29,17 +29,17 @@ def load_cooperation_events(events_path: Path) -> list[dict]:
             evt = json.loads(line)
             action = evt.get("action", {})
             if action.get("action_type") == "cooperate" and action.get("target_agent_id"):
-                events.append({
-                    "round_id": evt["round_id"],
-                    "agent_id": evt["agent_id"],
-                    "target_id": action["target_agent_id"],
-                })
+                events.append(
+                    {
+                        "round_id": evt["round_id"],
+                        "agent_id": evt["agent_id"],
+                        "target_id": action["target_agent_id"],
+                    }
+                )
     return events
 
 
-def build_cumulative_graphs(
-    events: list[dict], all_agents: set[str], max_round: int
-) -> dict[int, nx.Graph]:
+def build_cumulative_graphs(events: list[dict], all_agents: set[str], max_round: int) -> dict[int, nx.Graph]:
     """Build a cumulative cooperation graph at each round.
 
     Returns {round_id: Graph} where each graph includes all cooperation
@@ -69,9 +69,7 @@ def build_cumulative_graphs(
     return graphs
 
 
-def compute_metrics_over_rounds(
-    graphs: dict[int, nx.Graph], rounds: list[int]
-) -> dict[str, list[float]]:
+def compute_metrics_over_rounds(graphs: dict[int, nx.Graph], rounds: list[int]) -> dict[str, list[float]]:
     """Compute network metrics at each round."""
     metrics = {
         "round": [],
@@ -87,9 +85,7 @@ def compute_metrics_over_rounds(
         metrics["round"].append(r)
         metrics["n_edges"].append(G.number_of_edges())
         metrics["density"].append(nx.density(G))
-        metrics["avg_clustering"].append(
-            nx.average_clustering(G) if G.number_of_nodes() > 0 else 0.0
-        )
+        metrics["avg_clustering"].append(nx.average_clustering(G) if G.number_of_nodes() > 0 else 0.0)
         metrics["n_components"].append(nx.number_connected_components(G))
     return metrics
 
@@ -125,12 +121,9 @@ def plot_snapshots(
         degrees = dict(G.degree())
         node_sizes = [80 + 20 * degrees.get(n, 0) for n in G.nodes()]
 
-        nx.draw_networkx_edges(
-            G, pos, ax=ax, width=edge_widths, alpha=0.4, edge_color="steelblue"
-        )
+        nx.draw_networkx_edges(G, pos, ax=ax, width=edge_widths, alpha=0.4, edge_color="steelblue")
         nx.draw_networkx_nodes(
-            G, pos, ax=ax, node_size=node_sizes, node_color="coral",
-            linewidths=0.5, edgecolors="gray"
+            G, pos, ax=ax, node_size=node_sizes, node_color="coral", linewidths=0.5, edgecolors="gray"
         )
         ax.set_title(f"Round {r}\n({G.number_of_edges()} edges)", fontsize=13)
         ax.axis("off")
@@ -141,9 +134,7 @@ def plot_snapshots(
     plt.close()
 
 
-def plot_metric_timeseries(
-    metrics: dict[str, list[float]], output_path: Path, title_prefix: str = ""
-) -> None:
+def plot_metric_timeseries(metrics: dict[str, list[float]], output_path: Path, title_prefix: str = "") -> None:
     """Plot network metrics as a time series."""
     rounds = metrics["round"]
     if not rounds:
@@ -181,8 +172,7 @@ def main():
     parser = argparse.ArgumentParser(description="Network evolution visualization")
     parser.add_argument("--experiment", required=True, help="Path to experiment directory")
     parser.add_argument(
-        "--rounds", default=None,
-        help="Comma-separated round IDs for snapshot panels (default: auto-select 5)"
+        "--rounds", default=None, help="Comma-separated round IDs for snapshot panels (default: auto-select 5)"
     )
     parser.add_argument("--output-dir", default="analysis/figures", help="Output directory")
     args = parser.parse_args()

@@ -76,7 +76,11 @@ class PaddedAblationPolicy(LLMPolicyBase):
         if target is None:
             # Match what Condition B would produce for this specific agent
             target = measure_grounded_token_count(
-                profile, state, memory, context, round_id,
+                profile,
+                state,
+                memory,
+                context,
+                round_id,
                 memory_window=self.memory_window,
             )
 
@@ -85,7 +89,11 @@ class PaddedAblationPolicy(LLMPolicyBase):
         seed = hash((round_id, profile.agent_id)) % (2**31)
 
         messages = build_padded_prompt(
-            profile, state, memory, context, round_id,
+            profile,
+            state,
+            memory,
+            context,
+            round_id,
             target_token_count=target,
             seed=seed,
             memory_window=self.memory_window,

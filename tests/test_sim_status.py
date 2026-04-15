@@ -10,14 +10,12 @@ import json
 import time
 from pathlib import Path
 
-import pytest
-
-from scripts.sim_status import _classify, _read_heartbeat, _age_str, _render_table
-
+from scripts.sim_status import _age_str, _classify, _read_heartbeat, _render_table
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_hb(path: Path, round_id: int = 1, age_s: float = 0.0, n_agents: int = 4) -> None:
     payload = {
@@ -31,6 +29,7 @@ def _write_hb(path: Path, round_id: int = 1, age_s: float = 0.0, n_agents: int =
 # ---------------------------------------------------------------------------
 # _read_heartbeat
 # ---------------------------------------------------------------------------
+
 
 class TestReadHeartbeat:
     def test_returns_none_when_dir_has_no_heartbeat(self, tmp_path):
@@ -57,6 +56,7 @@ class TestReadHeartbeat:
 # _classify
 # ---------------------------------------------------------------------------
 
+
 class TestClassify:
     def test_missing_when_hb_is_none(self):
         assert _classify(None, stale_s=300, now=time.time()) == "MISSING"
@@ -81,6 +81,7 @@ class TestClassify:
 # _age_str
 # ---------------------------------------------------------------------------
 
+
 class TestAgeStr:
     def test_seconds_for_under_one_minute(self):
         now = time.time()
@@ -101,6 +102,7 @@ class TestAgeStr:
 # ---------------------------------------------------------------------------
 # _render_table
 # ---------------------------------------------------------------------------
+
 
 class TestRenderTable:
     def test_empty_dirs_renders_without_error(self, tmp_path):

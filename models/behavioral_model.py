@@ -2,6 +2,7 @@ import numpy as np
 
 '''Literature: McFadden (1974) - "Conditional logit analysis of qualitative choice behavior"'''
 
+
 class BehavioralModel:
     """Original hardcoded McFadden utility model (v0.1)."""
 
@@ -15,21 +16,11 @@ class BehavioralModel:
 
         income_pressure = food_price / (income + 1)
 
-        U_work = (
-            1.2 * income_pressure
-            + 0.3 * risk
-            - 0.2 * stress
-        )
+        U_work = 1.2 * income_pressure + 0.3 * risk - 0.2 * stress
 
-        U_save = (
-            0.8 * stress
-            + 0.4 * (1-risk)
-        )
+        U_save = 0.8 * stress + 0.4 * (1 - risk)
 
-        U_cooperate = (
-            0.5 * (1-stress)
-            + 0.3 * risk
-        )
+        U_cooperate = 0.5 * (1 - stress) + 0.3 * risk
 
         return np.array([U_work, U_save, U_cooperate])
 
@@ -40,10 +31,7 @@ class BehavioralModel:
 
     def choose(self, probs):
 
-        return np.random.choice(
-            ["work","save","cooperate"],
-            p=probs
-        )
+        return np.random.choice(["work", "save", "cooperate"], p=probs)
 
 
 class EmpiricalBehavioralModel(BehavioralModel):
@@ -83,8 +71,8 @@ class EmpiricalBehavioralModel(BehavioralModel):
         U_save = (
             0.6 * stress
             + 0.4 * (1 - risk)
-            + 0.2 * (1 - health)   # poor health → save more
-            + 0.1 * (1 - trust)    # low trust → save rather than cooperate
+            + 0.2 * (1 - health)  # poor health → save more
+            + 0.1 * (1 - trust)  # low trust → save rather than cooperate
         )
 
         # Cooperate utility: trust + social activity + low stress

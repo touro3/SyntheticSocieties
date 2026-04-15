@@ -1,6 +1,5 @@
 """Tests for HierarchicalMemory reflection (summarization) system."""
 
-import pytest
 from agents.memory import HierarchicalMemory, MemoryItem
 
 

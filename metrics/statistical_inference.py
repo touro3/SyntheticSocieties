@@ -113,10 +113,7 @@ def bootstrap_ci(
 
     rng = np.random.default_rng(random_state)
     n = len(arr)
-    bootstrap_stats = np.array([
-        fn(rng.choice(arr, size=n, replace=True))
-        for _ in range(n_bootstrap)
-    ])
+    bootstrap_stats = np.array([fn(rng.choice(arr, size=n, replace=True)) for _ in range(n_bootstrap)])
 
     alpha = 1.0 - confidence
     lower = float(np.percentile(bootstrap_stats, 100 * alpha / 2))
@@ -227,10 +224,7 @@ def mann_whitney_u(
     try:
         from scipy.stats import mannwhitneyu
     except ImportError as exc:
-        raise ImportError(
-            "scipy is required for mann_whitney_u. "
-            "Install with: pip install scipy"
-        ) from exc
+        raise ImportError("scipy is required for mann_whitney_u. Install with: pip install scipy") from exc
 
     a = np.asarray(group_a, dtype=float)
     b = np.asarray(group_b, dtype=float)

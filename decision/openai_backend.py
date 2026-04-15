@@ -52,10 +52,7 @@ class OpenAIBackend:
         from openai import OpenAI
 
         if not self.api_key:
-            raise ValueError(
-                "OpenAI API key not set. "
-                "Pass api_key= or set the OPENAI_API_KEY environment variable."
-            )
+            raise ValueError("OpenAI API key not set. Pass api_key= or set the OPENAI_API_KEY environment variable.")
 
         self._client = OpenAI(api_key=self.api_key, timeout=self.timeout)
 
@@ -64,9 +61,7 @@ class OpenAIBackend:
     @staticmethod
     def _cache_key(messages: list[dict]) -> str:
         """Stable SHA-256 key for a messages list (no collision risk unlike MD5)."""
-        return hashlib.sha256(
-            json.dumps(messages, sort_keys=True).encode()
-        ).hexdigest()
+        return hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest()
 
     def _cache_get(self, key: str) -> Optional[tuple[str, float]]:
         if key in self._cache:
@@ -93,7 +88,7 @@ class OpenAIBackend:
         if self._client is None:
             self.load()
 
-        temp    = temperature    if temperature    is not None else self.temperature
+        temp = temperature if temperature is not None else self.temperature
         max_tok = max_new_tokens if max_new_tokens is not None else self.max_new_tokens
 
         key = self._cache_key(messages)
@@ -117,12 +112,12 @@ class OpenAIBackend:
                     temperature=retry_temp,
                     max_tokens=max_tok,
                 )
-                text    = resp.choices[0].message.content.strip()
+                text = resp.choices[0].message.content.strip()
                 latency = time.time() - start
 
                 # Track cumulative token usage for cost monitoring.
                 if resp.usage is not None:
-                    self._total_prompt_tokens     += resp.usage.prompt_tokens
+                    self._total_prompt_tokens += resp.usage.prompt_tokens
                     self._total_completion_tokens += resp.usage.completion_tokens
 
                 self._cache_put(key, (text, latency))
@@ -132,10 +127,13 @@ class OpenAIBackend:
                 last_error = exc
                 if attempt == self.max_retries:
                     break
-                sleep_s = (2 ** attempt) + random.random()
+                sleep_s = (2**attempt) + random.random()
                 logger.warning(
                     "OpenAI generate() attempt %d/%d failed (%s); retrying in %.1fs",
-                    attempt + 1, self.max_retries + 1, exc, sleep_s,
+                    attempt + 1,
+                    self.max_retries + 1,
+                    exc,
+                    sleep_s,
                 )
                 time.sleep(sleep_s)
 
@@ -148,20 +146,17 @@ class OpenAIBackend:
         (prompt/completion).  Override with ``model_id`` for other models.
         """
         _COST_PER_1M = {
-            "gpt-4o-mini":  (0.15, 0.60),
-            "gpt-4o":       (2.50, 10.00),
-            "gpt-3.5-turbo": (0.50,  1.50),
+            "gpt-4o-mini": (0.15, 0.60),
+            "gpt-4o": (2.50, 10.00),
+            "gpt-3.5-turbo": (0.50, 1.50),
         }
         mid = (model_id or self.model_id).lower()
         prompt_rate, completion_rate = _COST_PER_1M.get(mid, (0.0, 0.0))
-        est_cost = (
-            self._total_prompt_tokens     / 1e6 * prompt_rate
-            + self._total_completion_tokens / 1e6 * completion_rate
-        )
+        est_cost = self._total_prompt_tokens / 1e6 * prompt_rate + self._total_completion_tokens / 1e6 * completion_rate
         return {
-            "prompt_tokens":     self._total_prompt_tokens,
+            "prompt_tokens": self._total_prompt_tokens,
             "completion_tokens": self._total_completion_tokens,
-            "total_tokens":      self._total_prompt_tokens + self._total_completion_tokens,
-            "cached_hits":       self._total_cached_hits,
+            "total_tokens": self._total_prompt_tokens + self._total_completion_tokens,
+            "cached_hits": self._total_cached_hits,
             "estimated_cost_usd": round(est_cost, 4),
         }

@@ -15,7 +15,6 @@ from metrics.behavioral_realism import (
     rlhf_bias_index_from_counts,
 )
 
-
 # ── BRM-JSD ──────────────────────────────────────────────────────────────
 
 

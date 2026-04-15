@@ -2,10 +2,17 @@ from dataclasses import dataclass
 from typing import Optional
 
 _NORMALIZED_FIELDS = (
-    "trust_people", "trust_institutions", "political_orientation",
-    "life_satisfaction", "happiness", "immigration_attitude",
-    "social_activity", "competitiveness", "leadership_preference",
-    "health_status", "religiosity",
+    "trust_people",
+    "trust_institutions",
+    "political_orientation",
+    "life_satisfaction",
+    "happiness",
+    "immigration_attitude",
+    "social_activity",
+    "competitiveness",
+    "leadership_preference",
+    "health_status",
+    "religiosity",
 )
 
 
@@ -24,6 +31,7 @@ class AgentProfile:
         religiosity, immigration_attitude, happiness,
         competitiveness, leadership_preference, education_level
     """
+
     # ── Core attributes (v0.1) ───────────────────────────────────────────
     agent_id: str
     age: int
@@ -37,29 +45,29 @@ class AgentProfile:
 
     # ── ESS-derived attributes (v0.2) ────────────────────────────────────
     # All default to None for backward compatibility with existing tests.
-    gender: Optional[int] = None                  # 1=Male, 2=Female
-    country: Optional[str] = None                 # ISO 3166-1 alpha-2
-    education_level: Optional[int] = None         # ES-ISCED (1-7)
-    income_decile: Optional[int] = None           # 1-10
+    gender: Optional[int] = None  # 1=Male, 2=Female
+    country: Optional[str] = None  # ISO 3166-1 alpha-2
+    education_level: Optional[int] = None  # ES-ISCED (1-7)
+    income_decile: Optional[int] = None  # 1-10
 
     # Trust (0-1 normalized)
     trust_people: Optional[float] = None
-    trust_institutions: Optional[float] = None    # average of parliament/legal/police
+    trust_institutions: Optional[float] = None  # average of parliament/legal/police
 
     # Values & attitudes (0-1 normalized)
     political_orientation: Optional[float] = None  # 0=left, 1=right
-    life_satisfaction: Optional[float] = None      # 0-1
-    happiness: Optional[float] = None              # 0-1
-    immigration_attitude: Optional[float] = None   # 0=restrictive, 1=open
+    life_satisfaction: Optional[float] = None  # 0-1
+    happiness: Optional[float] = None  # 0-1
+    immigration_attitude: Optional[float] = None  # 0=restrictive, 1=open
 
     # Social & behavioral (0-1 normalized)
-    social_activity: Optional[float] = None        # 0-1
-    competitiveness: Optional[float] = None        # 0-1
+    social_activity: Optional[float] = None  # 0-1
+    competitiveness: Optional[float] = None  # 0-1
     leadership_preference: Optional[float] = None  # 0-1
 
     # Health & wellbeing
-    health_status: Optional[float] = None          # 0=poor, 1=excellent
-    religiosity: Optional[float] = None            # 0-1
+    health_status: Optional[float] = None  # 0=poor, 1=excellent
+    religiosity: Optional[float] = None  # 0-1
 
     def __post_init__(self) -> None:
         # Validate gender
@@ -92,10 +100,19 @@ class AgentProfile:
         }
         # Add ESS attributes if available
         for attr in [
-            "gender", "country", "trust_people", "trust_institutions",
-            "political_orientation", "life_satisfaction", "happiness",
-            "immigration_attitude", "social_activity", "competitiveness",
-            "leadership_preference", "health_status", "religiosity",
+            "gender",
+            "country",
+            "trust_people",
+            "trust_institutions",
+            "political_orientation",
+            "life_satisfaction",
+            "happiness",
+            "immigration_attitude",
+            "social_activity",
+            "competitiveness",
+            "leadership_preference",
+            "health_status",
+            "religiosity",
         ]:
             val = getattr(self, attr, None)
             if val is not None:

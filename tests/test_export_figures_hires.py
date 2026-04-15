@@ -8,7 +8,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 # Make scripts importable
@@ -17,7 +16,6 @@ from export_figures_hires import (
     _FIGURE_MAP,
     export_figures,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -99,40 +97,28 @@ class TestExportFigures:
         result = export_figures(src, dest)
         assert set(result.keys()) == set(_FIGURE_MAP.keys())
 
-    def test_existing_figure_exports_png(
-        self, tmp_path: Path, source_dir_with_one_figure: Path
-    ):
+    def test_existing_figure_exports_png(self, tmp_path: Path, source_dir_with_one_figure: Path):
         dest = tmp_path / "dest"
         first_stem = next(iter(_FIGURE_MAP.keys()))
-        result = export_figures(
-            source_dir_with_one_figure, dest, dpi=10, pdf=False, png=True
-        )
+        result = export_figures(source_dir_with_one_figure, dest, dpi=10, pdf=False, png=True)
         assert result[first_stem] is True
         out_png = dest / f"{first_stem}.png"
         assert out_png.exists()
         assert out_png.stat().st_size > 0
 
-    def test_existing_figure_exports_pdf(
-        self, tmp_path: Path, source_dir_with_one_figure: Path
-    ):
+    def test_existing_figure_exports_pdf(self, tmp_path: Path, source_dir_with_one_figure: Path):
         dest = tmp_path / "dest"
         first_stem = next(iter(_FIGURE_MAP.keys()))
-        result = export_figures(
-            source_dir_with_one_figure, dest, dpi=10, pdf=True, png=False
-        )
+        result = export_figures(source_dir_with_one_figure, dest, dpi=10, pdf=True, png=False)
         assert result[first_stem] is True
         out_pdf = dest / f"{first_stem}.pdf"
         assert out_pdf.exists()
         assert out_pdf.stat().st_size > 0
 
-    def test_no_pdf_no_png_still_returns_true_for_existing(
-        self, tmp_path: Path, source_dir_with_one_figure: Path
-    ):
+    def test_no_pdf_no_png_still_returns_true_for_existing(self, tmp_path: Path, source_dir_with_one_figure: Path):
         """With pdf=False and png=False, success is vacuously True for existing files."""
         dest = tmp_path / "dest"
         first_stem = next(iter(_FIGURE_MAP.keys()))
-        result = export_figures(
-            source_dir_with_one_figure, dest, dpi=10, pdf=False, png=False
-        )
+        result = export_figures(source_dir_with_one_figure, dest, dpi=10, pdf=False, png=False)
         # File exists, no export ops triggered → success = True
         assert result[first_stem] is True

@@ -6,8 +6,7 @@ TDD: tests written BEFORE implementation. Each class covers one fix.
 from __future__ import annotations
 
 import warnings
-from collections import Counter
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -18,9 +17,7 @@ from decision.llm_policy_base import LLMPolicyBase
 from decision.output_parser import parse_llm_output
 from decision.schemas import ProposedAction
 from decision.token_budget import trim_to_budget
-from metrics.mediation import compute_mediation_decomposition
 from tests.conftest import make_profile
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -110,14 +107,10 @@ class TestOpenAIBackendAPI:
         mock_client = MagicMock()
         mock_choice = MagicMock()
         mock_choice.message.content = '{"action_type": "work", "amount": 10}'
-        mock_client.chat.completions.create.return_value = MagicMock(
-            choices=[mock_choice]
-        )
+        mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
         backend._client = mock_client
 
-        text, latency = backend.generate(
-            [{"role": "user", "content": "test"}], temperature=0.7
-        )
+        text, latency = backend.generate([{"role": "user", "content": "test"}], temperature=0.7)
 
         mock_client.chat.completions.create.assert_called_once()
         assert "work" in text
@@ -126,16 +119,12 @@ class TestOpenAIBackendAPI:
         """Must pass model, messages, temperature, max_tokens correctly."""
         from decision.openai_backend import OpenAIBackend
 
-        backend = OpenAIBackend(
-            model_id="gpt-4o-mini", api_key="test-key", max_new_tokens=512
-        )
+        backend = OpenAIBackend(model_id="gpt-4o-mini", api_key="test-key", max_new_tokens=512)
 
         mock_client = MagicMock()
         mock_choice = MagicMock()
         mock_choice.message.content = "output"
-        mock_client.chat.completions.create.return_value = MagicMock(
-            choices=[mock_choice]
-        )
+        mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
         backend._client = mock_client
 
         backend.generate(
@@ -158,9 +147,7 @@ class TestOpenAIBackendAPI:
         mock_client = MagicMock()
         mock_choice = MagicMock()
         mock_choice.message.content = '  {"action_type": "save"}  '
-        mock_client.chat.completions.create.return_value = MagicMock(
-            choices=[mock_choice]
-        )
+        mock_client.chat.completions.create.return_value = MagicMock(choices=[mock_choice])
         backend._client = mock_client
 
         text, _ = backend.generate([{"role": "user", "content": "test"}])
@@ -224,16 +211,13 @@ class TestFDRCorrection:
     def test_pairwise_significance_includes_fdr_column(self):
         """pairwise_significance must return p_value_fdr and significant_005_fdr columns."""
         import pandas as pd
+
         from tracker.analytics import pairwise_significance
 
         df = pd.DataFrame(
             {
                 "policy_type": ["llm"] * 5 + ["random"] * 5 + ["template"] * 5,
-                "wealth_mean": (
-                    [100, 102, 98, 101, 99]
-                    + [80, 82, 78, 81, 79]
-                    + [90, 92, 88, 91, 89]
-                ),
+                "wealth_mean": ([100, 102, 98, 101, 99] + [80, 82, 78, 81, 79] + [90, 92, 88, 91, 89]),
             }
         )
         result = pairwise_significance(df)
@@ -251,10 +235,16 @@ class TestFastBatchedBackendRemoved:
 
     def test_import_emits_deprecation_warning(self):
         """Importing FastBatchedBackend should emit a DeprecationWarning."""
+        import sys
+
+        # Force re-import so the deprecation warning fires inside the catcher
+        for key in [k for k in sys.modules if "fast_batched_backend" in k]:
+            del sys.modules[key]
+
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            from decision.fast_batched_backend import FastBatchedBackend
-            # Check that at least one DeprecationWarning was issued
+            from decision.fast_batched_backend import FastBatchedBackend  # noqa: F401
+
             dep_warnings = [w for w in caught if issubclass(w.category, DeprecationWarning)]
             assert len(dep_warnings) >= 1
 
@@ -322,10 +312,7 @@ class TestRAGTrimPriority:
         mem_lines = result["memory"].splitlines() if result["memory"] else []
         if len(mem_lines) < 100:
             # Memory was trimmed, so RAG should have been preserved
-            rag_survived = (
-                result["population_context"] is not None
-                or result["social_context"] is not None
-            )
+            rag_survived = result["population_context"] is not None or result["social_context"] is not None
             assert rag_survived
 
 
@@ -342,25 +329,14 @@ class TestMemoryReflectionOutcomes:
         mem = HierarchicalMemory()
         # 5 cooperations with agent_3: 3 reciprocated, 2 not
         for i in range(3):
-            mem.add(
-                _make_memory_item(
-                    i, "cooperate", "agent_3", outcome={"reciprocated": True}
-                )
-            )
+            mem.add(_make_memory_item(i, "cooperate", "agent_3", outcome={"reciprocated": True}))
         for i in range(3, 5):
-            mem.add(
-                _make_memory_item(
-                    i, "cooperate", "agent_3", outcome={"reciprocated": False}
-                )
-            )
+            mem.add(_make_memory_item(i, "cooperate", "agent_3", outcome={"reciprocated": False}))
         reflection = mem.generate_reflection()
         # Should mention reciprocation rate or percentage
         assert "agent_3" in reflection
         # The reflection should include some reciprocation information
-        assert any(
-            kw in reflection.lower()
-            for kw in ["reciprocat", "returned", "60%", "3/5"]
-        )
+        assert any(kw in reflection.lower() for kw in ["reciprocat", "returned", "60%", "3/5"])
 
     def test_reflection_without_outcomes_still_works(self):
         """Backward compatible: empty outcomes should not break reflection."""
@@ -431,8 +407,8 @@ class TestParseFailureTracking:
         """LLMPolicyBase must track when fallback actions are used."""
         base = _make_policy_base()
         # Instance should support fallback tracking (lazy-initialized)
-        assert hasattr(base, 'get_fallback_rate')
-        assert hasattr(base, 'get_proposal_stats')
+        assert hasattr(base, "get_fallback_rate")
+        assert hasattr(base, "get_proposal_stats")
         # After first use, counters should be accessible
         state = AgentState(wealth=30.0)
         base._fallback_action(state, neighbors=["a1"])

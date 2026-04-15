@@ -122,9 +122,7 @@ class RuleBasedESSPolicy:
             return ProposedAction(
                 action_type="work",
                 amount=DEFAULT_WORK_AMOUNT,
-                reasoning_summary=(
-                    "ESS-rule: low wealth triggers work priority."
-                ),
+                reasoning_summary=("ESS-rule: low wealth triggers work priority."),
                 confidence=DEFAULT_RULE_CONFIDENCE,
             )
 
@@ -133,9 +131,7 @@ class RuleBasedESSPolicy:
             return ProposedAction(
                 action_type="work",
                 amount=DEFAULT_WORK_AMOUNT,
-                reasoning_summary=(
-                    "ESS-rule: high stress triggers defensive work."
-                ),
+                reasoning_summary=("ESS-rule: high stress triggers defensive work."),
                 confidence=DEFAULT_RULE_CONFIDENCE,
             )
 
@@ -151,15 +147,12 @@ class RuleBasedESSPolicy:
         if h < coop_prob and neighbors:
             # Fallback check injected here to prevent NoneType formatting crashes
             safe_trust = float(profile.trust_people if profile.trust_people is not None else 0.5)
-            
+
             return ProposedAction(
                 action_type="cooperate",
                 target_agent_id=neighbors[0],
                 amount=DEFAULT_COOPERATE_AMOUNT,
-                reasoning_summary=(
-                    f"ESS-rule: trust={safe_trust:.2f}, "
-                    f"coop_prob={coop_prob:.2f} → cooperate."
-                ),
+                reasoning_summary=(f"ESS-rule: trust={safe_trust:.2f}, coop_prob={coop_prob:.2f} → cooperate."),
                 confidence=DEFAULT_RULE_CONFIDENCE,
             )
 
@@ -168,9 +161,7 @@ class RuleBasedESSPolicy:
             return ProposedAction(
                 action_type="save",
                 amount=DEFAULT_SAVE_AMOUNT,
-                reasoning_summary=(
-                    f"ESS-rule: coop_prob={coop_prob:.2f}, h={h:.2f} → save."
-                ),
+                reasoning_summary=(f"ESS-rule: coop_prob={coop_prob:.2f}, h={h:.2f} → save."),
                 confidence=DEFAULT_RULE_CONFIDENCE,
             )
 

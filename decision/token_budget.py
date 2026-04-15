@@ -137,7 +137,7 @@ def trim_to_budget(
     fixed_tokens = (
         _estimate_tokens_static(system)
         + _estimate_tokens_static(persona)
-        + estimate_tokens(state)    # dynamic: wealth/stress changes each round
+        + estimate_tokens(state)  # dynamic: wealth/stress changes each round
         + estimate_tokens(context)  # dynamic: world state changes each round
         + 50  # formatting overhead
     )

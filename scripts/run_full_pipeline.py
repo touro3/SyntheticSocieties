@@ -30,11 +30,12 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
-import numpy as np
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
+
+import numpy as np
 
 # Must be set before any CUDA tensor is allocated (including in subprocesses
 # that inherit this environment) so PyTorch's expandable-segments allocator
@@ -44,8 +45,6 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from utils.config import load_config
-from utils.io import ensure_dir, save_yaml, set_global_seed
 from scripts.run_config_simulation import run_simulation
 
 POLICIES_BASELINE = ["template", "rule_based", "random", "rule_based_ess"]
@@ -65,16 +64,16 @@ POLICY_PREFIX = {
 def parse_seed_list(seeds_arg):
     """
     Parses a seed string into a list of integers.
-    Supports single ints ('42'), comma-separated ('42,123,7'), 
+    Supports single ints ('42'), comma-separated ('42,123,7'),
     and inclusive ranges ('1..10').
     """
     seeds = []
     # Split by comma to handle standard lists
-    for part in seeds_arg.split(','):
+    for part in seeds_arg.split(","):
         part = part.strip()
-        if '..' in part:
+        if ".." in part:
             # Handle range syntax (e.g., '1..10')
-            start_str, end_str = part.split('..')
+            start_str, end_str = part.split("..")
             start = int(start_str)
             end = int(end_str)
             # Use end + 1 to make the range inclusive
@@ -82,30 +81,25 @@ def parse_seed_list(seeds_arg):
         else:
             # Handle single integers
             seeds.append(int(part))
-            
+
     return seeds
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="BGF Full Pipeline")
-    parser.add_argument("--seeds", type=str, default="42,123,7",
-                        help="Seeds to use (comma-separated)")
-    parser.add_argument("--rounds", type=int, default=10,
-                        help="Simulation rounds per experiment")
-    parser.add_argument("--agents", type=int, default=20,
-                        help="Number of agents per experiment")
-    parser.add_argument("--include-llm", action="store_true",
-                        help="Include LLM policy experiments (needs GPU)")
-    parser.add_argument("--include-perturbation", action="store_true",
-                        help="Include prompt perturbation experiments")
-    parser.add_argument("--plots-only", action="store_true",
-                        help="Skip experiments, just regenerate plots")
-    parser.add_argument("--skip-existing", action="store_true", default=False,
-                        help="Skip experiments that already have summary.json")
-    parser.add_argument("--llm-ablation-level", type=int, default=5,
-                        help="Prompt ablation level (0-5) for base LLM experiments")
-    parser.add_argument("--run-ablation-ladder", action="store_true",
-                        help="Run full V0-V5 ablation ladder suite")
+    parser.add_argument("--seeds", type=str, default="42,123,7", help="Seeds to use (comma-separated)")
+    parser.add_argument("--rounds", type=int, default=10, help="Simulation rounds per experiment")
+    parser.add_argument("--agents", type=int, default=20, help="Number of agents per experiment")
+    parser.add_argument("--include-llm", action="store_true", help="Include LLM policy experiments (needs GPU)")
+    parser.add_argument("--include-perturbation", action="store_true", help="Include prompt perturbation experiments")
+    parser.add_argument("--plots-only", action="store_true", help="Skip experiments, just regenerate plots")
+    parser.add_argument(
+        "--skip-existing", action="store_true", default=False, help="Skip experiments that already have summary.json"
+    )
+    parser.add_argument(
+        "--llm-ablation-level", type=int, default=5, help="Prompt ablation level (0-5) for base LLM experiments"
+    )
+    parser.add_argument("--run-ablation-ladder", action="store_true", help="Run full V0-V5 ablation ladder suite")
     parser.add_argument(
         "--analytics-scope",
         choices=["run", "global"],
@@ -146,8 +140,9 @@ def experiment_exists(exp_id: str) -> bool:
     return (Path("experiments") / exp_id / "summary.json").exists()
 
 
-def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
-                          prefix: str, extra_overrides: list[str] = None) -> str:
+def run_single_experiment(
+    policy: str, seed: int, rounds: int, agents: int, prefix: str, extra_overrides: list[str] = None
+) -> str:
     """Run a single experiment, return the experiment ID."""
     exp_prefix = POLICY_PREFIX.get(policy, policy)
     exp_id = f"{prefix}{exp_prefix}_s{seed}"
@@ -169,20 +164,21 @@ def run_single_experiment(policy: str, seed: int, rounds: int, agents: int,
         run_simulation(base_config, list(overrides))
     else:
         cmd = [
-            sys.executable, "scripts/run_config_simulation.py",
-            "--config", base_config,
+            sys.executable,
+            "scripts/run_config_simulation.py",
+            "--config",
+            base_config,
         ] + list(overrides)
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
     return exp_id
 
 
-
 def run_experiments(args) -> list[str]:
     """Run all experiments and return list of experiment IDs."""
     seeds = parse_seed_list(args.seeds)
     policies = POLICIES_BASELINE.copy()
-    
+
     # ── Condition-based overrides ─────────────────────────────────────────
     condition_overrides: list[str] = []
     if getattr(args, "condition", None) == "A":
@@ -201,7 +197,9 @@ def run_experiments(args) -> list[str]:
 
     if args.include_llm and not args.run_ablation_ladder:
         for seed in seeds:
-            experiments.append(("cmp_", "llm", seed, [f"llm.ablation_level={args.llm_ablation_level}"] + condition_overrides))
+            experiments.append(
+                ("cmp_", "llm", seed, [f"llm.ablation_level={args.llm_ablation_level}"] + condition_overrides)
+            )
 
     # Full V0-V5 Sweep
     if args.run_ablation_ladder:
@@ -216,10 +214,14 @@ def run_experiments(args) -> list[str]:
     if args.include_perturbation and (args.include_llm or args.run_ablation_ladder):
         for mode in PERTURBATION_MODES:
             for seed in seeds:
-                experiments.append((
-                    "pert_", "llm", seed,
-                    [f"perturbation.mode={mode}", f"llm.ablation_level={args.llm_ablation_level}"]
-                ))
+                experiments.append(
+                    (
+                        "pert_",
+                        "llm",
+                        seed,
+                        [f"perturbation.mode={mode}", f"llm.ablation_level={args.llm_ablation_level}"],
+                    )
+                )
 
     total = len(experiments)
     completed = 0
@@ -237,10 +239,8 @@ def run_experiments(args) -> list[str]:
     print(f"{'─' * 60}")
 
     # Separate baseline (parallelizable) and LLM (sequential) experiments
-    baseline_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1)
-                     if pol != "llm"]
-    llm_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1)
-                if pol == "llm"]
+    baseline_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1) if pol != "llm"]
+    llm_exps = [(i, p, pol, s, e) for i, (p, pol, s, e) in enumerate(experiments, 1) if pol == "llm"]
 
     # Run baselines in parallel (no GPU needed)
     if baseline_exps:
@@ -273,16 +273,22 @@ def run_experiments(args) -> list[str]:
                     try:
                         future.result()
                         # Register sequentially to avoid race condition in tracker/experiment_index.parquet
-                        subprocess.run([
-                            sys.executable, "scripts/register_experiment.py",
-                            "--run-dir", f"experiments/{exp_id}",
-                        ], check=True, capture_output=True, text=True)
+                        subprocess.run(
+                            [
+                                sys.executable,
+                                "scripts/register_experiment.py",
+                                "--run-dir",
+                                f"experiments/{exp_id}",
+                            ],
+                            check=True,
+                            capture_output=True,
+                            text=True,
+                        )
                         completed += 1
                         print(f"  [{i}/{total}] ✓ {exp_id}")
                     except Exception as e:
                         print(f"  [{i}/{total}] ✗ {exp_id}: {str(e)[:100]}")
                     exp_ids.append(exp_id)
-
 
             parallel_elapsed = time.time() - t0_parallel
             print(f"  ⚡ Baselines done in {parallel_elapsed:.1f}s (parallel)")
@@ -297,7 +303,7 @@ def run_experiments(args) -> list[str]:
                 if "perturbation.mode=" in o:
                     mode = o.split("=")[1]
                     exp_id = f"pert_{mode}_s{seed}"
-                
+
                 # Use ablation prefix if doing the ladder sweep
                 if "llm.ablation_level=" in o and prefix.startswith("abl_v"):
                     lvl = o.split("=")[1]
@@ -313,6 +319,7 @@ def run_experiments(args) -> list[str]:
         # the next one.  The model stays loaded (no reload cost).
         if not _first_llm:
             from decision.llm_backend import LLMBackend
+
             LLMBackend.between_seeds()
         _first_llm = False
 
@@ -322,18 +329,25 @@ def run_experiments(args) -> list[str]:
         try:
             run_single_experiment(policy, seed, args.rounds, args.agents, prefix, extra)
             # Register sequentially
-            subprocess.run([
-                sys.executable, "scripts/register_experiment.py",
-                "--run-dir", f"experiments/{exp_id}",
-            ], check=True, capture_output=True, text=True)
-            
+            subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/register_experiment.py",
+                    "--run-dir",
+                    f"experiments/{exp_id}",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
             elapsed = time.time() - t0
             run_times.append(elapsed)
             completed += 1
 
-
-            remaining_llm = sum(1 for (_, _, p, s, _) in llm_exps
-                                if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}"))
+            remaining_llm = sum(
+                1 for (_, _, p, s, _) in llm_exps if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}")
+            )
             if remaining_llm > 0:
                 avg = np.mean(run_times) if run_times else elapsed
                 eta_min = remaining_llm * avg / 60
@@ -341,7 +355,7 @@ def run_experiments(args) -> list[str]:
             else:
                 print(f" ✓ ({elapsed:.1f}s)")
         except subprocess.CalledProcessError as e:
-            print(f" ✗ ERROR")
+            print(" ✗ ERROR")
             print(f"    {e.stderr[:200] if e.stderr else 'No error output'}")
 
         exp_ids.append(exp_id)
@@ -353,41 +367,34 @@ def run_experiments(args) -> list[str]:
 def run_plots(args):
     """Generate all comparison diagrams."""
     print(f"\n{'─' * 60}")
-    print(f"  STAGE 2: Generating Diagrams")
+    print("  STAGE 2: Generating Diagrams")
     print(f"{'─' * 60}")
 
     seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
-    subprocess.run([
-        sys.executable, "scripts/plot_policy_comparison_full.py", "--seeds", seeds_arg
-    ], check=True)
+    subprocess.run([sys.executable, "scripts/plot_policy_comparison_full.py", "--seeds", seeds_arg], check=True)
 
     # Publication analytics plots
-    subprocess.run([
-        sys.executable, "scripts/plot_all_analytics.py"
-    ] + ["--seeds", args.seeds], check=True)
+    subprocess.run([sys.executable, "scripts/plot_all_analytics.py"] + ["--seeds", args.seeds], check=True)
 
     # Advanced Trajectory Plots (Phase 13)
     seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
-    subprocess.run([
-        sys.executable, "scripts/plot_trajectories_full.py", "--seeds", seeds_arg
-    ], check=True)
-
+    subprocess.run([sys.executable, "scripts/plot_trajectories_full.py", "--seeds", seeds_arg], check=True)
 
     # Also run the empirical analysis plots
-    subprocess.run([
-        sys.executable, "scripts/plot_empirical_analysis.py"
-    ], check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, "scripts/plot_empirical_analysis.py"], check=True, capture_output=True, text=True)
     print("  ✓ All plot suites generated")
 
 
 def _infer_cmp_ids(seeds: list[int], include_llm: bool) -> list[str]:
     cmp_ids = []
     for s in seeds:
-        cmp_ids.extend([
-            f"cmp_template_s{s}",
-            f"cmp_rule_s{s}",
-            f"cmp_random_s{s}",
-        ])
+        cmp_ids.extend(
+            [
+                f"cmp_template_s{s}",
+                f"cmp_rule_s{s}",
+                f"cmp_random_s{s}",
+            ]
+        )
         if include_llm:
             cmp_ids.append(f"cmp_llm_s{s}")
     return cmp_ids
@@ -396,18 +403,22 @@ def _infer_cmp_ids(seeds: list[int], include_llm: bool) -> list[str]:
 def run_analytics(args, exp_ids: list[str]):
     """Run DuckDB analytics."""
     print(f"\n{'─' * 60}")
-    print(f"  STAGE 3: DuckDB Analytics")
+    print("  STAGE 3: DuckDB Analytics")
     print(f"{'─' * 60}")
 
     cmd = [
-        sys.executable, "scripts/run_analytics.py",
-        "--output-dir", args.analytics_output_dir,
+        sys.executable,
+        "scripts/run_analytics.py",
+        "--output-dir",
+        args.analytics_output_dir,
     ]
 
     if args.analytics_scope == "run":
         seeds = parse_seed_list(args.seeds)
         policies = ["template", "rule_based", "random"] + (["llm"] if args.include_llm else [])
-        cmp_ids = sorted({x for x in exp_ids if x.startswith("cmp_")}) if exp_ids else _infer_cmp_ids(seeds, args.include_llm)
+        cmp_ids = (
+            sorted({x for x in exp_ids if x.startswith("cmp_")}) if exp_ids else _infer_cmp_ids(seeds, args.include_llm)
+        )
         if cmp_ids:
             cmd += ["--experiment-ids", ",".join(cmp_ids)]
         cmd += ["--seeds", ",".join(str(s) for s in seeds)]
@@ -502,7 +513,7 @@ def print_quick_comparison(seeds_str: str):
     policies = ["llm", "template", "rule_based", "random"]
 
     print(f"\n{'═' * 70}")
-    print(f"  RESULTS COMPARISON")
+    print("  RESULTS COMPARISON")
     print(f"{'═' * 70}")
 
     header = f"{'Policy':<25} {'Wealth μ':>10} {'Gini':>8} {'Coop%':>8} {'Work%':>8} {'Save%':>8}"
@@ -548,9 +559,13 @@ def print_quick_comparison(seeds_str: str):
         work = all_actions.get("work", 0) / total_a * 100
         save = all_actions.get("save", 0) / total_a * 100
 
-        label = {"llm": "LLM (Mistral-7B)", "template": "Template (ESS)",
-                 "rule_based": "Rule-Based", "random": "Random",
-                 "rule_based_ess": "Rule-Based ESS (D)"}.get(policy, policy)
+        label = {
+            "llm": "LLM (Mistral-7B)",
+            "template": "Template (ESS)",
+            "rule_based": "Rule-Based",
+            "random": "Random",
+            "rule_based_ess": "Rule-Based ESS (D)",
+        }.get(policy, policy)
 
         print(f"  {label:<23} {mean_w:>10.1f} {gini:>8.3f} {coop:>7.1f}% {work:>7.1f}% {save:>7.1f}%")
 

@@ -1,8 +1,8 @@
-import torch
-import polars as pl
 import duckdb
-import pydantic
 import networkx as nx
+import polars as pl
+import pydantic
+import torch
 
 print("Torch version:", torch.__version__)
 print("CUDA available:", torch.cuda.is_available())

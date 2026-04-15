@@ -86,6 +86,7 @@ def summarize_agents(agents: list[Agent]) -> dict:
         },
     }
 
+
 def merge_behavior_summary(summary: dict, behavior_summary: dict) -> dict:
     merged = dict(summary)
     merged.update(behavior_summary)

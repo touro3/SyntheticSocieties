@@ -19,10 +19,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import numpy as np
-
+import matplotlib.pyplot as plt
 
 _FEATURE_LABELS = {
     "trust_people": "Interpersonal Trust",
@@ -56,8 +54,7 @@ def plot_coefficients(coefficients: list[dict], output_path: Path) -> None:
     ax.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
     ax.set_xlabel("Logistic Regression Coefficient (z-scored features)", fontsize=11)
     ax.set_title(
-        "ESS Feature Importance: Predictors of Cooperation\n"
-        "(Condition D — Rule-Based ESS Baseline)",
+        "ESS Feature Importance: Predictors of Cooperation\n(Condition D — Rule-Based ESS Baseline)",
         fontsize=12,
         pad=14,
     )
@@ -70,8 +67,7 @@ def plot_coefficients(coefficients: list[dict], output_path: Path) -> None:
     for bar, val in zip(bars, coef_vals):
         x = val + (0.01 if val >= 0 else -0.01)
         ha = "left" if val >= 0 else "right"
-        ax.text(x, bar.get_y() + bar.get_height() / 2,
-                f"{val:+.3f}", va="center", ha=ha, fontsize=8.5)
+        ax.text(x, bar.get_y() + bar.get_height() / 2, f"{val:+.3f}", va="center", ha=ha, fontsize=8.5)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -85,7 +81,11 @@ def plot_ablation(ablation_table: dict[str, float], output_path: Path) -> None:
     """Bar chart: profile depth (minimal / medium / full) vs. train accuracy."""
     levels = list(ablation_table.keys())
     accuracies = [ablation_table[l] for l in levels]
-    level_labels = {"minimal": "Minimal\n(trust, risk)", "medium": "Medium\n(+social, life-sat)", "full": "Full\n(all 12 ESS dims)"}
+    level_labels = {
+        "minimal": "Minimal\n(trust, risk)",
+        "medium": "Medium\n(+social, life-sat)",
+        "full": "Full\n(all 12 ESS dims)",
+    }
     labels = [level_labels.get(l, l) for l in levels]
 
     colors = ["#95a5a6", "#3498db", "#2c3e50"]
@@ -95,8 +95,7 @@ def plot_ablation(ablation_table: dict[str, float], output_path: Path) -> None:
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("Logistic Regression Train Accuracy", fontsize=11)
     ax.set_title(
-        "Profile Richness vs. Cooperation Prediction\n"
-        "(Monotonic improvement with ESS dimension depth)",
+        "Profile Richness vs. Cooperation Prediction\n(Monotonic improvement with ESS dimension depth)",
         fontsize=11,
         pad=12,
     )
@@ -106,7 +105,10 @@ def plot_ablation(ablation_table: dict[str, float], output_path: Path) -> None:
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.01,
             f"{acc:.3f}",
-            ha="center", va="bottom", fontsize=10, fontweight="bold",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            fontweight="bold",
         )
 
     ax.spines["top"].set_visible(False)

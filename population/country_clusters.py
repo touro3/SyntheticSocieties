@@ -4,6 +4,7 @@ These clusters are grounded in ESS-11 published aggregate statistics.
 The local parquet only contains Austrian microdata; simulation parameters
 are set via trust_people_band to approximate each cluster's trust profile.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,7 +66,9 @@ def load_clusters(
     return clusters
 
 
-def get_cluster_by_name(name: str, benchmarks_path: str | Path = "data/cross_cultural_benchmarks.json") -> CountryCluster:
+def get_cluster_by_name(
+    name: str, benchmarks_path: str | Path = "data/cross_cultural_benchmarks.json"
+) -> CountryCluster:
     """Return a single cluster by name."""
     clusters = {c.name: c for c in load_clusters(benchmarks_path)}
     if name not in clusters:

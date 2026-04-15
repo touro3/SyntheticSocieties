@@ -3,7 +3,6 @@ from models.behavioral_model import BehavioralModel
 
 
 class DataDrivenPolicy:
-
     def __init__(self):
         self.model = BehavioralModel()
 

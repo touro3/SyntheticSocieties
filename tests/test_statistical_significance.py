@@ -11,7 +11,6 @@ from tracker.analytics import (
     pairwise_significance,
 )
 
-
 # ── Cohen's d ────────────────────────────────────────────────────────────────
 
 
@@ -127,10 +126,12 @@ class TestBootstrapCI:
 
 class TestPairwiseSignificance:
     def test_basic_structure(self):
-        df = pd.DataFrame({
-            "policy_type": ["llm"] * 5 + ["random"] * 5,
-            "wealth_mean": [100, 110, 105, 108, 112, 50, 55, 45, 52, 48],
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["llm"] * 5 + ["random"] * 5,
+                "wealth_mean": [100, 110, 105, 108, 112, 50, 55, 45, 52, 48],
+            }
+        )
         result = pairwise_significance(df)
         assert len(result) == 1
         assert result.iloc[0]["group"] == "random"
@@ -138,46 +139,56 @@ class TestPairwiseSignificance:
         assert "p_value" in result.columns
 
     def test_significant_difference(self):
-        df = pd.DataFrame({
-            "policy_type": ["llm"] * 10 + ["random"] * 10,
-            "wealth_mean": [100] * 10 + [10] * 10,
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["llm"] * 10 + ["random"] * 10,
+                "wealth_mean": [100] * 10 + [10] * 10,
+            }
+        )
         result = pairwise_significance(df)
         assert result.iloc[0]["significant_005"] == True
 
     def test_no_significant_difference(self):
         # Interleave identical values so there's zero difference
         vals = [100.0, 105.0, 95.0, 110.0, 90.0]
-        df = pd.DataFrame({
-            "policy_type": ["llm"] * 5 + ["random"] * 5,
-            "wealth_mean": vals + vals,
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["llm"] * 5 + ["random"] * 5,
+                "wealth_mean": vals + vals,
+            }
+        )
         result = pairwise_significance(df)
         assert result.iloc[0]["significant_005"] == False
 
     def test_multiple_groups(self):
-        df = pd.DataFrame({
-            "policy_type": ["llm"] * 5 + ["random"] * 5 + ["template"] * 5,
-            "wealth_mean": [100] * 5 + [50] * 5 + [75] * 5,
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["llm"] * 5 + ["random"] * 5 + ["template"] * 5,
+                "wealth_mean": [100] * 5 + [50] * 5 + [75] * 5,
+            }
+        )
         result = pairwise_significance(df)
         assert len(result) == 2
         groups = set(result["group"].tolist())
         assert groups == {"random", "template"}
 
     def test_missing_reference_returns_empty(self):
-        df = pd.DataFrame({
-            "policy_type": ["random"] * 5,
-            "wealth_mean": [50] * 5,
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["random"] * 5,
+                "wealth_mean": [50] * 5,
+            }
+        )
         result = pairwise_significance(df, reference_group="llm")
         assert len(result) == 0
 
     def test_custom_metric_col(self):
-        df = pd.DataFrame({
-            "policy_type": ["llm"] * 5 + ["random"] * 5,
-            "wealth_mean": [100] * 5 + [50] * 5,
-            "stress_mean": [0.5] * 5 + [0.9] * 5,
-        })
+        df = pd.DataFrame(
+            {
+                "policy_type": ["llm"] * 5 + ["random"] * 5,
+                "wealth_mean": [100] * 5 + [50] * 5,
+                "stress_mean": [0.5] * 5 + [0.9] * 5,
+            }
+        )
         result = pairwise_significance(df, metric_col="stress_mean")
         assert len(result) == 1

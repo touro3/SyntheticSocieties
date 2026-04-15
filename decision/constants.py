@@ -22,9 +22,9 @@ MIN_COOPERATE_WEALTH: float = 5.0
 
 # ── Persona thresholds (ESS-derived normalised [0, 1] scores) ─────────────────
 # Used by the persona-aware fallback to infer likely behaviour from traits.
-TRUST_LOW: float = 0.3     # Below this → agent distrusts others → save
-TRUST_HIGH: float = 0.7    # Above this → agent trusts others → cooperate
-RISK_HIGH: float = 0.7     # Above this → agent accepts risk → work harder
+TRUST_LOW: float = 0.3  # Below this → agent distrusts others → save
+TRUST_HIGH: float = 0.7  # Above this → agent trusts others → cooperate
+RISK_HIGH: float = 0.7  # Above this → agent accepts risk → work harder
 RELIGIOSITY_THRESHOLD: float = 0.5  # Used to label agents as religious/not
 
 # ── Stress threshold ──────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ DEFAULT_COOPERATE_AMOUNT: float = 5.0
 MAX_ACTION_AMOUNT: float = 20.0
 
 # ── Default confidence values ─────────────────────────────────────────────────
-DEFAULT_FALLBACK_CONFIDENCE: float = 0.5   # Rule-based and fallback actions
-DEFAULT_RULE_CONFIDENCE: float = 0.9       # RuleBasedPolicy (deterministic)
-DEFAULT_RANDOM_CONFIDENCE: float = 0.5    # RandomPolicy (uniform)
-DEFAULT_KEYWORD_CONFIDENCE: float = 0.3   # Keyword-fallback parser (low trust)
+DEFAULT_FALLBACK_CONFIDENCE: float = 0.5  # Rule-based and fallback actions
+DEFAULT_RULE_CONFIDENCE: float = 0.9  # RuleBasedPolicy (deterministic)
+DEFAULT_RANDOM_CONFIDENCE: float = 0.5  # RandomPolicy (uniform)
+DEFAULT_KEYWORD_CONFIDENCE: float = 0.3  # Keyword-fallback parser (low trust)

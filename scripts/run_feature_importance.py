@@ -27,14 +27,13 @@ import numpy as np
 
 from agents.profile import AgentProfile
 from metrics.feature_importance import (
+    PROFILE_FULL,
     AgentRoundRecord,
     FeatureImportanceResult,
-    PROFILE_FULL,
     build_feature_matrix,
     compute_ablation_table,
     run_logistic_regression,
 )
-
 
 # ── Synthetic data generation (no GPU, no ESS file required) ─────────────────
 
@@ -45,10 +44,10 @@ def _synthetic_profiles(n: int, seed: int = 42) -> list[AgentProfile]:
 
     profiles = []
     for i in range(n):
-        trust = float(rng.beta(2, 2))          # centered ~0.5, realistic spread
-        risk = float(rng.beta(2, 3))           # slightly risk-averse on average
+        trust = float(rng.beta(2, 2))  # centered ~0.5, realistic spread
+        risk = float(rng.beta(2, 3))  # slightly risk-averse on average
         social = float(rng.beta(2, 2))
-        life_sat = float(rng.beta(3, 2))       # slightly positive on average
+        life_sat = float(rng.beta(3, 2))  # slightly positive on average
         happiness = float(rng.beta(3, 2))
         competitiveness = float(rng.beta(2, 3))
         leadership = float(rng.beta(2, 3))
@@ -61,32 +60,34 @@ def _synthetic_profiles(n: int, seed: int = 42) -> list[AgentProfile]:
         income = float(rng.uniform(10_000, 80_000))
         age = int(rng.integers(18, 75))
 
-        profiles.append(AgentProfile(
-            agent_id=f"agent_{i:04d}",
-            age=age,
-            income=income,
-            education="secondary",
-            occupation="employed",
-            location="AT",
-            political_preference="moderate",
-            risk_tolerance=risk,
-            social_class="middle",
-            gender=int(rng.integers(1, 3)),
-            country="AT",
-            education_level=int(rng.integers(1, 8)),
-            income_decile=int(rng.integers(1, 11)),
-            trust_people=trust,
-            trust_institutions=trust_inst,
-            political_orientation=political,
-            life_satisfaction=life_sat,
-            happiness=happiness,
-            immigration_attitude=immigration,
-            social_activity=social,
-            competitiveness=competitiveness,
-            leadership_preference=leadership,
-            health_status=health,
-            religiosity=religiosity,
-        ))
+        profiles.append(
+            AgentProfile(
+                agent_id=f"agent_{i:04d}",
+                age=age,
+                income=income,
+                education="secondary",
+                occupation="employed",
+                location="AT",
+                political_preference="moderate",
+                risk_tolerance=risk,
+                social_class="middle",
+                gender=int(rng.integers(1, 3)),
+                country="AT",
+                education_level=int(rng.integers(1, 8)),
+                income_decile=int(rng.integers(1, 11)),
+                trust_people=trust,
+                trust_institutions=trust_inst,
+                political_orientation=political,
+                life_satisfaction=life_sat,
+                happiness=happiness,
+                immigration_attitude=immigration,
+                social_activity=social,
+                competitiveness=competitiveness,
+                leadership_preference=leadership,
+                health_status=health,
+                religiosity=religiosity,
+            )
+        )
     return profiles
 
 
@@ -120,21 +121,23 @@ def _simulate_actions(
             h = _hash_uniform(profile.agent_id, r)
             cooperated = 1 if h < coop_prob else 0
 
-            records.append(AgentRoundRecord(
-                trust_people=profile.trust_people or 0.5,
-                trust_institutions=profile.trust_institutions or 0.5,
-                risk_tolerance=profile.risk_tolerance or 0.5,
-                social_activity=profile.social_activity or 0.5,
-                life_satisfaction=profile.life_satisfaction or 0.5,
-                happiness=profile.happiness or 0.5,
-                competitiveness=profile.competitiveness or 0.5,
-                leadership_preference=profile.leadership_preference or 0.5,
-                health_status=profile.health_status or 0.5,
-                religiosity=profile.religiosity or 0.5,
-                political_orientation=profile.political_orientation or 0.5,
-                immigration_attitude=profile.immigration_attitude or 0.5,
-                cooperated=cooperated,
-            ))
+            records.append(
+                AgentRoundRecord(
+                    trust_people=profile.trust_people or 0.5,
+                    trust_institutions=profile.trust_institutions or 0.5,
+                    risk_tolerance=profile.risk_tolerance or 0.5,
+                    social_activity=profile.social_activity or 0.5,
+                    life_satisfaction=profile.life_satisfaction or 0.5,
+                    happiness=profile.happiness or 0.5,
+                    competitiveness=profile.competitiveness or 0.5,
+                    leadership_preference=profile.leadership_preference or 0.5,
+                    health_status=profile.health_status or 0.5,
+                    religiosity=profile.religiosity or 0.5,
+                    political_orientation=profile.political_orientation or 0.5,
+                    immigration_attitude=profile.immigration_attitude or 0.5,
+                    cooperated=cooperated,
+                )
+            )
     return records
 
 
@@ -190,8 +193,7 @@ def main() -> None:
     parser.add_argument("--n-agents", type=int, default=300)
     parser.add_argument("--n-rounds", type=int, default=30)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--plot-only", action="store_true",
-                        help="Skip simulation; re-plot from existing JSON.")
+    parser.add_argument("--plot-only", action="store_true", help="Skip simulation; re-plot from existing JSON.")
     args = parser.parse_args()
 
     tables_dir = Path("analysis/tables")
@@ -205,9 +207,9 @@ def main() -> None:
     if json_path.exists():
         print("[feature_importance] Generating figure…")
         import subprocess
+
         subprocess.run(
-            ["python", "scripts/plot_feature_importance.py",
-             "--input", str(json_path)],
+            ["python", "scripts/plot_feature_importance.py", "--input", str(json_path)],
             check=False,
         )
     else:

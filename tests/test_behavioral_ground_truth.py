@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from metrics.behavioral_ground_truth import (
     BENCHMARKS,
     RLHF_UNGROUNDED_COOP,
     Benchmark,
-    BenchmarkComparison,
     ExperimentType,
-    GroundTruthResult,
     Verdict,
     assess_cooperation_rate,
     assess_gini,
@@ -17,8 +14,8 @@ from metrics.behavioral_ground_truth import (
     evaluate,
 )
 
-
 # ── BENCHMARKS sanity checks ──────────────────────────────────────────────────
+
 
 def test_benchmarks_list_nonempty():
     assert len(BENCHMARKS) >= 4
@@ -52,6 +49,7 @@ def test_benchmark_sources_nonempty():
 
 
 # ── assess_cooperation_rate ───────────────────────────────────────────────────
+
 
 def test_grounded_coop_within_pgg_range():
     # 0.42 is inside PGG [0.35, 0.55]
@@ -118,9 +116,13 @@ def test_coop_standardised_distance_at_midpoint():
 def test_custom_benchmarks_respected():
     custom = [
         Benchmark(
-            name="custom", experiment_type=ExperimentType.TRUST_GAME,
-            metric="cooperation_rate", low=0.60, high=0.80,
-            point_estimate=0.70, source="test",
+            name="custom",
+            experiment_type=ExperimentType.TRUST_GAME,
+            metric="cooperation_rate",
+            low=0.60,
+            high=0.80,
+            point_estimate=0.70,
+            source="test",
         )
     ]
     comps = assess_cooperation_rate(0.50, benchmarks=custom)
@@ -129,6 +131,7 @@ def test_custom_benchmarks_respected():
 
 
 # ── assess_gini ───────────────────────────────────────────────────────────────
+
 
 def test_gini_within_eu_range():
     comps = assess_gini(0.29)
@@ -152,6 +155,7 @@ def test_gini_rlhf_distance_is_none():
 
 
 # ── evaluate ──────────────────────────────────────────────────────────────────
+
 
 def test_evaluate_grounded_within_range():
     result = evaluate(simulated_coop_rate=0.42, simulated_gini=0.29, condition="grounded")
@@ -196,6 +200,7 @@ def test_evaluate_grounded_coop_low_not_efficacy_confirmed():
 
 
 # ── behavioral_ground_truth_report ────────────────────────────────────────────
+
 
 def test_report_returns_string():
     report = behavioral_ground_truth_report(0.42, 0.29, condition="grounded")

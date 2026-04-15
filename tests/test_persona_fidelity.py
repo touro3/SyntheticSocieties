@@ -14,7 +14,6 @@ from metrics.persona_fidelity import (
     write_report_files,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 TARGET_ITEMS = [
@@ -30,12 +29,14 @@ TARGET_ITEMS_WITH_INVERSE = [
 
 def _make_real_profiles(n: int = 10, seed: int = 42) -> pd.DataFrame:
     rng = np.random.RandomState(seed)
-    return pd.DataFrame({
-        "profile_id": [f"p{i}" for i in range(n)],
-        "real_trust_people": rng.uniform(0.1, 0.9, n),
-        "real_risk_tolerance": rng.uniform(0.1, 0.9, n),
-        "real_competitiveness": rng.uniform(0.1, 0.9, n),
-    })
+    return pd.DataFrame(
+        {
+            "profile_id": [f"p{i}" for i in range(n)],
+            "real_trust_people": rng.uniform(0.1, 0.9, n),
+            "real_risk_tolerance": rng.uniform(0.1, 0.9, n),
+            "real_competitiveness": rng.uniform(0.1, 0.9, n),
+        }
+    )
 
 
 def _make_synth_profiles(real: pd.DataFrame, noise: float = 0.05, seed: int = 7) -> pd.DataFrame:
@@ -95,8 +96,14 @@ class TestPCAProjection:
         real = _make_real_profiles()
         synth = _make_synth_profiles(real)
         result = compute_pca_projection(real, synth, TARGET_ITEMS)
-        for key in ["explained_variance_pc1_proxy", "real_pc1", "synthetic_pc1",
-                     "pc1_pearson", "pc1_spearman", "pc1_bias"]:
+        for key in [
+            "explained_variance_pc1_proxy",
+            "real_pc1",
+            "synthetic_pc1",
+            "pc1_pearson",
+            "pc1_spearman",
+            "pc1_bias",
+        ]:
             assert key in result
 
     def test_identical_data_has_near_perfect_correlation(self):
@@ -143,12 +150,14 @@ class TestPCAProjection:
 
 class TestSummarizeSyntheticRuns:
     def test_aggregation(self):
-        df = pd.DataFrame({
-            "profile_id": ["p0", "p0", "p1"],
-            "replication_seed": [1, 2, 1],
-            "trust_people": [0.4, 0.6, 0.8],
-            "risk_tolerance": [0.3, 0.5, 0.7],
-        })
+        df = pd.DataFrame(
+            {
+                "profile_id": ["p0", "p0", "p1"],
+                "replication_seed": [1, 2, 1],
+                "trust_people": [0.4, 0.6, 0.8],
+                "risk_tolerance": [0.3, 0.5, 0.7],
+            }
+        )
         result = summarize_synthetic_runs(df, TARGET_ITEMS)
         assert len(result) == 2
         assert "synthetic_score_0_100" in result.columns
@@ -185,8 +194,16 @@ class TestComputeFidelityReport:
         synth = _make_synth_profiles(real)
         report, _ = compute_fidelity_report(real, synth, TARGET_ITEMS)
         sm = report["score_metrics"]
-        for key in ["mean_real_score", "mean_synthetic_score", "score_bias",
-                     "score_mae", "score_rmse", "dispersion_ratio", "pearson", "spearman"]:
+        for key in [
+            "mean_real_score",
+            "mean_synthetic_score",
+            "score_bias",
+            "score_mae",
+            "score_rmse",
+            "dispersion_ratio",
+            "pearson",
+            "spearman",
+        ]:
             assert key in sm
 
     def test_item_metrics_per_target(self):

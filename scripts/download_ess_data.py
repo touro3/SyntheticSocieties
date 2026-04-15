@@ -21,6 +21,7 @@ import argparse
 import sys
 from pathlib import Path
 
+import pandas as pd
 
 # ── Variable schema ──────────────────────────────────────────────────────────
 # Maps ESS column names → BGF attribute names and specifies normalization.
@@ -31,60 +32,62 @@ from pathlib import Path
 
 ESS_TO_BGF = {
     # Trust
-    "ppltrst":  ("trust_people",        0, 10),   # 0=no trust … 10=complete trust
-    "trstprl":  ("trust_parliament",    0, 10),
-    "trstlgl":  ("trust_legal",         0, 10),
+    "ppltrst": ("trust_people", 0, 10),  # 0=no trust … 10=complete trust
+    "trstprl": ("trust_parliament", 0, 10),
+    "trstlgl": ("trust_legal", 0, 10),
     # Wellbeing / satisfaction
-    "stflife":  ("life_satisfaction",   0, 10),
-    "stfeco":   ("econ_satisfaction",   0, 10),
+    "stflife": ("life_satisfaction", 0, 10),
+    "stfeco": ("econ_satisfaction", 0, 10),
     # Economic
-    "hinctnta": ("income_decile",       1, 10),   # 1-10 decile → normalised
+    "hinctnta": ("income_decile", 1, 10),  # 1-10 decile → normalised
     # Risk / cooperation
-    "ipfrule":  ("rule_following",      1, 6),    # ESS Human Values item
-    "ipeqopt":  ("equality_orientation", 1, 6),
+    "ipfrule": ("rule_following", 1, 6),  # ESS Human Values item
+    "ipeqopt": ("equality_orientation", 1, 6),
     # Demographics
-    "agea":     ("age",                 15, 90),
-    "gndr":     ("gender",              1,  2),   # 1=male, 2=female
-    "eduyrs":   ("education_years",     0, 25),
+    "agea": ("age", 15, 90),
+    "gndr": ("gender", 1, 2),  # 1=male, 2=female
+    "eduyrs": ("education_years", 0, 25),
     # Social activity
-    "sclmeet":  ("social_activity",     1,  7),   # 1=never … 7=every day
+    "sclmeet": ("social_activity", 1, 7),  # 1=never … 7=every day
     # Country
-    "cntry":    ("country",             None, None),  # string, kept as-is
+    "cntry": ("country", None, None),  # string, kept as-is
 }
 
 # Variables that must be present (drop rows missing any of these)
 REQUIRED_VARS = [
-    "trust_people", "life_satisfaction", "income_decile",
-    "age", "gender", "country",
+    "trust_people",
+    "life_satisfaction",
+    "income_decile",
+    "age",
+    "gender",
+    "country",
 ]
 
 # Competitiveness proxy: high equality orientation (reversed) × low rule-following
 # Synthesised after normalisation.
 
 COUNTRY_CLUSTERS = {
-    "nordic":   ["NO", "SE", "DK"],
+    "nordic": ["NO", "SE", "DK"],
     "southern": ["IT", "ES", "PT"],
-    "eastern":  ["PL", "CZ", "HU"],
+    "eastern": ["PL", "CZ", "HU"],
 }
 
 
 def _normalise(series, lo, hi):
     """Clip to [lo, hi] then scale to [0, 1]."""
     import pandas as pd
+
     s = pd.to_numeric(series, errors="coerce").clip(lo, hi)
     return (s - lo) / (hi - lo)
 
 
-def ingest(input_path: Path) -> "pd.DataFrame":
+def ingest(input_path: Path) -> pd.DataFrame:
     """Load raw ESS file (SPSS or Stata) and return a raw DataFrame."""
     suffix = input_path.suffix.lower()
     try:
         import pyreadstat
     except ImportError:
-        sys.exit(
-            "ERROR: pyreadstat is required.\n"
-            "Install with:  pip install pyreadstat pyarrow"
-        )
+        sys.exit("ERROR: pyreadstat is required.\nInstall with:  pip install pyreadstat pyarrow")
 
     print(f"Loading {input_path} …", end=" ", flush=True)
     if suffix == ".sav":
@@ -98,7 +101,7 @@ def ingest(input_path: Path) -> "pd.DataFrame":
     return df
 
 
-def clean(raw: "pd.DataFrame") -> "pd.DataFrame":
+def clean(raw: pd.DataFrame) -> pd.DataFrame:
     """Recode, normalise, and filter the raw ESS DataFrame."""
     import pandas as pd
 
@@ -124,9 +127,7 @@ def clean(raw: "pd.DataFrame") -> "pd.DataFrame":
 
     # Assign cluster label
     reverse_cluster: dict[str, str] = {
-        country: cluster
-        for cluster, countries in COUNTRY_CLUSTERS.items()
-        for country in countries
+        country: cluster for cluster, countries in COUNTRY_CLUSTERS.items() for country in countries
     }
     out["cluster"] = out["country"].map(reverse_cluster).fillna("other")
 
@@ -147,15 +148,17 @@ def clean(raw: "pd.DataFrame") -> "pd.DataFrame":
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Ingest ESS Round 11 data and write BGF-clean Parquet."
-    )
+    parser = argparse.ArgumentParser(description="Ingest ESS Round 11 data and write BGF-clean Parquet.")
     parser.add_argument(
-        "--input", required=True, type=Path,
+        "--input",
+        required=True,
+        type=Path,
         help="Path to raw ESS file (.sav or .dta).",
     )
     parser.add_argument(
-        "--output", default="data/ess_clean.parquet", type=Path,
+        "--output",
+        default="data/ess_clean.parquet",
+        type=Path,
         help="Output Parquet path (default: data/ess_clean.parquet).",
     )
     args = parser.parse_args()

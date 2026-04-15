@@ -3,10 +3,8 @@
 import json
 
 import numpy as np
-import pytest
 
 from metrics.trajectories import aggregate_seeds, extract_trajectories
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,10 +77,7 @@ class TestExtractTrajectories:
         assert len(result["wealth"][1]) == 1
 
     def test_multiple_agents_per_round(self, tmp_path):
-        events = [
-            _make_event(1, f"a{i}", "work", 100.0 + i, float(i) * 0.1)
-            for i in range(10)
-        ]
+        events = [_make_event(1, f"a{i}", "work", 100.0 + i, float(i) * 0.1) for i in range(10)]
         _write_events(tmp_path / "events.jsonl", events)
         result = extract_trajectories(tmp_path)
         assert len(result["wealth"][1]) == 10

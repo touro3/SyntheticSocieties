@@ -85,3 +85,54 @@ include = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = [
+    "agents",
+    "bgf_logging",
+    "decision",
+    "environment",
+    "metrics",
+    "population",
+    "simulation",
+    "tracker",
+    "utils",
+]
+omit = [
+    # Top-level research scripts and notebooks — not unit-tested.
+    "scripts/*",
+    "notebooks/*",
+    "analysis/*",
+    # Web / IPC / human-experiment code — not exercised in CI.
+    "api/*",
+    "human_experiment/*",
+    "simulation/crash_recovery.py",
+    "simulation/ipc.py",
+    "simulation/signal_handler.py",
+    # GPU / LLM-only modules — skipped by CI test filter.
+    "decision/llm_backend.py",
+    "decision/fast_batched_backend.py",
+    "decision/openai_backend.py",
+    "decision/llm_policy.py",
+    "decision/generative_agents_policy.py",
+    "metrics/llm_diagnostics.py",
+    # Population grounding pipeline — requires ESS data (not in CI).
+    "population/ess_grounding.py",
+    "population/persona_synthesizer.py",
+    "population/profile_loader.py",
+    "population/profile_tree.py",
+    "population/spec_parser.py",
+    "population/society_spec.py",
+    "agents/profile_samples.py",
+    "configs/llm_config_generator.py",
+    # Tests themselves should not count toward source coverage.
+    "tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

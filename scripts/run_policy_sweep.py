@@ -30,6 +30,7 @@ from agents.agent import Agent
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
+from bgf_logging.event_logger import EventLogger
 from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
 from environment.policy_intervention import (
@@ -40,11 +41,9 @@ from environment.policy_intervention import (
 )
 from environment.world import World
 from environment.world_state import WorldState
-from bgf_logging.event_logger import EventLogger
 from metrics.inequality import gini_coefficient
 from metrics.policy_sensitivity import ClusterOutcome, direction_recovery
 from simulation.kernel import SimulationKernel
-
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 
@@ -55,6 +54,7 @@ DEFAULT_N_ROUNDS = 5
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _coop_rate(agents: list) -> float:
     """Fraction of agents whose last action was 'cooperate'."""
@@ -95,6 +95,7 @@ def _make_world_and_kernel(agents: list, tmp_log: str) -> tuple[World, Simulatio
 
 
 # ── Sweep ─────────────────────────────────────────────────────────────────────
+
 
 def run_sweep(
     rule: str = DEFAULT_RULE,
@@ -185,12 +186,13 @@ def dry_run_sweep(
 
 # ── Reporting ─────────────────────────────────────────────────────────────────
 
+
 def _print_table(sweep_results: list[SweepPoint], rule: str) -> None:
-    print(f"\n{'='*72}")
+    print(f"\n{'=' * 72}")
     print(f"  Policy Sweep: {rule}")
-    print(f"{'='*72}")
+    print(f"{'=' * 72}")
     print(f"  {'Param':>6}  {'Pre Gini':>9}  {'Post Gini':>10}  {'ΔGini':>8}  {'ΔCoop':>8}")
-    print(f"  {'-'*60}")
+    print(f"  {'-' * 60}")
     for sp in sweep_results:
         print(
             f"  {sp.parameter:>6.2f}  {sp.pre_gini:>9.4f}  {sp.post_gini:>10.4f}"
@@ -200,7 +202,7 @@ def _print_table(sweep_results: list[SweepPoint], rule: str) -> None:
     si_coop = sensitivity_index(sweep_results, "coop")
     print(f"\n  Sensitivity index (Gini): {si_gini:.4f}")
     print(f"  Sensitivity index (Coop): {si_coop:.4f}")
-    print(f"{'='*72}\n")
+    print(f"{'=' * 72}\n")
 
 
 def save_results(sweep_results: list[SweepPoint], rule: str, output_path: Path) -> None:
@@ -232,6 +234,7 @@ def save_results(sweep_results: list[SweepPoint], rule: str, output_path: Path) 
 def plot_sweep(sweep_results: list[SweepPoint], rule: str, figure_path: Path) -> None:
     """Generate 2-panel matplotlib figure (Agg backend, no display needed)."""
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -262,6 +265,7 @@ def plot_sweep(sweep_results: list[SweepPoint], rule: str, figure_path: Path) ->
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="BGF policy parameter sweep",
@@ -281,11 +285,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         help="Use synthetic deterministic data (no simulation, fast CI mode)",
     )
     parser.add_argument(
-        "--output", default=str(ROOT / "analysis" / "policy_sweep_results.json"),
+        "--output",
+        default=str(ROOT / "analysis" / "policy_sweep_results.json"),
         help="Path for JSON output",
     )
     parser.add_argument(
-        "--figure", default=str(ROOT / "analysis" / "figures" / "policy_sweep.pdf"),
+        "--figure",
+        default=str(ROOT / "analysis" / "figures" / "policy_sweep.pdf"),
         help="Path for PDF figure",
     )
     return parser.parse_args(argv)
@@ -298,8 +304,7 @@ def main(argv=None) -> None:
         print("[dry-run] Generating synthetic sweep data (no simulation).")
         sweep_results = dry_run_sweep(rule=args.rule)
     else:
-        print(f"[sweep] Running live sweep: rule={args.rule}, "
-              f"n_agents={args.n_agents}, n_rounds={args.n_rounds}")
+        print(f"[sweep] Running live sweep: rule={args.rule}, n_agents={args.n_agents}, n_rounds={args.n_rounds}")
         sweep_results = run_sweep(
             rule=args.rule,
             n_agents=args.n_agents,
@@ -311,11 +316,17 @@ def main(argv=None) -> None:
     plot_sweep(sweep_results, args.rule, Path(args.figure))
 
     # Direction recovery check
-    policy_pairs = [(sp.parameter, ClusterOutcome(
-        cluster_name="policy_sweep",
-        simulated_gini=sp.post_gini,
-        simulated_coop=sp.post_coop_rate,
-    )) for sp in sweep_results]
+    policy_pairs = [
+        (
+            sp.parameter,
+            ClusterOutcome(
+                cluster_name="policy_sweep",
+                simulated_gini=sp.post_gini,
+                simulated_coop=sp.post_coop_rate,
+            ),
+        )
+        for sp in sweep_results
+    ]
     dr = direction_recovery([], policy_parameter_pairs=policy_pairs)
     for r in dr:
         status = "✓" if r.recovered else "✗"

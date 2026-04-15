@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from metrics.synthetic_utility import (
-    MAX_UTILITY_GAP,
     TRUST_THRESHOLD,
     TSTRResult,
     build_synthetic_dataset,
@@ -17,8 +16,8 @@ from metrics.synthetic_utility import (
 )
 from tests.conftest import make_profile
 
-
 # ── profile_to_feature_vector ─────────────────────────────────────────────────
+
 
 def test_feature_vector_length():
     p = make_profile(age=35, income=500.0)
@@ -58,6 +57,7 @@ def test_feature_vector_age_normalisation():
 
 # ── profile_to_label ──────────────────────────────────────────────────────────
 
+
 def test_label_high_trust():
     p = make_profile(trust_people=0.8)
     assert profile_to_label(p) == 1
@@ -86,9 +86,9 @@ def test_label_default_when_missing():
 
 # ── build_synthetic_dataset ───────────────────────────────────────────────────
 
+
 def _make_profiles(n: int, trust: float = 0.5) -> list:
-    return [make_profile(agent_id=f"a_{i}", trust_people=trust, age=30 + i % 40)
-            for i in range(n)]
+    return [make_profile(agent_id=f"a_{i}", trust_people=trust, age=30 + i % 40) for i in range(n)]
 
 
 def test_build_synthetic_dataset_shape():
@@ -116,6 +116,7 @@ def test_build_synthetic_dataset_empty():
 
 
 # ── tstr_benchmark ────────────────────────────────────────────────────────────
+
 
 def _make_dataset(n: int, signal_strength: float = 0.8) -> tuple[np.ndarray, np.ndarray]:
     """Create a dataset with a learnable signal between features and labels."""
@@ -225,6 +226,7 @@ def test_tstr_utility_gap_calculation():
 
 # ── utility_report ─────────────────────────────────────────────────────────────
 
+
 def test_utility_report_returns_string():
     synth_X, synth_y = _make_dataset(100)
     real_X, real_y = _make_dataset(100)
@@ -238,12 +240,18 @@ def test_utility_report_returns_string():
 def test_utility_report_shows_pass():
     # Build a result that will pass
     result = TSTRResult(
-        tstr_accuracy=0.72, tstr_auc=0.78,
-        trtr_accuracy=0.74, trtr_auc=0.80,
-        utility_gap_accuracy=0.02, utility_gap_auc=0.02,
+        tstr_accuracy=0.72,
+        tstr_auc=0.78,
+        trtr_accuracy=0.74,
+        trtr_auc=0.80,
+        utility_gap_accuracy=0.02,
+        utility_gap_auc=0.02,
         passes_utility_threshold=True,
-        n_synthetic_train=200, n_real_train=140, n_real_test=60,
-        synthetic_label_balance=0.50, real_label_balance=0.48,
+        n_synthetic_train=200,
+        n_real_train=140,
+        n_real_test=60,
+        synthetic_label_balance=0.50,
+        real_label_balance=0.48,
     )
     report = utility_report(result)
     assert "PASS" in report
@@ -251,12 +259,18 @@ def test_utility_report_shows_pass():
 
 def test_utility_report_shows_fail():
     result = TSTRResult(
-        tstr_accuracy=0.55, tstr_auc=0.58,
-        trtr_accuracy=0.75, trtr_auc=0.80,
-        utility_gap_accuracy=0.20, utility_gap_auc=0.22,
+        tstr_accuracy=0.55,
+        tstr_auc=0.58,
+        trtr_accuracy=0.75,
+        trtr_auc=0.80,
+        utility_gap_accuracy=0.20,
+        utility_gap_auc=0.22,
         passes_utility_threshold=False,
-        n_synthetic_train=200, n_real_train=140, n_real_test=60,
-        synthetic_label_balance=0.40, real_label_balance=0.50,
+        n_synthetic_train=200,
+        n_real_train=140,
+        n_real_test=60,
+        synthetic_label_balance=0.40,
+        real_label_balance=0.50,
     )
     report = utility_report(result)
     assert "FAIL" in report

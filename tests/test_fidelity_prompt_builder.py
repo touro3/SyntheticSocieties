@@ -13,7 +13,6 @@ from decision.fidelity_prompt_builder import (
     prompt_text,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -51,44 +50,33 @@ DATASET_CONTEXT = "ESS-11: Average trust in Germany is 0.6."
 # build_fidelity_messages
 # ---------------------------------------------------------------------------
 
+
 class TestBuildFidelityMessages:
     def test_returns_two_messages(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         assert len(msgs) == 2
 
     def test_first_is_system(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         assert msgs[0]["role"] == "system"
 
     def test_second_is_user(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         assert msgs[1]["role"] == "user"
 
     def test_all_target_labels_in_system_prompt(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         system_text = msgs[0]["content"]
         for item in TARGET_ITEMS:
             assert item["prompt_label"] in system_text
 
     def test_dataset_context_in_user_prompt(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         user_text = msgs[1]["content"]
         assert "ESS-11" in user_text
 
     def test_profile_text_in_user_prompt(self):
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, TARGET_ITEMS, DATASET_CONTEXT)
         user_text = msgs[1]["content"]
         assert PROFILE_TEXT in user_text
 
@@ -100,9 +88,7 @@ class TestBuildFidelityMessages:
             "scale_min": 0.0,
             "scale_max": 1.0,
         }
-        msgs = build_fidelity_messages(
-            PROFILE_DEF, PROFILE_TEXT, [left_right_item], DATASET_CONTEXT
-        )
+        msgs = build_fidelity_messages(PROFILE_DEF, PROFILE_TEXT, [left_right_item], DATASET_CONTEXT)
         user_text = msgs[1]["content"]
         assert "Left-wing" in user_text or "left" in user_text.lower()
 
@@ -122,6 +108,7 @@ class TestBuildFidelityMessages:
 # ---------------------------------------------------------------------------
 # _extract_json_object
 # ---------------------------------------------------------------------------
+
 
 class TestExtractJsonObject:
     def test_extracts_simple_object(self):
@@ -143,11 +130,10 @@ class TestExtractJsonObject:
 # parse_fidelity_output
 # ---------------------------------------------------------------------------
 
+
 class TestParseFidelityOutput:
     def test_parses_valid_json(self):
-        raw = json.dumps(
-            {"trust_people": 0.7, "life_satisfaction": 0.5, "internal_monologue": "I feel ok."}
-        )
+        raw = json.dumps({"trust_people": 0.7, "life_satisfaction": 0.5, "internal_monologue": "I feel ok."})
         result, justification = parse_fidelity_output(raw, TARGET_ITEMS)
         assert result["trust_people"] == pytest.approx(0.7)
         assert result["life_satisfaction"] == pytest.approx(0.5)
@@ -167,6 +153,7 @@ class TestParseFidelityOutput:
 # ---------------------------------------------------------------------------
 # prompt_text
 # ---------------------------------------------------------------------------
+
 
 class TestPromptText:
     def test_renders_system_and_user(self):

@@ -21,7 +21,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -29,7 +28,6 @@ import numpy as np
 
 from metrics.behavioral_realism import compute_rlhf_bias_index
 from metrics.inequality import gini_coefficient
-
 
 # ── Core metric computation ──────────────────────────────────────────────────
 
@@ -241,9 +239,7 @@ def build_comparison_table(
             "Content effect confirmed: ESS grounding drives behavioral realism, not prompt length."
         )
     elif content_effect and length_effect:
-        table["interpretation"]["conclusion"] = (
-            "Both content and length effects detected. Report decomposition."
-        )
+        table["interpretation"]["conclusion"] = "Both content and length effects detected. Report decomposition."
     elif not content_effect and not length_effect:
         table["interpretation"]["conclusion"] = (
             "Neither content nor length effect detected. Investigate simulation parameters."
@@ -290,15 +286,20 @@ def plot_comparison(table: dict, figures_dir: Path) -> None:
         colors = ["#e74c3c", "#f39c12", "#2ecc71"]
 
         fig, ax = plt.subplots(figsize=(7, 4))
-        bars = ax.bar(conditions, vals, yerr=stds, capsize=5,
-                      color=colors, alpha=0.85, edgecolor="black")
+        bars = ax.bar(conditions, vals, yerr=stds, capsize=5, color=colors, alpha=0.85, edgecolor="black")
         ax.set_ylabel(label)
         ax.set_title(f"Condition Comparison: {label}")
         ax.set_ylim(0, max(vals) * 1.3 + 0.05)
 
         for bar, val in zip(bars, vals):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.01,
-                    f"{val:.3f}", ha="center", va="bottom", fontsize=9)
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.01,
+                f"{val:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
 
         plt.tight_layout()
         out_path = figures_dir / f"padded_control_{metric_key}.png"
@@ -311,28 +312,37 @@ def plot_comparison(table: dict, figures_dir: Path) -> None:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Compare Condition P (padded) vs A and B."
-    )
+    parser = argparse.ArgumentParser(description="Compare Condition P (padded) vs A and B.")
     parser.add_argument(
-        "--cond-a", nargs="+", required=True, metavar="DIR",
+        "--cond-a",
+        nargs="+",
+        required=True,
+        metavar="DIR",
         help="Condition A experiment directories (one per seed).",
     )
     parser.add_argument(
-        "--cond-b", nargs="+", required=True, metavar="DIR",
+        "--cond-b",
+        nargs="+",
+        required=True,
+        metavar="DIR",
         help="Condition B experiment directories (one per seed).",
     )
     parser.add_argument(
-        "--cond-p", nargs="+", required=True, metavar="DIR",
+        "--cond-p",
+        nargs="+",
+        required=True,
+        metavar="DIR",
         help="Condition P experiment directories (one per seed).",
     )
     parser.add_argument(
-        "--out", type=str,
+        "--out",
+        type=str,
         default="analysis/tables/padded_control_comparison.json",
         help="Output JSON path.",
     )
     parser.add_argument(
-        "--figures-dir", type=str,
+        "--figures-dir",
+        type=str,
         default="analysis/figures",
         help="Directory for output figures.",
     )
@@ -363,12 +373,18 @@ def main() -> None:
 
     print("\n── Interpretation ──────────────────────────────────────────")
     print(table["interpretation"]["conclusion"])
-    print(f"  B_RLHF  A={metrics_a.get('b_rlhf', 'N/A')}  "
-          f"P={metrics_p.get('b_rlhf', 'N/A')}  B={metrics_b.get('b_rlhf', 'N/A')}")
-    print(f"  Gini    A={metrics_a.get('gini', 'N/A')}  "
-          f"P={metrics_p.get('gini', 'N/A')}  B={metrics_b.get('gini', 'N/A')}")
-    print(f"  CoopR   A={metrics_a.get('coop_rate', 'N/A')}  "
-          f"P={metrics_p.get('coop_rate', 'N/A')}  B={metrics_b.get('coop_rate', 'N/A')}")
+    print(
+        f"  B_RLHF  A={metrics_a.get('b_rlhf', 'N/A')}  "
+        f"P={metrics_p.get('b_rlhf', 'N/A')}  B={metrics_b.get('b_rlhf', 'N/A')}"
+    )
+    print(
+        f"  Gini    A={metrics_a.get('gini', 'N/A')}  "
+        f"P={metrics_p.get('gini', 'N/A')}  B={metrics_b.get('gini', 'N/A')}"
+    )
+    print(
+        f"  CoopR   A={metrics_a.get('coop_rate', 'N/A')}  "
+        f"P={metrics_p.get('coop_rate', 'N/A')}  B={metrics_b.get('coop_rate', 'N/A')}"
+    )
 
     plot_comparison(table, Path(args.figures_dir))
 

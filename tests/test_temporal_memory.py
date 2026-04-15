@@ -9,15 +9,14 @@ Covers the four MiroFish-inspired enhancements:
 
 from __future__ import annotations
 
-import math
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents.memory import HierarchicalMemory, MemoryItem, MemoryLevel
-
+from agents.memory import HierarchicalMemory, MemoryItem
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _item(
     round_id: int,
@@ -118,13 +117,11 @@ class TestAutoTTLInRoundProcessor:
     """RoundProcessor._record_memory() auto-assigns valid_at and expires_at_round."""
 
     def test_record_memory_sets_ttl(self):
-        from tests.conftest import make_profile, make_state
-
         from agents.agent import Agent
         from agents.memory import HierarchicalMemory
-        from agents.state import AgentState
         from decision.schemas import ProposedAction
         from simulation.round_processor import RoundProcessor
+        from tests.conftest import make_profile, make_state
 
         profile = make_profile(agent_id="a1")
         state = make_state(wealth=100.0)
@@ -135,11 +132,14 @@ class TestAutoTTLInRoundProcessor:
         world = MagicMock()
         logger_mock = MagicMock()
         processor = RoundProcessor(
-            world=world, agent_lookup={"a1": agent}, logger=logger_mock,
+            world=world,
+            agent_lookup={"a1": agent},
+            logger=logger_mock,
         )
 
         action = ProposedAction(
-            action_type="cooperate", target_agent_id="a2",
+            action_type="cooperate",
+            target_agent_id="a2",
             reasoning_summary="helping neighbor",
         )
         event = {"action_type": "cooperate", "wealth_delta": -3}
@@ -159,10 +159,9 @@ class TestNarrateAndUpdateMemory:
     """SimulationKernel._narrate_and_update_memory() creates observation items."""
 
     def _make_kernel(self, n_agents=3):
-        from tests.conftest import make_profile, make_state
-
         from agents.agent import Agent
         from agents.memory import HierarchicalMemory
+        from tests.conftest import make_profile, make_state
 
         agents = []
         for i in range(n_agents):
@@ -174,6 +173,7 @@ class TestNarrateAndUpdateMemory:
             agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 
         world = MagicMock()
+
         # Each agent's neighbors are the other agents
         def get_agent_context(agent_id):
             others = [a.profile.agent_id for a in agents if a.profile.agent_id != agent_id]
@@ -183,6 +183,7 @@ class TestNarrateAndUpdateMemory:
         logger_mock = MagicMock()
 
         from simulation.kernel import SimulationKernel
+
         kernel = SimulationKernel(agents=agents, world=world, logger=logger_mock)
         return kernel, agents
 
@@ -250,6 +251,7 @@ class TestBackoffConstants:
 
     def test_backoff_attributes_exist(self):
         from decision.llm_backend import LLMBackend
+
         backend = LLMBackend.__new__(LLMBackend)
         backend.__init__()
         assert hasattr(backend, "_backoff_initial_delay")
@@ -259,6 +261,7 @@ class TestBackoffConstants:
 
     def test_default_values(self):
         from decision.llm_backend import LLMBackend
+
         backend = LLMBackend.__new__(LLMBackend)
         backend.__init__()
         assert backend._backoff_initial_delay == 1.0
@@ -300,15 +303,11 @@ class TestOpenAIBackendTempReduction:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = '{"action_type": "work"}'
 
-        mock_client.chat.completions.create = MagicMock(
-            side_effect=[Exception("rate limit"), mock_response]
-        )
+        mock_client.chat.completions.create = MagicMock(side_effect=[Exception("rate limit"), mock_response])
         backend._client = mock_client
 
         with patch("time.sleep"):
-            text, _ = backend.generate(
-                [{"role": "user", "content": "test"}], temperature=0.7
-            )
+            text, _ = backend.generate([{"role": "user", "content": "test"}], temperature=0.7)
 
         # Should have been called twice
         calls = mock_client.chat.completions.create.call_args_list
@@ -327,11 +326,13 @@ class TestToolDescriptions:
 
     def test_trend_analysis_in_descriptions(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools()
         assert "trend_analysis" in tools.TOOL_DESCRIPTIONS
 
     def test_trend_analysis_in_dispatch(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools()
         # call() should not raise "Unknown tool" for trend_analysis
         result = tools.call("trend_analysis", {})
@@ -343,6 +344,7 @@ class TestInsightForgeFallback:
 
     def test_fallback_produces_output(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools()
         result = tools._insight_forge_fallback("What drives cooperation?")
         assert "Question: What drives cooperation?" in result
@@ -350,6 +352,7 @@ class TestInsightForgeFallback:
 
     def test_call_dispatches_to_fallback_when_no_client(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools()
         result = tools.call(
             "insight_forge",
@@ -366,12 +369,14 @@ class TestTrendAnalysis:
 
     def test_handles_missing_index(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools(index_path="nonexistent.parquet")
         result = tools.trend_analysis()
         assert "ERROR" in result
 
     def test_handles_empty_metric(self):
         from analysis.react_report_agent import _TrackerTools
+
         tools = _TrackerTools()
         # Even with an invalid metric, should fall back to wealth_mean
         result = tools.trend_analysis(metric="nonexistent_column")

@@ -38,9 +38,9 @@ def main() -> None:
         data = json.load(f)
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    import numpy as np
 
     plt.rcParams.update({"font.size": 11, "axes.titlesize": 12, "figure.dpi": 150})
 
@@ -84,8 +84,7 @@ def main() -> None:
     effect_lo = [grounded[n]["brm_ci_lower"] - ungrounded[n]["brm_ci_upper"] for n in ns]
     effect_hi = [grounded[n]["brm_ci_upper"] - ungrounded[n]["brm_ci_lower"] for n in ns]
 
-    ax.plot(ns, effects, color="#2ecc71", lw=2.5, marker="s", markersize=5,
-            label="Grounding effect (ΔBRM)")
+    ax.plot(ns, effects, color="#2ecc71", lw=2.5, marker="s", markersize=5, label="Grounding effect (ΔBRM)")
     ax.fill_between(ns, effect_lo, effect_hi, color="#2ecc71", alpha=0.2)
     ax.axhline(0, color="black", lw=0.8, linestyle="--")
 
@@ -104,7 +103,8 @@ def main() -> None:
     fig.suptitle(
         f"Scale Sensitivity Analysis ({data['n_seeds']} seeds per point, "
         f"{data['n_rounds']} rounds, rule-based ESS proxy)",
-        fontsize=11, y=1.01,
+        fontsize=11,
+        y=1.01,
     )
     plt.tight_layout()
 

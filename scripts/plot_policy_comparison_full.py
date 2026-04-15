@@ -26,6 +26,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
@@ -36,21 +37,23 @@ from utils.io import set_global_seed
 
 # ── Style ────────────────────────────────────────────────────────────────────
 
-plt.rcParams.update({
-    "figure.facecolor": "#1a1a2e",
-    "axes.facecolor": "#16213e",
-    "axes.edgecolor": "#e94560",
-    "axes.labelcolor": "#e8e8e8",
-    "text.color": "#e8e8e8",
-    "xtick.color": "#e8e8e8",
-    "ytick.color": "#e8e8e8",
-    "grid.color": "#2a2a4a",
-    "grid.alpha": 0.4,
-    "font.family": "sans-serif",
-    "font.size": 10,
-    "axes.titlesize": 13,
-    "figure.titlesize": 15,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": "#1a1a2e",
+        "axes.facecolor": "#16213e",
+        "axes.edgecolor": "#e94560",
+        "axes.labelcolor": "#e8e8e8",
+        "text.color": "#e8e8e8",
+        "xtick.color": "#e8e8e8",
+        "ytick.color": "#e8e8e8",
+        "grid.color": "#2a2a4a",
+        "grid.alpha": 0.4,
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.titlesize": 13,
+        "figure.titlesize": 15,
+    }
+)
 
 POLICY_COLORS = {
     "llm": "#e94560",
@@ -82,8 +85,8 @@ POLICY_EXP_PREFIX = {
 
 from metrics.inequality import gini_coefficient
 
-
 # ── Data Loading ─────────────────────────────────────────────────────────────
+
 
 def load_experiment_events(experiment_id: str) -> list[dict]:
     """Load events from an experiment's events.jsonl file."""
@@ -214,10 +217,10 @@ def load_ess_wealth_proxy() -> np.ndarray:
 
 # ── Figure 1: Wealth Distribution Comparison ─────────────────────────────────
 
+
 def plot_wealth_comparison(policy_data: dict):
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Final Wealth Distributions by Policy vs ESS Empirical",
-                 fontweight="bold", y=1.01)
+    fig.suptitle("Final Wealth Distributions by Policy vs ESS Empirical", fontweight="bold", y=1.01)
 
     ess_wealth = load_ess_wealth_proxy()
     policies = ["llm", "template", "rule_based", "random"]
@@ -230,23 +233,49 @@ def plot_wealth_comparison(policy_data: dict):
         has_data = False
 
         if len(ess_wealth) > 0:
-            ax.hist(ess_wealth, bins=20, alpha=0.5, label="ESS Empirical",
-                    color=ESS_COLOR, edgecolor="#1a1a2e", density=True)
+            ax.hist(
+                ess_wealth,
+                bins=20,
+                alpha=0.5,
+                label="ESS Empirical",
+                color=ESS_COLOR,
+                edgecolor="#1a1a2e",
+                density=True,
+            )
             has_data = True
 
         if len(final_w) > 0:
-            ax.hist(final_w, bins=20, alpha=0.7, label=POLICY_LABELS[policy],
-                    color=POLICY_COLORS[policy], edgecolor="#1a1a2e", density=True)
+            ax.hist(
+                final_w,
+                bins=20,
+                alpha=0.7,
+                label=POLICY_LABELS[policy],
+                color=POLICY_COLORS[policy],
+                edgecolor="#1a1a2e",
+                density=True,
+            )
             mean_w = np.mean(final_w)
             gini = gini_coefficient(final_w)
-            ax.axvline(mean_w, color=POLICY_COLORS[policy],
-                       linestyle="--", linewidth=1.5,
-                       label=f"μ={mean_w:.1f}, Gini={gini:.3f}")
+            ax.axvline(
+                mean_w,
+                color=POLICY_COLORS[policy],
+                linestyle="--",
+                linewidth=1.5,
+                label=f"μ={mean_w:.1f}, Gini={gini:.3f}",
+            )
             has_data = True
         else:
-            ax.text(0.5, 0.5, "No data available",
-                    transform=ax.transAxes, ha="center", va="center",
-                    fontsize=14, color="#e94560", fontweight="bold")
+            ax.text(
+                0.5,
+                0.5,
+                "No data available",
+                transform=ax.transAxes,
+                ha="center",
+                va="center",
+                fontsize=14,
+                color="#e94560",
+                fontweight="bold",
+            )
 
         ax.set_title(POLICY_LABELS[policy])
         ax.set_xlabel("Wealth")
@@ -263,6 +292,7 @@ def plot_wealth_comparison(policy_data: dict):
 
 
 # ── Figure 2: Behavior Comparison ────────────────────────────────────────────
+
 
 def plot_behavior_comparison(policy_data: dict):
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
@@ -284,16 +314,30 @@ def plot_behavior_comparison(policy_data: dict):
             total = max(sum(counts.values()), 1)
             rates.append(counts.get(action, 0) / total)
 
-        ax.bar(x, rates, width=0.6, bottom=bottoms,
-               label=action.capitalize(), color=action_colors[action],
-               edgecolor="#1a1a2e", alpha=0.85)
+        ax.bar(
+            x,
+            rates,
+            width=0.6,
+            bottom=bottoms,
+            label=action.capitalize(),
+            color=action_colors[action],
+            edgecolor="#1a1a2e",
+            alpha=0.85,
+        )
 
         # Add text labels in each segment
         for i, rate in enumerate(rates):
             if rate > 0.05:
-                ax.text(x[i], bottoms[i] + rate / 2,
-                        f"{rate:.0%}", ha="center", va="center",
-                        fontsize=8, fontweight="bold", color="#e8e8e8")
+                ax.text(
+                    x[i],
+                    bottoms[i] + rate / 2,
+                    f"{rate:.0%}",
+                    ha="center",
+                    va="center",
+                    fontsize=8,
+                    fontweight="bold",
+                    color="#e8e8e8",
+                )
 
         bottoms += np.array(rates)
 
@@ -333,14 +377,27 @@ def plot_behavior_comparison(policy_data: dict):
             coop_means.append(0)
             coop_stds.append(0)
 
-    bars = ax.bar(x, coop_means, yerr=coop_stds, capsize=5, width=0.6,
-                  color=[POLICY_COLORS[p] for p in policies],
-                  edgecolor="#1a1a2e", alpha=0.85)
+    bars = ax.bar(
+        x,
+        coop_means,
+        yerr=coop_stds,
+        capsize=5,
+        width=0.6,
+        color=[POLICY_COLORS[p] for p in policies],
+        edgecolor="#1a1a2e",
+        alpha=0.85,
+    )
 
     for bar, mean_val in zip(bars, coop_means):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                f"{mean_val:.2f}", ha="center", fontweight="bold",
-                color="#e8e8e8", fontsize=10)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.02,
+            f"{mean_val:.2f}",
+            ha="center",
+            fontweight="bold",
+            color="#e8e8e8",
+            fontsize=10,
+        )
 
     ax.set_xticks(x)
     ax.set_xticklabels([POLICY_LABELS[p] for p in policies], fontsize=8, rotation=10)
@@ -358,10 +415,10 @@ def plot_behavior_comparison(policy_data: dict):
 
 # ── Figure 3: Dynamics Comparison ────────────────────────────────────────────
 
+
 def plot_dynamics_comparison(policy_data: dict):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    fig.suptitle("Simulation Dynamics — Policy Comparison (10 Rounds)",
-                 fontweight="bold", y=1.02)
+    fig.suptitle("Simulation Dynamics — Policy Comparison (10 Rounds)", fontweight="bold", y=1.02)
 
     policies = ["llm", "template", "rule_based", "random"]
     markers = ["o", "s", "D", "^"]
@@ -396,22 +453,37 @@ def plot_dynamics_comparison(policy_data: dict):
         rounds = range(1, max_rounds + 1)
 
         # Gini
-        axes[0].plot(rounds, avg_ginis,
-                     color=POLICY_COLORS[policy], linewidth=2,
-                     marker=markers[idx], markersize=5,
-                     label=POLICY_LABELS[policy])
+        axes[0].plot(
+            rounds,
+            avg_ginis,
+            color=POLICY_COLORS[policy],
+            linewidth=2,
+            marker=markers[idx],
+            markersize=5,
+            label=POLICY_LABELS[policy],
+        )
 
         # Wealth
-        axes[1].plot(rounds, avg_wealth,
-                     color=POLICY_COLORS[policy], linewidth=2,
-                     marker=markers[idx], markersize=5,
-                     label=POLICY_LABELS[policy])
+        axes[1].plot(
+            rounds,
+            avg_wealth,
+            color=POLICY_COLORS[policy],
+            linewidth=2,
+            marker=markers[idx],
+            markersize=5,
+            label=POLICY_LABELS[policy],
+        )
 
         # Cooperation
-        axes[2].plot(rounds, avg_coop,
-                     color=POLICY_COLORS[policy], linewidth=2,
-                     marker=markers[idx], markersize=5,
-                     label=POLICY_LABELS[policy])
+        axes[2].plot(
+            rounds,
+            avg_coop,
+            color=POLICY_COLORS[policy],
+            linewidth=2,
+            marker=markers[idx],
+            markersize=5,
+            label=POLICY_LABELS[policy],
+        )
 
     axes[0].set_title("Wealth Inequality (Gini)")
     axes[0].set_xlabel("Round")
@@ -441,10 +513,10 @@ def plot_dynamics_comparison(policy_data: dict):
 
 # ── Figure 4: Radar Summary ─────────────────────────────────────────────────
 
+
 def plot_radar_summary(policy_data: dict):
     policies = ["llm", "template", "rule_based", "random"]
-    metrics_names = ["Mean Wealth", "Cooperation", "Action Diversity",
-                     "Wealth Equality", "Stability"]
+    metrics_names = ["Mean Wealth", "Cooperation", "Action Diversity", "Wealth Equality", "Stability"]
 
     fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))
     fig.patch.set_facecolor("#1a1a2e")
@@ -495,8 +567,7 @@ def plot_radar_summary(policy_data: dict):
         values = [mean_wealth, coop_rate, diversity, equality, stability]
         values += values[:1]
 
-        ax.plot(angles, values, linewidth=2, color=POLICY_COLORS[policy],
-                label=POLICY_LABELS[policy])
+        ax.plot(angles, values, linewidth=2, color=POLICY_COLORS[policy], label=POLICY_LABELS[policy])
         ax.fill(angles, values, alpha=0.15, color=POLICY_COLORS[policy])
 
     ax.set_xticks(angles[:-1])
@@ -518,12 +589,13 @@ def plot_radar_summary(policy_data: dict):
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+
 def main():
     global SEEDS
     parser = argparse.ArgumentParser()
     parser.add_argument("--seeds", type=str, default="42,123,7,1,2", help="Comma-sep seeds or count")
     args = parser.parse_args()
-    
+
     if "," in args.seeds:
         SEEDS = [int(s.strip()) for s in args.seeds.split(",")]
     else:
@@ -564,8 +636,7 @@ def main():
         n_events = len(data["events"])
         n_wealth = len(data["final_wealths"])
         ac = data["action_counts"]
-        print(f"  {POLICY_LABELS[policy]:30s}: {n_events:4d} events, "
-              f"{n_wealth:3d} wealth values, actions={ac}")
+        print(f"  {POLICY_LABELS[policy]:30s}: {n_events:4d} events, {n_wealth:3d} wealth values, actions={ac}")
 
     print()
     print("Generating figures...")

@@ -6,15 +6,16 @@ All tests mock the underlying LLMBackend to avoid GPU dependency.
 from __future__ import annotations
 
 import warnings
-from unittest.mock import MagicMock, patch
+from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
-import pytest
+if TYPE_CHECKING:
+    from decision.fast_batched_backend import _FastBatchedBackend as FastBatchedBackend
 
 
 class TestFastBatchedBackendImport:
     def test_importing_emits_deprecation_warning(self):
         """Importing the module must emit a DeprecationWarning."""
-        import importlib
         import sys
 
         # Remove cached module to force re-import
@@ -25,14 +26,16 @@ class TestFastBatchedBackendImport:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             import decision.fast_batched_backend  # noqa: F401
+
             assert any(issubclass(warning.category, DeprecationWarning) for warning in w)
 
 
 class TestFastBatchedBackend:
     """Tests using a fully mocked inner LLMBackend."""
 
-    def _make(self) -> "FastBatchedBackend":
+    def _make(self) -> FastBatchedBackend:
         from decision.fast_batched_backend import FastBatchedBackend
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             fb = FastBatchedBackend(model_id="fake/model", temperature=0.5)

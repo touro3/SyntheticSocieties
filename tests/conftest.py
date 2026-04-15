@@ -7,8 +7,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
+
 from agents.agent import Agent
-from agents.memory import HierarchicalMemory, MemoryBuffer
+from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from bgf_logging.event_logger import EventLogger
@@ -17,9 +18,9 @@ from environment.institutions import InstitutionManager
 from environment.world import World
 from environment.world_state import WorldState
 
-
 # ── Reusable factory helpers ──────────────────────────────────────────────
 # how to run: pytest tests/conftest.py -v
+
 
 def make_profile(**overrides) -> AgentProfile:
     """Create an AgentProfile with sensible defaults; override any field."""

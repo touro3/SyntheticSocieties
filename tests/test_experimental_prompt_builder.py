@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
@@ -16,9 +14,16 @@ from decision.experimental_prompt_builder import (
 
 def _profile() -> AgentProfile:
     return AgentProfile(
-        agent_id="a0", age=35, income=1000.0, education="college",
-        occupation="worker", location="italy", political_preference="center",
-        risk_tolerance=0.5, social_class="middle", trust_people=0.6,
+        agent_id="a0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="italy",
+        political_preference="center",
+        risk_tolerance=0.5,
+        social_class="middle",
+        trust_people=0.6,
     )
 
 
@@ -44,6 +49,7 @@ def _context() -> dict:
 # get_system_prompt
 # ---------------------------------------------------------------------------
 
+
 class TestGetSystemPrompt:
     def test_base_mode_returns_string(self):
         sp = get_system_prompt("base")
@@ -61,6 +67,7 @@ class TestGetSystemPrompt:
 # ---------------------------------------------------------------------------
 # build_experimental_prompt
 # ---------------------------------------------------------------------------
+
 
 class TestBuildExperimentalPrompt:
     def test_returns_list_of_dicts(self):
@@ -81,23 +88,23 @@ class TestBuildExperimentalPrompt:
 
     def test_high_stress_adds_critical_note(self):
         high_stress_state = _state(stress=0.9)
-        msgs = build_experimental_prompt(
-            _profile(), high_stress_state, _memory(), _context(), round_id=1
-        )
+        msgs = build_experimental_prompt(_profile(), high_stress_state, _memory(), _context(), round_id=1)
         user_text = " ".join(m["content"] for m in msgs)
         assert "stress" in user_text.lower()
 
     def test_no_stress_note_when_stress_is_low(self):
         low_stress_state = _state(stress=0.1)
-        msgs = build_experimental_prompt(
-            _profile(), low_stress_state, _memory(), _context(), round_id=1
-        )
+        msgs = build_experimental_prompt(_profile(), low_stress_state, _memory(), _context(), round_id=1)
         user_text = " ".join(m["content"] for m in msgs)
         assert "critically high" not in user_text.lower()
 
     def test_population_context_included_when_provided(self):
         msgs = build_experimental_prompt(
-            _profile(), _state(), _memory(), _context(), round_id=1,
+            _profile(),
+            _state(),
+            _memory(),
+            _context(),
+            round_id=1,
             population_context="Trust in institutions is high.",
         )
         user_text = " ".join(m["content"] for m in msgs)
@@ -105,7 +112,11 @@ class TestBuildExperimentalPrompt:
 
     def test_population_context_excluded_when_flag_false(self):
         msgs = build_experimental_prompt(
-            _profile(), _state(), _memory(), _context(), round_id=1,
+            _profile(),
+            _state(),
+            _memory(),
+            _context(),
+            round_id=1,
             population_context="Trust in institutions is high.",
             use_population_context=False,
         )
@@ -114,9 +125,13 @@ class TestBuildExperimentalPrompt:
 
     def test_memory_excluded_when_flag_false(self):
         from agents.memory import MemoryItem
+
         mem = MemoryBuffer(max_items=5)
-        mem.add(MemoryItem(round_id=0, partner_id=None, event_type="action",
-                           content="cooperated", outcome={}, importance=0.5))
+        mem.add(
+            MemoryItem(
+                round_id=0, partner_id=None, event_type="action", content="cooperated", outcome={}, importance=0.5
+            )
+        )
         msgs_with = build_experimental_prompt(
             _profile(), _state(), mem, _context(), round_id=1, use_memory_context=True
         )
@@ -134,7 +149,11 @@ class TestBuildExperimentalPrompt:
 
     def test_extra_guidance_appended(self):
         msgs = build_experimental_prompt(
-            _profile(), _state(), _memory(), _context(), round_id=1,
+            _profile(),
+            _state(),
+            _memory(),
+            _context(),
+            round_id=1,
             extra_guidance="Think carefully about long-term consequences.",
         )
         user_text = " ".join(m["content"] for m in msgs)
@@ -145,9 +164,8 @@ class TestBuildExperimentalPrompt:
 # build_experimental_prompt_text
 # ---------------------------------------------------------------------------
 
+
 class TestBuildExperimentalPromptText:
     def test_returns_string(self):
-        text = build_experimental_prompt_text(
-            _profile(), _state(), _memory(), _context(), round_id=1
-        )
+        text = build_experimental_prompt_text(_profile(), _state(), _memory(), _context(), round_id=1)
         assert isinstance(text, str) and len(text) > 0

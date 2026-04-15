@@ -27,21 +27,20 @@ from metrics.policy_intervention import aggregate_by_intensity, run_intervention
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run policy intervention sweep — Phase 28.8"
+    parser = argparse.ArgumentParser(description="Run policy intervention sweep — Phase 28.8")
+    parser.add_argument(
+        "--intervention-round", type=int, default=15, help="Round at which trust-boost takes effect (default: 15)"
     )
-    parser.add_argument("--intervention-round", type=int, default=15,
-                        help="Round at which trust-boost takes effect (default: 15)")
-    parser.add_argument("--n-agents", type=int, default=200,
-                        help="Agents per run (default: 200)")
-    parser.add_argument("--n-rounds", type=int, default=30,
-                        help="Total simulation rounds (default: 30)")
-    parser.add_argument("--n-seeds", type=int, default=3,
-                        help="Seeds per intensity (default: 3)")
-    parser.add_argument("--intensities", type=str, default="0.0,0.05,0.10,0.20",
-                        help="Comma-separated trust-boost intensities (default: 0.0,0.05,0.10,0.20)")
-    parser.add_argument("--plot-only", action="store_true",
-                        help="Skip simulation — re-plot from existing JSON")
+    parser.add_argument("--n-agents", type=int, default=200, help="Agents per run (default: 200)")
+    parser.add_argument("--n-rounds", type=int, default=30, help="Total simulation rounds (default: 30)")
+    parser.add_argument("--n-seeds", type=int, default=3, help="Seeds per intensity (default: 3)")
+    parser.add_argument(
+        "--intensities",
+        type=str,
+        default="0.0,0.05,0.10,0.20",
+        help="Comma-separated trust-boost intensities (default: 0.0,0.05,0.10,0.20)",
+    )
+    parser.add_argument("--plot-only", action="store_true", help="Skip simulation — re-plot from existing JSON")
     return parser.parse_args()
 
 
@@ -73,7 +72,7 @@ def main() -> None:
 
         print("\n[policy_intervention] Results:")
         print(f"  {'δ':>6}  {'pre':>6}  {'post':>6}  {'Δcoop':>8}  {'Gini':>6}  {'Wealth':>8}")
-        print(f"  {'-'*6}  {'-'*6}  {'-'*6}  {'-'*8}  {'-'*6}  {'-'*8}")
+        print(f"  {'-' * 6}  {'-' * 6}  {'-' * 6}  {'-' * 8}  {'-' * 6}  {'-' * 8}")
         for s in summaries:
             print(
                 f"  {s.intensity_pct:>6}  {s.coop_pre_mean:.3f}  {s.coop_post_mean:.3f}  "
@@ -108,8 +107,7 @@ def main() -> None:
     if json_path.exists():
         print("[policy_intervention] Generating figures…")
         subprocess.run(
-            [sys.executable, "scripts/plot_policy_intervention.py",
-             "--input", str(json_path)],
+            [sys.executable, "scripts/plot_policy_intervention.py", "--input", str(json_path)],
             check=False,
         )
     else:

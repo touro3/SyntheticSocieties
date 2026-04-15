@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import sys
 from pathlib import Path
 
@@ -29,8 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 
-from scripts.analyze_padded_vs_grounded import mann_whitney_test, cohen_d
-
+from scripts.analyze_padded_vs_grounded import cohen_d, mann_whitney_test
 
 # ── Bootstrap CI ─────────────────────────────────────────────────────────────
 
@@ -62,10 +60,7 @@ def bootstrap_ci(
     arr = np.array(data, dtype=float)
     rng = np.random.default_rng(seed)
 
-    boot_means = np.array([
-        rng.choice(arr, size=len(arr), replace=True).mean()
-        for _ in range(n_bootstrap)
-    ])
+    boot_means = np.array([rng.choice(arr, size=len(arr), replace=True).mean() for _ in range(n_bootstrap)])
 
     alpha = (1.0 - ci) / 2.0
     lo = float(np.percentile(boot_means, alpha * 100))
@@ -165,9 +160,11 @@ def compute_inverse_effect_significance(
         "inverse_detected": bool(inverse),
         "delta_mean": round(float(delta), 4),
         "p_value": round(float(p_val), 4),
-        "effect_size_d": round(float(d), 4) if not (
+        "effect_size_d": round(float(d), 4)
+        if not (
             isinstance(d, float) and (d != d)  # NaN check
-        ) else 0.0,
+        )
+        else 0.0,
     }
 
 
@@ -193,9 +190,7 @@ def build_scaled_comparison_table(
         N=50 means ± 95% CI, inverse effect flag, and significance test.
     """
     # N=20: single seed — just record point estimates
-    n20_indexed: dict[tuple[str, str], dict] = {
-        (r["model_id"], r["condition"]): r for r in n20_results
-    }
+    n20_indexed: dict[tuple[str, str], dict] = {(r["model_id"], r["condition"]): r for r in n20_results}
 
     # N=50: aggregate across seeds
     n50_agg = aggregate_seeded_results(n50_results)
@@ -293,19 +288,19 @@ def plot_scaled_comparison(table: list[dict], figures_dir: Path) -> None:
         n50_vals = [r[f"n50_bias_{condition}_mean"] or 0 for r in table]
         n50_lo = [r[f"n50_bias_{condition}_ci_lo"] or 0 for r in table]
         n50_hi = [r[f"n50_bias_{condition}_ci_hi"] or 0 for r in table]
-        n50_err = [[v - lo for v, lo in zip(n50_vals, n50_lo)],
-                   [hi - v for v, hi in zip(n50_vals, n50_hi)]]
+        n50_err = [[v - lo for v, lo in zip(n50_vals, n50_lo)], [hi - v for v, hi in zip(n50_vals, n50_hi)]]
 
-        ax.bar(x - width / 2, n20_vals, width, label="N=20 (single seed)",
-               color="#95a5a6", alpha=0.8)
-        ax.bar(x + width / 2, n50_vals, width, yerr=n50_err, capsize=5,
-               label="N=50 (95% CI)", color="#3498db", alpha=0.85)
+        ax.bar(x - width / 2, n20_vals, width, label="N=20 (single seed)", color="#95a5a6", alpha=0.8)
+        ax.bar(
+            x + width / 2, n50_vals, width, yerr=n50_err, capsize=5, label="N=50 (95% CI)", color="#3498db", alpha=0.85
+        )
 
         # Annotate inverse effect
         for i, row in enumerate(table):
             if row["inverse_effect"]:
-                ax.annotate("*inverse*", xy=(x[i] + width / 2, n50_vals[i] + 0.02),
-                            ha="center", fontsize=8, color="red")
+                ax.annotate(
+                    "*inverse*", xy=(x[i] + width / 2, n50_vals[i] + 0.02), ha="center", fontsize=8, color="red"
+                )
 
         ax.set_xticks(x)
         ax.set_xticklabels([m.replace("-", "\n") for m in models], fontsize=9)
@@ -331,20 +326,20 @@ def plot_scaled_comparison(table: list[dict], figures_dir: Path) -> None:
         n50 = [gpt["n50_bias_A_mean"] or 0, gpt["n50_bias_B_mean"] or 0]
         n50_lo = [gpt["n50_bias_A_ci_lo"] or 0, gpt["n50_bias_B_ci_lo"] or 0]
         n50_hi = [gpt["n50_bias_A_ci_hi"] or 0, gpt["n50_bias_B_ci_hi"] or 0]
-        n50_err = [[v - lo for v, lo in zip(n50, n50_lo)],
-                   [hi - v for v, hi in zip(n50, n50_hi)]]
+        n50_err = [[v - lo for v, lo in zip(n50, n50_lo)], [hi - v for v, hi in zip(n50, n50_hi)]]
 
         xpos = np.arange(2)
         ax.bar(xpos - 0.2, n20, 0.35, label="N=20", color="#e74c3c", alpha=0.8)
-        ax.bar(xpos + 0.2, n50, 0.35, yerr=n50_err, capsize=5,
-               label="N=50 (95% CI)", color="#e67e22", alpha=0.85)
+        ax.bar(xpos + 0.2, n50, 0.35, yerr=n50_err, capsize=5, label="N=50 (95% CI)", color="#e67e22", alpha=0.85)
         ax.set_xticks(xpos)
         ax.set_xticklabels(conditions)
         ax.set_ylabel("B_RLHF")
         inverse_str = "SIGNIFICANT" if gpt.get("inverse_p_value", 1) < 0.05 else "marginal"
-        ax.set_title(f"GPT-4o-mini: Inverse Grounding Effect ({inverse_str})\n"
-                     f"p={gpt.get('inverse_p_value', 'N/A')}, "
-                     f"d={gpt.get('inverse_effect_size_d', 'N/A')}")
+        ax.set_title(
+            f"GPT-4o-mini: Inverse Grounding Effect ({inverse_str})\n"
+            f"p={gpt.get('inverse_p_value', 'N/A')}, "
+            f"d={gpt.get('inverse_effect_size_d', 'N/A')}"
+        )
         ax.legend()
         plt.tight_layout()
         out = figures_dir / "cross_model_gpt4o_inverse.png"
@@ -357,26 +352,28 @@ def plot_scaled_comparison(table: list[dict], figures_dir: Path) -> None:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Scaled cross-model analysis with bootstrap CIs."
-    )
+    parser = argparse.ArgumentParser(description="Scaled cross-model analysis with bootstrap CIs.")
     parser.add_argument(
-        "--n20", type=str,
+        "--n20",
+        type=str,
         default="analysis/cross_model_results.json",
         help="Existing N=20 results JSON.",
     )
     parser.add_argument(
-        "--n50", type=str,
+        "--n50",
+        type=str,
         default="analysis/cross_model_results_n50.json",
         help="New N=50 multi-seed results JSON.",
     )
     parser.add_argument(
-        "--out", type=str,
+        "--out",
+        type=str,
         default="analysis/cross_model_results_scaled.json",
         help="Output path for combined table.",
     )
     parser.add_argument(
-        "--figures-dir", type=str,
+        "--figures-dir",
+        type=str,
         default="analysis/figures",
         help="Output directory for figures.",
     )

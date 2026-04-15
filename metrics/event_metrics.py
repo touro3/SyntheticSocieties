@@ -140,4 +140,3 @@ def temporal_stability(events: list[dict]) -> dict:
         "mean_jsd": mean_jsd,
         "stable": mean_jsd < 0.1,  # Threshold for "stable" behavior
     }
-

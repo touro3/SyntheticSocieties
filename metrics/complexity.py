@@ -190,9 +190,7 @@ def fit_power_law(
     }
 
 
-def _empty_power_law_result(
-    xmin: float = 0.0, reliable: bool = False
-) -> dict[str, Any]:
+def _empty_power_law_result(xmin: float = 0.0, reliable: bool = False) -> dict[str, Any]:
     return {
         "alpha": float(np.nan),
         "xmin": xmin,

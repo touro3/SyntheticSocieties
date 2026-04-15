@@ -1,11 +1,8 @@
 """Tests for network structure metrics."""
 
-from pathlib import Path
-
 import networkx as nx
-import pytest
 
-from metrics.network_metrics import assortativity, modularity, diffusion_speed, network_summary
+from metrics.network_metrics import assortativity, diffusion_speed, modularity, network_summary
 
 
 def test_assortativity_complete_graph():
@@ -79,5 +76,3 @@ def test_network_summary_structure():
     assert "avg_degree" in s
     assert "clustering_coefficient" in s
     assert s["n_nodes"] == 20
-
-

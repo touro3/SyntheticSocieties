@@ -57,10 +57,10 @@ from typing import Optional
 #: Eurostat 2023 Gini coefficients for ESS country clusters (equivalised
 #: disposable income). Source: Eurostat ilc_di12 (2023 reference year).
 EMPIRICAL_GINI: dict[str, float] = {
-    "nordic":   0.27,
+    "nordic": 0.27,
     "southern": 0.33,
-    "eastern":  0.30,
-    "eu_avg":   0.301,
+    "eastern": 0.30,
+    "eu_avg": 0.301,
 }
 
 #: Empirical cooperation rate range [low, high] from meta-analyses of
@@ -76,6 +76,7 @@ GINI_TOLERANCE: float = 0.06
 
 
 # ── Data structures ───────────────────────────────────────────────────────────
+
 
 @dataclass
 class ClusterOutcome:
@@ -108,7 +109,7 @@ class DirectionResult:
     """
 
     check: str
-    expected_direction: int   # +1 or -1
+    expected_direction: int  # +1 or -1
     observed_direction: int
     recovered: bool
     delta: float
@@ -159,6 +160,7 @@ class CoopCalibrationResult:
 
 # ── Core functions ────────────────────────────────────────────────────────────
 
+
 def empirical_gini_benchmarks() -> dict[str, float]:
     """Return the published Eurostat Gini benchmarks for ESS clusters."""
     return dict(EMPIRICAL_GINI)
@@ -183,14 +185,16 @@ def gini_magnitude_calibration(
         if empirical is None:
             continue
         deviation = abs(outcome.simulated_gini - empirical)
-        results.append(MagnitudeResult(
-            cluster=outcome.cluster_name,
-            simulated_gini=round(outcome.simulated_gini, 4),
-            empirical_gini=empirical,
-            deviation=round(deviation, 4),
-            within_tolerance=deviation <= tolerance,
-            tolerance=tolerance,
-        ))
+        results.append(
+            MagnitudeResult(
+                cluster=outcome.cluster_name,
+                simulated_gini=round(outcome.simulated_gini, 4),
+                empirical_gini=empirical,
+                deviation=round(deviation, 4),
+                within_tolerance=deviation <= tolerance,
+                tolerance=tolerance,
+            )
+        )
     return results
 
 
@@ -215,14 +219,16 @@ def cooperation_calibration(
     for o in outcomes:
         within = low <= o.simulated_coop <= high
         above = o.simulated_coop > high
-        results.append(CoopCalibrationResult(
-            condition=o.condition,
-            simulated_coop=round(o.simulated_coop, 4),
-            benchmark_low=low,
-            benchmark_high=high,
-            within_range=within,
-            above_range=above,
-        ))
+        results.append(
+            CoopCalibrationResult(
+                condition=o.condition,
+                simulated_coop=round(o.simulated_coop, 4),
+                benchmark_low=low,
+                benchmark_high=high,
+                within_range=within,
+                above_range=above,
+            )
+        )
     return results
 
 
@@ -259,35 +265,41 @@ def direction_recovery(
 
     if nordic and eastern:
         delta_gini = nordic.simulated_gini - eastern.simulated_gini
-        results.append(DirectionResult(
-            check="nordic_gini < eastern_gini",
-            expected_direction=-1,
-            observed_direction=-1 if delta_gini < 0 else +1,
-            recovered=delta_gini < 0,
-            delta=round(delta_gini, 4),
-            note="Higher-trust clusters should have lower inequality (Eurostat 2023).",
-        ))
+        results.append(
+            DirectionResult(
+                check="nordic_gini < eastern_gini",
+                expected_direction=-1,
+                observed_direction=-1 if delta_gini < 0 else +1,
+                recovered=delta_gini < 0,
+                delta=round(delta_gini, 4),
+                note="Higher-trust clusters should have lower inequality (Eurostat 2023).",
+            )
+        )
 
         delta_coop = nordic.simulated_coop - eastern.simulated_coop
-        results.append(DirectionResult(
-            check="nordic_coop > eastern_coop",
-            expected_direction=+1,
-            observed_direction=+1 if delta_coop > 0 else -1,
-            recovered=delta_coop > 0,
-            delta=round(delta_coop, 4),
-            note="Higher-trust clusters should cooperate more (ESS-11 trust gradient).",
-        ))
+        results.append(
+            DirectionResult(
+                check="nordic_coop > eastern_coop",
+                expected_direction=+1,
+                observed_direction=+1 if delta_coop > 0 else -1,
+                recovered=delta_coop > 0,
+                delta=round(delta_coop, 4),
+                note="Higher-trust clusters should cooperate more (ESS-11 trust gradient).",
+            )
+        )
 
     if southern and eastern:
         delta_gini = southern.simulated_gini - eastern.simulated_gini
-        results.append(DirectionResult(
-            check="southern_gini > eastern_gini",
-            expected_direction=+1,
-            observed_direction=+1 if delta_gini > 0 else -1,
-            recovered=delta_gini > 0,
-            delta=round(delta_gini, 4),
-            note="Southern Europe has higher inequality than Eastern Europe (Eurostat 2023).",
-        ))
+        results.append(
+            DirectionResult(
+                check="southern_gini > eastern_gini",
+                expected_direction=+1,
+                observed_direction=+1 if delta_gini > 0 else -1,
+                recovered=delta_gini > 0,
+                delta=round(delta_gini, 4),
+                note="Southern Europe has higher inequality than Eastern Europe (Eurostat 2023).",
+            )
+        )
 
     # Policy sweep direction check
     if policy_parameter_pairs and len(policy_parameter_pairs) >= 2:
@@ -297,14 +309,16 @@ def direction_recovery(
         decreasing_gini = ginis[-1] < ginis[0]
 
         if increasing_param:
-            results.append(DirectionResult(
-                check="redistribution_reduces_gini",
-                expected_direction=-1,
-                observed_direction=-1 if decreasing_gini else +1,
-                recovered=decreasing_gini,
-                delta=round(ginis[-1] - ginis[0], 4),
-                note="Higher redistribution parameter should reduce Gini.",
-            ))
+            results.append(
+                DirectionResult(
+                    check="redistribution_reduces_gini",
+                    expected_direction=-1,
+                    observed_direction=-1 if decreasing_gini else +1,
+                    recovered=decreasing_gini,
+                    delta=round(ginis[-1] - ginis[0], 4),
+                    note="Higher redistribution parameter should reduce Gini.",
+                )
+            )
 
     return results
 

@@ -46,8 +46,8 @@ def main():
     os.environ["HF_HOME"] = str(cache_path)
     os.environ["TRANSFORMERS_CACHE"] = str(cache_path)
 
-    from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
     print("\nDownloading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(
@@ -80,6 +80,7 @@ def main():
     # Cleanup
     del model
     import gc
+
     gc.collect()
 
 

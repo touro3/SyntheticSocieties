@@ -1,14 +1,12 @@
 """Tests for prompt perturbation module."""
-import pytest
-from decision.prompt_perturbation import apply_perturbation
 
+import pytest
+
+from decision.prompt_perturbation import apply_perturbation
 
 # Sample messages mimicking real prompt builder output
 SAMPLE_MESSAGES = [
-    {
-        "role": "system",
-        "content": "You are a person living in a simulated society."
-    },
+    {"role": "system", "content": "You are a person living in a simulated society."},
     {
         "role": "user",
         "content": (
@@ -23,7 +21,7 @@ SAMPLE_MESSAGES = [
             "You have no memories of past interactions yet.\n\n"
             "World state:\n  Economy: stable\n  Your neighbors: agent_1, agent_2\n\n"
             "What action do you take this round? Respond with ONLY the JSON."
-        )
+        ),
     },
 ]
 

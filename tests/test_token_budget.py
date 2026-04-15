@@ -1,6 +1,7 @@
 """Tests for prompt token budget management."""
 
 import pytest
+
 from decision.token_budget import (
     DEFAULT_MAX_TOKENS,
     budget_for_model,
@@ -46,8 +47,7 @@ class TestTrimToBudget:
 
     def test_returns_all_keys(self):
         result = self._trim_normal()
-        for key in ["system", "persona", "state", "context", "memory",
-                    "population_context", "social_context", "extra"]:
+        for key in ["system", "persona", "state", "context", "memory", "population_context", "social_context", "extra"]:
             assert key in result
 
     @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -91,7 +91,9 @@ class TestTrimToBudget:
     def test_warning_emitted_when_social_context_dropped(self):
         with pytest.warns(UserWarning, match="dropped 'social_context'"):
             trim_to_budget(
-                system="s", persona="p", state="t",
+                system="s",
+                persona="p",
+                state="t",
                 memory="m" * 600,
                 context="c",
                 population_context=None,
@@ -103,7 +105,9 @@ class TestTrimToBudget:
     def test_warning_emitted_when_population_context_dropped(self):
         with pytest.warns(UserWarning, match="dropped 'population_context'"):
             trim_to_budget(
-                system="s", persona="p", state="t",
+                system="s",
+                persona="p",
+                state="t",
                 memory="m" * 600,
                 context="c",
                 population_context="pop" * 100,
@@ -115,10 +119,13 @@ class TestTrimToBudget:
     def test_both_rag_contexts_dropped_when_budget_exhausted(self):
         """When both RAG contexts are present and budget is tiny, both must be dropped."""
         import warnings
+
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             result = trim_to_budget(
-                system="s", persona="p", state="t",
+                system="s",
+                persona="p",
+                state="t",
                 memory="m" * 600,
                 context="c",
                 population_context="pop" * 100,
@@ -141,7 +148,9 @@ class TestTrimToBudget:
         """
         large_memory = "\n".join([f"Round {i}: action_type work" for i in range(200)])
         result = trim_to_budget(
-            system="s", persona="p", state="t",
+            system="s",
+            persona="p",
+            state="t",
             memory=large_memory,
             context="c",
             population_context=None,

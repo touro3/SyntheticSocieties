@@ -54,6 +54,7 @@ BALANCED_SYSTEM_PROMPT = NEUTRAL_SYSTEM_PROMPT
 
 # ── Shuffled prompt generator (position-bias mitigation) ─────────────────────
 
+
 def get_shuffled_system_prompt(seed: int | None = None) -> str:
     """Return NEUTRAL_SYSTEM_PROMPT with action options in shuffled order.
 
@@ -181,8 +182,5 @@ def get_system_prompt(mode: str = "neutral") -> str:
     Raises KeyError for unknown modes to catch typos early.
     """
     if mode not in SYSTEM_PROMPTS:
-        raise KeyError(
-            f"Unknown system prompt mode: {mode!r}. "
-            f"Valid modes: {sorted(SYSTEM_PROMPTS)}"
-        )
+        raise KeyError(f"Unknown system prompt mode: {mode!r}. Valid modes: {sorted(SYSTEM_PROMPTS)}")
     return SYSTEM_PROMPTS[mode]

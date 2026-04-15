@@ -10,15 +10,13 @@ content from prompt length.
 
 from __future__ import annotations
 
-import pytest
-
 from agents.memory import HierarchicalMemory
 from decision.padded_prompt_builder import (
     _PADDING_POOL,
     build_padded_prompt,
     measure_grounded_token_count,
 )
-from decision.token_budget import DEFAULT_MAX_TOKENS, estimate_tokens
+from decision.token_budget import estimate_tokens
 from tests.conftest import make_profile, make_state
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
@@ -40,8 +38,13 @@ class TestBuildPaddedPrompt:
         state = make_state()
         memory = HierarchicalMemory()
         messages = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=400, seed=42,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=400,
+            seed=42,
         )
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
@@ -53,13 +56,16 @@ class TestBuildPaddedPrompt:
         memory = HierarchicalMemory()
         target = 400
         messages = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=target, seed=42,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=target,
+            seed=42,
         )
         user_tokens = estimate_tokens(messages[1]["content"])
-        assert abs(user_tokens - target) <= 25, (
-            f"Expected ~{target} tokens, got {user_tokens}"
-        )
+        assert abs(user_tokens - target) <= 25, f"Expected ~{target} tokens, got {user_tokens}"
 
     def test_padding_contains_no_ess_keywords(self):
         """Padding must not contain ESS-specific demographic data."""
@@ -67,13 +73,23 @@ class TestBuildPaddedPrompt:
         state = make_state()
         memory = HierarchicalMemory()
         messages = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=500, seed=42,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=500,
+            seed=42,
         )
         user_content = messages[1]["content"].lower()
         # Use word-boundary aware checks — "ess" as substring hits "stress", "processes"
-        ess_keywords = ["trust_people", "risk_tolerance", "european social survey",
-                        "income_decile", "political_orientation"]
+        ess_keywords = [
+            "trust_people",
+            "risk_tolerance",
+            "european social survey",
+            "income_decile",
+            "political_orientation",
+        ]
         for kw in ess_keywords:
             assert kw not in user_content, f"Found ESS keyword '{kw}' in padded prompt"
 
@@ -82,12 +98,22 @@ class TestBuildPaddedPrompt:
         state = make_state()
         memory = HierarchicalMemory()
         msg_a = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=400, seed=1,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=400,
+            seed=1,
         )
         msg_b = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=400, seed=99,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=400,
+            seed=99,
         )
         # User content should differ due to different padding selection
         assert msg_a[1]["content"] != msg_b[1]["content"]
@@ -99,8 +125,13 @@ class TestBuildPaddedPrompt:
         # Target a user-message token count that leaves room for the system prompt
         target = 800  # Well within budget even with system prompt
         messages = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=target, seed=42,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=target,
+            seed=42,
         )
         user_tokens = estimate_tokens(messages[1]["content"])
         assert user_tokens <= target + 30
@@ -111,8 +142,13 @@ class TestBuildPaddedPrompt:
         memory = HierarchicalMemory()
         # Very small target — should produce prompt with little or no padding
         messages = build_padded_prompt(
-            profile, state, memory, _CONTEXT, round_id=5,
-            target_token_count=50, seed=42,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            target_token_count=50,
+            seed=42,
         )
         assert len(messages) == 2
 
@@ -126,8 +162,13 @@ class TestMeasureGroundedTokenCount:
         state = make_state()
         memory = HierarchicalMemory()
         count = measure_grounded_token_count(
-            profile, state, memory, _CONTEXT, round_id=5,
-            social_context=_SOCIAL, population_context=_POP,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            social_context=_SOCIAL,
+            population_context=_POP,
         )
         assert isinstance(count, int)
         assert count > 0
@@ -137,11 +178,20 @@ class TestMeasureGroundedTokenCount:
         state = make_state()
         memory = HierarchicalMemory()
         with_ctx = measure_grounded_token_count(
-            profile, state, memory, _CONTEXT, round_id=5,
-            social_context=_SOCIAL, population_context=_POP,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
+            social_context=_SOCIAL,
+            population_context=_POP,
         )
         without_ctx = measure_grounded_token_count(
-            profile, state, memory, _CONTEXT, round_id=5,
+            profile,
+            state,
+            memory,
+            _CONTEXT,
+            round_id=5,
         )
         assert with_ctx > without_ctx
 
@@ -154,8 +204,7 @@ class TestPaddingPool:
         assert len(_PADDING_POOL) >= 20
 
     def test_no_ess_keywords_in_pool(self):
-        ess_keywords = ["trust_people", "risk_tolerance",
-                        "european social survey", "income_decile"]
+        ess_keywords = ["trust_people", "risk_tolerance", "european social survey", "income_decile"]
         for sentence in _PADDING_POOL:
             lower = sentence.lower()
             for kw in ess_keywords:

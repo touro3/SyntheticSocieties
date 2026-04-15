@@ -5,15 +5,12 @@ Phase 24 — Limitations and failure mode analysis.
 
 from __future__ import annotations
 
-import pytest
-
 from metrics.persona_decay import (
     compute_decay_summary,
     compute_per_round_persona_fidelity,
     expected_cooperation_rate,
 )
 from tests.conftest import make_agent, make_profile
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -27,14 +24,9 @@ def _make_event(agent_id: str, round_id: int, action: str) -> dict:
     }
 
 
-def _make_events_for_agent(
-    agent_id: str, rounds: int, action_sequence: list[str]
-) -> list[dict]:
+def _make_events_for_agent(agent_id: str, rounds: int, action_sequence: list[str]) -> list[dict]:
     """Build events for an agent cycling through action_sequence."""
-    return [
-        _make_event(agent_id, r, action_sequence[r % len(action_sequence)])
-        for r in range(1, rounds + 1)
-    ]
+    return [_make_event(agent_id, r, action_sequence[r % len(action_sequence)]) for r in range(1, rounds + 1)]
 
 
 # ── expected_cooperation_rate ────────────────────────────────────────────
@@ -62,9 +54,9 @@ class TestExpectedCooperationRate:
         significant positive predictor (95% bootstrap CI excludes zero).
         """
         profile_high_risk = make_profile(trust_people=0.5, risk_tolerance=0.9)
-        profile_low_risk  = make_profile(trust_people=0.5, risk_tolerance=0.1)
+        profile_low_risk = make_profile(trust_people=0.5, risk_tolerance=0.1)
         rate_high = expected_cooperation_rate(profile_high_risk)
-        rate_low  = expected_cooperation_rate(profile_low_risk)
+        rate_low = expected_cooperation_rate(profile_low_risk)
         assert rate_high > rate_low, (
             f"Expected high_risk({rate_high:.3f}) > low_risk({rate_low:.3f}). "
             "This reflects the empirical finding that risk tolerance positively "
@@ -143,6 +135,7 @@ class TestPerRoundPersonaFidelity:
         """
         profile = make_profile(trust_people=0.5, risk_tolerance=0.5)
         from metrics.persona_decay import expected_cooperation_rate as ecr
+
         expected = ecr(profile)  # ~18-20%
 
         # Agent cooperating approximately at the empirical rate (every 5th action)
@@ -207,9 +200,7 @@ class TestPerRoundPersonaFidelity:
         # Rounds 16-30: never cooperate (drift to 0%)
         events_drift = [_make_event("agent_0", r, "work") for r in range(16, 31)]
 
-        result = compute_per_round_persona_fidelity(
-            events_on_rate + events_drift, profile, window=5
-        )
+        result = compute_per_round_persona_fidelity(events_on_rate + events_drift, profile, window=5)
         # With drift from ~20% to 0%, fidelity should trend downward
         assert result["decay_rate"] <= 0.0, (
             f"Decay rate {result['decay_rate']:.4f} should be ≤ 0 for an agent "
@@ -234,10 +225,7 @@ class TestDecaySummary:
             make_agent("agent_0", trust_people=0.9, risk_tolerance=0.1),
             make_agent("agent_1", trust_people=0.1, risk_tolerance=0.9),
         ]
-        events = (
-            _make_events_for_agent("agent_0", 10, ["cooperate"])
-            + _make_events_for_agent("agent_1", 10, ["work"])
-        )
+        events = _make_events_for_agent("agent_0", 10, ["cooperate"]) + _make_events_for_agent("agent_1", 10, ["work"])
         # Fix agent_ids in events
         for e in events[10:]:
             e["agent_id"] = "agent_1"

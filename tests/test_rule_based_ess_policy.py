@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
+from decision.constants import (
+    STRESS_CRITICAL,
+    WORK_WEALTH_THRESHOLD,
+)
 from decision.rule_based_ess_policy import (
     RuleBasedESSPolicy,
     _cooperation_probability,
     _deterministic_uniform,
 )
-from decision.constants import (
-    STRESS_CRITICAL,
-    WORK_WEALTH_THRESHOLD,
-)
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -108,6 +105,7 @@ class TestRuleBasedESSPolicy:
 
     def test_returns_proposed_action(self):
         from decision.schemas import ProposedAction
+
         policy = self._policy()
         profile = _FakeProfile()
         state = _FakeState(wealth=120.0)
@@ -134,9 +132,7 @@ class TestRuleBasedESSPolicy:
         for i in range(20):
             profile = _FakeProfile(agent_id=f"agent_{i}")
             state = _FakeState(wealth=150.0, stress=0.2)
-            action = policy.propose_action(
-                profile, state, None, _ctx_with_neighbors(["neighbor_0"]), i
-            )
+            action = policy.propose_action(profile, state, None, _ctx_with_neighbors(["neighbor_0"]), i)
             assert action.action_type in valid
 
     def test_no_neighbors_no_cooperate(self):
@@ -167,10 +163,7 @@ class TestRuleBasedESSPolicy:
         profile = _FakeProfile(agent_id="agent_sweep", trust_people=0.5, risk_tolerance=0.5)
         state = _FakeState(wealth=150.0)
         ctx = _ctx_with_neighbors(["n1"])
-        actions = {
-            policy.propose_action(profile, state, None, ctx, r).action_type
-            for r in range(30)
-        }
+        actions = {policy.propose_action(profile, state, None, ctx, r).action_type for r in range(30)}
         # With a mid-range profile, expect to see at least 2 different actions
         assert len(actions) >= 2
 

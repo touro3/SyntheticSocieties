@@ -1,5 +1,7 @@
 """Tests for LLMPolicyBase — shared retry, fallback, logging logic."""
+
 from unittest.mock import MagicMock
+
 from agents.state import AgentState
 from decision.llm_policy_base import LLMPolicyBase
 from decision.schemas import ProposedAction
@@ -29,33 +31,31 @@ VALID_JSON = '{"action_type": "work", "amount": 10.0, "reasoning_summary": "earn
 class TestRetryLoop:
     def test_succeeds_on_first_attempt(self):
         base = _make_base([(VALID_JSON, 0.1)])
-        action, raw, latency, meta = base._generate_with_retries(
-            [{"role": "user", "content": "test"}], neighbors=[]
-        )
+        action, raw, latency, meta = base._generate_with_retries([{"role": "user", "content": "test"}], neighbors=[])
         assert action is not None
         assert action.action_type == "work"
 
     def test_retries_on_parse_failure(self):
-        base = _make_base([
-            ("garbage output", 0.1),
-            ("still garbage", 0.1),
-            (VALID_JSON, 0.1),
-        ])
-        action, raw, latency, meta = base._generate_with_retries(
-            [{"role": "user", "content": "test"}], neighbors=[]
+        base = _make_base(
+            [
+                ("garbage output", 0.1),
+                ("still garbage", 0.1),
+                (VALID_JSON, 0.1),
+            ]
         )
+        action, raw, latency, meta = base._generate_with_retries([{"role": "user", "content": "test"}], neighbors=[])
         assert action is not None
         assert action.action_type == "work"
 
     def test_returns_none_after_exhausting_retries(self):
-        base = _make_base([
-            ("garbage", 0.1),
-            ("garbage", 0.1),
-            ("garbage", 0.1),
-        ])
-        action, raw, latency, meta = base._generate_with_retries(
-            [{"role": "user", "content": "test"}], neighbors=[]
+        base = _make_base(
+            [
+                ("garbage", 0.1),
+                ("garbage", 0.1),
+                ("garbage", 0.1),
+            ]
         )
+        action, raw, latency, meta = base._generate_with_retries([{"role": "user", "content": "test"}], neighbors=[])
         assert action is None
 
 
@@ -88,7 +88,12 @@ class TestPromptLogging:
 
         action = ProposedAction(action_type="work", amount=10.0, reasoning_summary="test")
         base._log_prompt(
-            round_id=1, agent_id="a0", prompt_text="test prompt",
-            raw_text=VALID_JSON, action=action, latency=0.1, parse_meta={},
+            round_id=1,
+            agent_id="a0",
+            prompt_text="test prompt",
+            raw_text=VALID_JSON,
+            action=action,
+            latency=0.1,
+            parse_meta={},
         )
         mock_logger.log.assert_called_once()

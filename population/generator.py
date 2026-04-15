@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import random as _random
 from typing import Optional
 
@@ -8,8 +7,34 @@ from agents.agent import Agent
 from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
-
-from population.sampling import sample_age, sample_income, sample_empirical_rows
+from population._helpers import (
+    clamp01 as _clamp01,
+)
+from population._helpers import (
+    map_education as _map_education,
+)
+from population._helpers import (
+    map_location as _map_location,
+)
+from population._helpers import (
+    map_political as _map_political,
+)
+from population._helpers import (
+    map_social_class as _map_social_class,
+)
+from population._helpers import (
+    safe_float as _safe_float,
+)
+from population._helpers import (
+    safe_int as _safe_int,
+)
+from population._helpers import (
+    safe_mean as _safe_mean,
+)
+from population._helpers import (
+    safe_normalized_float as _safe_normalized_float,
+)
+from population.sampling import sample_age, sample_empirical_rows, sample_income
 from population.schemas import PopulationSpec
 
 
@@ -50,12 +75,9 @@ def generate_population(config: dict, policy) -> list[Agent]:
             social_class=defaults["social_class"],
         )
 
-        state = AgentState(
-            wealth=spec.initial_wealth + i * spec.wealth_step
-        )
+        state = AgentState(wealth=spec.initial_wealth + i * spec.wealth_step)
 
         memory = HierarchicalMemory(max_recent=defaults["memory_size"])
-
 
         agents.append(
             Agent(
@@ -115,9 +137,7 @@ def generate_empirical_population(
 
     for i, row in enumerate(rows):
         # Map ESS fields to AgentProfile, with fallbacks to config defaults
-        age = _safe_int(row.get("age"), default=sample_age(
-            defaults.get("min_age", 25), defaults.get("max_age", 60)
-        ))
+        age = _safe_int(row.get("age"), default=sample_age(defaults.get("min_age", 25), defaults.get("max_age", 60)))
         income = _safe_float(row.get("income_decile"), default=0.5) * defaults.get("base_income", 1000.0) * 2
 
         # Map education level to string
@@ -168,17 +188,21 @@ def generate_empirical_population(
             competitiveness=_clamp01(_safe_float(row.get("competitiveness"))),
             leadership_preference=_clamp01(_safe_float(row.get("leadership_preference"))),
             health_status=_safe_normalized_float(row.get("self_rated_health"), 5.0, 1.0),
-            religiosity=1.0 if row.get("religious_belonging") == 1 else 0.0 if row.get("religious_belonging") == 2 else None,
+            religiosity=1.0
+            if row.get("religious_belonging") == 1
+            else 0.0
+            if row.get("religious_belonging") == 2
+            else None,
         )
 
         # Initial wealth based on income decile
-        wealth = defaults.get("initial_wealth", 50.0) + (
-            _safe_float(row.get("income_decile"), 5) / 10.0
-        ) * defaults.get("wealth_step", 10.0) * 10
+        wealth = (
+            defaults.get("initial_wealth", 50.0)
+            + (_safe_float(row.get("income_decile"), 5) / 10.0) * defaults.get("wealth_step", 10.0) * 10
+        )
 
         state = AgentState(wealth=wealth)
         memory = HierarchicalMemory(max_recent=defaults.get("memory_size", 10))
-
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 
@@ -214,18 +238,3 @@ def _shuffle_traits(agents: list[Agent]) -> None:
         for agent, val in zip(agents, values):
             if hasattr(agent.profile, field):
                 object.__setattr__(agent.profile, field, val)
-
-
-# ── Helper functions (imported from shared module) ───────────────────────────
-
-from population._helpers import (
-    safe_float as _safe_float,
-    safe_int as _safe_int,
-    clamp01 as _clamp01,
-    safe_normalized_float as _safe_normalized_float,
-    safe_mean as _safe_mean,
-    map_education as _map_education,
-    map_location as _map_location,
-    map_political as _map_political,
-    map_social_class as _map_social_class,
-)

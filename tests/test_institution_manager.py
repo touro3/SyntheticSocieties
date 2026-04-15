@@ -1,6 +1,8 @@
 """Tests for InstitutionManager — no hidden side effects."""
+
 import pytest
 from conftest import make_agent
+
 from decision.schemas import ProposedAction
 from environment.institutions import InstitutionManager
 from environment.world_state import WorldState
@@ -59,8 +61,10 @@ class TestExecuteDeltas:
         lookup = {"a1": source, "a2": target}
 
         action = ProposedAction(
-            action_type="cooperate", target_agent_id="a2",
-            amount=7.0, reasoning_summary="help",
+            action_type="cooperate",
+            target_agent_id="a2",
+            amount=7.0,
+            reasoning_summary="help",
         )
         event = manager.execute(action, source, ws, lookup)
         assert event["wealth_delta"] == -7.0

@@ -13,26 +13,29 @@ Tests cover:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from decision.padded_prompt_builder import measure_grounded_token_count
 from decision.schemas import ProposedAction
 from decision.token_budget import estimate_tokens
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 def _profile(**kw) -> AgentProfile:
     defaults = dict(
-        agent_id="a0", age=35, income=1000.0, education="college",
-        occupation="worker", location="italy", political_preference="center",
-        risk_tolerance=0.5, social_class="middle", trust_people=0.6,
+        agent_id="a0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="italy",
+        political_preference="center",
+        risk_tolerance=0.5,
+        social_class="middle",
+        trust_people=0.6,
     )
     defaults.update(kw)
     return AgentProfile(**defaults)
@@ -66,19 +69,23 @@ def _mock_backend(raw: str = '{"action_type": "work", "reasoning_summary": "ok",
 
 # ── PaddedAblationPolicy ─────────────────────────────────────────────────────
 
+
 class TestPaddedAblationPolicyInit:
     def test_constructs_with_backend(self):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         policy = PaddedAblationPolicy(backend=_mock_backend())
         assert policy is not None
 
     def test_default_target_token_count_is_none(self):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         policy = PaddedAblationPolicy(backend=_mock_backend())
         assert policy.target_token_count is None
 
     def test_explicit_target_token_count_stored(self):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         policy = PaddedAblationPolicy(backend=_mock_backend(), target_token_count=350)
         assert policy.target_token_count == 350
 
@@ -86,6 +93,7 @@ class TestPaddedAblationPolicyInit:
 class TestPaddedAblationPolicyProposeAction:
     def _make(self, **kw):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         return PaddedAblationPolicy(backend=_mock_backend(), max_retries=0, **kw)
 
     def test_returns_proposed_action(self):
@@ -105,6 +113,7 @@ class TestPaddedAblationPolicyProposeAction:
 
     def test_fallback_when_backend_fails(self):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         bad_backend = MagicMock()
         bad_backend.generate.side_effect = RuntimeError("GPU OOM")
         policy = PaddedAblationPolicy(backend=bad_backend, max_retries=0)
@@ -113,6 +122,7 @@ class TestPaddedAblationPolicyProposeAction:
 
     def test_fallback_on_bad_json(self):
         from decision.padded_ablation_policy import PaddedAblationPolicy
+
         bad_backend = _mock_backend("not valid json at all ...")
         policy = PaddedAblationPolicy(backend=bad_backend, max_retries=0)
         result = policy.propose_action(_profile(), _state(), _memory(), _context(), round_id=1)
@@ -180,12 +190,11 @@ class TestPaddedAblationPolicyProposeAction:
 
         user_content = next(m["content"] for m in captured if m["role"] == "user")
         actual_tokens = estimate_tokens(user_content)
-        assert abs(actual_tokens - target) <= 30, (
-            f"Expected ~{target} tokens, got {actual_tokens}"
-        )
+        assert abs(actual_tokens - target) <= 30, f"Expected ~{target} tokens, got {actual_tokens}"
 
 
 # ── build_policy dispatch ────────────────────────────────────────────────────
+
 
 class TestBuildPolicyPaddedAblation:
     def test_padded_ablation_returns_policy_instance(self, tmp_path):
@@ -210,6 +219,7 @@ class TestBuildPolicyPaddedAblation:
         # We can't call _build_llm_backend (GPU) but can test the dispatch path
         # by monkeypatching _build_llm_backend
         import scripts.run_config_simulation as rcs
+
         orig = rcs._build_llm_backend
         try:
             rcs._build_llm_backend = lambda cfg: _mock_backend()
@@ -220,6 +230,7 @@ class TestBuildPolicyPaddedAblation:
 
 
 # ── analyze_padded_vs_grounded utilities ────────────────────────────────────
+
 
 class TestAnalyzePaddedVsGrounded:
     """Tests for the pure-Python analysis helpers in analyze_padded_vs_grounded."""
@@ -248,7 +259,12 @@ class TestAnalyzePaddedVsGrounded:
         from scripts.analyze_padded_vs_grounded import compute_condition_metrics
 
         events = [
-            {"round_id": 1, "agent_id": f"a{i}", "action": {"action_type": "cooperate"}, "state_after": {"wealth": 50.0}}
+            {
+                "round_id": 1,
+                "agent_id": f"a{i}",
+                "action": {"action_type": "cooperate"},
+                "state_after": {"wealth": 50.0},
+            }
             for i in range(10)
         ]
         events_path = tmp_path / "events.jsonl"
@@ -262,9 +278,14 @@ class TestAnalyzePaddedVsGrounded:
         from scripts.analyze_padded_vs_grounded import compute_condition_metrics
 
         events = [
-            {"round_id": r, "agent_id": f"a{i}", "action": {"action_type": "work"},
-             "state_after": {"wealth": float(i * 20)}}
-            for r in range(1, 4) for i in range(5)
+            {
+                "round_id": r,
+                "agent_id": f"a{i}",
+                "action": {"action_type": "work"},
+                "state_after": {"wealth": float(i * 20)},
+            }
+            for r in range(1, 4)
+            for i in range(5)
         ]
         events_path = tmp_path / "events.jsonl"
         events_path.write_text("\n".join(json.dumps(e) for e in events))
@@ -294,8 +315,9 @@ class TestAnalyzePaddedVsGrounded:
 
     def test_cohen_d_clearly_separated_groups(self):
         """Cohen's d for well-separated groups should be large (or infinite for zero-variance groups)."""
-        from scripts.analyze_padded_vs_grounded import cohen_d
         import math
+
+        from scripts.analyze_padded_vs_grounded import cohen_d
 
         low = [0.1, 0.15, 0.12, 0.11, 0.13]
         high = [0.85, 0.9, 0.88, 0.87, 0.89]

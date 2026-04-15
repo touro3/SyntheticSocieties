@@ -175,9 +175,7 @@ def compute_composite_brm(
 
     weight_sum = sum(w.values())
     if abs(weight_sum - 1.0) > 0.01:
-        raise ValueError(
-            f"Weights must sum to 1.0 (got {weight_sum:.4f})."
-        )
+        raise ValueError(f"Weights must sum to 1.0 (got {weight_sum:.4f}).")
 
     jsd_comp = compute_brm_jsd(sim_wealth, emp_wealth)
     gini_comp = max(0.0, min(1.0, 1.0 - abs(sim_gini - emp_gini)))

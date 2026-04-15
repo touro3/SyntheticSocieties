@@ -1,12 +1,15 @@
 import argparse
 import sys
 from pathlib import Path
+
 repo_root = str(Path(__file__).resolve().parent.parent)
 sys.path.insert(0, repo_root)
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 from metrics.macro_metrics import SocietyMacroMetrics
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,14 +23,40 @@ def main():
     sns.set_theme(style="whitegrid", context="paper")
     fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
 
-    axes[0].plot(trends_a["round_id"], trends_a["gini_coefficient"], label="Cond A (Ablated - Dense)", color="crimson", linewidth=2.5, linestyle="--")
-    axes[0].plot(trends_b["round_id"], trends_b["gini_coefficient"], label="Cond B (Grounded - Dense)", color="royalblue", linewidth=2.5)
+    axes[0].plot(
+        trends_a["round_id"],
+        trends_a["gini_coefficient"],
+        label="Cond A (Ablated - Dense)",
+        color="crimson",
+        linewidth=2.5,
+        linestyle="--",
+    )
+    axes[0].plot(
+        trends_b["round_id"],
+        trends_b["gini_coefficient"],
+        label="Cond B (Grounded - Dense)",
+        color="royalblue",
+        linewidth=2.5,
+    )
     axes[0].set_title("Gini under Topological Dictatorship", fontsize=15, fontweight="bold")
     axes[0].set_ylim(0, 1.0)
     axes[0].legend()
 
-    axes[1].plot(trends_a["round_id"], trends_a["cooperation_rate"], label="Cond A (Ablated - Dense)", color="crimson", linewidth=2.5, linestyle="--")
-    axes[1].plot(trends_b["round_id"], trends_b["cooperation_rate"], label="Cond B (Grounded - Dense)", color="royalblue", linewidth=2.5)
+    axes[1].plot(
+        trends_a["round_id"],
+        trends_a["cooperation_rate"],
+        label="Cond A (Ablated - Dense)",
+        color="crimson",
+        linewidth=2.5,
+        linestyle="--",
+    )
+    axes[1].plot(
+        trends_b["round_id"],
+        trends_b["cooperation_rate"],
+        label="Cond B (Grounded - Dense)",
+        color="royalblue",
+        linewidth=2.5,
+    )
     axes[1].set_title("Trust Collapse in Fully Connected Network", fontsize=15, fontweight="bold")
     axes[1].set_ylim(0, 1.0)
     axes[1].legend()
@@ -36,6 +65,7 @@ def main():
     out_file = Path("analysis/figures/topology_dictatorship.png")
     plt.savefig(out_file, dpi=400, bbox_inches="tight")
     print(f"Plot saved to: {out_file}")
+
 
 if __name__ == "__main__":
     main()

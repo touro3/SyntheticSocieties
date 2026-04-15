@@ -111,23 +111,20 @@ def load_metrics(registry_path: Path) -> tuple[pd.DataFrame, list[dict]]:
 
 
 def summarize(df: pd.DataFrame) -> pd.DataFrame:
-    summary = (
-        df.groupby(["condition_key"], as_index=False)
-        .agg(
-            seeds=("seed", "nunique"),
-            wealth_mean=("wealth_mean", "mean"),
-            wealth_mean_std=("wealth_mean", "std"),
-            wealth_gini=("wealth_gini", "mean"),
-            wealth_gini_std=("wealth_gini", "std"),
-            stress_mean=("stress_mean", "mean"),
-            stress_mean_std=("stress_mean", "std"),
-            work_rate=("work_rate", "mean"),
-            work_rate_std=("work_rate", "std"),
-            save_rate=("save_rate", "mean"),
-            save_rate_std=("save_rate", "std"),
-            cooperation_rate=("cooperation_rate", "mean"),
-            cooperation_rate_std=("cooperation_rate", "std"),
-        )
+    summary = df.groupby(["condition_key"], as_index=False).agg(
+        seeds=("seed", "nunique"),
+        wealth_mean=("wealth_mean", "mean"),
+        wealth_mean_std=("wealth_mean", "std"),
+        wealth_gini=("wealth_gini", "mean"),
+        wealth_gini_std=("wealth_gini", "std"),
+        stress_mean=("stress_mean", "mean"),
+        stress_mean_std=("stress_mean", "std"),
+        work_rate=("work_rate", "mean"),
+        work_rate_std=("work_rate", "std"),
+        save_rate=("save_rate", "mean"),
+        save_rate_std=("save_rate", "std"),
+        cooperation_rate=("cooperation_rate", "mean"),
+        cooperation_rate_std=("cooperation_rate", "std"),
     )
     return summary.fillna(0.0)
 
@@ -153,7 +150,9 @@ def _style():
     )
 
 
-def _condition_values(summary_df: pd.DataFrame, condition_order: list[str], metric: str, metric_std: str) -> tuple[list[float], list[float], list[str], list[str]]:
+def _condition_values(
+    summary_df: pd.DataFrame, condition_order: list[str], metric: str, metric_std: str
+) -> tuple[list[float], list[float], list[str], list[str]]:
     means = []
     stds = []
     labels = []

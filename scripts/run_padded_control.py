@@ -39,32 +39,45 @@ from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
 def parse_args():
     parser = argparse.ArgumentParser(description="Run Condition P (padded prompt control).")
     parser.add_argument(
-        "--seeds", type=str, default="42,123,7",
+        "--seeds",
+        type=str,
+        default="42,123,7",
         help="Comma-separated random seeds (default: 42,123,7).",
     )
     parser.add_argument(
-        "--agents", type=int, default=500,
+        "--agents",
+        type=int,
+        default=500,
         help="Population size per run (default: 500).",
     )
     parser.add_argument(
-        "--rounds", type=int, default=30,
+        "--rounds",
+        type=int,
+        default=30,
         help="Simulation rounds per run (default: 30).",
     )
     parser.add_argument(
-        "--target-tokens", type=int, default=None,
+        "--target-tokens",
+        type=int,
+        default=None,
         help="Fixed target token count per padded prompt. "
-             "If omitted, measured dynamically per agent to match Condition B.",
+        "If omitted, measured dynamically per agent to match Condition B.",
     )
     parser.add_argument(
-        "--config", type=str, default="configs/condition_p.yaml",
+        "--config",
+        type=str,
+        default="configs/condition_p.yaml",
         help="Base config path (default: configs/condition_p.yaml).",
     )
     parser.add_argument(
-        "--output-dir", type=str, default="experiments",
+        "--output-dir",
+        type=str,
+        default="experiments",
         help="Root directory for experiment output.",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Print config and exit without running the simulation.",
     )
     return parser.parse_args()
@@ -73,6 +86,7 @@ def parse_args():
 def build_run_config(base_config: dict, seed: int, args) -> dict:
     """Merge base config with seed-specific overrides."""
     import copy
+
     cfg = copy.deepcopy(base_config)
 
     cfg["project"]["seed"] = seed
@@ -90,17 +104,12 @@ def build_run_config(base_config: dict, seed: int, args) -> dict:
 
 def run_single_seed(cfg: dict, output_dir: Path) -> dict:
     """Run a single Condition P experiment and return summary metadata."""
-    from agents.agent import Agent
     from bgf_logging.event_logger import EventLogger
     from metrics.event_metrics import behavior_summary_from_events, load_events
     from metrics.summary import merge_behavior_summary, summarize_agents
     from population.generator import generate_empirical_population, generate_population
+    from scripts.run_config_simulation import build_network, build_policy, build_world
     from simulation.kernel import SimulationKernel
-    from environment.institutions import InstitutionManager
-    from environment.network import NetworkManager
-    from environment.world import World
-    from environment.world_state import WorldState
-    from scripts.run_config_simulation import build_policy, build_network, build_world
 
     experiment_id = cfg["project"]["experiment_id"]
     seed = cfg["project"]["seed"]
@@ -167,7 +176,7 @@ def main() -> None:
     base_config = load_config(args.config)
     output_dir = Path(args.output_dir)
 
-    print(f"Condition P — Padded Prompt Control")
+    print("Condition P — Padded Prompt Control")
     print(f"  Seeds:   {seeds}")
     print(f"  Agents:  {args.agents}")
     print(f"  Rounds:  {args.rounds}")

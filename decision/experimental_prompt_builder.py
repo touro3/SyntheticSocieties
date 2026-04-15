@@ -74,7 +74,7 @@ def build_experimental_prompt(
     ]
 
     if state.stress >= 0.75:
-        parts.append(f"[Your stress level is critically high ({state.stress:.2f}).]" )
+        parts.append(f"[Your stress level is critically high ({state.stress:.2f}).]")
 
     if trimmed["population_context"]:
         parts.append(f"General Population Trends:\n{trimmed['population_context']}")
@@ -102,4 +102,3 @@ def build_experimental_prompt(
 def build_experimental_prompt_text(*args, **kwargs) -> str:
     messages = build_experimental_prompt(*args, **kwargs)
     return "\n\n".join(f"[{m['role'].upper()}]\n{m['content']}" for m in messages)
-

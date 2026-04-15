@@ -15,44 +15,54 @@ import warnings
 
 import pytest
 from conftest import make_agent
+
+from bgf_logging.event_logger import EventLogger
 from configs.seed_manager import SeedManager
 from decision.schemas import ProposedAction
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
 from environment.world import World
 from environment.world_state import WorldState
-from bgf_logging.event_logger import EventLogger
 from simulation.kernel import SimulationKernel
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+
 class _WorkPolicy:
     """Deterministic policy that always works."""
+
     def propose_action(self, profile, state, memory, context, round_id):
         return ProposedAction(
-            action_type="work", amount=10.0,
-            reasoning_summary="test", confidence=1.0,
+            action_type="work",
+            amount=10.0,
+            reasoning_summary="test",
+            confidence=1.0,
         )
 
 
 class _CooperatePolicy:
     """Deterministic policy that cooperates with first neighbor."""
+
     def __init__(self):
         from decision.graph_rag import GraphRAG
+
         self.graph_rag = GraphRAG()
 
     def propose_action(self, profile, state, memory, context, round_id):
         neighbors = context.get("network", {}).get("neighbors", [])
         if neighbors:
             return ProposedAction(
-                action_type="cooperate", target_agent_id=neighbors[0],
-                amount=5.0, reasoning_summary="test cooperation",
+                action_type="cooperate",
+                target_agent_id=neighbors[0],
+                amount=5.0,
+                reasoning_summary="test cooperation",
                 confidence=1.0,
             )
         return ProposedAction(
-            action_type="work", amount=10.0,
-            reasoning_summary="no neighbors", confidence=1.0,
+            action_type="work",
+            amount=10.0,
+            reasoning_summary="no neighbors",
+            confidence=1.0,
         )
 
 
@@ -88,8 +98,15 @@ class TestKernelRoundMetrics:
         kernel = _make_kernel(tmp_path, _WorkPolicy(), n_agents=3)
         kernel.run(num_rounds=1)
         m = kernel.round_metrics[0]
-        for key in ["round_id", "action_distribution", "gini", "mean_wealth",
-                     "mean_stress", "mean_satisfaction", "n_agents"]:
+        for key in [
+            "round_id",
+            "action_distribution",
+            "gini",
+            "mean_wealth",
+            "mean_stress",
+            "mean_satisfaction",
+            "n_agents",
+        ]:
             assert key in m, f"Missing key: {key}"
 
     @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -99,9 +116,7 @@ class TestKernelRoundMetrics:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             kernel.run(num_rounds=1)
-        collapse_warnings = [
-            w for w in caught if "Action collapse" in str(w.message)
-        ]
+        collapse_warnings = [w for w in caught if "Action collapse" in str(w.message)]
         assert len(collapse_warnings) >= 1
 
     @pytest.mark.filterwarnings("ignore::UserWarning")
@@ -190,15 +205,21 @@ class TestSatisfactionDynamics:
         # Work
         work_event = manager.execute(
             ProposedAction(action_type="work", amount=10.0, reasoning_summary="earn"),
-            source, ws, lookup,
+            source,
+            ws,
+            lookup,
         )
         # Cooperate
         coop_event = manager.execute(
             ProposedAction(
-                action_type="cooperate", target_agent_id="a2",
-                amount=5.0, reasoning_summary="help",
+                action_type="cooperate",
+                target_agent_id="a2",
+                amount=5.0,
+                reasoning_summary="help",
             ),
-            source, ws, lookup,
+            source,
+            ws,
+            lookup,
         )
         assert coop_event["satisfaction_delta"] > work_event["satisfaction_delta"]
 
@@ -248,9 +269,15 @@ class TestPopulationHelpers:
     def test_shared_helpers_importable(self):
         """_helpers module must be importable."""
         from population._helpers import (
-            safe_float, safe_int, clamp01, map_education,
-            map_location, map_political, map_social_class,
+            clamp01,
+            map_education,
+            map_location,
+            map_political,
+            map_social_class,
+            safe_float,
+            safe_int,
         )
+
         assert safe_float("3.14") == 3.14
         assert safe_int("5") == 5
         assert clamp01(1.5) == 1.0
@@ -262,6 +289,7 @@ class TestPopulationHelpers:
     def test_generator_uses_shared_helpers(self):
         """generator.py must import from _helpers."""
         import population.generator as gen
+
         # The module should have the aliased functions
         assert hasattr(gen, "_safe_float")
         assert hasattr(gen, "_map_education")
@@ -275,17 +303,21 @@ class TestPopulationHelpers:
 class TestAblationLevelIntEnum:
     def test_is_intenum(self):
         from enum import IntEnum
+
         from decision.prompt_builder import AblationLevel
+
         assert issubclass(AblationLevel, IntEnum)
 
     def test_comparison_still_works(self):
         from decision.prompt_builder import AblationLevel
+
         assert AblationLevel.FULL >= AblationLevel.BASELINE
         assert AblationLevel.BALANCED >= 4
         assert AblationLevel.BASELINE == 0
 
     def test_iteration(self):
         from decision.prompt_builder import AblationLevel
+
         levels = list(AblationLevel)
         assert len(levels) == 6
         assert levels[0].value == 0

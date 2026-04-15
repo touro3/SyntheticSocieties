@@ -34,7 +34,6 @@ import sys
 import time
 from pathlib import Path
 
-
 HEARTBEAT_FILE = "heartbeat.json"
 POLL_INTERVAL_S = 30  # how often to check, in seconds
 
@@ -64,7 +63,7 @@ def _age_str(ts: float, now: float) -> str:
     age = now - ts
     if age < 60:
         return f"{age:.0f}s ago"
-    return f"{age/60:.1f}m ago"
+    return f"{age / 60:.1f}m ago"
 
 
 def watch_once(exp_dirs: list[Path], stale_after_s: float, verbose: bool = True) -> list[tuple[Path, str]]:
@@ -78,10 +77,7 @@ def watch_once(exp_dirs: list[Path], stale_after_s: float, verbose: bool = True)
         if verbose:
             exp_id = exp_dir.name
             if hb:
-                print(
-                    f"  [{status:7s}] {exp_id:40s}  round={hb['round_id']:4d}  "
-                    f"ts={_age_str(hb['ts'], now)}"
-                )
+                print(f"  [{status:7s}] {exp_id:40s}  round={hb['round_id']:4d}  ts={_age_str(hb['ts'], now)}")
             else:
                 print(f"  [{status:7s}] {exp_id:40s}  (no heartbeat yet)")
     return results
@@ -114,27 +110,38 @@ def main():
     group.add_argument("--all", action="store_true", help="Watch all experiments/ subdirs")
 
     parser.add_argument(
-        "--experiments-root", type=str, default="experiments",
+        "--experiments-root",
+        type=str,
+        default="experiments",
         help="Root directory containing experiment subdirs (default: experiments/)",
     )
     parser.add_argument(
-        "--stale-after", type=float, default=5.0,
+        "--stale-after",
+        type=float,
+        default=5.0,
         help="Minutes without a heartbeat before run is considered STALE (default: 5)",
     )
     parser.add_argument(
-        "--poll", type=float, default=POLL_INTERVAL_S,
+        "--poll",
+        type=float,
+        default=POLL_INTERVAL_S,
         help=f"Seconds between checks (default: {POLL_INTERVAL_S})",
     )
     parser.add_argument(
-        "--once", action="store_true",
+        "--once",
+        action="store_true",
         help="Check once and exit instead of looping",
     )
     parser.add_argument(
-        "--pid", type=int, default=None,
+        "--pid",
+        type=int,
+        default=None,
         help="PID of the simulation process to kill when STALE/DEAD",
     )
     parser.add_argument(
-        "--restart-cmd", type=str, default=None,
+        "--restart-cmd",
+        type=str,
+        default=None,
         help="Shell command to run after killing the stalled process",
     )
     args = parser.parse_args()

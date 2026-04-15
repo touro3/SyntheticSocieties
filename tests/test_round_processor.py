@@ -1,10 +1,12 @@
 """Tests for RoundProcessor — extracted from SimulationKernel."""
+
 from conftest import make_agent
+
+from bgf_logging.event_logger import EventLogger
 from decision.schemas import ProposedAction
 from environment.institutions import InstitutionManager
 from environment.world import World
 from environment.world_state import WorldState
-from bgf_logging.event_logger import EventLogger
 from simulation.round_processor import RoundProcessor
 
 
@@ -40,8 +42,10 @@ class TestProcessCooperation:
     def test_cooperate_applies_target_delta(self, tmp_path):
         proc, a1, a2 = _setup(tmp_path)
         action = ProposedAction(
-            action_type="cooperate", target_agent_id="a2",
-            amount=5.0, reasoning_summary="help",
+            action_type="cooperate",
+            target_agent_id="a2",
+            amount=5.0,
+            reasoning_summary="help",
         )
         proc.process_agent_action(a1, action, round_id=1)
         assert a1.state.wealth == 95.0
@@ -53,8 +57,10 @@ class TestProcessRejection:
         proc, a1, _ = _setup(tmp_path)
         # Cooperate with self → rejected
         action = ProposedAction(
-            action_type="cooperate", target_agent_id="a1",
-            amount=5.0, reasoning_summary="self help",
+            action_type="cooperate",
+            target_agent_id="a1",
+            amount=5.0,
+            reasoning_summary="self help",
         )
         event = proc.process_agent_action(a1, action, round_id=1)
         assert event["action_type"] == "rejected"

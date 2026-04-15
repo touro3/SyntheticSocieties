@@ -20,7 +20,6 @@ import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 
-
 DEFAULT_INDEX = "tracker/experiment_index.parquet"
 
 
@@ -289,9 +288,7 @@ def cohens_d(group_a: np.ndarray, group_b: np.ndarray) -> float:
     return float((group_a.mean() - group_b.mean()) / pooled_std)
 
 
-def mann_whitney_test(
-    group_a: np.ndarray, group_b: np.ndarray
-) -> dict[str, float]:
+def mann_whitney_test(group_a: np.ndarray, group_b: np.ndarray) -> dict[str, float]:
     """Run a two-sided Mann-Whitney U test.
 
     Returns dict with keys: U_statistic, p_value.
@@ -301,9 +298,7 @@ def mann_whitney_test(
     group_b = np.asarray(group_b, dtype=float)
     if len(group_a) < 1 or len(group_b) < 1:
         return {"U_statistic": 0.0, "p_value": 1.0}
-    u_stat, p_val = scipy_stats.mannwhitneyu(
-        group_a, group_b, alternative="two-sided"
-    )
+    u_stat, p_val = scipy_stats.mannwhitneyu(group_a, group_b, alternative="two-sided")
     return {"U_statistic": float(u_stat), "p_value": float(p_val)}
 
 
@@ -325,10 +320,7 @@ def bootstrap_ci(
     estimate = float(statistic_fn(data))
     if len(data) == 1:
         return {"estimate": estimate, "ci_lower": estimate, "ci_upper": estimate, "confidence": confidence}
-    boot_stats = np.array([
-        statistic_fn(rng.choice(data, size=len(data), replace=True))
-        for _ in range(n_bootstrap)
-    ])
+    boot_stats = np.array([statistic_fn(rng.choice(data, size=len(data), replace=True)) for _ in range(n_bootstrap)])
     alpha = 1.0 - confidence
     ci_lower = float(np.percentile(boot_stats, 100 * alpha / 2))
     ci_upper = float(np.percentile(boot_stats, 100 * (1 - alpha / 2)))
@@ -394,15 +386,17 @@ def pairwise_significance(
         group_vals = group_df[metric_col].values
         mw = mann_whitney_test(ref_vals, group_vals)
         d = cohens_d(ref_vals, group_vals)
-        rows.append({
-            "group": group_name,
-            "ref_mean": float(np.mean(ref_vals)),
-            "group_mean": float(np.mean(group_vals)),
-            "cohens_d": d,
-            "U_statistic": mw["U_statistic"],
-            "p_value": mw["p_value"],
-            "significant_005": mw["p_value"] < 0.05,
-        })
+        rows.append(
+            {
+                "group": group_name,
+                "ref_mean": float(np.mean(ref_vals)),
+                "group_mean": float(np.mean(group_vals)),
+                "cohens_d": d,
+                "U_statistic": mw["U_statistic"],
+                "p_value": mw["p_value"],
+                "significant_005": mw["p_value"] < 0.05,
+            }
+        )
 
     if not rows:
         return pd.DataFrame()

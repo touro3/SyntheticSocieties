@@ -1,12 +1,11 @@
 from dataclasses import dataclass, field
-from typing import Dict
 
 
 @dataclass
 class WorldState:
     round_id: int = 0
-    public_signal: Dict[str, str] = field(default_factory=dict)
-    prices: Dict[str, float] = field(default_factory=dict)
-    resources: Dict[str, float] = field(default_factory=dict)
+    public_signal: dict[str, str] = field(default_factory=dict)
+    prices: dict[str, float] = field(default_factory=dict)
+    resources: dict[str, float] = field(default_factory=dict)
     shock_active: bool = False
     shock_magnitude: float = 0.0

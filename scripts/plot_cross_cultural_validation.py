@@ -35,9 +35,9 @@ _CLUSTER_LABELS = {
 
 # Cluster marker colors (colorblind-safe)
 _CLUSTER_COLORS = {
-    "nordic": "#2196F3",    # blue
+    "nordic": "#2196F3",  # blue
     "southern": "#FF9800",  # orange
-    "eastern": "#4CAF50",   # green
+    "eastern": "#4CAF50",  # green
 }
 
 
@@ -55,14 +55,12 @@ def plot_cross_cultural_validation(
         FileNotFoundError: If results_path does not exist.
     """
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     if not results_path.exists():
-        raise FileNotFoundError(
-            f"Results file not found: {results_path}\n"
-            "Run scripts/run_cross_cultural.py first."
-        )
+        raise FileNotFoundError(f"Results file not found: {results_path}\nRun scripts/run_cross_cultural.py first.")
 
     data = json.loads(results_path.read_text())
     cluster_results = data["cluster_results"]
@@ -101,6 +99,7 @@ def plot_cross_cultural_validation(
     # Fit line through the 3 points
     if len(x_vals) >= 2:
         import numpy as np
+
         z = np.polyfit(x_vals, y_vals, 1)
         p = np.poly1d(z)
         x_line = [min(x_vals) - 0.02, max(x_vals) + 0.02]
@@ -115,15 +114,13 @@ def plot_cross_cultural_validation(
         )
 
     # Correlation annotation (upper left corner)
-    annotation = (
-        f"Pearson r = {pearson_r:+.3f}\n"
-        f"Spearman \u03c1 = {spearman_rho:+.3f}  (p = {spearman_p:.3f})"
-    )
+    annotation = f"Pearson r = {pearson_r:+.3f}\nSpearman \u03c1 = {spearman_rho:+.3f}  (p = {spearman_p:.3f})"
     if gradient_recovered:
         annotation += "\nGradient recovered"
 
     ax.text(
-        0.04, 0.96,
+        0.04,
+        0.96,
         annotation,
         transform=ax.transAxes,
         fontsize=8.5,
@@ -154,9 +151,7 @@ def plot_cross_cultural_validation(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Plot cross-cultural validation scatter (Phase 17)"
-    )
+    parser = argparse.ArgumentParser(description="Plot cross-cultural validation scatter (Phase 17)")
     parser.add_argument(
         "--input",
         type=Path,

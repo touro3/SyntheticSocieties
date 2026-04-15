@@ -3,9 +3,9 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import MemoryBuffer
 
 
 def main():

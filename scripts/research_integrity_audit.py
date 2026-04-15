@@ -104,10 +104,7 @@ def _audit_action_distributions(manifest_path: Path, out: dict) -> None:
             _append(
                 out,
                 "warnings",
-                (
-                    f"{policy}: {n_collapse}/{n_total} runs show severe action collapse "
-                    "(>=95% one action)."
-                ),
+                (f"{policy}: {n_collapse}/{n_total} runs show severe action collapse (>=95% one action)."),
             )
 
 
@@ -151,9 +148,7 @@ def _audit_policy_tables(
 
     if policy_comparison_path.exists():
         pcmp = _load_csv(policy_comparison_path)
-        if "avg_stress_mean" in pcmp.columns and not _is_valid_range(
-            pcmp["avg_stress_mean"], -1.0, 1.0
-        ):
+        if "avg_stress_mean" in pcmp.columns and not _is_valid_range(pcmp["avg_stress_mean"], -1.0, 1.0):
             _append(out, "warnings", "avg_stress_mean has values outside [-1, 1].")
 
 

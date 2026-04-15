@@ -13,16 +13,14 @@ Covers:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
-def _make_result(model_id, condition, b_rlhf, coop_rate=0.4, gini=0.3,
-                 n_agents=50, n_rounds=20):
+
+def _make_result(model_id, condition, b_rlhf, coop_rate=0.4, gini=0.3, n_agents=50, n_rounds=20):
     return {
         "model_id": model_id,
         "condition": condition,
@@ -36,16 +34,20 @@ def _make_result(model_id, condition, b_rlhf, coop_rate=0.4, gini=0.3,
 
 # ── bootstrap_ci ─────────────────────────────────────────────────────────────
 
+
 class TestBootstrapCI:
     def test_returns_lower_upper(self):
         from scripts.analyze_cross_model_scaled import bootstrap_ci
+
         data = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
         lo, hi = bootstrap_ci(data, n_bootstrap=500, ci=0.95, seed=42)
         assert lo < hi
 
     def test_ci_contains_mean_for_symmetric_data(self):
-        from scripts.analyze_cross_model_scaled import bootstrap_ci
         import statistics
+
+        from scripts.analyze_cross_model_scaled import bootstrap_ci
+
         data = [0.3, 0.35, 0.32, 0.33, 0.31, 0.34]
         lo, hi = bootstrap_ci(data, n_bootstrap=1000, ci=0.95, seed=7)
         mean = statistics.mean(data)
@@ -53,6 +55,7 @@ class TestBootstrapCI:
 
     def test_wider_with_more_variance(self):
         from scripts.analyze_cross_model_scaled import bootstrap_ci
+
         tight = [0.5, 0.5, 0.5, 0.5, 0.5]
         spread = [0.1, 0.3, 0.5, 0.7, 0.9]
         lo_t, hi_t = bootstrap_ci(tight, n_bootstrap=500, seed=42)
@@ -61,20 +64,24 @@ class TestBootstrapCI:
 
     def test_single_element_returns_equal_bounds(self):
         from scripts.analyze_cross_model_scaled import bootstrap_ci
+
         lo, hi = bootstrap_ci([0.42], n_bootstrap=100, seed=0)
         assert lo == pytest.approx(hi)
 
     def test_empty_raises(self):
         from scripts.analyze_cross_model_scaled import bootstrap_ci
+
         with pytest.raises((ValueError, IndexError)):
             bootstrap_ci([], n_bootstrap=100)
 
 
 # ── aggregate_seeded_results ─────────────────────────────────────────────────
 
+
 class TestAggregateSeededResults:
     def test_returns_mean_per_model_condition(self):
         from scripts.analyze_cross_model_scaled import aggregate_seeded_results
+
         rows = [
             _make_result("gpt4o-mini", "A", 0.2),
             _make_result("gpt4o-mini", "A", 0.3),
@@ -87,6 +94,7 @@ class TestAggregateSeededResults:
 
     def test_stores_raw_values_for_ci(self):
         from scripts.analyze_cross_model_scaled import aggregate_seeded_results
+
         rows = [
             _make_result("mistral-7b", "B", 0.15),
             _make_result("mistral-7b", "B", 0.18),
@@ -96,6 +104,7 @@ class TestAggregateSeededResults:
 
     def test_handles_multiple_models(self):
         from scripts.analyze_cross_model_scaled import aggregate_seeded_results
+
         rows = [
             _make_result("mistral-7b", "A", 0.5),
             _make_result("qwen2.5-7b", "A", 0.3),
@@ -106,6 +115,7 @@ class TestAggregateSeededResults:
 
 
 # ── compute_inverse_effect_significance ──────────────────────────────────────
+
 
 class TestInverseEffectSignificance:
     def test_detects_significant_inverse(self):
@@ -140,11 +150,13 @@ class TestInverseEffectSignificance:
     def test_insufficient_data_no_crash(self):
         """Single-seed data (no repeated measures) should return gracefully."""
         from scripts.analyze_cross_model_scaled import compute_inverse_effect_significance
+
         result = compute_inverse_effect_significance([0.3], [0.4])
         assert "inverse_detected" in result
 
 
 # ── build_scaled_comparison_table ────────────────────────────────────────────
+
 
 class TestBuildScaledComparisonTable:
     def _n20_results(self):
@@ -169,6 +181,7 @@ class TestBuildScaledComparisonTable:
 
     def test_returns_list_of_rows(self):
         from scripts.analyze_cross_model_scaled import build_scaled_comparison_table
+
         table = build_scaled_comparison_table(
             n20_results=self._n20_results(),
             n50_results=self._n50_results(),
@@ -178,18 +191,19 @@ class TestBuildScaledComparisonTable:
 
     def test_row_has_required_keys(self):
         from scripts.analyze_cross_model_scaled import build_scaled_comparison_table
+
         table = build_scaled_comparison_table(
             n20_results=self._n20_results(),
             n50_results=self._n50_results(),
         )
         row = next(r for r in table if r["model"] == "gpt4o-mini")
-        for key in ("model", "n20_bias_A", "n20_bias_B", "n50_bias_A_mean",
-                    "n50_bias_B_mean", "inverse_effect"):
+        for key in ("model", "n20_bias_A", "n20_bias_B", "n50_bias_A_mean", "n50_bias_B_mean", "inverse_effect"):
             assert key in row, f"Missing key: {key}"
 
     def test_gpt4o_mini_inverse_flagged(self):
         """GPT-4o-mini inverse effect should be flagged when B_RLHF_B > B_RLHF_A."""
         from scripts.analyze_cross_model_scaled import build_scaled_comparison_table
+
         table = build_scaled_comparison_table(
             n20_results=self._n20_results(),
             n50_results=self._n50_results(),
@@ -200,6 +214,7 @@ class TestBuildScaledComparisonTable:
     def test_mistral_not_inverse(self):
         """Mistral (grounding works) should not be flagged as inverse."""
         from scripts.analyze_cross_model_scaled import build_scaled_comparison_table
+
         table = build_scaled_comparison_table(
             n20_results=self._n20_results(),
             n50_results=self._n50_results(),
@@ -209,6 +224,7 @@ class TestBuildScaledComparisonTable:
 
     def test_n50_ci_bounds_present(self):
         from scripts.analyze_cross_model_scaled import build_scaled_comparison_table
+
         table = build_scaled_comparison_table(
             n20_results=self._n20_results(),
             n50_results=self._n50_results(),
@@ -222,33 +238,39 @@ class TestBuildScaledComparisonTable:
 
 # ── Config YAML files reflect N=50 / T=20 ────────────────────────────────────
 
+
 class TestScaledConfigFiles:
     def test_gpt4o_mini_config_has_n50(self):
         import yaml
+
         path = Path("configs/cross_model/gpt4o_mini.yaml")
         cfg = yaml.safe_load(path.read_text())
         assert cfg["simulation"]["population_size"] == 50
 
     def test_gpt4o_mini_config_has_t20(self):
         import yaml
+
         path = Path("configs/cross_model/gpt4o_mini.yaml")
         cfg = yaml.safe_load(path.read_text())
         assert cfg["simulation"]["rounds"] == 20
 
     def test_qwen_config_has_n50(self):
         import yaml
+
         path = Path("configs/cross_model/qwen2.5-7b.yaml")
         cfg = yaml.safe_load(path.read_text())
         assert cfg["simulation"]["population_size"] == 50
 
     def test_mistral_config_has_n50(self):
         import yaml
+
         path = Path("configs/cross_model/mistral.yaml")
         cfg = yaml.safe_load(path.read_text())
         assert cfg["simulation"]["population_size"] == 50
 
     def test_mistral_config_has_t20(self):
         import yaml
+
         path = Path("configs/cross_model/mistral.yaml")
         cfg = yaml.safe_load(path.read_text())
         assert cfg["simulation"]["rounds"] == 20
@@ -256,27 +278,53 @@ class TestScaledConfigFiles:
 
 # ── run_cross_model_comparison --seeds flag ───────────────────────────────────
 
+
 class TestRunScriptSeedsFlag:
     def test_dry_run_with_seeds_exits_cleanly(self):
         """--seeds flag with --dry-run should complete without error."""
-        import subprocess, sys
+        import subprocess
+        import sys
+
         result = subprocess.run(
-            [sys.executable, "scripts/run_cross_model_comparison.py",
-             "--dry-run", "--models", "mistral-7b", "--seeds", "42,123"],
-            capture_output=True, text=True, timeout=30,
+            [
+                sys.executable,
+                "scripts/run_cross_model_comparison.py",
+                "--dry-run",
+                "--models",
+                "mistral-7b",
+                "--seeds",
+                "42,123",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0, f"Script failed:\n{result.stderr}"
 
     def test_dry_run_produces_multi_seed_output(self):
         """With 3 seeds, dry-run should show 3 entries per model+condition."""
-        import subprocess, sys, tempfile, json
+        import json
+        import subprocess
+        import sys
+        import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             out_path = f.name
         result = subprocess.run(
-            [sys.executable, "scripts/run_cross_model_comparison.py",
-             "--dry-run", "--models", "mistral-7b",
-             "--seeds", "42,123,7", "--out", out_path],
-            capture_output=True, text=True, timeout=30,
+            [
+                sys.executable,
+                "scripts/run_cross_model_comparison.py",
+                "--dry-run",
+                "--models",
+                "mistral-7b",
+                "--seeds",
+                "42,123,7",
+                "--out",
+                out_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         assert result.returncode == 0, f"Script failed:\n{result.stderr}"
         saved = json.loads(Path(out_path).read_text())

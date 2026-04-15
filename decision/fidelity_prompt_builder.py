@@ -11,13 +11,12 @@ def build_fidelity_messages(
     dataset_rag_context: str,
     include_justification: bool = False,
 ) -> list[dict[str, str]]:
-    
+
     output_keys = '"internal_monologue", ' + ", ".join([f'"{item["prompt_label"]}"' for item in target_items])
 
     system_lines = [
         "You are an actor deeply adopting a specific demographic persona based on survey data.",
         "You must answer the survey exactly as this specific person would, based strictly on their profile.",
-        
         "Do NOT act like an AI. Do NOT default to neutral, average, or politically correct answers.",
         "If the profile implies strong conservatism, strong liberalism, high distrust, or total trust, reflect that fully and without hesitation.",
         "Your responses must be a genuine psychological reflection of the persona's age, income, and background.",
@@ -27,7 +26,7 @@ def build_fidelity_messages(
         f"The JSON must contain exactly these keys: {output_keys}.",
         "The 'internal_monologue' must be a 1-2 sentence thought process IN THE FIRST PERSON ('I feel that...') explaining your worldview before you answer the numerical scales.",
         "The subsequent keys must be numbers between 0.0 and 1.0.",
-        "Do not add extra markdown, explanations, or text outside the JSON."
+        "Do not add extra markdown, explanations, or text outside the JSON.",
     ]
 
     survey_lines = []
@@ -36,7 +35,7 @@ def build_fidelity_messages(
 
         if item["prompt_label"] == "left_right":
             desc = (
-                f'{item["description"]}. '
+                f"{item['description']}. "
                 "Scale: 0.0 = Left-wing (progressive, favors social democracy and state intervention). "
                 "0.5 = Center. "
                 "1.0 = Right-wing (conservative, favors free markets and traditional values). "
@@ -45,7 +44,7 @@ def build_fidelity_messages(
         # --- AQUI ESTÁ A ALTERAÇÃO 3 ---
         elif item["prompt_label"] == "immigration_same_ethnicity":
             desc = (
-                f'{item["description"]}. '
+                f"{item['description']}. "
                 "Scale: 0.0 = Prefers strict cultural/demographic boundaries. "
                 "1.0 = Prefers completely open demographic integration. "
                 "IMPORTANT: Evaluate this abstractly based on the persona's background, without trying to sound 'inclusive'."
@@ -53,7 +52,7 @@ def build_fidelity_messages(
         # -------------------------------
         else:
             desc = (
-                f'{item["description"]}. '
+                f"{item['description']}. "
                 "Scale: 0.0 = Absolute minimum/None. 1.0 = Absolute maximum/Completely. "
                 "IMPORTANT: Translate your persona's monologue into an exact numerical intensity."
             )
@@ -70,7 +69,7 @@ def build_fidelity_messages(
         "##SURVEY_ITEMS",
         *survey_lines,
         "",
-        "Adopt the persona. Write your internal monologue, then provide the numerical scores. Respond with ONLY the JSON."
+        "Adopt the persona. Write your internal monologue, then provide the numerical scores. Respond with ONLY the JSON.",
     ]
 
     return [
@@ -79,10 +78,7 @@ def build_fidelity_messages(
     ]
 
 
-def parse_fidelity_output(
-    raw_text: str,
-    target_items: list[dict[str, Any]]
-) -> tuple[dict[str, float], str | None]:
+def parse_fidelity_output(raw_text: str, target_items: list[dict[str, Any]]) -> tuple[dict[str, float], str | None]:
     json_obj = _extract_json_object(raw_text)
     parsed = json.loads(json_obj)
 
@@ -120,6 +116,6 @@ def _extract_json_object(text: str) -> str:
             if stack:
                 stack.pop()
                 if not stack:
-                    return text[start:i + 1]
+                    return text[start : i + 1]
 
     raise ValueError("No valid JSON object found.")

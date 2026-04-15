@@ -9,14 +9,12 @@ import json
 import time
 from pathlib import Path
 
-import pytest
-
-from scripts.sim_watchdog import _read_heartbeat, _status, _age_str, watch_once
-
+from scripts.sim_watchdog import _age_str, _read_heartbeat, _status, watch_once
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _write_hb(path: Path, round_id: int = 1, age_s: float = 0.0, n_agents: int = 5) -> None:
     """Write a heartbeat JSON to path with ts = now - age_s."""
@@ -31,6 +29,7 @@ def _write_hb(path: Path, round_id: int = 1, age_s: float = 0.0, n_agents: int =
 # ---------------------------------------------------------------------------
 # _read_heartbeat
 # ---------------------------------------------------------------------------
+
 
 class TestReadHeartbeat:
     def test_returns_none_when_file_missing(self, tmp_path):
@@ -59,6 +58,7 @@ class TestReadHeartbeat:
 # ---------------------------------------------------------------------------
 # _status
 # ---------------------------------------------------------------------------
+
 
 class TestStatus:
     def test_missing_when_no_heartbeat(self):
@@ -97,6 +97,7 @@ class TestStatus:
 # _age_str
 # ---------------------------------------------------------------------------
 
+
 class TestAgeStr:
     def test_seconds_format(self):
         now = time.time()
@@ -118,6 +119,7 @@ class TestAgeStr:
 # ---------------------------------------------------------------------------
 # watch_once
 # ---------------------------------------------------------------------------
+
 
 class TestWatchOnce:
     def test_all_missing_when_no_heartbeats(self, tmp_path):

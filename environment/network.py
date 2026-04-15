@@ -13,7 +13,7 @@ class NetworkManager:
         graph.add_nodes_from(agent_ids)
 
         for i, source in enumerate(agent_ids):
-            for target in agent_ids[i + 1:]:
+            for target in agent_ids[i + 1 :]:
                 graph.add_edge(source, target)
 
         return cls(graph)
@@ -81,4 +81,3 @@ class NetworkManager:
 
     def num_edges(self) -> int:
         return self.graph.number_of_edges()
-

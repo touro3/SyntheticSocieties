@@ -43,9 +43,7 @@ def clamp01(val: Optional[float]) -> Optional[float]:
     return max(0.0, min(1.0, val))
 
 
-def safe_normalized_float(
-    val, scale_min: float, scale_max: float, default: float = None
-) -> Optional[float]:
+def safe_normalized_float(val, scale_min: float, scale_max: float, default: float = None) -> Optional[float]:
     """Convert a value from [scale_min, scale_max] to [0, 1]. Clamps result."""
     f = safe_float(val, default=None)
     if f is None:

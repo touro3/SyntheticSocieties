@@ -21,28 +21,40 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-
 
 DATA_DIR = Path("data")
 
 # Columns expected to be normalized to [0, 1]
 NORMALIZED_COLUMNS = [
-    "trust_people", "trust_fairness", "trust_helpfulness",
-    "trust_parliament", "trust_legal", "trust_police",
-    "trust_politicians", "trust_parties", "trust_eu_parliament", "trust_un",
-    "life_satisfaction", "happiness",
-    "satisfaction_economy", "satisfaction_government",
-    "satisfaction_democracy", "satisfaction_education",
+    "trust_people",
+    "trust_fairness",
+    "trust_helpfulness",
+    "trust_parliament",
+    "trust_legal",
+    "trust_police",
+    "trust_politicians",
+    "trust_parties",
+    "trust_eu_parliament",
+    "trust_un",
+    "life_satisfaction",
+    "happiness",
+    "satisfaction_economy",
+    "satisfaction_government",
+    "satisfaction_democracy",
+    "satisfaction_education",
     "satisfaction_health_sys",
     "left_right",
 ]
 
 # Columns that should never be entirely NaN
 REQUIRED_COLUMNS = [
-    "country", "gender", "age",
-    "trust_people", "life_satisfaction", "happiness",
+    "country",
+    "gender",
+    "age",
+    "trust_people",
+    "life_satisfaction",
+    "happiness",
 ]
 
 

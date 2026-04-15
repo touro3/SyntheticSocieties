@@ -1,16 +1,24 @@
 """Tests for template policy and ablated LLM policy."""
+
+from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import MemoryBuffer
 from decision.template_policy import TemplatePolicy
 
 
 def _make_profile(**kwargs):
     defaults = dict(
-        agent_id="agent_0", age=35, income=1000.0,
-        education="college", occupation="worker", location="urban",
-        political_preference="center", social_class="middle",
-        trust_people=0.5, risk_tolerance=0.5, competitiveness=0.5,
+        agent_id="agent_0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="urban",
+        political_preference="center",
+        social_class="middle",
+        trust_people=0.5,
+        risk_tolerance=0.5,
+        competitiveness=0.5,
     )
     defaults.update(kwargs)
     return AgentProfile(**defaults)
@@ -90,8 +98,9 @@ def test_template_classify():
 
 
 def test_ablated_llm_invalid_ablation():
-    from decision.ablated_llm_policy import AblatedLLMPolicy
     import pytest
+
+    from decision.ablated_llm_policy import AblatedLLMPolicy
 
     with pytest.raises(ValueError, match="Invalid ablation"):
         AblatedLLMPolicy(backend=None, ablation="invalid")

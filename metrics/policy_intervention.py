@@ -38,17 +38,17 @@ from metrics.inequality import gini_coefficient as _gini_canonical
 class InterventionResult:
     """Outcome of one (intensity, seed) intervention experiment."""
 
-    intensity: float           # Trust boost δ — e.g. 0.0, 0.05, 0.10, 0.20
-    intervention_round: int    # Round at which the boost is applied
+    intensity: float  # Trust boost δ — e.g. 0.0, 0.05, 0.10, 0.20
+    intervention_round: int  # Round at which the boost is applied
     n_agents: int
     n_rounds: int
     seed: int
 
-    cooperation_rate_pre: float    # Mean cooperation rate before intervention
-    cooperation_rate_post: float   # Mean cooperation rate after intervention
-    delta_cooperation: float       # post − pre
-    wealth_mean_final: float       # Mean wealth at last round
-    gini_final: float              # Gini coefficient at last round
+    cooperation_rate_pre: float  # Mean cooperation rate before intervention
+    cooperation_rate_post: float  # Mean cooperation rate after intervention
+    delta_cooperation: float  # post − pre
+    wealth_mean_final: float  # Mean wealth at last round
+    gini_final: float  # Gini coefficient at last round
 
     per_round_cooperation: list[float] = field(default_factory=list)
     per_round_wealth_mean: list[float] = field(default_factory=list)
@@ -59,14 +59,14 @@ class InterventionSummary:
     """Aggregated results across seeds for one intensity level."""
 
     intensity: float
-    intensity_pct: str          # e.g. "10%"
+    intensity_pct: str  # e.g. "10%"
     coop_pre_mean: float
     coop_post_mean: float
     delta_coop_mean: float
     delta_coop_std: float
     gini_mean: float
     wealth_mean_final: float
-    per_round_cooperation: list[float]   # from first seed, for plotting
+    per_round_cooperation: list[float]  # from first seed, for plotting
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -116,10 +116,10 @@ def run_single_intervention(
     rng = np.random.default_rng(seed)
 
     # Sample heterogeneous agent profiles
-    trust_base = rng.beta(2, 2, size=n_agents)      # ESS-realistic: centered ~0.5
-    risk = rng.beta(2, 3, size=n_agents)             # Slightly risk-averse
-    social = rng.beta(2, 2, size=n_agents)           # Social activity
-    wealth = np.full(n_agents, 100.0, dtype=float)   # Starting wealth
+    trust_base = rng.beta(2, 2, size=n_agents)  # ESS-realistic: centered ~0.5
+    risk = rng.beta(2, 3, size=n_agents)  # Slightly risk-averse
+    social = rng.beta(2, 2, size=n_agents)  # Social activity
+    wealth = np.full(n_agents, 100.0, dtype=float)  # Starting wealth
     agent_ids = [f"agent_{i:04d}" for i in range(n_agents)]
 
     per_round_coop: list[float] = []
@@ -129,19 +129,18 @@ def run_single_intervention(
         # Apply trust boost at intervention round
         effective_trust = np.clip(
             trust_base + (intensity if r >= intervention_round else 0.0),
-            0.0, 1.0,
+            0.0,
+            1.0,
         )
 
         # Cooperation probability — mirrors RuleBasedESSPolicy formula
         coop_prob = np.clip(
             0.2 + 0.5 * effective_trust * (1.0 - risk) + 0.15 * social,
-            0.05, 0.90,
+            0.05,
+            0.90,
         )
 
-        cooperated = np.array([
-            1 if _hash_uniform(agent_ids[i], r) < coop_prob[i] else 0
-            for i in range(n_agents)
-        ])
+        cooperated = np.array([1 if _hash_uniform(agent_ids[i], r) < coop_prob[i] else 0 for i in range(n_agents)])
 
         per_round_coop.append(float(cooperated.mean()))
 

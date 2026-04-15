@@ -1,7 +1,5 @@
 """Tests for distribution similarity metrics."""
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 

@@ -103,9 +103,13 @@ class ConditionedLLMPolicy(LLMPolicyBase):
             extra_guidance=self.extra_guidance,
         )
         self._log_prompt(
-            round_id=round_id, agent_id=profile.agent_id,
-            prompt_text=prompt_text, raw_text=raw_text,
-            action=action, latency=latency, parse_meta=parse_meta,
+            round_id=round_id,
+            agent_id=profile.agent_id,
+            prompt_text=prompt_text,
+            raw_text=raw_text,
+            action=action,
+            latency=latency,
+            parse_meta=parse_meta,
             extra_meta={
                 "condition_name": self.condition_name,
                 "use_population_context": self.use_population_context,

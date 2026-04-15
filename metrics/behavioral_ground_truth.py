@@ -63,6 +63,7 @@ from typing import Optional
 
 # ── Published benchmarks ──────────────────────────────────────────────────────
 
+
 class ExperimentType(str, Enum):
     PUBLIC_GOODS_GAME = "public_goods_game"
     TRUST_GAME = "trust_game"
@@ -99,28 +100,36 @@ BENCHMARKS: list[Benchmark] = [
         name="PGG cooperation rate",
         experiment_type=ExperimentType.PUBLIC_GOODS_GAME,
         metric="cooperation_rate",
-        low=0.35, high=0.55, point_estimate=0.45,
+        low=0.35,
+        high=0.55,
+        point_estimate=0.45,
         source="Ledyard (1995); Zelmer (2003); Chaudhuri (2011)",
     ),
     Benchmark(
         name="Trust game send rate",
         experiment_type=ExperimentType.TRUST_GAME,
         metric="cooperation_rate",
-        low=0.35, high=0.65, point_estimate=0.50,
+        low=0.35,
+        high=0.65,
+        point_estimate=0.50,
         source="Berg et al. (1995); Johnson & Mislin (2011) meta-analysis",
     ),
     Benchmark(
         name="Iterated PD cooperation",
         experiment_type=ExperimentType.ITERATED_PD,
         metric="cooperation_rate",
-        low=0.40, high=0.65, point_estimate=0.53,
+        low=0.40,
+        high=0.65,
+        point_estimate=0.53,
         source="Axelrod (1984); Dal Bó & Fréchette (2011)",
     ),
     Benchmark(
         name="EU wealth Gini",
         experiment_type=ExperimentType.GINI_WEALTH,
         metric="gini",
-        low=0.20, high=0.38, point_estimate=0.301,
+        low=0.20,
+        high=0.38,
+        point_estimate=0.301,
         source="Eurostat ilc_di12 (2023); World Bank (2022)",
     ),
 ]
@@ -131,10 +140,11 @@ RLHF_UNGROUNDED_COOP: float = 0.74
 
 # ── Result structures ─────────────────────────────────────────────────────────
 
+
 class Verdict(str, Enum):
     WITHIN_RANGE = "within_range"
-    ABOVE_RANGE  = "above_range"
-    BELOW_RANGE  = "below_range"
+    ABOVE_RANGE = "above_range"
+    BELOW_RANGE = "below_range"
 
 
 @dataclass
@@ -187,6 +197,7 @@ class GroundTruthResult:
 
 
 # ── Core functions ────────────────────────────────────────────────────────────
+
 
 def _compare_to_benchmark(value: float, benchmark: Benchmark) -> BenchmarkComparison:
     """Compare a simulated value against a single benchmark."""
@@ -279,9 +290,7 @@ def evaluate(
 
     # RLHF bias confirmed: ungrounded rate exceeds all experimental benchmarks
     all_coop_highs = [b.high for b in BENCHMARKS if b.metric == "cooperation_rate"]
-    rlhf_bias = condition == "ungrounded" and all(
-        simulated_coop_rate > h for h in all_coop_highs
-    )
+    rlhf_bias = condition == "ungrounded" and all(simulated_coop_rate > h for h in all_coop_highs)
 
     # Grounding efficacy: grounded rate falls within at least one real-human range
     grounding_ok = condition == "grounded" and n_coop_within >= 1
@@ -300,6 +309,7 @@ def evaluate(
 
 
 # ── Report ────────────────────────────────────────────────────────────────────
+
 
 def behavioral_ground_truth_report(
     simulated_coop_rate: float,
@@ -335,22 +345,14 @@ def behavioral_ground_truth_report(
 
     for c in result.coop_comparisons:
         rng = f"[{c.benchmark.low:.2f}, {c.benchmark.high:.2f}]"
-        lines.append(
-            f"  {c.benchmark.name:<30} {rng:>14} {c.simulated_value:>8.4f}"
-            f"  {c.verdict.value:>14}"
-        )
-    lines.append(
-        f"\n  → {result.n_coop_within_range}/{len(result.coop_comparisons)}"
-        f" benchmarks within range"
-    )
+        lines.append(f"  {c.benchmark.name:<30} {rng:>14} {c.simulated_value:>8.4f}  {c.verdict.value:>14}")
+    lines.append(f"\n  → {result.n_coop_within_range}/{len(result.coop_comparisons)} benchmarks within range")
 
     # ── RLHF bias flag ─────────────────────────────────────────────────────
     if result.rlhf_bias_confirmed:
-        lines.append("  → RLHF over-cooperation bias CONFIRMED ✓"
-                     " (ungrounded rate > all human benchmarks)")
+        lines.append("  → RLHF over-cooperation bias CONFIRMED ✓ (ungrounded rate > all human benchmarks)")
     elif condition == "grounded" and result.grounding_efficacy_confirmed:
-        lines.append("  → Grounding efficacy CONFIRMED ✓"
-                     " (grounded rate falls within human behavioral range)")
+        lines.append("  → Grounding efficacy CONFIRMED ✓ (grounded rate falls within human behavioral range)")
 
     # ── Gini benchmarks ───────────────────────────────────────────────────
     lines.append("")
@@ -360,14 +362,8 @@ def behavioral_ground_truth_report(
 
     for c in result.gini_comparisons:
         rng = f"[{c.benchmark.low:.2f}, {c.benchmark.high:.2f}]"
-        lines.append(
-            f"  {c.benchmark.name:<30} {rng:>14} {c.simulated_value:>8.4f}"
-            f"  {c.verdict.value:>14}"
-        )
-    lines.append(
-        f"\n  → {result.n_gini_within_range}/{len(result.gini_comparisons)}"
-        f" Gini benchmarks within range"
-    )
+        lines.append(f"  {c.benchmark.name:<30} {rng:>14} {c.simulated_value:>8.4f}  {c.verdict.value:>14}")
+    lines.append(f"\n  → {result.n_gini_within_range}/{len(result.gini_comparisons)} Gini benchmarks within range")
 
     lines.append("")
     lines.append("=" * 70)

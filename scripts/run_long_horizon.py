@@ -36,7 +36,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 
-
 # ── helpers ────────────────────────────────────────────────────────────────
 
 
@@ -94,7 +93,8 @@ def _run_condition(
         if condition == "grounded":
             coop_prob = np.clip(
                 0.2 + 0.5 * trust * (1.0 - risk) + 0.15 * social,
-                0.05, 0.90,
+                0.05,
+                0.90,
             )
         else:  # ungrounded: flat RLHF bias
             coop_prob = np.full(n, 0.70)
@@ -146,7 +146,7 @@ def _aggregate_across_seeds(runs: list[dict]) -> dict:
         return {}
     rounds = runs[0]["rounds"]
     n_rounds_valid = len(rounds)
-    means = np.array([r["fidelity_mean"] for r in runs])   # shape (n_seeds, T)
+    means = np.array([r["fidelity_mean"] for r in runs])  # shape (n_seeds, T)
     stds = np.array([r["fidelity_std"] for r in runs])
 
     decay_rates = [r["decay_rate"] for r in runs]
@@ -171,10 +171,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-agents", type=int, default=150)
     parser.add_argument("--n-rounds", type=int, default=100)
     parser.add_argument("--n-seeds", type=int, default=3)
-    parser.add_argument("--window", type=int, default=5,
-                        help="Sliding window for per-agent cooperation rate")
-    parser.add_argument("--plot-only", action="store_true",
-                        help="Skip simulation — re-plot from existing JSON")
+    parser.add_argument("--window", type=int, default=5, help="Sliding window for per-agent cooperation rate")
+    parser.add_argument("--plot-only", action="store_true", help="Skip simulation — re-plot from existing JSON")
     return parser.parse_args()
 
 
@@ -190,10 +188,7 @@ def main() -> None:
         conditions = ["grounded", "ungrounded"]
         runs_by_condition: dict[str, list[dict]] = {c: [] for c in conditions}
 
-        print(
-            f"[long_horizon] Running T={args.n_rounds}, "
-            f"N={args.n_agents}, seeds={seeds}"
-        )
+        print(f"[long_horizon] Running T={args.n_rounds}, N={args.n_agents}, seeds={seeds}")
         for condition in conditions:
             for seed in seeds:
                 print(f"  condition={condition}, seed={seed}…", end=" ", flush=True)
@@ -209,9 +204,7 @@ def main() -> None:
                 final_f = result["fidelity_mean"][-1] if result["fidelity_mean"] else float("nan")
                 print(f"done (decay_rate={dr:+.5f}, final_fidelity={final_f:.3f})")
 
-        aggregated = {
-            c: _aggregate_across_seeds(runs_by_condition[c]) for c in conditions
-        }
+        aggregated = {c: _aggregate_across_seeds(runs_by_condition[c]) for c in conditions}
 
         print("\n[long_horizon] Summary:")
         for c, agg in aggregated.items():
@@ -234,8 +227,7 @@ def main() -> None:
     if json_path.exists():
         print("[long_horizon] Generating figures…")
         subprocess.run(
-            [sys.executable, "scripts/plot_long_horizon.py",
-             "--input", str(json_path)],
+            [sys.executable, "scripts/plot_long_horizon.py", "--input", str(json_path)],
             check=False,
         )
     else:

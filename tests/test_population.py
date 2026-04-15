@@ -1,6 +1,4 @@
-from pathlib import Path
 from decision.mock_policy import MockPolicy
-
 from population.generator import generate_population
 from utils.io import set_global_seed
 
@@ -40,6 +38,7 @@ def test_generate_population_from_config():
 # ── Counterfactual Identity ("Soul Swap") — Condition C ───────────────────────
 
 import numpy as np
+
 from population.generator import _shuffle_traits
 
 
@@ -81,6 +80,7 @@ class TestCounterfactualIdentity:
 
         # Copy original values and shuffle
         import copy
+
         shuffled = copy.deepcopy(baseline)
         _shuffle_traits(shuffled)
         shuffled_risks = [a.profile.risk_tolerance for a in shuffled]
@@ -90,9 +90,7 @@ class TestCounterfactualIdentity:
             assert b.profile.age == s.profile.age
 
         # But risk_tolerance should be shuffled (different assignment)
-        assert original_risks != shuffled_risks, (
-            "shuffle_traits should produce a different risk_tolerance assignment"
-        )
+        assert original_risks != shuffled_risks, "shuffle_traits should produce a different risk_tolerance assignment"
 
     def test_shuffle_traits_preserves_demographics(self):
         """Demographics (age, income, education) must be unchanged."""
@@ -125,9 +123,7 @@ class TestCounterfactualIdentity:
         # After shuffle: correlation should be broken
         if np.std(risks_after) > 0:
             corr_after = np.corrcoef(indices, risks_after)[0, 1]
-            assert abs(corr_after) < 0.5, (
-                f"Correlation should be broken by shuffle, got r={corr_after:.3f}"
-            )
+            assert abs(corr_after) < 0.5, f"Correlation should be broken by shuffle, got r={corr_after:.3f}"
 
     def test_shuffle_traits_false_is_default(self):
         """Default (no shuffle_traits key) should produce deterministic output."""

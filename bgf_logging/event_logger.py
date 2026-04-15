@@ -74,7 +74,8 @@ class EventLogger:
         self._bytes_written = 0
         logger.info(
             "EventLogger: rotated to shard %s (shard %d)",
-            shard_path.name, self._rotation_count,
+            shard_path.name,
+            self._rotation_count,
         )
         self._open_handle()
 
@@ -102,7 +103,7 @@ class EventLogger:
     def __del__(self) -> None:
         self.close()
 
-    def __enter__(self) -> "EventLogger":
+    def __enter__(self) -> EventLogger:
         return self
 
     def __exit__(self, *_) -> None:

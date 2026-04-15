@@ -69,6 +69,7 @@ MAX_UTILITY_GAP = 0.05
 
 # ── Profile → feature vector ─────────────────────────────────────────────────
 
+
 def _safe_norm(val, lo: float, hi: float, default: float = 0.5) -> float:
     """Normalise val from [lo, hi] to [0, 1]; return default if val is None."""
     if val is None:
@@ -92,26 +93,23 @@ def profile_to_feature_vector(profile) -> list[float]:
         Length-4 float list matching FEATURE_COLUMNS order.
     """
     if isinstance(profile, dict):
-        age           = profile.get("age", 35)
+        age = profile.get("age", 35)
         income_decile = profile.get("income_decile", 5)
-        education     = profile.get("education_years", 10)
-        social        = profile.get("social_activity", 0.5)
+        education = profile.get("education_years", 10)
+        social = profile.get("social_activity", 0.5)
     else:
-        age           = getattr(profile, "age", 35)
+        age = getattr(profile, "age", 35)
         # income field may be raw value or normalised decile
-        income_raw    = getattr(profile, "income", None)
-        income_decile = getattr(profile, "income_decile",
-                                (income_raw / 1000.0) if income_raw else 5)
-        education     = getattr(profile, "education_years",
-                                getattr(profile, "education", 10))
-        social        = getattr(profile, "social_activity", 0.5)
+        income_raw = getattr(profile, "income", None)
+        income_decile = getattr(profile, "income_decile", (income_raw / 1000.0) if income_raw else 5)
+        education = getattr(profile, "education_years", getattr(profile, "education", 10))
+        social = getattr(profile, "social_activity", 0.5)
 
     return [
         _safe_norm(age, 15, 90),
         _safe_norm(income_decile, 1, 10),
         _safe_norm(education, 0, 25),
-        _safe_norm(social, 0.0, 1.0) if isinstance(social, float)
-        else _safe_norm(social, 1, 7),
+        _safe_norm(social, 0.0, 1.0) if isinstance(social, float) else _safe_norm(social, 1, 7),
     ]
 
 
@@ -164,8 +162,7 @@ def load_real_ess_dataset(parquet_path: str) -> tuple[np.ndarray, np.ndarray]:
     path = Path(parquet_path)
     if not path.exists():
         raise FileNotFoundError(
-            f"ESS clean dataset not found at {path}. "
-            "Run scripts/download_ess_data.py to generate it."
+            f"ESS clean dataset not found at {path}. Run scripts/download_ess_data.py to generate it."
         )
 
     df = pd.read_parquet(path)
@@ -184,6 +181,7 @@ def load_real_ess_dataset(parquet_path: str) -> tuple[np.ndarray, np.ndarray]:
 
 # ── Classifier ───────────────────────────────────────────────────────────────
 
+
 def _fit_predict(
     train_X: np.ndarray,
     train_y: np.ndarray,
@@ -195,8 +193,7 @@ def _fit_predict(
         from sklearn.preprocessing import StandardScaler
     except ImportError as exc:
         raise ImportError(
-            "scikit-learn is required for TSTR benchmark. "
-            "Install with: pip install scikit-learn"
+            "scikit-learn is required for TSTR benchmark. Install with: pip install scikit-learn"
         ) from exc
 
     scaler = StandardScaler()
@@ -233,6 +230,7 @@ def _compute_metrics(
 
 # ── TSTR result ───────────────────────────────────────────────────────────────
 
+
 @dataclass
 class TSTRResult:
     """Result of the TSTR benchmark.
@@ -267,6 +265,7 @@ class TSTRResult:
 
 
 # ── Core TSTR function ────────────────────────────────────────────────────────
+
 
 def tstr_benchmark(
     synthetic_X: np.ndarray,
@@ -309,8 +308,11 @@ def tstr_benchmark(
 
     # Split real into train/test
     real_X_train, real_X_test, real_y_train, real_y_test = train_test_split(
-        real_X, real_y, test_size=test_fraction, random_state=random_state, stratify=real_y
-        if len(np.unique(real_y)) > 1 else None,
+        real_X,
+        real_y,
+        test_size=test_fraction,
+        random_state=random_state,
+        stratify=real_y if len(np.unique(real_y)) > 1 else None,
     )
 
     # TSTR: train on synthetic, test on real_test
@@ -345,6 +347,7 @@ def tstr_benchmark(
 
 # ── Report ────────────────────────────────────────────────────────────────────
 
+
 def utility_report(result: TSTRResult) -> str:
     """Return a human-readable TSTR benchmark summary."""
     gap_status = "PASS ✓" if result.passes_utility_threshold else "FAIL ✗"
@@ -363,10 +366,10 @@ def utility_report(result: TSTRResult) -> str:
         f"    Real:             {result.real_label_balance:.4f}",
         "",
         f"  {'Condition':<20} {'Accuracy':>10} {'AUC-ROC':>10}",
-        f"  {'-'*42}",
+        f"  {'-' * 42}",
         f"  {'TRTR (train real)':<20} {result.trtr_accuracy:>10.4f} {result.trtr_auc:>10.4f}",
         f"  {'TSTR (train synth)':<20} {result.tstr_accuracy:>10.4f} {result.tstr_auc:>10.4f}",
-        f"  {'-'*42}",
+        f"  {'-' * 42}",
         f"  {'Utility gap':<20} {result.utility_gap_accuracy:>10.4f} {result.utility_gap_auc:>10.4f}",
         "",
         f"  Utility threshold (≤ {MAX_UTILITY_GAP}):  {gap_status}",

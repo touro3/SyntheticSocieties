@@ -34,7 +34,7 @@ import logging
 import re
 import textwrap
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import yaml
 
@@ -169,6 +169,7 @@ _STAGE4_EXPERIMENT = textwrap.dedent("""
 
 # ── JSON repair (reuse logic from output_parser) ──────────────────────────────
 
+
 def _repair_and_parse(text: str) -> dict:
     """Extract and parse a JSON object from LLM output with light repair."""
     text = text.strip()
@@ -176,7 +177,7 @@ def _repair_and_parse(text: str) -> dict:
     text = re.sub(r"^```(?:json)?\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
     # Find first JSON object
-    match = re.search(r'\{.*\}', text, re.DOTALL)
+    match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         candidate = match.group(0)
         # Remove trailing commas before } or ]
@@ -186,6 +187,7 @@ def _repair_and_parse(text: str) -> dict:
 
 
 # ── Deep merge utility ────────────────────────────────────────────────────────
+
 
 def _deep_merge(base: dict, override: dict) -> dict:
     """Recursively merge override into base (override wins on conflict)."""
@@ -201,47 +203,54 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # ── Default fallback config ───────────────────────────────────────────────────
 
 _DEFAULT_CONFIG: dict = {
-    "project":    {"name": "bgf", "experiment_id": "generated_exp", "seed": 42},
+    "project": {"name": "bgf", "experiment_id": "generated_exp", "seed": 42},
     "simulation": {"rounds": 30, "population_size": 50},
-    "policy":     {"type": "llm"},
+    "policy": {"type": "llm"},
     "population": {"source": "synthetic"},
     "data": {
         "ess_interview_path": "data/ESS11INTe04_1.csv",
-        "ess_main_path":      "data/ESS11MD_e01_2.csv",
-        "ess_clean_path":     "data/ess_clean.parquet",
+        "ess_main_path": "data/ESS11MD_e01_2.csv",
+        "ess_clean_path": "data/ess_clean.parquet",
         "distributions_path": "data/empirical_distributions.json",
-        "sample_mode":        "resample",
+        "sample_mode": "resample",
     },
     "llm": {
-        "model_id":          "mistralai/Mistral-7B-Instruct-v0.3",
-        "cache_dir":         None,
-        "dtype":             "float16",
-        "device_map":        "auto",
-        "temperature":       0.7,
-        "max_new_tokens":    256,
-        "memory_window":     5,
-        "max_retries":       2,
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "cache_dir": None,
+        "dtype": "float16",
+        "device_map": "auto",
+        "temperature": 0.7,
+        "max_new_tokens": 256,
+        "memory_window": 5,
+        "max_retries": 2,
         "inference_timeout": 120,
     },
-    "network":     {"type": "random", "edge_prob": 0.5, "k": 2, "rewiring_prob": 0.3},
+    "network": {"type": "random", "edge_prob": 0.5, "k": 2, "rewiring_prob": 0.3},
     "environment": {
         "public_signal": {"economy": "stable"},
-        "prices":        {"food": 1.0},
-        "resources":     {"jobs": 100.0},
+        "prices": {"food": 1.0},
+        "resources": {"jobs": 100.0},
     },
     "agent_defaults": {
-        "min_age": 25, "max_age": 60,
-        "base_income": 1000.0, "income_step": 100.0,
-        "education": "college", "occupation": "worker",
-        "location": "urban", "political_preference": "center",
-        "risk_tolerance": 0.5, "social_class": "middle",
-        "initial_wealth": 50.0, "wealth_step": 10.0,
+        "min_age": 25,
+        "max_age": 60,
+        "base_income": 1000.0,
+        "income_step": 100.0,
+        "education": "college",
+        "occupation": "worker",
+        "location": "urban",
+        "political_preference": "center",
+        "risk_tolerance": 0.5,
+        "social_class": "middle",
+        "initial_wealth": 50.0,
+        "wealth_step": 10.0,
         "memory_size": 10,
     },
 }
 
 
 # ── Generator ─────────────────────────────────────────────────────────────────
+
 
 class LLMConfigGenerator:
     """
@@ -274,11 +283,10 @@ class LLMConfigGenerator:
 
         try:
             from openai import OpenAI
+
             self._client = OpenAI(api_key=api_key, base_url=base_url)
         except ImportError as exc:
-            raise ImportError(
-                "openai package required. Install with: pip install openai"
-            ) from exc
+            raise ImportError("openai package required. Install with: pip install openai") from exc
 
     def _call_llm(self, prompt: str) -> dict:
         """Call the LLM and parse JSON from the response, with retry."""
@@ -325,9 +333,7 @@ class LLMConfigGenerator:
         )
         stage2 = self._run_stage(
             name="Economy",
-            prompt=_STAGE2_ECONOMY.format(
-                scenario=scenario, population_summary=pop_summary
-            ),
+            prompt=_STAGE2_ECONOMY.format(scenario=scenario, population_summary=pop_summary),
             verbose=verbose,
         )
         config = _deep_merge(config, stage2)
@@ -380,12 +386,12 @@ class LLMConfigGenerator:
         """Clamp numeric fields to valid ranges after LLM generation."""
         sim = config.setdefault("simulation", {})
         sim["population_size"] = max(1, min(int(sim.get("population_size", 50)), 500))
-        sim["rounds"]          = max(1, min(int(sim.get("rounds", 30)), 200))
+        sim["rounds"] = max(1, min(int(sim.get("rounds", 30)), 200))
 
         net = config.setdefault("network", {})
-        net["edge_prob"]     = max(0.05, min(float(net.get("edge_prob", 0.5)), 0.95))
+        net["edge_prob"] = max(0.05, min(float(net.get("edge_prob", 0.5)), 0.95))
         net["rewiring_prob"] = max(0.01, min(float(net.get("rewiring_prob", 0.3)), 0.99))
-        net["k"]             = max(1,    min(int(net.get("k", 2)), 10))
+        net["k"] = max(1, min(int(net.get("k", 2)), 10))
         if net.get("type") not in ("random", "small_world"):
             net["type"] = "random"
 
@@ -397,16 +403,25 @@ class LLMConfigGenerator:
         resources["jobs"] = max(10.0, min(float(resources.get("jobs", 100.0)), 500.0))
 
         llm = config.setdefault("llm", {})
-        llm["temperature"]  = max(0.0, min(float(llm.get("temperature", 0.7)), 2.0))
-        llm["memory_window"]= max(1,   min(int(llm.get("memory_window", 5)), 20))
+        llm["temperature"] = max(0.0, min(float(llm.get("temperature", 0.7)), 2.0))
+        llm["memory_window"] = max(1, min(int(llm.get("memory_window", 5)), 20))
 
         ad = config.setdefault("agent_defaults", {})
-        ad["risk_tolerance"]  = max(0.0, min(float(ad.get("risk_tolerance", 0.5)), 1.0))
-        ad["initial_wealth"]  = max(0.0, float(ad.get("initial_wealth", 50.0)))
+        ad["risk_tolerance"] = max(0.0, min(float(ad.get("risk_tolerance", 0.5)), 1.0))
+        ad["initial_wealth"] = max(0.0, float(ad.get("initial_wealth", 50.0)))
 
         pol = config.setdefault("policy", {})
-        if pol.get("type") not in ("mock", "random", "template", "rule_based", "llm",
-                                   "conditioned_llm", "generative_agents", "ablated_llm", "data_driven"):
+        if pol.get("type") not in (
+            "mock",
+            "random",
+            "template",
+            "rule_based",
+            "llm",
+            "conditioned_llm",
+            "generative_agents",
+            "ablated_llm",
+            "data_driven",
+        ):
             pol["type"] = "llm"
 
         return config
@@ -422,20 +437,17 @@ class LLMConfigGenerator:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def _cli() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate a BGF simulation config from a natural-language scenario"
-    )
-    parser.add_argument("--scenario", required=True,
-                        help="Natural-language scenario description")
-    parser.add_argument("--out", default=None,
-                        help="Output YAML path (default: print to stdout)")
-    parser.add_argument("--model",    default="gpt-4o-mini")
-    parser.add_argument("--api-key",  default="EMPTY")
+    parser = argparse.ArgumentParser(description="Generate a BGF simulation config from a natural-language scenario")
+    parser.add_argument("--scenario", required=True, help="Natural-language scenario description")
+    parser.add_argument("--out", default=None, help="Output YAML path (default: print to stdout)")
+    parser.add_argument("--model", default="gpt-4o-mini")
+    parser.add_argument("--api-key", default="EMPTY")
     parser.add_argument("--base-url", default=None)
-    parser.add_argument("--verbose",  action="store_true")
+    parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     gen = LLMConfigGenerator(

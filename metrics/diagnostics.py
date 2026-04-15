@@ -44,11 +44,7 @@ def subgroup_analysis(
 
         wealths = [a.state.wealth for a in group_agents]
         group_events = [e for e in events if e.get("agent_id") in group_ids]
-        actions = [
-            e.get("action", {}).get("action_type", "unknown")
-            for e in group_events
-            if "action" in e
-        ]
+        actions = [e.get("action", {}).get("action_type", "unknown") for e in group_events if "action" in e]
 
         action_counts = Counter(actions)
         total = max(len(actions), 1)
@@ -92,9 +88,7 @@ def persona_drift_detection(
     )
 
     results = {}
-    all_actions = sorted(set(
-        a for aa in agent_actions.values() for _, a in aa.get("all", [])
-    ))
+    all_actions = sorted(set(a for aa in agent_actions.values() for _, a in aa.get("all", [])))
 
     for agent_id, data in agent_actions.items():
         rounds_actions = sorted(data.get("all", []), key=lambda x: x[0])

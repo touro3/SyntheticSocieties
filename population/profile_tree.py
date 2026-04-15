@@ -209,23 +209,14 @@ def _extract_leaf_rules(tree_struct, feature_names: list[str]) -> dict[int, dict
     def recurse(node_id: int, bounds: dict[str, dict[str, float]]) -> None:
         feature_index = tree_struct.feature[node_id]
         if feature_index == _tree.TREE_UNDEFINED:
-            rules[node_id] = {
-                key: {"low": value["low"], "high": value["high"]}
-                for key, value in bounds.items()
-            }
+            rules[node_id] = {key: {"low": value["low"], "high": value["high"]} for key, value in bounds.items()}
             return
 
         feature_name = feature_names[feature_index]
         threshold = float(tree_struct.threshold[node_id])
 
-        left_bounds = {
-            key: {"low": value["low"], "high": value["high"]}
-            for key, value in bounds.items()
-        }
-        right_bounds = {
-            key: {"low": value["low"], "high": value["high"]}
-            for key, value in bounds.items()
-        }
+        left_bounds = {key: {"low": value["low"], "high": value["high"]} for key, value in bounds.items()}
+        right_bounds = {key: {"low": value["low"], "high": value["high"]} for key, value in bounds.items()}
 
         left_bounds.setdefault(feature_name, {"low": -float("inf"), "high": float("inf")})
         right_bounds.setdefault(feature_name, {"low": -float("inf"), "high": float("inf")})

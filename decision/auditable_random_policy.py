@@ -159,10 +159,22 @@ class AuditableRandomPolicy:
     def _reasoning_summary(self, weights: dict, adjustments: list[str]) -> str:
         weight_str = ", ".join(f"{k}={v:.2f}" for k, v in weights.items())
         if adjustments:
-            return f"[Auditable random] weighted sample with {weight_str}. Key adjustments: {'; '.join(adjustments[:3])}."
+            return (
+                f"[Auditable random] weighted sample with {weight_str}. Key adjustments: {'; '.join(adjustments[:3])}."
+            )
         return f"[Auditable random] weighted sample with {weight_str}."
 
-    def _log_audit(self, round_id: int, agent_id: str, state, neighbors: list[str], weights: dict, adjustments: list[str], draw: float, action: ProposedAction) -> None:
+    def _log_audit(
+        self,
+        round_id: int,
+        agent_id: str,
+        state,
+        neighbors: list[str],
+        weights: dict,
+        adjustments: list[str],
+        draw: float,
+        action: ProposedAction,
+    ) -> None:
         if self.audit_path is None:
             return
 

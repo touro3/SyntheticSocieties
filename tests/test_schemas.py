@@ -1,9 +1,9 @@
 """Tests for domain value objects — ProposedAction validation."""
+
 import pytest
 from pydantic import ValidationError
 
 from decision.schemas import ProposedAction
-
 
 # ── ActionType validation ────────────────────────────────────────────────
 

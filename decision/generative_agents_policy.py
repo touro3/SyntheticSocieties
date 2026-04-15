@@ -118,14 +118,10 @@ class GenerativeAgentsPolicy(LLMPolicyBase):
 
     def _get_backstory(self, agent_id: str) -> str:
         if agent_id not in self._backstory_cache:
-            self._backstory_cache[agent_id] = _sample_fictional_backstory(
-                agent_id, seed=self.backstory_seed
-            )
+            self._backstory_cache[agent_id] = _sample_fictional_backstory(agent_id, seed=self.backstory_seed)
         return self._backstory_cache[agent_id]
 
-    def propose_action(
-        self, profile, state, memory, context: dict, round_id: int
-    ) -> ProposedAction:
+    def propose_action(self, profile, state, memory, context: dict, round_id: int) -> ProposedAction:
         neighbors = get_neighbors(context)
 
         # Build prompt: fictional backstory + state + memory + context (no RAG)

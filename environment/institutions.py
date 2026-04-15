@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from decision.schemas import ProposedAction
-from environment.payoffs import GamePayoffs, DEFAULT_PAYOFFS
+from environment.payoffs import DEFAULT_PAYOFFS, GamePayoffs
 
 
 class ValidationResult(BaseModel):

@@ -21,10 +21,10 @@ import json
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-
 
 _DEFAULT_RESULTS = Path("analysis/cross_model_results.json")
 _DEFAULT_OUT = Path("analysis/figures/cross_model_bias_comparison.png")
@@ -76,8 +76,7 @@ def plot_cross_model_comparison(
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     fig.suptitle(
-        "Cross-Model RLHF Bias Comparison\n"
-        "Condition A = Ungrounded LLM  |  Condition B = BGF Grounded",
+        "Cross-Model RLHF Bias Comparison\nCondition A = Ungrounded LLM  |  Condition B = BGF Grounded",
         fontsize=12,
         fontweight="bold",
     )
@@ -96,10 +95,12 @@ def plot_cross_model_comparison(
             bars_a.append(conds.get("A", {}).get(metric_key, 0.0))
             bars_b.append(conds.get("B", {}).get(metric_key, 0.0))
 
-        rects_a = ax.bar(x - width / 2, bars_a, width, label="Condition A (Ungrounded)",
-                         color=_CONDITION_COLORS["A"], alpha=0.85)
-        rects_b = ax.bar(x + width / 2, bars_b, width, label="Condition B (Grounded)",
-                         color=_CONDITION_COLORS["B"], alpha=0.85)
+        rects_a = ax.bar(
+            x - width / 2, bars_a, width, label="Condition A (Ungrounded)", color=_CONDITION_COLORS["A"], alpha=0.85
+        )
+        rects_b = ax.bar(
+            x + width / 2, bars_b, width, label="Condition B (Grounded)", color=_CONDITION_COLORS["B"], alpha=0.85
+        )
 
         ax.set_xticks(x)
         ax.set_xticklabels([_MODEL_LABELS.get(m, m) for m in models], fontsize=10)
@@ -133,8 +134,7 @@ def plot_cross_model_comparison(
 
 def _print_table(rows: list[dict]) -> None:
     """Print a markdown-style comparison table to stdout."""
-    from metrics.cross_model import build_comparison_table
-    from metrics.cross_model import CrossModelResult
+    from metrics.cross_model import CrossModelResult, build_comparison_table
 
     results = [
         CrossModelResult(

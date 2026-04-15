@@ -17,19 +17,21 @@ from metrics.trajectories import aggregate_seeds
 
 # ── Style ──────────────────────────────────────────────────────────────────
 
-plt.rcParams.update({
-    "figure.facecolor": "#1a1a2e",
-    "axes.facecolor": "#16213e",
-    "axes.edgecolor": "#e94560",
-    "axes.labelcolor": "#e8e8e8",
-    "text.color": "#e8e8e8",
-    "xtick.color": "#e8e8e8",
-    "ytick.color": "#e8e8e8",
-    "grid.color": "#2a2a4a",
-    "grid.alpha": 0.4,
-    "font.family": "sans-serif",
-    "font.size": 10,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": "#1a1a2e",
+        "axes.facecolor": "#16213e",
+        "axes.edgecolor": "#e94560",
+        "axes.labelcolor": "#e8e8e8",
+        "text.color": "#e8e8e8",
+        "xtick.color": "#e8e8e8",
+        "ytick.color": "#e8e8e8",
+        "grid.color": "#2a2a4a",
+        "grid.alpha": 0.4,
+        "font.family": "sans-serif",
+        "font.size": 10,
+    }
+)
 
 COLORS = {
     "llm": "#e94560",
@@ -47,9 +49,7 @@ COLORS = {
 # ══════════════════════════════════════════════════════════════════════════
 
 
-def plot_wealth_stress_trajectories(
-    policies: list[str], seeds: list[int], output_path: Path
-):
+def plot_wealth_stress_trajectories(policies: list[str], seeds: list[int], output_path: Path):
     """Plot Mean +/- Std Wealth and Stress trajectories."""
     fig, axes = plt.subplots(1, 2, figsize=(15, 6))
 
@@ -68,7 +68,8 @@ def plot_wealth_stress_trajectories(
             rounds,
             data["wealth_mean"] - data["wealth_std"],
             data["wealth_mean"] + data["wealth_std"],
-            color=color, alpha=0.15,
+            color=color,
+            alpha=0.15,
         )
 
         # Stress
@@ -77,7 +78,8 @@ def plot_wealth_stress_trajectories(
             rounds,
             data["stress_mean"] - data["stress_std"],
             data["stress_mean"] + data["stress_std"],
-            color=color, alpha=0.15,
+            color=color,
+            alpha=0.15,
         )
 
     axes[0].set_title("Wealth Trajectories (Mean +/- 1 sigma)", fontweight="bold")
@@ -97,9 +99,7 @@ def plot_wealth_stress_trajectories(
     print(f"  -> {output_path}")
 
 
-def plot_per_agent_ci_bands(
-    policy: str, seeds: list[int], output_path: Path, n_agents_show: int = 5
-):
+def plot_per_agent_ci_bands(policy: str, seeds: list[int], output_path: Path, n_agents_show: int = 5):
     """Plot per-agent wealth trajectories with 95% CI bands across seeds.
 
     Shows the first `n_agents_show` agents' individual trajectories
@@ -158,7 +158,8 @@ def plot_per_agent_ci_bands(
     axes[0].set_ylabel("Wealth")
     fig.suptitle(
         f"Per-Agent Wealth Trajectories ({policy.upper()}, {len(runs)} seeds, 95% CI)",
-        fontweight="bold", fontsize=13,
+        fontweight="bold",
+        fontsize=13,
     )
     plt.tight_layout(rect=[0, 0, 1, 0.93])
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
@@ -178,13 +179,17 @@ def plot_action_frequencies_area(policy: str, seeds: list[int], output_path: Pat
     labels = data["action_labels"]
 
     ax.stackplot(
-        rounds, freqs, labels=labels,
-        colors=[COLORS[l] for l in labels], alpha=0.8,
+        rounds,
+        freqs,
+        labels=labels,
+        colors=[COLORS[l] for l in labels],
+        alpha=0.8,
     )
 
     ax.set_title(
         f"Action Frequency Evolution -- {policy.upper()}",
-        fontweight="bold", fontsize=14,
+        fontweight="bold",
+        fontsize=14,
     )
     ax.set_xlabel("Round")
     ax.set_ylabel("Proportion of Actions")
@@ -198,9 +203,14 @@ def plot_action_frequencies_area(policy: str, seeds: list[int], output_path: Pat
             for j, val in enumerate(freqs[:, i]):
                 if val > 0.05:
                     ax.text(
-                        r, cumulative + val / 2, f"{val:.0%}",
-                        ha="center", va="center", color="white",
-                        fontsize=8, fontweight="bold",
+                        r,
+                        cumulative + val / 2,
+                        f"{val:.0%}",
+                        ha="center",
+                        va="center",
+                        color="white",
+                        fontsize=8,
+                        fontweight="bold",
                     )
                 cumulative += val
 

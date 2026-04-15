@@ -30,8 +30,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
 
 import numpy as np
@@ -49,7 +49,7 @@ from metrics.cross_cultural import (
     compute_cross_cultural_correlation_multiseed,
     format_cross_cultural_table,
 )
-from population.country_clusters import load_clusters, CountryCluster
+from population.country_clusters import CountryCluster, load_clusters
 
 # ── Output paths ──────────────────────────────────────────────────────────────
 
@@ -74,6 +74,7 @@ def _make_agent(row: dict, agent_id: str, rng: np.random.Generator, policy):
             return default
         try:
             import math
+
             f = float(val)
             return default if math.isnan(f) else f
         except (TypeError, ValueError):
@@ -84,6 +85,7 @@ def _make_agent(row: dict, agent_id: str, rng: np.random.Generator, policy):
             return default
         try:
             import math
+
             f = float(val)
             if math.isnan(f):
                 return default
@@ -138,6 +140,7 @@ def _run_cluster(
 
     if dry_run:
         import random
+
         rng2 = random.Random(hash(f"{cluster.name}{seed}"))
         # Synthetic: higher-trust cluster → higher cooperation rate
         band_base = {"high": 0.30, "moderate": 0.18, "low": 0.10}
@@ -154,11 +157,11 @@ def _run_cluster(
             n_rounds=n_rounds,
         )
 
+    from bgf_logging.event_logger import EventLogger
     from environment.institutions import InstitutionManager
     from environment.network import NetworkManager
     from environment.world import World
     from environment.world_state import WorldState
-    from bgf_logging.event_logger import EventLogger
     from metrics.event_metrics import behavior_summary_from_events, load_events
     from metrics.inequality import gini_coefficient
     from population.ess_grounding import ESSGrounder
@@ -170,13 +173,16 @@ def _run_cluster(
     # Build policy
     if policy_type == "mock":
         from decision.mock_policy import MockPolicy
+
         policy = MockPolicy()
     elif policy_type == "rule_based":
         from decision.rule_based_policy import RuleBasedPolicy
+
         policy = RuleBasedPolicy()
     elif policy_type == "llm":
-        from decision.llm_policy import LLMPolicy
         from decision.llm_backend import LLMBackend
+        from decision.llm_policy import LLMPolicy
+
         backend = LLMBackend.get_instance(
             model_id="mistralai/Mistral-7B-Instruct-v0.3",
             dtype="float16",
@@ -218,9 +224,7 @@ def _run_cluster(
     ]
 
     agent_ids = [a.profile.agent_id for a in agents]
-    network = NetworkManager.small_world(
-        agent_ids=agent_ids, k=4, rewiring_prob=0.1, seed=seed
-    )
+    network = NetworkManager.small_world(agent_ids=agent_ids, k=4, rewiring_prob=0.1, seed=seed)
     world = World(
         state=WorldState(
             public_signal={"economy": "stable"},
@@ -241,18 +245,13 @@ def _run_cluster(
         events = load_events(events_path)
         behavior = behavior_summary_from_events(events)
 
-    coop_rate = float(
-        behavior.get("event_behavior", {}).get("cooperation_rate", 0.0)
-    )
+    coop_rate = float(behavior.get("event_behavior", {}).get("cooperation_rate", 0.0))
     final_wealth = [a.state.wealth for a in agents]
     gini = gini_coefficient(final_wealth) if len(final_wealth) > 1 else 0.0
 
     elapsed = time.time() - t0
     cohort_size = len(ground_result.matched_df)
-    print(
-        f"({elapsed:.0f}s)  coop={coop_rate:.3f}  gini={gini:.3f}  "
-        f"cohort={cohort_size}"
-    )
+    print(f"({elapsed:.0f}s)  coop={coop_rate:.3f}  gini={gini:.3f}  cohort={cohort_size}")
 
     return ClusterSimResult(
         cluster_name=cluster.name,
@@ -312,9 +311,7 @@ def _save_csv(path: Path, results: list[ClusterSimResult], cc_result: CrossCultu
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Phase 17 — Cross-Cultural ESS Validation"
-    )
+    parser = argparse.ArgumentParser(description="Phase 17 — Cross-Cultural ESS Validation")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -398,11 +395,13 @@ def main() -> None:
     else:
         # Multi-seed path — aggregate cooperation rates per cluster then correlate
         from collections import defaultdict
+
         per_cluster_runs: dict[str, list[ClusterSimResult]] = defaultdict(list)
 
         for seed_idx, seed in enumerate(seeds):
             if seed_idx > 0 and policy_type == "llm":
                 from decision.llm_backend import LLMBackend
+
                 LLMBackend.between_seeds()
             print(f"\n── Seed {seed} ──")
             for cluster in clusters:
@@ -444,9 +443,11 @@ def main() -> None:
         print(f"Table saved to:   {_TABLE_PATH}")
         print()
         print(format_cross_cultural_table(cc_result))
-        print(f"\n[multi-seed] Pearson r = {cc_result.pearson_r:.4f}  "
-              f"Spearman ρ = {cc_result.spearman_rho:.4f}  "
-              f"({args.n_seeds} seeds per cluster)")
+        print(
+            f"\n[multi-seed] Pearson r = {cc_result.pearson_r:.4f}  "
+            f"Spearman ρ = {cc_result.spearman_rho:.4f}  "
+            f"({args.n_seeds} seeds per cluster)"
+        )
 
 
 if __name__ == "__main__":

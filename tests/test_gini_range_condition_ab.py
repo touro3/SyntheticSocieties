@@ -11,6 +11,7 @@ Two complementary approaches:
 
 References: Eurostat (2023) EU-27 income Gini 0.301; World Bank (2022) EU range 0.24–0.38.
 """
+
 from __future__ import annotations
 
 import sys
@@ -19,7 +20,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import networkx as nx
-import pytest
 
 from agents.agent import Agent
 from agents.memory import MemoryBuffer
@@ -33,7 +33,6 @@ from environment.world import World
 from environment.world_state import WorldState
 from metrics.inequality import gini_coefficient
 from simulation.kernel import SimulationKernel
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

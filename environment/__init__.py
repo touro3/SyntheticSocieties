@@ -1,6 +1,6 @@
-from environment.network import NetworkManager
 from environment.institutions import InstitutionManager
-from environment.payoffs import GamePayoffs, DEFAULT_PAYOFFS
+from environment.network import NetworkManager
+from environment.payoffs import DEFAULT_PAYOFFS, GamePayoffs
 from environment.world import World
 from environment.world_state import WorldState
 

@@ -29,6 +29,7 @@ Usage:
     python scripts/run_experiment_matrix.py --include-llm \\
         --conditions A B C D --seeds 1..10
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,10 +52,10 @@ _CONDITION_OVERRIDES: dict[str, list[str]] = {
     # population.source=empirical is critical for both A and B: agents must have
     # realistic ESS-sampled demographic profiles. Condition A = no prompt grounding
     # (ablation=0); Condition B = full ESS context injected at decision time (ablation=5).
-    "A": ["population.source=empirical", "llm.ablation_level=0"],   # Pure LLM, no grounding
-    "B": ["population.source=empirical", "llm.ablation_level=5"],   # Full grounding
-    "C": ["policy.type=generative_agents"],                          # Generative Agents proxy
-    "D": ["policy.type=rule_based_ess"],                             # Deterministic ESS rule-based
+    "A": ["population.source=empirical", "llm.ablation_level=0"],  # Pure LLM, no grounding
+    "B": ["population.source=empirical", "llm.ablation_level=5"],  # Full grounding
+    "C": ["policy.type=generative_agents"],  # Generative Agents proxy
+    "D": ["policy.type=rule_based_ess"],  # Deterministic ESS rule-based
 }
 
 _CONDITION_POLICY: dict[str, str] = {
@@ -66,6 +67,7 @@ _CONDITION_POLICY: dict[str, str] = {
 
 
 # ── Seed parsing (shared with run_full_pipeline) ──────────────────────────────
+
 
 def parse_seed_list(seeds_str: str) -> list[int]:
     seeds: list[int] = []
@@ -80,6 +82,7 @@ def parse_seed_list(seeds_str: str) -> list[int]:
 
 
 # ── Matrix cell ───────────────────────────────────────────────────────────────
+
 
 def _cell_id(condition: str, seed: int, ablation: int | None, temperature: float | None) -> str:
     parts = [f"mx_{condition}_s{seed}"]
@@ -115,6 +118,7 @@ def _build_overrides(
 
 
 # ── Matrix execution ──────────────────────────────────────────────────────────
+
 
 def run_matrix(args) -> list[dict]:
     """Execute the experiment grid and return per-cell result dicts."""
@@ -167,6 +171,7 @@ def run_matrix(args) -> list[dict]:
         if cond in ("A", "B") and i > 1:
             try:
                 from decision.llm_backend import LLMBackend
+
                 LLMBackend.between_seeds()
             except ImportError:
                 pass
@@ -186,11 +191,17 @@ def run_matrix(args) -> list[dict]:
             elapsed = time.time() - t0
             print(f" ✗ ({elapsed:.1f}s): {str(exc)[:80]}")
             failed += 1
-            results.append({
-                "exp_id": exp_id, "condition": cond, "seed": seed,
-                "ablation": abl, "temperature": temp, "status": "failed",
-                "error": str(exc)[:200],
-            })
+            results.append(
+                {
+                    "exp_id": exp_id,
+                    "condition": cond,
+                    "seed": seed,
+                    "ablation": abl,
+                    "temperature": temp,
+                    "status": "failed",
+                    "error": str(exc)[:200],
+                }
+            )
 
     print(f"\n  Done: {completed} ran, {skipped} skipped, {failed} failed  ({total} total)")
     return results
@@ -198,17 +209,23 @@ def run_matrix(args) -> list[dict]:
 
 def _load_summary(exp_id: str, cond: str, seed: int, abl, temp) -> dict:
     path = Path("experiments") / exp_id / "summary.json"
-    row: dict = {"exp_id": exp_id, "condition": cond, "seed": seed,
-                 "ablation": abl, "temperature": temp, "status": "ok"}
+    row: dict = {
+        "exp_id": exp_id,
+        "condition": cond,
+        "seed": seed,
+        "ablation": abl,
+        "temperature": temp,
+        "status": "ok",
+    }
     if path.exists():
         try:
             data = json.loads(path.read_text())
             metrics = data.get("metrics", data)
             row["cooperation_rate"] = metrics.get("cooperation_rate")
-            row["gini"]             = metrics.get("gini")
-            row["mean_wealth"]      = metrics.get("mean_wealth")
-            row["brm"]              = metrics.get("brm")
-            row["fidelity"]         = metrics.get("persona_fidelity")
+            row["gini"] = metrics.get("gini")
+            row["mean_wealth"] = metrics.get("mean_wealth")
+            row["brm"] = metrics.get("brm")
+            row["fidelity"] = metrics.get("persona_fidelity")
         except Exception:
             row["status"] = "parse_error"
     else:
@@ -218,10 +235,12 @@ def _load_summary(exp_id: str, cond: str, seed: int, abl, temp) -> dict:
 
 # ── Statistical summary ───────────────────────────────────────────────────────
 
+
 def _print_stats(results: list[dict]) -> None:
     """Print per-condition mean ± std for key metrics."""
     try:
         import numpy as np
+
         from metrics.statistical_inference import power_report
     except ImportError:
         return
@@ -277,13 +296,25 @@ def _print_stats(results: list[dict]) -> None:
 
 # ── CSV export ────────────────────────────────────────────────────────────────
 
+
 def _save_csv(results: list[dict], output_path: Path) -> None:
     if not results:
         return
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["exp_id", "condition", "seed", "ablation", "temperature",
-                  "status", "cooperation_rate", "gini", "mean_wealth", "brm",
-                  "fidelity", "error"]
+    fieldnames = [
+        "exp_id",
+        "condition",
+        "seed",
+        "ablation",
+        "temperature",
+        "status",
+        "cooperation_rate",
+        "gini",
+        "mean_wealth",
+        "brm",
+        "fidelity",
+        "error",
+    ]
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
@@ -293,26 +324,27 @@ def _save_csv(results: list[dict], output_path: Path) -> None:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
+
 def parse_args():
     p = argparse.ArgumentParser(description="BGF Config-Driven Experiment Matrix")
-    p.add_argument("--conditions", nargs="+", default=["A", "B"],
-                   choices=["A", "B", "C", "D"], help="Conditions to run")
-    p.add_argument("--seeds", type=str, default="1,2,3",
-                   help="Seeds: '1,2,3' or '1..10'")
+    p.add_argument(
+        "--conditions", nargs="+", default=["A", "B"], choices=["A", "B", "C", "D"], help="Conditions to run"
+    )
+    p.add_argument("--seeds", type=str, default="1,2,3", help="Seeds: '1,2,3' or '1..10'")
     p.add_argument("--rounds", type=int, default=30)
     p.add_argument("--agents", type=int, default=100)
-    p.add_argument("--ablation-levels", nargs="*", type=int, default=None,
-                   help="Ablation levels (0-5); overrides condition defaults")
-    p.add_argument("--temperatures", nargs="*", type=float, default=None,
-                   help="Temperature sweep values")
-    p.add_argument("--include-llm", action="store_true",
-                   help="Include LLM conditions (requires GPU)")
-    p.add_argument("--skip-existing", action="store_true",
-                   help="Skip cells with existing summary.json")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Print matrix without running")
-    p.add_argument("--output-csv", type=str,
-                   default="analysis/tables/experiment_matrix_results.csv")
+    p.add_argument(
+        "--ablation-levels",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Ablation levels (0-5); overrides condition defaults",
+    )
+    p.add_argument("--temperatures", nargs="*", type=float, default=None, help="Temperature sweep values")
+    p.add_argument("--include-llm", action="store_true", help="Include LLM conditions (requires GPU)")
+    p.add_argument("--skip-existing", action="store_true", help="Skip cells with existing summary.json")
+    p.add_argument("--dry-run", action="store_true", help="Print matrix without running")
+    p.add_argument("--output-csv", type=str, default="analysis/tables/experiment_matrix_results.csv")
     return p.parse_args()
 
 

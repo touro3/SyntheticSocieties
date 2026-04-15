@@ -27,11 +27,7 @@ def build_state(wealth: float):
 def build_context(neighbors=None):
     if neighbors is None:
         neighbors = []
-    return {
-        "network": {
-            "neighbors": neighbors
-        }
-    }
+    return {"network": {"neighbors": neighbors}}
 
 
 def test_mock_policy_returns_valid_action():

@@ -17,11 +17,10 @@ Usage:
     # Single level test:
     python scripts/run_memory_ablation.py --levels 0,1 --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
-import copy
-import json
 import subprocess
 import sys
 from pathlib import Path
@@ -39,7 +38,7 @@ BASE_OVERRIDES = {
 
 # Grounding conditions
 CONDITIONS = {
-    "grounded":   {"policy.type": "llm"},        # RAG on (default LLMPolicy with RAG)
+    "grounded": {"policy.type": "llm"},  # RAG on (default LLMPolicy with RAG)
     "ungrounded": {"policy.type": "ablated_llm", "ablation.mode": "no_rag"},
 }
 
@@ -58,14 +57,16 @@ def build_run_matrix(
             for seed in seeds:
                 level_name = MEMORY_LEVEL_NAMES[level]
                 exp_id = f"ablation_{level_name}_{cond_name}_s{seed}"
-                runs.append({
-                    "experiment_id": exp_id,
-                    "memory_level": level,
-                    "condition": cond_name,
-                    "seed": seed,
-                    "agents": agents,
-                    "rounds": rounds,
-                })
+                runs.append(
+                    {
+                        "experiment_id": exp_id,
+                        "memory_level": level,
+                        "condition": cond_name,
+                        "seed": seed,
+                        "agents": agents,
+                        "rounds": rounds,
+                    }
+                )
     return runs
 
 
@@ -88,15 +89,24 @@ def build_overrides(run: dict, dry_run: bool) -> list[str]:
 
 def run_single(run: dict, dry_run: bool, verbose: bool) -> bool:
     """Execute a single ablation run. Returns True on success."""
-    config_path = REPO_ROOT / "configs" / "memory_ablation" / f"m{run['memory_level']}_{'no_memory' if run['memory_level']==0 else 'window_only' if run['memory_level']==1 else 'window_archive' if run['memory_level']==2 else 'full'}.yaml"
+    config_path = (
+        REPO_ROOT
+        / "configs"
+        / "memory_ablation"
+        / f"m{run['memory_level']}_{'no_memory' if run['memory_level'] == 0 else 'window_only' if run['memory_level'] == 1 else 'window_archive' if run['memory_level'] == 2 else 'full'}.yaml"
+    )
 
     # Fall back to base config if level-specific one missing
     if not config_path.exists():
         config_path = REPO_ROOT / "configs" / "base_config.yaml"
 
     overrides = build_overrides(run, dry_run)
-    cmd = [sys.executable, str(REPO_ROOT / "scripts" / "run_config_simulation.py"),
-           "--config", str(config_path)] + overrides
+    cmd = [
+        sys.executable,
+        str(REPO_ROOT / "scripts" / "run_config_simulation.py"),
+        "--config",
+        str(config_path),
+    ] + overrides
 
     if verbose:
         print(f"\n→ {run['experiment_id']}")
@@ -120,18 +130,16 @@ def run_single(run: dict, dry_run: bool, verbose: bool) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Memory ablation experiment runner.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Use mock policy — fast, no GPU needed.")
-    parser.add_argument("--agents", type=int, default=100,
-                        help="Population size (default 100; use 5 for dry-run).")
-    parser.add_argument("--rounds", type=int, default=30,
-                        help="Simulation rounds (default 30; use 3 for dry-run).")
-    parser.add_argument("--seeds", type=str, default="42,123,7",
-                        help="Comma-separated seeds (default 42,123,7).")
-    parser.add_argument("--levels", type=str, default="0,1,2,3",
-                        help="Comma-separated memory levels to run (default all).")
-    parser.add_argument("--conditions", type=str, default="grounded,ungrounded",
-                        help="Comma-separated conditions (default both).")
+    parser.add_argument("--dry-run", action="store_true", help="Use mock policy — fast, no GPU needed.")
+    parser.add_argument("--agents", type=int, default=100, help="Population size (default 100; use 5 for dry-run).")
+    parser.add_argument("--rounds", type=int, default=30, help="Simulation rounds (default 30; use 3 for dry-run).")
+    parser.add_argument("--seeds", type=str, default="42,123,7", help="Comma-separated seeds (default 42,123,7).")
+    parser.add_argument(
+        "--levels", type=str, default="0,1,2,3", help="Comma-separated memory levels to run (default all)."
+    )
+    parser.add_argument(
+        "--conditions", type=str, default="grounded,ungrounded", help="Comma-separated conditions (default both)."
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 

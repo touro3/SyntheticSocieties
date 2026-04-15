@@ -32,7 +32,6 @@ import argparse
 import os
 import sys
 
-
 # ── Model registry ────────────────────────────────────────────────────────────
 MODELS = {
     "mistral-7b": {
@@ -77,27 +76,27 @@ def cache_model(hf_id: str, description: str) -> None:
         print(f"  Cached to: {path}")
     except Exception as exc:
         print(f"  WARNING: Download failed — {exc}")
-        print(f"  You may need a HuggingFace token for gated models (e.g. Llama-3).")
-        print(f"  Run:  huggingface-cli login")
+        print("  You may need a HuggingFace token for gated models (e.g. Llama-3).")
+        print("  Run:  huggingface-cli login")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Pre-cache BGF LLM weights from HuggingFace Hub."
-    )
+    parser = argparse.ArgumentParser(description="Pre-cache BGF LLM weights from HuggingFace Hub.")
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Cache all models (required + optional cross-model study).",
     )
     parser.add_argument(
-        "--model", default=None,
+        "--model",
+        default=None,
         help="HuggingFace model ID to cache (overrides default selection).",
     )
     args = parser.parse_args()
 
     hf_home = os.environ.get("HF_HOME", "~/.cache/huggingface/hub")
     print(f"HF_HOME: {hf_home}")
-    print(f"To change cache location: export HF_HOME=/your/path\n")
+    print("To change cache location: export HF_HOME=/your/path\n")
 
     if args.model:
         cache_model(args.model, "User-specified model")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +12,7 @@ PoliticalBand = Literal["left", "center_left", "center", "center_right", "right"
 
 class SocietySpec(BaseModel):
     narrative: str = Field(..., description="Original natural-language request.")
-    countries: Optional[List[str]] = None
+    countries: Optional[list[str]] = None
     age_profile: Optional[AgeProfile] = None
     urbanization: Optional[Urbanization] = None
     trust_people_band: Optional[Band] = None

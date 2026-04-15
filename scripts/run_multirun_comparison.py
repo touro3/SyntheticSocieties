@@ -40,8 +40,8 @@ from environment.world_state import WorldState
 from metrics.inequality import gini_coefficient
 from simulation.kernel import SimulationKernel
 
-
 # ── Agent factory ─────────────────────────────────────────────────────────────
+
 
 def _make_agents(n: int, policy_type: str, seed: int, trust_mean: float = 0.5) -> list[Agent]:
     rng = np.random.default_rng(seed)
@@ -125,6 +125,7 @@ def _bootstrap_ci(values: list[float], n_boot: int = 2000, ci: float = 0.95) -> 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+
 def run_multirun_comparison(
     n_seeds: int = 10,
     n_agents: int = 20,
@@ -189,8 +190,7 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    print(f"Running multi-seed comparison: {args.n_seeds} seeds × "
-          f"{args.n_agents} agents × {args.n_rounds} rounds")
+    print(f"Running multi-seed comparison: {args.n_seeds} seeds × {args.n_agents} agents × {args.n_rounds} rounds")
 
     results = run_multirun_comparison(
         n_seeds=args.n_seeds,

@@ -7,11 +7,11 @@ from agents.agent import Agent
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
+from bgf_logging.event_logger import EventLogger
 from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
 from environment.world import World
 from environment.world_state import WorldState
-from bgf_logging.event_logger import EventLogger
 from simulation.kernel import SimulationKernel
 
 

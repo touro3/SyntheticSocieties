@@ -210,7 +210,8 @@ class LLMBackend:
             model_kwargs["torch_dtype"] = self.dtype
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_id, **model_kwargs,
+            self.model_id,
+            **model_kwargs,
         )
 
         self.model.eval()
@@ -220,6 +221,7 @@ class LLMBackend:
         # Without this, token_budget falls back to a ±25% char heuristic, causing
         # prompts to silently exceed the model's context window on some inputs.
         from decision.token_budget import set_tokenizer as _set_tok
+
         _set_tok(self.tokenizer)
 
         elapsed = time.time() - start
@@ -340,7 +342,8 @@ class LLMBackend:
                 if latency > SLOW_INFERENCE_THRESHOLD_S:
                     logger.warning(
                         "Slow inference: %.1fs exceeds threshold %.0fs",
-                        latency, SLOW_INFERENCE_THRESHOLD_S,
+                        latency,
+                        SLOW_INFERENCE_THRESHOLD_S,
                     )
 
                 # Extract sequences — handle both dict-style and tensor outputs
@@ -373,10 +376,12 @@ class LLMBackend:
                     jittered = current_delay * (0.5 + random.random())
                     next_temp = max(0.1, temp - ((attempt + 1) * self._retry_temp_reduction))
                     logger.warning(
-                        "generate() attempt %d/%d timed out; retrying in %.1fs "
-                        "(temp %.2f → %.2f)",
-                        attempt + 1, self.max_retries + 1,
-                        jittered, retry_temp, next_temp,
+                        "generate() attempt %d/%d timed out; retrying in %.1fs (temp %.2f → %.2f)",
+                        attempt + 1,
+                        self.max_retries + 1,
+                        jittered,
+                        retry_temp,
+                        next_temp,
                     )
                     time.sleep(jittered)
                     delay *= self._backoff_factor
@@ -407,9 +412,7 @@ class LLMBackend:
             return float("inf")
         props = torch.cuda.get_device_properties(0)
         reserved = torch.cuda.memory_reserved(0)
-        allocated = torch.cuda.memory_allocated(0)
-        # Free = total - reserved + (reserved - allocated) = total - allocated
-        # But use reserved as the high-water mark for the pool.
+        # Use reserved as the high-water mark for the pool.
         free = props.total_memory - reserved
         return free / 1e9
 
@@ -429,7 +432,9 @@ class LLMBackend:
         if clamped < max_batch_size:
             logger.debug(
                 "VRAM-safe batch size: %d (free=%.1fGB, requested=%d)",
-                clamped, free_gb, max_batch_size,
+                clamped,
+                free_gb,
+                max_batch_size,
             )
         return clamped
 
@@ -483,7 +488,10 @@ class LLMBackend:
         while offset < len(messages_list):
             sub_messages = messages_list[offset : offset + effective_batch_size]
             chunk_results = self._try_batch_chunk(
-                sub_messages, temp, max_tokens, effective_batch_size,
+                sub_messages,
+                temp,
+                max_tokens,
+                effective_batch_size,
             )
 
             if chunk_results is not None:
@@ -495,20 +503,22 @@ class LLMBackend:
                     new_size = max(1, effective_batch_size // 2)
                     logger.warning(
                         "Batch OOM/timeout at chunk_size=%d; halving to %d and retrying.",
-                        effective_batch_size, new_size,
+                        effective_batch_size,
+                        new_size,
                     )
                     effective_batch_size = new_size
                     # Don't advance offset — retry same chunk with smaller size
                 else:
                     # batch_size == 1 failed → fall back to sequential generate()
                     logger.warning(
-                        "Batch size 1 failed — falling back to sequential generate() "
-                        "for %d messages.", len(sub_messages),
+                        "Batch size 1 failed — falling back to sequential generate() for %d messages.",
+                        len(sub_messages),
                     )
                     for single_messages in sub_messages:
                         try:
                             text, lat = self.generate(
-                                single_messages, temperature=temp,
+                                single_messages,
+                                temperature=temp,
                                 max_new_tokens=max_tokens,
                             )
                         except Exception as exc:
@@ -523,7 +533,8 @@ class LLMBackend:
         if effective_batch_size < max_batch_size:
             logger.info(
                 "Batch size was auto-reduced from %d to %d due to memory pressure.",
-                max_batch_size, effective_batch_size,
+                max_batch_size,
+                effective_batch_size,
             )
 
         return all_results
@@ -539,7 +550,9 @@ class LLMBackend:
         prompt_texts = []
         for messages in sub_messages:
             pt = self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True,
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
             )
             prompt_texts.append(pt)
 
@@ -574,7 +587,9 @@ class LLMBackend:
             # saving additional VRAM on top of disabling autograd tracking.
             with torch.inference_mode():
                 outputs = self._timed_generate(
-                    self.model.generate, **inputs, **gen_kwargs,
+                    self.model.generate,
+                    **inputs,
+                    **gen_kwargs,
                 )
             total_latency = time.time() - start
             per_item_latency = total_latency / len(sub_messages)
@@ -586,17 +601,19 @@ class LLMBackend:
                 # Guard: all-padding / zero-length output is a silent failure.
                 if len(new_tokens) == 0 or new_tokens.sum().item() == 0:
                     logger.warning(
-                        "Batch item %d produced empty/zero token output — "
-                        "using work fallback.",
+                        "Batch item %d produced empty/zero token output — using work fallback.",
                         j,
                     )
-                    results.append((
-                        '{"action_type": "work", "reasoning_summary": "[empty output]", "confidence": 0.3}',
-                        per_item_latency,
-                    ))
+                    results.append(
+                        (
+                            '{"action_type": "work", "reasoning_summary": "[empty output]", "confidence": 0.3}',
+                            per_item_latency,
+                        )
+                    )
                     continue
                 text = self.tokenizer.decode(
-                    new_tokens, skip_special_tokens=True,
+                    new_tokens,
+                    skip_special_tokens=True,
                 ).strip()
                 # Guard: decoded to empty string despite non-empty tokens.
                 if not text:
@@ -611,18 +628,17 @@ class LLMBackend:
             _timed_out = True
             logger.warning(
                 "Sub-batch of %d timed out after %ds.",
-                len(sub_messages), self.inference_timeout,
+                len(sub_messages),
+                self.inference_timeout,
             )
             return None
 
         except Exception as exc:
             if _is_cuda_oom(exc):
                 logger.warning(
-                    "CUDA OOM on sub-batch of %d (%.1f GB allocated). "
-                    "Will retry with smaller batch.",
+                    "CUDA OOM on sub-batch of %d (%.1f GB allocated). Will retry with smaller batch.",
                     len(sub_messages),
-                    torch.cuda.memory_allocated() / 1e9
-                    if torch.cuda.is_available() else 0,
+                    torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0,
                 )
                 return None
             raise  # Re-raise non-OOM exceptions
@@ -663,6 +679,7 @@ class LLMBackend:
         # set_tokenizer(None) also clears the static-section LRU cache so the
         # next test run doesn't see stale tokenizer-based counts.
         from decision.token_budget import set_tokenizer as _set_tok
+
         _set_tok(None)
 
     @classmethod
@@ -691,5 +708,6 @@ class LLMBackend:
             reserved = torch.cuda.memory_reserved() / 1e9
             logger.info(
                 "between_seeds cleanup: %.1f GB allocated, %.1f GB reserved",
-                allocated, reserved,
+                allocated,
+                reserved,
             )

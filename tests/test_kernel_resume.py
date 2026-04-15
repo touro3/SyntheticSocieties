@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -23,10 +23,10 @@ from environment.world import World
 from environment.world_state import WorldState
 from simulation.kernel import SimulationKernel
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_agent(agent_id: str, wealth: float = 50.0) -> Agent:
     return Agent(
@@ -68,9 +68,7 @@ def _make_kernel(
     if agents is None:
         agents = [_make_agent(f"agent_{i}") for i in range(n_agents)]
     world = _make_world()
-    event_logger = EventLogger(
-        (tmp_path or Path("/tmp")) / "events.jsonl", overwrite=True
-    )
+    event_logger = EventLogger((tmp_path or Path("/tmp")) / "events.jsonl", overwrite=True)
     kernel = SimulationKernel(
         agents=agents,
         world=world,
@@ -83,6 +81,7 @@ def _make_kernel(
 # ---------------------------------------------------------------------------
 # Heartbeat
 # ---------------------------------------------------------------------------
+
 
 class TestWriteHeartbeat:
     def test_no_op_when_path_is_none(self):
@@ -136,6 +135,7 @@ class TestWriteHeartbeat:
 # ---------------------------------------------------------------------------
 # save_checkpoint
 # ---------------------------------------------------------------------------
+
 
 class TestSaveCheckpoint:
     def test_creates_json_file(self, tmp_path):
@@ -198,6 +198,7 @@ class TestSaveCheckpoint:
 # load_checkpoint
 # ---------------------------------------------------------------------------
 
+
 class TestLoadCheckpoint:
     def _write_ckpt(self, path: Path, round_id: int, agents_data: dict) -> None:
         path.write_text(json.dumps({"round_id": round_id, "agents": agents_data}))
@@ -231,7 +232,8 @@ class TestLoadCheckpoint:
         kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
         ckpt = tmp_path / "ckpt.json"
         self._write_ckpt(
-            ckpt, round_id=1,
+            ckpt,
+            round_id=1,
             agents_data={"a0": {"wealth": 50.0, "stress": 0.7, "satisfaction": 0.3}},
         )
         kernel.load_checkpoint(ckpt)
@@ -243,7 +245,8 @@ class TestLoadCheckpoint:
         kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
         ckpt = tmp_path / "ckpt.json"
         self._write_ckpt(
-            ckpt, round_id=2,
+            ckpt,
+            round_id=2,
             agents_data={"a0": {"wealth": 50.0, "last_action": "steal"}},
         )
         kernel.load_checkpoint(ckpt)
@@ -254,7 +257,8 @@ class TestLoadCheckpoint:
         kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
         ckpt = tmp_path / "ckpt.json"
         self._write_ckpt(
-            ckpt, round_id=4,
+            ckpt,
+            round_id=4,
             agents_data={"a0": {"wealth": 50.0, "trust": {"b1": 0.9}}},
         )
         kernel.load_checkpoint(ckpt)
@@ -266,7 +270,8 @@ class TestLoadCheckpoint:
         kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
         ckpt = tmp_path / "ckpt.json"
         self._write_ckpt(
-            ckpt, round_id=1,
+            ckpt,
+            round_id=1,
             agents_data={
                 "a0": {"wealth": 42.0},
                 "ghost": {"wealth": 999.0},  # not in kernel
@@ -313,6 +318,7 @@ class TestLoadCheckpoint:
 # ---------------------------------------------------------------------------
 # run() — resume and round counting
 # ---------------------------------------------------------------------------
+
 
 class TestRunResume:
     def test_fresh_run_executes_all_rounds(self, tmp_path):
@@ -370,9 +376,7 @@ class TestRunResume:
         hb_path = tmp_path / "heartbeat.json"
         agents = [_make_agent(f"agent_{i}") for i in range(2)]
 
-        kernel_a, agents = _make_kernel(
-            agents=agents, heartbeat_path=hb_path, tmp_path=tmp_path
-        )
+        kernel_a, agents = _make_kernel(agents=agents, heartbeat_path=hb_path, tmp_path=tmp_path)
         kernel_a.run(num_rounds=2)
 
         ckpt = tmp_path / "checkpoint.json"
@@ -380,9 +384,7 @@ class TestRunResume:
 
         # New kernel picks up from checkpoint
         agents2 = [_make_agent(f"agent_{i}") for i in range(2)]
-        kernel_b, _ = _make_kernel(
-            agents=agents2, heartbeat_path=hb_path, tmp_path=tmp_path
-        )
+        kernel_b, _ = _make_kernel(agents=agents2, heartbeat_path=hb_path, tmp_path=tmp_path)
         saved_round = kernel_b.load_checkpoint(ckpt)
         assert saved_round == 2
 

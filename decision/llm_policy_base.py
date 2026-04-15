@@ -39,9 +39,9 @@ class LLMPolicyBase:
 
     def _ensure_counters(self) -> None:
         """Lazily initialize proposal counters on first use."""
-        if not hasattr(self, '_fallback_counter'):
+        if not hasattr(self, "_fallback_counter"):
             self._fallback_counter = 0
-        if not hasattr(self, '_total_proposals'):
+        if not hasattr(self, "_total_proposals"):
             self._total_proposals = 0
 
     # ── RAG context accessors ─────────────────────────────────────────────────

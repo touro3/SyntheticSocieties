@@ -35,7 +35,6 @@ import json
 import struct
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -46,11 +45,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from metrics.behavioral_realism import compute_composite_brm, compute_rlhf_bias_index
 from metrics.statistical_inference import bootstrap_ci
 
-
 # ── ESS benchmarks ────────────────────────────────────────────────────────
 
-_EMP_GINI = 0.31         # Eurostat EU median
-_EMP_COOP_GROUNDED = 0.40    # ESS-grounded expected cooperation
+_EMP_GINI = 0.31  # Eurostat EU median
+_EMP_COOP_GROUNDED = 0.40  # ESS-grounded expected cooperation
 _EMP_COOP_UNGROUNDED = 0.33  # Uniform baseline expected
 _EMP_WEALTH_MEAN = 110.0
 
@@ -79,7 +77,7 @@ def _simulate(
     n_agents: int,
     n_rounds: int,
     seed: int,
-    condition: str,   # "grounded" or "ungrounded"
+    condition: str,  # "grounded" or "ungrounded"
 ) -> dict:
     """Run one (N, condition, seed) experiment. Returns metrics dict."""
     rng = np.random.default_rng(seed)
@@ -116,9 +114,7 @@ def _simulate(
     act_coop = action_counts["cooperate"] / total
     act_gini = _gini(wealth.tolist())
 
-    emp_wealth = list(np.clip(
-        rng.lognormal(np.log(_EMP_WEALTH_MEAN), 0.35, n_agents), 10, 500
-    ))
+    emp_wealth = list(np.clip(rng.lognormal(np.log(_EMP_WEALTH_MEAN), 0.35, n_agents), 10, 500))
     emp_coop = _EMP_COOP_GROUNDED if condition == "grounded" else _EMP_COOP_UNGROUNDED
 
     brm = compute_composite_brm(
@@ -164,6 +160,7 @@ def run_scale_sweep(
 
 def aggregate_sweep(results: list[dict]) -> list[dict]:
     from collections import defaultdict
+
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for r in results:
         groups[(r["n_agents"], r["condition"])].append(r)
@@ -178,19 +175,21 @@ def aggregate_sweep(results: list[dict]) -> list[dict]:
         _, brm_ci_lo, brm_ci_hi = bootstrap_ci(brms, n_bootstrap=2000, random_state=42)
         _, coop_ci_lo, coop_ci_hi = bootstrap_ci(coops, n_bootstrap=2000, random_state=42)
 
-        summaries.append({
-            "n_agents": n,
-            "condition": cond,
-            "brm_mean": round(float(np.mean(brms)), 4),
-            "brm_ci_lower": round(brm_ci_lo, 4),
-            "brm_ci_upper": round(brm_ci_hi, 4),
-            "coop_mean": round(float(np.mean(coops)), 4),
-            "coop_ci_lower": round(coop_ci_lo, 4),
-            "coop_ci_upper": round(coop_ci_hi, 4),
-            "gini_mean": round(float(np.mean(ginis)), 4),
-            "b_rlhf_mean": round(float(np.mean(b_rlhfs)), 4),
-            "n_seeds": len(group),
-        })
+        summaries.append(
+            {
+                "n_agents": n,
+                "condition": cond,
+                "brm_mean": round(float(np.mean(brms)), 4),
+                "brm_ci_lower": round(brm_ci_lo, 4),
+                "brm_ci_upper": round(brm_ci_hi, 4),
+                "coop_mean": round(float(np.mean(coops)), 4),
+                "coop_ci_lower": round(coop_ci_lo, 4),
+                "coop_ci_upper": round(coop_ci_hi, 4),
+                "gini_mean": round(float(np.mean(ginis)), 4),
+                "b_rlhf_mean": round(float(np.mean(b_rlhfs)), 4),
+                "n_seeds": len(group),
+            }
+        )
     return summaries
 
 
@@ -224,7 +223,7 @@ def main() -> None:
         summaries = aggregate_sweep(results)
 
         print(f"\n  {'N':>6}  {'Cond':12}  {'BRM':>8}  [95% CI]          {'B_RLHF':>8}")
-        print(f"  {'-'*6}  {'-'*12}  {'-'*8}  {'-'*18}  {'-'*8}")
+        print(f"  {'-' * 6}  {'-' * 12}  {'-' * 8}  {'-' * 18}  {'-' * 8}")
         for s in summaries:
             print(
                 f"  {s['n_agents']:>6}  {s['condition']:12}  "
@@ -244,8 +243,7 @@ def main() -> None:
 
     if json_path.exists():
         subprocess.run(
-            [sys.executable, "scripts/plot_scale_sensitivity.py",
-             "--input", str(json_path)],
+            [sys.executable, "scripts/plot_scale_sensitivity.py", "--input", str(json_path)],
             check=False,
         )
 

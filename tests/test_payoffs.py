@@ -1,6 +1,8 @@
 """Tests for canonical payoff constants."""
+
 import pytest
-from environment.payoffs import GamePayoffs, DEFAULT_PAYOFFS
+
+from environment.payoffs import DEFAULT_PAYOFFS, GamePayoffs
 
 
 def test_default_payoffs_match_documented_values():

@@ -1,5 +1,7 @@
 """Tests for canonical Gini implementation — single source of truth."""
+
 import pytest
+
 from metrics.inequality import gini_coefficient
 
 
@@ -27,8 +29,9 @@ class TestGiniCanonical:
 
     def test_macro_metrics_uses_canonical(self):
         """Verify SocietyMacroMetrics.calculate_gini delegates to canonical impl."""
-        from metrics.macro_metrics import SocietyMacroMetrics
         import numpy as np
+
+        from metrics.macro_metrics import SocietyMacroMetrics
 
         values = [10, 20, 30, 40, 50]
         canonical = gini_coefficient(values)

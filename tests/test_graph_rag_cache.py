@@ -1,7 +1,5 @@
 """Tests for GraphRAG centrality caching correctness and performance."""
 
-import pytest
-from unittest.mock import patch
 from decision.graph_rag import GraphRAG
 
 
@@ -50,7 +48,7 @@ class TestCentralityCache:
     def test_betweenness_computed_only_once_for_two_calls(self):
         rag = GraphRAG()
         for i in range(5):
-            rag.add_event(_cooperate_event("a0", f"a{i+1}"))
+            rag.add_event(_cooperate_event("a0", f"a{i + 1}"))
 
         call_count = 0
         original = rag._compute_centrality
@@ -70,7 +68,7 @@ class TestCentralityCache:
     def test_cache_recomputed_after_dirty(self):
         rag = GraphRAG()
         for i in range(3):
-            rag.add_event(_cooperate_event("a0", f"a{i+1}"))
+            rag.add_event(_cooperate_event("a0", f"a{i + 1}"))
 
         rag.get_social_context("a0")
         old_cache = rag._centrality_cache
@@ -87,10 +85,12 @@ class TestCentralityCache:
         assert rag._cache_dirty is False
 
         # Non-cooperation event
-        rag.add_event({
-            "agent_id": "a1",
-            "action": {"action_type": "work"},
-            "round_id": 2,
-        })
+        rag.add_event(
+            {
+                "agent_id": "a1",
+                "action": {"action_type": "work"},
+                "round_id": 2,
+            }
+        )
         # Graph structure didn't change — cache should stay clean
         assert rag._cache_dirty is False

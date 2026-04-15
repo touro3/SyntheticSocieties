@@ -44,12 +44,14 @@ def empirical_config(ess_clean_path):
 
 def test_generate_empirical_population_size(empirical_config):
     from population.generator import generate_empirical_population
+
     agents = generate_empirical_population(empirical_config, MockPolicy())
     assert len(agents) == 10
 
 
 def test_empirical_agents_have_ess_attributes(empirical_config):
     from population.generator import generate_empirical_population
+
     agents = generate_empirical_population(empirical_config, MockPolicy())
     agent = agents[0]
 
@@ -66,6 +68,7 @@ def test_empirical_agents_have_ess_attributes(empirical_config):
 
 def test_empirical_population_seed_reproducibility(empirical_config):
     from population.generator import generate_empirical_population
+
     agents1 = generate_empirical_population(empirical_config, MockPolicy())
     agents2 = generate_empirical_population(empirical_config, MockPolicy())
 
@@ -76,6 +79,7 @@ def test_empirical_population_seed_reproducibility(empirical_config):
 
 def test_empirical_agents_valid_ranges(empirical_config):
     from population.generator import generate_empirical_population
+
     agents = generate_empirical_population(empirical_config, MockPolicy())
 
     for agent in agents:
@@ -96,12 +100,18 @@ def test_empirical_population_backward_compatible():
     config = {
         "simulation": {"population_size": 5},
         "agent_defaults": {
-            "min_age": 25, "max_age": 60,
-            "base_income": 1000.0, "income_step": 100.0,
-            "education": "college", "occupation": "worker",
-            "location": "italy", "political_preference": "center",
-            "risk_tolerance": 0.5, "social_class": "middle",
-            "initial_wealth": 50.0, "wealth_step": 10.0,
+            "min_age": 25,
+            "max_age": 60,
+            "base_income": 1000.0,
+            "income_step": 100.0,
+            "education": "college",
+            "occupation": "worker",
+            "location": "italy",
+            "political_preference": "center",
+            "risk_tolerance": 0.5,
+            "social_class": "middle",
+            "initial_wealth": 50.0,
+            "wealth_step": 10.0,
             "memory_size": 10,
         },
     }
@@ -117,6 +127,7 @@ def test_empirical_population_backward_compatible():
 
 def test_agent_profile_to_persona_dict(empirical_config):
     from population.generator import generate_empirical_population
+
     agents = generate_empirical_population(empirical_config, MockPolicy())
 
     persona = agents[0].profile.to_persona_dict()

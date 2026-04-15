@@ -1,27 +1,37 @@
 """Tests for prompt builder — no GPU required."""
+
+from agents.memory import MemoryBuffer, MemoryItem
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.memory import MemoryBuffer, MemoryItem
 from decision.prompt_builder import (
+    _level_word,
+    build_context_block,
+    build_memory_block,
+    build_persona_block,
     build_prompt,
     build_prompt_text,
-    build_persona_block,
     build_state_block,
-    build_memory_block,
-    build_context_block,
-    _level_word,
 )
 
 
 def _make_profile(**kwargs):
     defaults = dict(
-        agent_id="agent_0", age=35, income=1000.0,
-        education="college", occupation="worker", location="urban",
-        political_preference="center", social_class="middle",
-        trust_people=0.7, political_orientation=0.3,
-        life_satisfaction=0.8, risk_tolerance=0.6,
-        competitiveness=0.4, social_activity=0.5,
-        gender=2, country="AT",
+        agent_id="agent_0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="urban",
+        political_preference="center",
+        social_class="middle",
+        trust_people=0.7,
+        political_orientation=0.3,
+        life_satisfaction=0.8,
+        risk_tolerance=0.6,
+        competitiveness=0.4,
+        social_activity=0.5,
+        gender=2,
+        country="AT",
     )
     defaults.update(kwargs)
     return AgentProfile(**defaults)
@@ -36,7 +46,9 @@ def _make_state(**kwargs):
 def _make_memory():
     mem = MemoryBuffer(max_items=5)
     mem.add(MemoryItem(round_id=0, event_type="work", partner_id=None, content="earned income", outcome={}))
-    mem.add(MemoryItem(round_id=1, event_type="cooperate", partner_id="agent_1", content="shared resources", outcome={}))
+    mem.add(
+        MemoryItem(round_id=1, event_type="cooperate", partner_id="agent_1", content="shared resources", outcome={})
+    )
     return mem
 
 
@@ -146,27 +158,41 @@ class TestBuildPromptMaxTokens:
 
     def test_max_tokens_accepted(self):
         msgs = build_prompt(
-            self._profile(), self._state(), self._memory(), self._context(),
-            round_id=1, max_tokens=4096,
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
+            round_id=1,
+            max_tokens=4096,
         )
         assert isinstance(msgs, list)
         assert len(msgs) >= 2
 
     def test_max_tokens_none_uses_default(self):
         msgs_default = build_prompt(
-            self._profile(), self._state(), self._memory(), self._context(),
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
             round_id=1,
         )
         msgs_none = build_prompt(
-            self._profile(), self._state(), self._memory(), self._context(),
-            round_id=1, max_tokens=None,
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
+            round_id=1,
+            max_tokens=None,
         )
         # Both paths should produce the same structure
         assert len(msgs_default) == len(msgs_none)
 
     def test_large_budget_preserves_rag_contexts(self):
         msgs = build_prompt(
-            self._profile(), self._state(), self._memory(), self._context(),
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
             round_id=1,
             population_context="ESS population context: high trust in Austria.",
             social_context="Agent cooperated with neighbors recently.",
@@ -178,7 +204,10 @@ class TestBuildPromptMaxTokens:
 
     def test_build_prompt_text_max_tokens_threaded(self):
         text = build_prompt_text(
-            self._profile(), self._state(), self._memory(), self._context(),
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
             round_id=1,
             population_context="Population: high trust cohort.",
             max_tokens=4096,
@@ -188,7 +217,10 @@ class TestBuildPromptMaxTokens:
 
     def test_all_optional_fields_none_still_valid(self):
         msgs = build_prompt(
-            self._profile(), self._state(), self._memory(), self._context(),
+            self._profile(),
+            self._state(),
+            self._memory(),
+            self._context(),
             round_id=1,
             social_context=None,
             population_context=None,
@@ -201,8 +233,8 @@ class TestBuildPromptMaxTokens:
 # ── Position-bias mitigation (Permutation Invariance) ─────────────────────────
 
 import re
-from collections import Counter
-from decision.output_parser import parse_llm_output, VALID_ACTIONS
+
+from decision.output_parser import parse_llm_output
 
 
 class TestPositionBiasMitigation:
@@ -221,9 +253,7 @@ class TestPositionBiasMitigation:
             orderings.add(match.group(1))
 
         # With 3! = 6 permutations, 30 draws should produce at least 2 orderings
-        assert len(orderings) >= 2, (
-            f"Expected shuffled orderings, but got only: {orderings}"
-        )
+        assert len(orderings) >= 2, f"Expected shuffled orderings, but got only: {orderings}"
 
     def test_all_valid_actions_present(self):
         """Every shuffled prompt must contain all valid actions."""
@@ -245,6 +275,7 @@ class TestPositionBiasMitigation:
         agents or different rounds produce different orderings.
         """
         import re as _re
+
         state = _make_state()
         memory = _make_memory()
         context = _make_context()
@@ -262,9 +293,7 @@ class TestPositionBiasMitigation:
                 orderings.add(match.group(1))
 
         # With 30 distinct (round_id, agent_id) pairs we expect multiple orderings.
-        assert len(orderings) >= 2, (
-            f"Expected multiple action orderings across agents/rounds, got: {orderings}"
-        )
+        assert len(orderings) >= 2, f"Expected multiple action orderings across agents/rounds, got: {orderings}"
 
     def test_parser_handles_any_action_order(self):
         """output_parser reads action_type correctly regardless of prompt ordering."""

@@ -2,16 +2,34 @@ from __future__ import annotations
 
 import json
 import random
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from agents.agent import Agent
 from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
 from agents.state import AgentState
+from population._helpers import (
+    map_education as _map_education,
+)
+from population._helpers import (
+    map_location as _map_location,
+)
+from population._helpers import (
+    map_political as _map_political,
+)
+from population._helpers import (
+    map_social_class as _map_social_class,
+)
+from population._helpers import (
+    safe_float as _safe_float,
+)
+from population._helpers import (
+    safe_int as _safe_int,
+)
 from population.society_spec import SocietySpec
 
 
@@ -41,16 +59,6 @@ class PersonaRecord(BaseModel):
     leadership_preference: float | None = None
     health_status: float | None = None
     religiosity: float | None = None
-
-from population._helpers import (
-    safe_float as _safe_float,
-    safe_int as _safe_int,
-    map_education as _map_education,
-    map_location as _map_location,
-    map_political as _map_political,
-    map_social_class as _map_social_class,
-    safe_mean,
-)
 
 
 def _mean_institutions(row: pd.Series) -> float | None:
@@ -104,7 +112,11 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
                 competitiveness=_safe_float(row.get("competitiveness")),
                 leadership_preference=_safe_float(row.get("leadership_preference")),
                 health_status=_safe_float(row.get("self_rated_health")),
-                religiosity=1.0 if _safe_int(row.get("religious_belonging")) == 1 else 0.0 if _safe_int(row.get("religious_belonging")) == 2 else None,
+                religiosity=1.0
+                if _safe_int(row.get("religious_belonging")) == 1
+                else 0.0
+                if _safe_int(row.get("religious_belonging")) == 2
+                else None,
             )
         )
 
@@ -251,10 +263,14 @@ def build_persona_natural_language(record: PersonaRecord) -> str:
 
 def _trust_word(value: float) -> str:
     """Map a [0,1] score to a descriptive adjective."""
-    if value < 0.2:   return "very low"
-    if value < 0.4:   return "low"
-    if value < 0.6:   return "moderate"
-    if value < 0.8:   return "high"
+    if value < 0.2:
+        return "very low"
+    if value < 0.4:
+        return "low"
+    if value < 0.6:
+        return "moderate"
+    if value < 0.8:
+        return "high"
     return "very high"
 
 
@@ -314,10 +330,7 @@ def enrich_all_personas(
     Returns a dict mapping agent_id → enriched persona string.
     Agents with no graph data get the plain ESS-derived persona.
     """
-    return {
-        record.agent_id: enrich_persona_from_graph(record, graph_rag)
-        for record in records
-    }
+    return {record.agent_id: enrich_persona_from_graph(record, graph_rag) for record in records}
 
 
 def save_persona_records(records: Iterable[PersonaRecord], path: str | Path) -> None:

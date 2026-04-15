@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 
 class GraphRAG:
-
     # Temporal decay: edges older than this many rounds lose salience.
     _EDGE_HALF_LIFE = 10
 
@@ -103,7 +102,8 @@ class GraphRAG:
 
         if source and target:
             self.graph.add_edge(
-                source, target,
+                source,
+                target,
                 weight=1.0,
                 round=round_id,
                 type="cooperate",
@@ -128,11 +128,7 @@ class GraphRAG:
         if cutoff <= 0:
             return  # not enough rounds have passed yet
 
-        stale = [
-            (u, v, k)
-            for u, v, k, data in self.graph.edges(keys=True, data=True)
-            if data.get("round", 0) < cutoff
-        ]
+        stale = [(u, v, k) for u, v, k, data in self.graph.edges(keys=True, data=True) if data.get("round", 0) < cutoff]
         for u, v, k in stale:
             self.graph.remove_edge(u, v, k)
 
@@ -143,7 +139,9 @@ class GraphRAG:
             self._invalidate_cache()
             logger.debug(
                 "GraphRAG: pruned %d stale edges and %d isolates (cutoff round %d)",
-                len(stale), len(isolates), cutoff,
+                len(stale),
+                len(isolates),
+                cutoff,
             )
 
     # ── Centrality (cached) ───────────────────────────────────────────────────
@@ -173,6 +171,7 @@ class GraphRAG:
         Returns a value in (0, 1] where 1.0 = current round, 0.5 = half-life rounds ago.
         """
         import math
+
         age = max(0, self._current_round - edge_round)
         decay = math.log(2) / max(self._EDGE_HALF_LIFE, 1)
         return math.exp(-decay * age)
@@ -239,19 +238,11 @@ class GraphRAG:
         # k-hop reachability
         if k_neighbors > 1:
             try:
-                reachable = (
-                    set(
-                        nx.single_source_shortest_path_length(
-                            self.graph, agent_id, cutoff=k_neighbors
-                        ).keys()
-                    )
-                    - {agent_id}
-                )
+                reachable = set(
+                    nx.single_source_shortest_path_length(self.graph, agent_id, cutoff=k_neighbors).keys()
+                ) - {agent_id}
                 if reachable:
-                    parts.append(
-                        f"You are within {k_neighbors} hops of "
-                        f"{len(reachable)} potential collaborators."
-                    )
+                    parts.append(f"You are within {k_neighbors} hops of {len(reachable)} potential collaborators.")
             except nx.NetworkXError:
                 pass
 
@@ -288,14 +279,10 @@ class GraphRAG:
         avg_lag: Optional[float] = None
         if a_to_b > 0 and b_to_a > 0:
             a_rounds = sorted(
-                d.get("round", 0)
-                for src, tgt, d in self.graph.edges(agent_a, data=True)
-                if tgt == agent_b
+                d.get("round", 0) for src, tgt, d in self.graph.edges(agent_a, data=True) if tgt == agent_b
             )
             b_rounds = sorted(
-                d.get("round", 0)
-                for src, tgt, d in self.graph.edges(agent_b, data=True)
-                if tgt == agent_a
+                d.get("round", 0) for src, tgt, d in self.graph.edges(agent_b, data=True) if tgt == agent_a
             )
             lags = []
             for r_a in a_rounds:
@@ -316,8 +303,7 @@ class GraphRAG:
                 parts.append(f"Average lag to reciprocation: {avg_lag:.1f} rounds.")
         elif a_to_b > 0:
             parts.append(
-                f"You have helped them {a_to_b} times with 0% reciprocation — "
-                "they have not cooperated back yet."
+                f"You have helped them {a_to_b} times with 0% reciprocation — they have not cooperated back yet."
             )
         else:
             parts.append(f"They have helped you {b_to_a} times. You might owe them.")

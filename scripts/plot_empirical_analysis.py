@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import matplotlib
+
 matplotlib.use("Agg")  # Non-interactive backend
 
 import matplotlib.pyplot as plt
@@ -29,21 +30,23 @@ from utils.io import set_global_seed
 
 # ── Style ────────────────────────────────────────────────────────────────────
 
-plt.rcParams.update({
-    "figure.facecolor": "#1a1a2e",
-    "axes.facecolor": "#16213e",
-    "axes.edgecolor": "#e94560",
-    "axes.labelcolor": "#e8e8e8",
-    "text.color": "#e8e8e8",
-    "xtick.color": "#e8e8e8",
-    "ytick.color": "#e8e8e8",
-    "grid.color": "#2a2a4a",
-    "grid.alpha": 0.4,
-    "font.family": "sans-serif",
-    "font.size": 10,
-    "axes.titlesize": 13,
-    "figure.titlesize": 15,
-})
+plt.rcParams.update(
+    {
+        "figure.facecolor": "#1a1a2e",
+        "axes.facecolor": "#16213e",
+        "axes.edgecolor": "#e94560",
+        "axes.labelcolor": "#e8e8e8",
+        "text.color": "#e8e8e8",
+        "xtick.color": "#e8e8e8",
+        "ytick.color": "#e8e8e8",
+        "grid.color": "#2a2a4a",
+        "grid.alpha": 0.4,
+        "font.family": "sans-serif",
+        "font.size": 10,
+        "axes.titlesize": 13,
+        "figure.titlesize": 15,
+    }
+)
 
 COLORS = ["#e94560", "#0f3460", "#533483", "#16c79a", "#f5a623", "#50c4ed"]
 OUTPUT_DIR = Path("analysis/figures")
@@ -58,6 +61,7 @@ def load_data() -> pd.DataFrame:
 
 
 # ── Figure 1: Demographics ───────────────────────────────────────────────────
+
 
 def plot_demographics(df: pd.DataFrame):
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
@@ -81,8 +85,14 @@ def plot_demographics(df: pd.DataFrame):
         gender_counts = df["gender"].dropna().map(gender_map).value_counts()
         bars = ax.bar(gender_counts.index, gender_counts.values, color=[COLORS[1], COLORS[0]], edgecolor="#1a1a2e")
         for bar, val in zip(bars, gender_counts.values):
-            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
-                    str(val), ha="center", fontweight="bold", color="#e8e8e8")
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 5,
+                str(val),
+                ha="center",
+                fontweight="bold",
+                color="#e8e8e8",
+            )
         ax.set_title("Gender Distribution")
         ax.set_ylabel("Count")
         ax.grid(True, axis="y")
@@ -91,8 +101,15 @@ def plot_demographics(df: pd.DataFrame):
     ax = axes[2]
     if "education_level" in df.columns:
         edu = df["education_level"].dropna()
-        edu_labels = {1: "< Lower\nSec", 2: "Lower\nSec", 3: "Upper\nSec",
-                      4: "Post\nSec", 5: "Short\nTertiary", 6: "Bachelor", 7: "Master+"}
+        edu_labels = {
+            1: "< Lower\nSec",
+            2: "Lower\nSec",
+            3: "Upper\nSec",
+            4: "Post\nSec",
+            5: "Short\nTertiary",
+            6: "Bachelor",
+            7: "Master+",
+        }
         edu_counts = edu.value_counts().sort_index()
         labels = [edu_labels.get(int(k), str(int(k))) for k in edu_counts.index]
         ax.bar(labels, edu_counts.values, color=COLORS[2], alpha=0.85, edgecolor="#1a1a2e")
@@ -109,6 +126,7 @@ def plot_demographics(df: pd.DataFrame):
 
 
 # ── Figure 2: Trust & Politics ───────────────────────────────────────────────
+
 
 def plot_trust_politics(df: pd.DataFrame):
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
@@ -128,8 +146,7 @@ def plot_trust_politics(df: pd.DataFrame):
         if col in df.columns:
             vals = df[col].dropna()
             ax.hist(vals, bins=20, color=color, alpha=0.85, edgecolor="#1a1a2e")
-            ax.axvline(vals.mean(), color="#ffffff", linestyle="--", linewidth=1.5,
-                       label=f"μ={vals.mean():.2f}")
+            ax.axvline(vals.mean(), color="#ffffff", linestyle="--", linewidth=1.5, label=f"μ={vals.mean():.2f}")
             ax.set_title(title)
             ax.set_xlabel("Normalized [0-1]")
             ax.set_ylabel("Count")
@@ -145,6 +162,7 @@ def plot_trust_politics(df: pd.DataFrame):
 
 # ── Figure 3: Behavioral Profiles ────────────────────────────────────────────
 
+
 def plot_behavioral_profiles(df: pd.DataFrame):
     fig, axes = plt.subplots(1, 3, figsize=(16, 5))
     fig.suptitle("ESS Behavioral & Personality Profiles", fontweight="bold", y=1.02)
@@ -156,12 +174,17 @@ def plot_behavioral_profiles(df: pd.DataFrame):
         bdf = pd.read_csv(behavior_path)
         if "action" in bdf.columns:
             counts = bdf["action"].value_counts()
-            bars = ax.bar(counts.index, counts.values,
-                          color=[COLORS[3], COLORS[0], COLORS[1]], edgecolor="#1a1a2e")
+            bars = ax.bar(counts.index, counts.values, color=[COLORS[3], COLORS[0], COLORS[1]], edgecolor="#1a1a2e")
             for bar, val in zip(bars, counts.values):
                 pct = val / len(bdf) * 100
-                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
-                        f"{pct:.1f}%", ha="center", fontweight="bold", color="#e8e8e8")
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 5,
+                    f"{pct:.1f}%",
+                    ha="center",
+                    fontweight="bold",
+                    color="#e8e8e8",
+                )
             ax.set_title("Behavioral Proxy Distribution")
             ax.set_ylabel("Count")
             ax.grid(True, axis="y")
@@ -171,8 +194,7 @@ def plot_behavioral_profiles(df: pd.DataFrame):
     risk_cols = ["risk_taking", "competitiveness"]
     if all(c in df.columns for c in risk_cols):
         valid = df[risk_cols].dropna()
-        ax.scatter(valid["risk_taking"], valid["competitiveness"],
-                   alpha=0.4, s=15, c=COLORS[0], edgecolors="none")
+        ax.scatter(valid["risk_taking"], valid["competitiveness"], alpha=0.4, s=15, c=COLORS[0], edgecolors="none")
         ax.set_xlabel("Risk Taking")
         ax.set_ylabel("Competitiveness")
         ax.set_title("Risk vs Competitiveness")
@@ -183,8 +205,7 @@ def plot_behavioral_profiles(df: pd.DataFrame):
     social_cols = ["trust_people", "social_meeting_freq"]
     if all(c in df.columns for c in social_cols):
         valid = df[social_cols].dropna()
-        ax.scatter(valid["trust_people"], valid["social_meeting_freq"],
-                   alpha=0.4, s=15, c=COLORS[2], edgecolors="none")
+        ax.scatter(valid["trust_people"], valid["social_meeting_freq"], alpha=0.4, s=15, c=COLORS[2], edgecolors="none")
         ax.set_xlabel("Trust in People")
         ax.set_ylabel("Social Meeting Frequency")
         ax.set_title("Trust vs Social Activity")
@@ -199,14 +220,24 @@ def plot_behavioral_profiles(df: pd.DataFrame):
 
 # ── Figure 4: Correlation Heatmap ────────────────────────────────────────────
 
+
 def plot_heatmap(df: pd.DataFrame):
     # Select key variables for the heatmap
     heatmap_cols = [
-        "age", "trust_people", "trust_parliament", "trust_police",
-        "left_right", "life_satisfaction", "happiness",
-        "risk_taking", "competitiveness", "social_meeting_freq",
-        "self_rated_health", "immigration_same_ethnicity",
-        "reduce_inequality", "satisfaction_economy",
+        "age",
+        "trust_people",
+        "trust_parliament",
+        "trust_police",
+        "left_right",
+        "life_satisfaction",
+        "happiness",
+        "risk_taking",
+        "competitiveness",
+        "social_meeting_freq",
+        "self_rated_health",
+        "immigration_same_ethnicity",
+        "reduce_inequality",
+        "satisfaction_economy",
     ]
     available = [c for c in heatmap_cols if c in df.columns]
     subset = df[available].dropna()
@@ -245,12 +276,13 @@ def plot_heatmap(df: pd.DataFrame):
 
 # ── Figure 5: Empirical vs Synthetic Comparison ──────────────────────────────
 
+
 def plot_empirical_vs_synthetic():
     """
     Compare empirical and synthetic population modes by running quick simulations.
     """
-    from population.generator import generate_population, generate_empirical_population
     from decision.mock_policy import MockPolicy
+    from population.generator import generate_empirical_population, generate_population
     from utils.config import load_config
 
     config = load_config("configs/base_config.yaml")
@@ -329,20 +361,21 @@ def plot_empirical_vs_synthetic():
 
 # ── Figure 6: Empirical Simulation Results ───────────────────────────────────
 
+
 def plot_simulation_results():
     """
     Run a quick empirical simulation and visualize results.
     """
-    from population.generator import generate_empirical_population
+    from bgf_logging.event_logger import EventLogger
     from decision.rule_based_policy import RuleBasedPolicy
-    from environment.world import World
-    from environment.world_state import WorldState
     from environment.institutions import InstitutionManager
     from environment.network import NetworkManager
-    from simulation.kernel import SimulationKernel
-    from bgf_logging.event_logger import EventLogger
-    from metrics.summary import summarize_agents
+    from environment.world import World
+    from environment.world_state import WorldState
     from metrics.inequality import gini_coefficient
+    from metrics.summary import summarize_agents
+    from population.generator import generate_empirical_population
+    from simulation.kernel import SimulationKernel
     from utils.config import load_config
 
     config = load_config("configs/base_config.yaml")
@@ -401,18 +434,26 @@ def plot_simulation_results():
     summary = summarize_agents(agents)
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Empirical Population — Simulation Results (10 rounds, rule-based)",
-                 fontweight="bold", y=1.01)
+    fig.suptitle("Empirical Population — Simulation Results (10 rounds, rule-based)", fontweight="bold", y=1.01)
 
     # Final action distribution
     ax = axes[0][0]
     actions = summary["actions"]
-    bars = ax.bar(actions.keys(), actions.values(),
-                  color=[COLORS[i % len(COLORS)] for i in range(len(actions))],
-                  edgecolor="#1a1a2e")
+    bars = ax.bar(
+        actions.keys(),
+        actions.values(),
+        color=[COLORS[i % len(COLORS)] for i in range(len(actions))],
+        edgecolor="#1a1a2e",
+    )
     for bar, val in zip(bars, actions.values()):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
-                str(val), ha="center", fontweight="bold", color="#e8e8e8")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.5,
+            str(val),
+            ha="center",
+            fontweight="bold",
+            color="#e8e8e8",
+        )
     ax.set_title("Final Action Distribution")
     ax.set_ylabel("Agent Count")
     ax.grid(True, axis="y")
@@ -455,6 +496,7 @@ def plot_simulation_results():
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

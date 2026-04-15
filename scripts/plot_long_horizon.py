@@ -42,16 +42,19 @@ def main() -> None:
         data = json.load(f)
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import numpy as np
 
-    plt.rcParams.update({
-        "font.size": 11,
-        "axes.titlesize": 12,
-        "axes.labelsize": 11,
-        "figure.dpi": 150,
-    })
+    plt.rcParams.update(
+        {
+            "font.size": 11,
+            "axes.titlesize": 12,
+            "axes.labelsize": 11,
+            "figure.dpi": 150,
+        }
+    )
 
     results = data["results"]
     n_rounds = data["n_rounds"]
@@ -96,8 +99,13 @@ def main() -> None:
     x = np.arange(2)
 
     bars = ax.bar(
-        x, decay_means, yerr=decay_stds, capsize=6,
-        color=colors, edgecolor="black", linewidth=0.8,
+        x,
+        decay_means,
+        yerr=decay_stds,
+        capsize=6,
+        color=colors,
+        edgecolor="black",
+        linewidth=0.8,
     )
     ax.axhline(0, color="black", lw=0.8)
     ax.set_xticks(x)

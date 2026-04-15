@@ -62,8 +62,8 @@ class PromptLogger:
 
         # Round-robin sampling: log every ceil(1/sample_rate)-th record.
         self._sample_every: int = max(1, math.ceil(1.0 / sample_rate))
-        self._total_calls = 0   # total log() calls (including skipped)
-        self._count = 0         # records actually written
+        self._total_calls = 0  # total log() calls (including skipped)
+        self._count = 0  # records actually written
         self._rotation_count = 0
         self._bytes_written = 0
         self._fh: Optional[IO[str]] = None
@@ -77,7 +77,8 @@ class PromptLogger:
         if sample_rate < 1.0:
             logger.info(
                 "PromptLogger: sampling 1-in-%d records (sample_rate=%.2f)",
-                self._sample_every, sample_rate,
+                self._sample_every,
+                sample_rate,
             )
 
     # ── Handle management ─────────────────────────────────────────────────────
@@ -100,7 +101,9 @@ class PromptLogger:
         self._bytes_written = 0
         logger.info(
             "PromptLogger: rotated to shard %s (shard %d, %d records written so far)",
-            shard_path.name, self._rotation_count, self._count,
+            shard_path.name,
+            self._rotation_count,
+            self._count,
         )
         self._open_handle()
 
@@ -138,7 +141,8 @@ class PromptLogger:
             "parsed_action": parsed_action,
             "latency_ms": round(latency_ms, 2),
             "parse_metadata": {
-                k: v for k, v in (parse_metadata or {}).items()
+                k: v
+                for k, v in (parse_metadata or {}).items()
                 if k != "raw_text"  # avoid duplication with prompt field
             },
             "rag_context": rag_context,
@@ -178,7 +182,7 @@ class PromptLogger:
     def __del__(self) -> None:
         self.close()
 
-    def __enter__(self) -> "PromptLogger":
+    def __enter__(self) -> PromptLogger:
         return self
 
     def __exit__(self, *_) -> None:

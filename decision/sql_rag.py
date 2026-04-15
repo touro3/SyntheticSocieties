@@ -11,7 +11,6 @@ import pandas as pd
 
 
 class SQLRAG:
-
     _GENDER_ENCODING = {"male": 1, "female": 2}  # ESS codebook section 3.2
 
     def __init__(self, data_path: str | Path = "data/ess_clean.parquet"):
@@ -29,9 +28,7 @@ class SQLRAG:
         """
         if self.conn is None:
             self.conn = duckdb.connect()
-            self.conn.execute(
-                f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')"
-            )
+            self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
             self._initialized = True
 
     def query_population_trends(self, query: str) -> str:
@@ -40,7 +37,7 @@ class SQLRAG:
             self._connect()
         except Exception as e:
             return f"Population database not available: {e}"
-            
+
         # Security: Enforce SELECT-only
         if not query.strip().upper().startswith("SELECT"):
             return "Security error: Only SELECT queries are permitted."
@@ -53,11 +50,16 @@ class SQLRAG:
         except Exception as e:
             return f"Query error: {str(e)}"
 
-    def get_peer_group_context(self, age: int, gender: str | int, country: Optional[str] = None,
-                                agent_trust: Optional[float] = None,
-                                agent_risk: Optional[float] = None,
-                                agent_satisfaction: Optional[float] = None,
-                                income_decile: Optional[float] = None) -> str:
+    def get_peer_group_context(
+        self,
+        age: int,
+        gender: str | int,
+        country: Optional[str] = None,
+        agent_trust: Optional[float] = None,
+        agent_risk: Optional[float] = None,
+        agent_satisfaction: Optional[float] = None,
+        income_decile: Optional[float] = None,
+    ) -> str:
         """Grounded query: How do peers (age/gender/country/income) usually behave?
 
         Returns distribution-level information (mean, std, median, sample size)
@@ -84,8 +86,7 @@ class SQLRAG:
         else:
             g_val = self._GENDER_ENCODING.get(str(gender).lower(), 1)
 
-        def _run_query(age_window: int, include_country: bool,
-                       include_income: bool = False) -> Optional[str]:
+        def _run_query(age_window: int, include_country: bool, include_income: bool = False) -> Optional[str]:
             where_clauses = ["age BETWEEN ? AND ?", "gender = ?"]
             params: list = [age - age_window, age + age_window, g_val]
             if include_country and country:
@@ -109,7 +110,7 @@ class SQLRAG:
                 PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q25,
                 PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q75
             FROM population
-            WHERE {' AND '.join(where_clauses)}
+            WHERE {" AND ".join(where_clauses)}
             """  # noqa: S608 — no user-supplied table names, only parameterised values
             try:
                 res = self.conn.execute(q, params).fetchdf()
@@ -135,18 +136,22 @@ class SQLRAG:
 
                 # Show where the agent falls relative to peers
                 agent_position_parts = []
-                if agent_trust is not None and not pd.isna(row['std_trust']) and row['std_trust'] > 0:
-                    z_trust = (agent_trust * 10 - row['avg_trust']) / row['std_trust']
+                if agent_trust is not None and not pd.isna(row["std_trust"]) and row["std_trust"] > 0:
+                    z_trust = (agent_trust * 10 - row["avg_trust"]) / row["std_trust"]
                     if z_trust > 0.5:
-                        agent_position_parts.append(f"your trust ({agent_trust*10:.1f}) is above average for your peers")
+                        agent_position_parts.append(
+                            f"your trust ({agent_trust * 10:.1f}) is above average for your peers"
+                        )
                     elif z_trust < -0.5:
-                        agent_position_parts.append(f"your trust ({agent_trust*10:.1f}) is below average for your peers")
-                if agent_risk is not None and not pd.isna(row['std_risk']) and row['std_risk'] > 0:
-                    z_risk = (agent_risk * 10 - row['avg_risk']) / row['std_risk']
+                        agent_position_parts.append(
+                            f"your trust ({agent_trust * 10:.1f}) is below average for your peers"
+                        )
+                if agent_risk is not None and not pd.isna(row["std_risk"]) and row["std_risk"] > 0:
+                    z_risk = (agent_risk * 10 - row["avg_risk"]) / row["std_risk"]
                     if z_risk > 0.5:
-                        agent_position_parts.append(f"your risk tolerance ({agent_risk*10:.1f}) is above average")
+                        agent_position_parts.append(f"your risk tolerance ({agent_risk * 10:.1f}) is above average")
                     elif z_risk < -0.5:
-                        agent_position_parts.append(f"your risk tolerance ({agent_risk*10:.1f}) is below average")
+                        agent_position_parts.append(f"your risk tolerance ({agent_risk * 10:.1f}) is below average")
                 if agent_position_parts:
                     parts.append(f"  Relative to peers: {'; '.join(agent_position_parts)}.")
 
@@ -156,10 +161,10 @@ class SQLRAG:
 
         # Four-tier fallback: tightest → broadest
         for window, use_country, use_income in [
-            (5, True, True),    # tier 1: tight age, same country, same income band
+            (5, True, True),  # tier 1: tight age, same country, same income band
             (10, True, False),  # tier 2: wider age, same country
             (15, True, False),  # tier 3: broad age, same country, no income filter
-            (15, False, False), # tier 4: population-wide
+            (15, False, False),  # tier 4: population-wide
         ]:
             result = _run_query(window, use_country, use_income)
             if result:
@@ -182,5 +187,3 @@ class SQLRAG:
 
     def __del__(self):
         self.close()
-
-

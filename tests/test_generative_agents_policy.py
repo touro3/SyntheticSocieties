@@ -12,14 +12,14 @@ Validates:
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from agents.memory import MemoryBuffer
 from decision.generative_agents_policy import GenerativeAgentsPolicy, _sample_fictional_backstory
 from decision.schemas import ProposedAction
 from tests.conftest import make_profile, make_state
-
 
 # ── Backstory tests ───────────────────────────────────────────────────────────
 
@@ -84,7 +84,9 @@ def _make_backend(response_json: str):
 
 
 def test_propose_action_work_from_backend():
-    backend = _make_backend('{"action_type": "work", "amount": 10, "reasoning_summary": "need money", "confidence": 0.8}')
+    backend = _make_backend(
+        '{"action_type": "work", "amount": 10, "reasoning_summary": "need money", "confidence": 0.8}'
+    )
     policy = GenerativeAgentsPolicy(backend=backend)
     profile = make_profile(agent_id="agent_1")
     state = make_state(wealth=50.0)
@@ -178,6 +180,7 @@ def test_prompt_contains_round_id():
 
 def test_conforms_to_policy_protocol():
     from decision.policy_protocol import PolicyProtocol
+
     policy = GenerativeAgentsPolicy(backend=None)
     assert isinstance(policy, PolicyProtocol)
 

@@ -29,16 +29,15 @@ from pathlib import Path
 from typing import Any, Optional
 
 import duckdb
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 # ── Tool registry ─────────────────────────────────────────────────────────────
 
 DEFAULT_INDEX = "tracker/experiment_index.parquet"
-MAX_ITERATIONS = 8          # guard against infinite loops
-TOOL_CALL_PAUSE = 0.2       # seconds between tool calls
-_MAX_CONFLICTS = 2          # max consecutive tool+FinalAnswer conflicts before downgrade
+MAX_ITERATIONS = 8  # guard against infinite loops
+TOOL_CALL_PAUSE = 0.2  # seconds between tool calls
+_MAX_CONFLICTS = 2  # max consecutive tool+FinalAnswer conflicts before downgrade
 
 
 class _TrackerTools:
@@ -50,14 +49,9 @@ class _TrackerTools:
     def _conn(self) -> duckdb.DuckDBPyConnection:
         path = Path(self._index)
         if not path.exists():
-            raise FileNotFoundError(
-                f"Experiment index not found: {path}. "
-                "Run a simulation first to populate it."
-            )
+            raise FileNotFoundError(f"Experiment index not found: {path}. Run a simulation first to populate it.")
         conn = duckdb.connect()
-        conn.execute(
-            f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{path}')"
-        )
+        conn.execute(f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{path}')")
         return conn
 
     # ── Individual tools ──────────────────────────────────────────────────────
@@ -126,9 +120,7 @@ class _TrackerTools:
         try:
             safe_id = experiment_id.replace("'", "''")
             conn = self._conn()
-            df = conn.execute(
-                f"SELECT * FROM experiments WHERE experiment_id = '{safe_id}'"
-            ).fetchdf()
+            df = conn.execute(f"SELECT * FROM experiments WHERE experiment_id = '{safe_id}'").fetchdf()
             if df.empty:
                 return f"Experiment '{experiment_id}' not found."
             return df.T.to_string(header=False)
@@ -263,12 +255,7 @@ class _TrackerTools:
             for policy, group in df.groupby("policy_type"):
                 group = group.sort_values("experiment_id")
                 group = group.copy()
-                group["rolling_avg"] = (
-                    group["value"]
-                    .rolling(window, min_periods=1)
-                    .mean()
-                    .round(3)
-                )
+                group["rolling_avg"] = group["value"].rolling(window, min_periods=1).mean().round(3)
                 first_avg = group["rolling_avg"].iloc[0]
                 last_avg = group["rolling_avg"].iloc[-1]
                 trend = "improving" if last_avg > first_avg else "declining"
@@ -277,10 +264,7 @@ class _TrackerTools:
                     f"trend={trend}, latest_avg={last_avg}\n"
                     f"{group[['experiment_id', 'value', 'rolling_avg']].to_string(index=False)}"
                 )
-            return (
-                f"=== TREND ANALYSIS: {safe_metric} (window={window}) ===\n\n"
-                + "\n\n".join(parts)
-            )
+            return f"=== TREND ANALYSIS: {safe_metric} (window={window}) ===\n\n" + "\n\n".join(parts)
         except Exception as exc:
             return f"ERROR: {exc}"
 
@@ -319,14 +303,14 @@ class _TrackerTools:
             )
             raw = resp.choices[0].message.content or "[]"
             # Extract JSON array robustly
-            match = re.search(r'\[.*\]', raw, re.DOTALL)
+            match = re.search(r"\[.*\]", raw, re.DOTALL)
             sub_questions: list[str] = json.loads(match.group(0)) if match else [question]
         except Exception:
             sub_questions = [question]
 
         # ── Stage B: answer each sub-question via tools ───────────────────────
         partial_answers: list[str] = []
-        for sq in sub_questions[:5]:   # cap at 5 sub-questions
+        for sq in sub_questions[:5]:  # cap at 5 sub-questions
             sq_lower = sq.lower()
             # Route sub-question to the most relevant tool
             if any(k in sq_lower for k in ("ablat", "condition", "grounding", "rag")):
@@ -351,7 +335,7 @@ class _TrackerTools:
             Original question: {question}
 
             Observations:
-            {chr(10).join(f'--- {i+1} ---{chr(10)}{pa}' for i, pa in enumerate(partial_answers))}
+            {chr(10).join(f"--- {i + 1} ---{chr(10)}{pa}" for i, pa in enumerate(partial_answers))}
         """).strip()
 
         try:
@@ -385,23 +369,23 @@ class _TrackerTools:
     # ── Dispatch ──────────────────────────────────────────────────────────────
 
     TOOL_DESCRIPTIONS = {
-        "policy_comparison":  "Compare mean wealth, Gini, and stress across all policy types. No arguments.",
-        "seed_variance":      "Show per-seed variance for a policy. Argument: policy (str, default='llm').",
-        "ablation_comparison":"Compare ablation conditions. No arguments.",
-        "experiment_detail":  "Full details of one experiment. Argument: experiment_id (str).",
-        "run_sql":            "Run a custom SELECT query against the 'experiments' table. Argument: sql (str).",
-        "list_experiments":   "List recent experiments. Argument: limit (int, default=20).",
-        "panorama_search":    (
+        "policy_comparison": "Compare mean wealth, Gini, and stress across all policy types. No arguments.",
+        "seed_variance": "Show per-seed variance for a policy. Argument: policy (str, default='llm').",
+        "ablation_comparison": "Compare ablation conditions. No arguments.",
+        "experiment_detail": "Full details of one experiment. Argument: experiment_id (str).",
+        "run_sql": "Run a custom SELECT query against the 'experiments' table. Argument: sql (str).",
+        "list_experiments": "List recent experiments. Argument: limit (int, default=20).",
+        "panorama_search": (
             "Full distribution analysis of a metric across ALL experiments (best/worst/percentiles). "
             "Use when you need the complete picture, not just averages. "
             "Arguments: metric (str, default='wealth_mean'), top_n (int, default=10)."
         ),
-        "insight_forge":      (
+        "insight_forge": (
             "Deep analysis via sub-question decomposition. Best for complex, multi-faceted questions. "
             "Argument: question (str). Automatically decomposes into sub-questions, answers each, "
             "then synthesises. Use this when a simple tool call won't capture the full answer."
         ),
-        "trend_analysis":     (
+        "trend_analysis": (
             "Track how a metric evolves across experiments over time / seeds. "
             "Computes rolling averages to detect regime changes (e.g., action collapse onset). "
             "Arguments: metric (str, default='wealth_mean'), window (int, default=3)."
@@ -411,19 +395,19 @@ class _TrackerTools:
     def call(self, tool_name: str, args: dict[str, Any], _client: Any = None, _model: str = "gpt-4o-mini") -> str:
         """Dispatch a tool call by name with keyword arguments."""
         dispatch = {
-            "policy_comparison":  lambda: self.policy_comparison(),
-            "seed_variance":      lambda: self.seed_variance(**args),
-            "ablation_comparison":lambda: self.ablation_comparison(),
-            "experiment_detail":  lambda: self.experiment_detail(**args),
-            "run_sql":            lambda: self.run_sql(**args),
-            "list_experiments":   lambda: self.list_experiments(**args),
-            "panorama_search":    lambda: self.panorama_search(**args),
-            "insight_forge":      lambda: self.insight_forge(
+            "policy_comparison": lambda: self.policy_comparison(),
+            "seed_variance": lambda: self.seed_variance(**args),
+            "ablation_comparison": lambda: self.ablation_comparison(),
+            "experiment_detail": lambda: self.experiment_detail(**args),
+            "run_sql": lambda: self.run_sql(**args),
+            "list_experiments": lambda: self.list_experiments(**args),
+            "panorama_search": lambda: self.panorama_search(**args),
+            "insight_forge": lambda: self.insight_forge(
                 question=args.get("question", ""),
                 client=_client,
                 model=_model,
             ),
-            "trend_analysis":     lambda: self.trend_analysis(**args),
+            "trend_analysis": lambda: self.trend_analysis(**args),
         }
         fn = dispatch.get(tool_name)
         if fn is None:
@@ -435,11 +419,9 @@ class _TrackerTools:
 
 # ── System prompt ─────────────────────────────────────────────────────────────
 
+
 def _build_system_prompt(tools: _TrackerTools) -> str:
-    tool_docs = "\n".join(
-        f"  - {name}: {desc}"
-        for name, desc in tools.TOOL_DESCRIPTIONS.items()
-    )
+    tool_docs = "\n".join(f"  - {name}: {desc}" for name, desc in tools.TOOL_DESCRIPTIONS.items())
     return textwrap.dedent(f"""
         You are a research analyst for the BGF (Behavioral Grounding Framework) simulation project.
         Your job is to synthesise insights across simulation experiments by querying the DuckDB
@@ -476,6 +458,7 @@ def _build_system_prompt(tools: _TrackerTools) -> str:
 
 # ── ReACT loop ────────────────────────────────────────────────────────────────
 
+
 class ReportAgent:
     """
     ReACT-style report synthesis agent backed by the BGF DuckDB tracker.
@@ -509,12 +492,10 @@ class ReportAgent:
 
         try:
             from openai import OpenAI
+
             self._client = OpenAI(api_key=api_key, base_url=base_url)
         except ImportError as exc:
-            raise ImportError(
-                "openai package is required for ReportAgent. "
-                "Install with: pip install openai"
-            ) from exc
+            raise ImportError("openai package is required for ReportAgent. Install with: pip install openai") from exc
 
     # ── Parsing helpers ───────────────────────────────────────────────────────
 
@@ -530,18 +511,13 @@ class ReportAgent:
         valid_tools = set(_TrackerTools.TOOL_DESCRIPTIONS.keys())
 
         # Format 1: XML-style <tool_call> (MiroFish primary format)
-        xml_match = re.search(r'<tool_call>\s*(\{.*?\})\s*</tool_call>', text, re.DOTALL)
+        xml_match = re.search(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", text, re.DOTALL)
         if xml_match:
             try:
                 call_data = json.loads(xml_match.group(1))
                 tool_name = call_data.get("name") or call_data.get("tool")
                 if tool_name in valid_tools:
-                    args = (
-                        call_data.get("parameters")
-                        or call_data.get("params")
-                        or call_data.get("args")
-                        or {}
-                    )
+                    args = call_data.get("parameters") or call_data.get("params") or call_data.get("args") or {}
                     return tool_name, (args if isinstance(args, dict) else {})
             except json.JSONDecodeError:
                 pass
@@ -563,19 +539,14 @@ class ReportAgent:
         stripped = text.strip()
         json_pattern = r'(\{"(?:name|tool)"\s*:.*?\})\s*$'
         bare_match = re.search(json_pattern, stripped, re.DOTALL)
-        if not bare_match and stripped.startswith('{') and stripped.endswith('}'):
-            bare_match = re.match(r'(\{.*\})', stripped, re.DOTALL)
+        if not bare_match and stripped.startswith("{") and stripped.endswith("}"):
+            bare_match = re.match(r"(\{.*\})", stripped, re.DOTALL)
         if bare_match:
             try:
                 call_data = json.loads(bare_match.group(1))
                 tool_name = call_data.get("name") or call_data.get("tool")
                 if tool_name in valid_tools:
-                    args = (
-                        call_data.get("parameters")
-                        or call_data.get("params")
-                        or call_data.get("args")
-                        or {}
-                    )
+                    args = call_data.get("parameters") or call_data.get("params") or call_data.get("args") or {}
                     return tool_name, (args if isinstance(args, dict) else {})
             except json.JSONDecodeError:
                 pass
@@ -623,15 +594,9 @@ class ReportAgent:
                     temperature=self.temperature,
                     stop=["Observation:"],
                 )
-                assistant_text = (
-                    response.choices[0].message.content
-                    if response and response.choices
-                    else ""
-                ) or ""
+                assistant_text = (response.choices[0].message.content if response and response.choices else "") or ""
             except Exception as exc:
-                logger.warning(
-                    "ReACT iteration %d: LLM call failed (%s).", iteration + 1, exc
-                )
+                logger.warning("ReACT iteration %d: LLM call failed (%s).", iteration + 1, exc)
                 assistant_text = ""
 
             # Handle empty / None response (MiroFish None-guard pattern)
@@ -655,26 +620,27 @@ class ReportAgent:
             if parsed is not None and final is not None:
                 conflict_retries += 1
                 logger.warning(
-                    "ReACT iteration %d: conflict — tool call and Final Answer in same "
-                    "response (conflict #%d/%d).",
-                    iteration + 1, conflict_retries, _MAX_CONFLICTS,
+                    "ReACT iteration %d: conflict — tool call and Final Answer in same response (conflict #%d/%d).",
+                    iteration + 1,
+                    conflict_retries,
+                    _MAX_CONFLICTS,
                 )
                 if conflict_retries <= _MAX_CONFLICTS:
                     messages.append({"role": "assistant", "content": assistant_text})
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            "Your response contained both a tool call and a Final Answer. "
-                            "Please do only one per reply: either call a tool OR write your "
-                            "Final Answer — not both."
-                        ),
-                    })
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your response contained both a tool call and a Final Answer. "
+                                "Please do only one per reply: either call a tool OR write your "
+                                "Final Answer — not both."
+                            ),
+                        }
+                    )
                     continue
                 else:
                     # Downgrade after repeated conflicts: prefer Final Answer
-                    logger.warning(
-                        "ReACT: conflict threshold exceeded — using Final Answer directly."
-                    )
+                    logger.warning("ReACT: conflict threshold exceeded — using Final Answer directly.")
                     conflict_retries = 0
                     return final
 
@@ -691,40 +657,38 @@ class ReportAgent:
 
             tool_name, args = parsed
             conflict_retries = 0  # reset on clean tool call
-            observation = self.tools.call(
-                tool_name, args, _client=self._client, _model=self.model
-            )
+            observation = self.tools.call(tool_name, args, _client=self._client, _model=self.model)
 
             if verbose:
                 print(f"Observation ({tool_name}): {observation[:500]}...")
 
             messages.append({"role": "assistant", "content": assistant_text})
-            messages.append({
-                "role": "user",
-                "content": f"Observation:\n{observation}\n\nContinue.",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Observation:\n{observation}\n\nContinue.",
+                }
+            )
 
             time.sleep(TOOL_CALL_PAUSE)
 
         # Max iterations reached — ask for a final answer with current context
-        messages.append({
-            "role": "user",
-            "content": (
-                "You have reached the maximum number of tool calls. "
-                "Write your Final Answer now based on the information gathered."
-            ),
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "You have reached the maximum number of tool calls. "
+                    "Write your Final Answer now based on the information gathered."
+                ),
+            }
+        )
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
             )
-            final_text = (
-                response.choices[0].message.content
-                if response and response.choices
-                else ""
-            ) or ""
+            final_text = (response.choices[0].message.content if response and response.choices else "") or ""
         except Exception as exc:
             logger.error("ReACT final synthesis call failed: %s", exc)
             final_text = ""
@@ -773,12 +737,11 @@ class ReportAgent:
 
 # ── CLI entry point ───────────────────────────────────────────────────────────
 
+
 def _cli() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="BGF ReACT report agent — synthesise insights from DuckDB tracker"
-    )
+    parser = argparse.ArgumentParser(description="BGF ReACT report agent — synthesise insights from DuckDB tracker")
     parser.add_argument("--query", default="Summarise the key findings across all experiments.")
     parser.add_argument("--model", default="gpt-4o-mini")
     parser.add_argument("--api-key", default="EMPTY")
@@ -802,9 +765,7 @@ def _cli() -> None:
     )
 
     if args.sections:
-        sections = agent.generate_sections(
-            args.sections, context_query=args.query, verbose=args.verbose
-        )
+        sections = agent.generate_sections(args.sections, context_query=args.query, verbose=args.verbose)
         report = agent.assemble_report(sections)
     else:
         report = agent.generate_report(args.query, verbose=args.verbose)

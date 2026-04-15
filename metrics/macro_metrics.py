@@ -29,7 +29,7 @@ class SocietyMacroMetrics:
     def analyze_trajectory(events_parquet_path: str) -> pl.DataFrame:
         """Reads event logs and computes per-round macro metrics."""
         df = pl.read_parquet(events_parquet_path)
-        
+
         # Extratores seguros em Python puro (lida com Dicionários ou Strings)
         def safe_extract_action(val):
             if isinstance(val, dict):
@@ -42,7 +42,7 @@ class SocietyMacroMetrics:
                 if "save" in val.lower():
                     return "save"
             return ""
-            
+
         def safe_extract_wealth(val):
             if isinstance(val, dict):
                 w = val.get("wealth")
@@ -57,21 +57,31 @@ class SocietyMacroMetrics:
         # Aplica a extração segura
         df = df.with_columns(
             pl.col("action").map_elements(safe_extract_action, return_dtype=pl.String).alias("parsed_action"),
-            pl.col("state_after").map_elements(safe_extract_wealth, return_dtype=pl.Float64).alias("parsed_wealth")
+            pl.col("state_after").map_elements(safe_extract_wealth, return_dtype=pl.Float64).alias("parsed_wealth"),
         )
-        
+
         # Agrupa por rodada
-        trends = df.group_by("round_id").agg([
-            pl.col("parsed_wealth").drop_nulls().implode().alias("wealth_list"),
-            pl.col("parsed_action").str.contains("cooperate").fill_null(False).sum().alias("coop_count"),
-            pl.col("action").count().alias("total_actions")
-        ]).sort("round_id")
-        
+        trends = (
+            df.group_by("round_id")
+            .agg(
+                [
+                    pl.col("parsed_wealth").drop_nulls().implode().alias("wealth_list"),
+                    pl.col("parsed_action").str.contains("cooperate").fill_null(False).sum().alias("coop_count"),
+                    pl.col("action").count().alias("total_actions"),
+                ]
+            )
+            .sort("round_id")
+        )
+
         # Calcula Gini e Taxas
         trends = trends.with_columns(
-            pl.col("wealth_list").map_elements(lambda x: SocietyMacroMetrics.calculate_gini(np.array(list(x))), return_dtype=pl.Float64).alias("gini_coefficient"),
-            pl.col("wealth_list").map_elements(lambda x: float(np.sum(list(x))), return_dtype=pl.Float64).alias("total_wealth"),
-            (pl.col("coop_count") / pl.col("total_actions")).alias("cooperation_rate")
+            pl.col("wealth_list")
+            .map_elements(lambda x: SocietyMacroMetrics.calculate_gini(np.array(list(x))), return_dtype=pl.Float64)
+            .alias("gini_coefficient"),
+            pl.col("wealth_list")
+            .map_elements(lambda x: float(np.sum(list(x))), return_dtype=pl.Float64)
+            .alias("total_wealth"),
+            (pl.col("coop_count") / pl.col("total_actions")).alias("cooperation_rate"),
         )
-        
+
         return trends.drop("wealth_list")

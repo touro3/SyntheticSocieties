@@ -1,5 +1,5 @@
-from population.schemas import PopulationSpec
 from population.generator import generate_population
+from population.schemas import PopulationSpec
 
 __all__ = [
     "PopulationSpec",

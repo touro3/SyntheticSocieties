@@ -131,9 +131,7 @@ def compute_trust_recovery_correlation(
     groups = cultural_groups if cultural_groups is not None else TRUST_GROUPS
 
     ess_trust = np.array([g.ess_reference_mean for g in groups])
-    sim_coop = np.array([
-        float(group_results[g.name]["coop_rate"]) for g in groups
-    ])
+    sim_coop = np.array([float(group_results[g.name]["coop_rate"]) for g in groups])
 
     n = len(groups)
 

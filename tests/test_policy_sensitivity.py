@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from metrics.policy_sensitivity import (
-    ClusterOutcome,
-    CoopCalibrationResult,
-    DirectionResult,
-    EMPIRICAL_GINI,
     EMPIRICAL_COOP_RANGE,
-    GINI_TOLERANCE,
+    EMPIRICAL_GINI,
+    ClusterOutcome,
     all_directions_recovered,
     cooperation_calibration,
     direction_recovery,
@@ -19,8 +15,8 @@ from metrics.policy_sensitivity import (
     sensitivity_report,
 )
 
-
 # ── empirical_gini_benchmarks ─────────────────────────────────────────────────
+
 
 def test_benchmarks_contain_known_clusters():
     benchmarks = empirical_gini_benchmarks()
@@ -48,12 +44,13 @@ def test_benchmarks_returns_copy():
 
 # ── gini_magnitude_calibration ────────────────────────────────────────────────
 
+
 def _realistic_outcomes() -> list[ClusterOutcome]:
     """Simulated Gini values close to Eurostat benchmarks."""
     return [
-        ClusterOutcome("nordic",   simulated_gini=0.27, simulated_coop=0.40),
+        ClusterOutcome("nordic", simulated_gini=0.27, simulated_coop=0.40),
         ClusterOutcome("southern", simulated_gini=0.34, simulated_coop=0.31),
-        ClusterOutcome("eastern",  simulated_gini=0.31, simulated_coop=0.33),
+        ClusterOutcome("eastern", simulated_gini=0.31, simulated_coop=0.33),
     ]
 
 
@@ -97,6 +94,7 @@ def test_custom_tolerance_respected():
 
 # ── fraction_gini_within_tolerance ───────────────────────────────────────────
 
+
 def test_fraction_all_within():
     frac = fraction_gini_within_tolerance(_realistic_outcomes())
     assert frac == 1.0
@@ -117,24 +115,22 @@ def test_fraction_empty_returns_zero():
 
 # ── cooperation_calibration ───────────────────────────────────────────────────
 
+
 def test_grounded_coop_within_range():
-    outcomes = [ClusterOutcome("nordic", simulated_gini=0.27, simulated_coop=0.42,
-                               condition="grounded")]
+    outcomes = [ClusterOutcome("nordic", simulated_gini=0.27, simulated_coop=0.42, condition="grounded")]
     results = cooperation_calibration(outcomes)
     assert results[0].within_range
 
 
 def test_ungrounded_coop_above_range():
-    outcomes = [ClusterOutcome("full_pop", simulated_gini=0.20, simulated_coop=0.74,
-                               condition="ungrounded")]
+    outcomes = [ClusterOutcome("full_pop", simulated_gini=0.20, simulated_coop=0.74, condition="ungrounded")]
     results = cooperation_calibration(outcomes)
     assert results[0].above_range
     assert not results[0].within_range
 
 
 def test_coop_below_range():
-    outcomes = [ClusterOutcome("cluster", simulated_gini=0.30, simulated_coop=0.10,
-                               condition="grounded")]
+    outcomes = [ClusterOutcome("cluster", simulated_gini=0.30, simulated_coop=0.10, condition="grounded")]
     results = cooperation_calibration(outcomes)
     assert not results[0].within_range
     assert not results[0].above_range
@@ -153,11 +149,12 @@ def test_coop_calibration_boundary_inclusive():
 
 # ── direction_recovery ────────────────────────────────────────────────────────
 
+
 def test_direction_recovery_all_correct():
     outcomes = [
-        ClusterOutcome("nordic",   simulated_gini=0.26, simulated_coop=0.42),
+        ClusterOutcome("nordic", simulated_gini=0.26, simulated_coop=0.42),
         ClusterOutcome("southern", simulated_gini=0.34, simulated_coop=0.30),
-        ClusterOutcome("eastern",  simulated_gini=0.30, simulated_coop=0.33),
+        ClusterOutcome("eastern", simulated_gini=0.30, simulated_coop=0.33),
     ]
     results = direction_recovery(outcomes)
     assert len(results) >= 3
@@ -167,7 +164,7 @@ def test_direction_recovery_all_correct():
 
 def test_direction_recovery_nordic_eastern_only():
     outcomes = [
-        ClusterOutcome("nordic",  simulated_gini=0.25, simulated_coop=0.45),
+        ClusterOutcome("nordic", simulated_gini=0.25, simulated_coop=0.45),
         ClusterOutcome("eastern", simulated_gini=0.31, simulated_coop=0.31),
     ]
     results = direction_recovery(outcomes)
@@ -179,7 +176,7 @@ def test_direction_recovery_nordic_eastern_only():
 def test_direction_recovery_failure_detected():
     # Reversed Gini: nordic HIGHER than eastern (wrong direction)
     outcomes = [
-        ClusterOutcome("nordic",  simulated_gini=0.40, simulated_coop=0.45),
+        ClusterOutcome("nordic", simulated_gini=0.40, simulated_coop=0.45),
         ClusterOutcome("eastern", simulated_gini=0.28, simulated_coop=0.31),
     ]
     results = direction_recovery(outcomes)
@@ -220,18 +217,19 @@ def test_direction_recovery_missing_clusters_no_error():
 
 # ── all_directions_recovered ──────────────────────────────────────────────────
 
+
 def test_all_directions_recovered_true():
     outcomes = [
-        ClusterOutcome("nordic",   simulated_gini=0.25, simulated_coop=0.44),
+        ClusterOutcome("nordic", simulated_gini=0.25, simulated_coop=0.44),
         ClusterOutcome("southern", simulated_gini=0.34, simulated_coop=0.29),
-        ClusterOutcome("eastern",  simulated_gini=0.30, simulated_coop=0.33),
+        ClusterOutcome("eastern", simulated_gini=0.30, simulated_coop=0.33),
     ]
     assert all_directions_recovered(outcomes)
 
 
 def test_all_directions_recovered_false_when_one_fails():
     outcomes = [
-        ClusterOutcome("nordic",  simulated_gini=0.40, simulated_coop=0.44),  # wrong Gini
+        ClusterOutcome("nordic", simulated_gini=0.40, simulated_coop=0.44),  # wrong Gini
         ClusterOutcome("eastern", simulated_gini=0.28, simulated_coop=0.33),
     ]
     assert not all_directions_recovered(outcomes)
@@ -243,6 +241,7 @@ def test_all_directions_recovered_empty():
 
 
 # ── sensitivity_report ────────────────────────────────────────────────────────
+
 
 def test_sensitivity_report_returns_string(capsys):
     outcomes = _realistic_outcomes()
@@ -260,9 +259,9 @@ def test_sensitivity_report_shows_pass():
 
 def test_sensitivity_report_shows_fail_for_bad_gini():
     outcomes = [
-        ClusterOutcome("nordic",   simulated_gini=0.55, simulated_coop=0.40),
+        ClusterOutcome("nordic", simulated_gini=0.55, simulated_coop=0.40),
         ClusterOutcome("southern", simulated_gini=0.60, simulated_coop=0.31),
-        ClusterOutcome("eastern",  simulated_gini=0.58, simulated_coop=0.33),
+        ClusterOutcome("eastern", simulated_gini=0.58, simulated_coop=0.33),
     ]
     report = sensitivity_report(outcomes)
     assert "FAIL" in report

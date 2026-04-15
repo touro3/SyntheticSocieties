@@ -120,7 +120,7 @@ def _try_regex_json(text: str) -> Optional[dict]:
     # Match JSON objects (greedy, handles nested)
     patterns = [
         r'\{[^{}]*"action_type"[^{}]*\}',  # Simple flat JSON
-        r'\{.*?"action_type".*?\}',          # More permissive
+        r'\{.*?"action_type".*?\}',  # More permissive
     ]
 
     for pattern in patterns:
@@ -147,9 +147,9 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
 
     # Word-boundary patterns to avoid substring false positives
     _ACTION_PATTERNS = {
-        "cooperate": [r'\bcooperat\w*\b', r'\bhelp\b', r'\bshar\w*\b', r'\bgive\b'],
-        "save": [r'\bsav\w*\b', r'\bconserv\w*\b', r'\brest\b', r'\bpreserv\w*\b'],
-        "work": [r'\bwork\b', r'\bearn\b', r'\blabor\b', r'\bincome\b'],
+        "cooperate": [r"\bcooperat\w*\b", r"\bhelp\b", r"\bshar\w*\b", r"\bgive\b"],
+        "save": [r"\bsav\w*\b", r"\bconserv\w*\b", r"\brest\b", r"\bpreserv\w*\b"],
+        "work": [r"\bwork\b", r"\bearn\b", r"\blabor\b", r"\bincome\b"],
     }
 
     scores: dict[str, int] = {}
@@ -227,17 +227,19 @@ def _repair_json(text: str) -> str:
     # Normalize embedded newlines inside JSON string values (MiroFish pattern).
     # Raw \n / \r inside a JSON string are illegal and break parsers.
     try:
+
         def _fix_str_newlines(m: re.Match) -> str:
             s = m.group(0)
-            s = s.replace('\n', ' ').replace('\r', ' ')
-            return re.sub(r'  +', ' ', s)
+            s = s.replace("\n", " ").replace("\r", " ")
+            return re.sub(r"  +", " ", s)
+
         text = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"', _fix_str_newlines, text)
     except re.error:
         pass  # regex can fail on pathological/truncated input
 
     # Strip control characters that prevent JSON parsing (MiroFish pattern).
     # Preserve \t (0x09), \n (0x0a), \r (0x0d) — valid JSON whitespace.
-    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', ' ', text)
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", " ", text)
 
     # Balance unmatched braces/brackets.
     # Close any dangling open string before appending closers (MiroFish pattern).
@@ -274,8 +276,10 @@ def _field_extract_action(
     reason_match = re.search(r'"reasoning_summary"\s*:\s*"([^"]*)"', text)
     target_match = re.search(r'"target_agent_id"\s*:\s*"([^"]+)"', text)
 
-    amount = float(amount_match.group(1)) if amount_match else (
-        DEFAULT_WORK_AMOUNT if action_type == "work" else DEFAULT_COOPERATE_AMOUNT
+    amount = (
+        float(amount_match.group(1))
+        if amount_match
+        else (DEFAULT_WORK_AMOUNT if action_type == "work" else DEFAULT_COOPERATE_AMOUNT)
     )
     confidence = float(conf_match.group(1)) if conf_match else DEFAULT_KEYWORD_CONFIDENCE
     reasoning = reason_match.group(1) if reason_match else "[field extraction fallback]"

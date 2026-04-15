@@ -16,10 +16,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Optional
 
-from metrics.inequality import gini_coefficient as _gini_canonical
-from simulation.round_processor import RoundProcessor
 from agents.memory import HierarchicalMemory, MemoryItem
 from decision.output_parser import get_parse_stats, reset_parse_stats
+from metrics.inequality import gini_coefficient as _gini_canonical
+from simulation.round_processor import RoundProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +36,16 @@ class SimulationKernel:
         self.heartbeat_path = Path(heartbeat_path) if heartbeat_path else None
         self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
         self._processor = RoundProcessor(
-            world=world, agent_lookup=self.agent_lookup, logger=logger,
+            world=world,
+            agent_lookup=self.agent_lookup,
+            logger=logger,
         )
         self.round_metrics: list[dict] = []
 
         # Derive metrics flush path from heartbeat directory so the kernel
         # needs no extra parameters from callers.
         if self.heartbeat_path is not None:
-            self._metrics_flush_path: Optional[Path] = (
-                self.heartbeat_path.parent / "round_metrics.jsonl"
-            )
+            self._metrics_flush_path: Optional[Path] = self.heartbeat_path.parent / "round_metrics.jsonl"
         else:
             self._metrics_flush_path = None
 
@@ -79,7 +79,10 @@ class SimulationKernel:
 
             proposed_action = agent.decide(context=perception, round_id=round_id)
             self._processor.process_agent_action(
-                agent, proposed_action, round_id, perception=perception,
+                agent,
+                proposed_action,
+                round_id,
+                perception=perception,
             )
 
         # Memory update on the sequential path — no cached neighbors available
@@ -87,7 +90,9 @@ class SimulationKernel:
         self._narrate_and_update_memory(self.world.state.round_id)
 
     def _prepare_agent_batch(
-        self, policy, round_id: int,
+        self,
+        policy,
+        round_id: int,
     ) -> tuple[list[dict], list[list[dict]]]:
         """Build per-agent context dicts and prompt message lists for batched inference.
 
@@ -187,8 +192,6 @@ class SimulationKernel:
             agent = agent_data[i]["agent"]
             perception = agent_data[i]["perception"]
             neighbors = agent_data[i]["neighbors"]
-            social_ctx = agent_data[i]["social_context"]
-            pop_ctx = agent_data[i]["pop_context"]
 
             action, parse_meta = parse_llm_output(raw_text, neighbors)
 
@@ -201,9 +204,7 @@ class SimulationKernel:
                 # avoids a full second prompt build (memory scoring + token
                 # budget trimming) purely for logging.
                 cached_msgs = agent_data[i].get("messages", [])
-                prompt_text = "\n\n".join(
-                    f"[{m['role'].upper()}]\n{m['content']}" for m in cached_msgs
-                )
+                prompt_text = "\n\n".join(f"[{m['role'].upper()}]\n{m['content']}" for m in cached_msgs)
                 policy.prompt_logger.log(
                     round_id=round_id,
                     agent_id=agent.profile.agent_id,
@@ -215,15 +216,15 @@ class SimulationKernel:
                 )
 
             self._processor.process_agent_action(
-                agent, action, round_id, perception=perception,
+                agent,
+                action,
+                round_id,
+                perception=perception,
             )
 
         # Build neighbor cache from already-assembled agent_data before freeing
         # it — avoids a second get_agent_context() traversal in the memory step.
-        cached_neighbors = {
-            d["agent"].profile.agent_id: d["perception"].get("neighbors", [])
-            for d in agent_data
-        }
+        cached_neighbors = {d["agent"].profile.agent_id: d["perception"].get("neighbors", []) for d in agent_data}
 
         # Release batch-local data structures immediately.  agent_data holds
         # references to every agent object plus their full perception dicts;
@@ -233,9 +234,7 @@ class SimulationKernel:
         gc.collect()
 
         # Memory update uses cached neighbors — no second network traversal.
-        self._narrate_and_update_memory(
-            self.world.state.round_id, cached_neighbors=cached_neighbors
-        )
+        self._narrate_and_update_memory(self.world.state.round_id, cached_neighbors=cached_neighbors)
 
     # ── Checkpoint ───────────────────────────────────────────────────────────
 
@@ -243,10 +242,7 @@ class SimulationKernel:
         """Persist agent states and current round_id to a JSON checkpoint."""
         data = {
             "round_id": self.world.state.round_id,
-            "agents": {
-                agent.profile.agent_id: agent.state.snapshot()
-                for agent in self.agents
-            },
+            "agents": {agent.profile.agent_id: agent.state.snapshot() for agent in self.agents},
         }
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -384,10 +380,7 @@ class SimulationKernel:
             if not neighbor_actions:
                 continue
 
-            narration = (
-                f"Round {round_id} observations: "
-                f"{'; '.join(neighbor_actions)}."
-            )
+            narration = f"Round {round_id} observations: {'; '.join(neighbor_actions)}."
 
             obs_item = MemoryItem(
                 round_id=round_id,
@@ -397,9 +390,7 @@ class SimulationKernel:
                 outcome={},
                 importance=0.3,  # Lower than actions, higher than noise
                 valid_at=round_id,
-                expires_at_round=(
-                    round_id + ttl if ttl is not None else None
-                ),
+                expires_at_round=(round_id + ttl if ttl is not None else None),
             )
             agent.memory.add(obs_item)
 
@@ -417,10 +408,7 @@ class SimulationKernel:
         actions = [a.state.last_action for a in self.agents if a.state.last_action]
         action_counts = dict(Counter(actions))
         total_actions = sum(action_counts.values())
-        action_dist = {
-            k: round(v / total_actions, 3) if total_actions > 0 else 0
-            for k, v in action_counts.items()
-        }
+        action_dist = {k: round(v / total_actions, 3) if total_actions > 0 else 0 for k, v in action_counts.items()}
 
         # Wealth stats
         wealths = [a.state.wealth for a in self.agents]
@@ -439,13 +427,13 @@ class SimulationKernel:
         parse_stats = get_parse_stats()
         reset_parse_stats()
         llm_quality = {
-            "direct_json":      parse_stats.get("direct_json", 0),
-            "regex_json":       parse_stats.get("regex_json", 0),
+            "direct_json": parse_stats.get("direct_json", 0),
+            "regex_json": parse_stats.get("regex_json", 0),
             "keyword_fallback": parse_stats.get("keyword_fallback", 0),
-            "field_extract":    parse_stats.get("field_extract", 0),
-            "retry_success":    parse_stats.get("retry_success", 0),
-            "retry_exhausted":  parse_stats.get("retry_exhausted", 0),
-            "failed":           parse_stats.get("failed", 0),
+            "field_extract": parse_stats.get("field_extract", 0),
+            "retry_success": parse_stats.get("retry_success", 0),
+            "retry_exhausted": parse_stats.get("retry_exhausted", 0),
+            "failed": parse_stats.get("failed", 0),
         }
         degraded = (
             llm_quality["keyword_fallback"]
@@ -455,8 +443,7 @@ class SimulationKernel:
         )
         if degraded > 0:
             logger.info(
-                "Round %d LLM quality: %d degraded parse(s) "
-                "(keyword=%d field_extract=%d exhausted=%d failed=%d)",
+                "Round %d LLM quality: %d degraded parse(s) (keyword=%d field_extract=%d exhausted=%d failed=%d)",
                 round_id,
                 degraded,
                 llm_quality["keyword_fallback"],
@@ -517,4 +504,3 @@ class SimulationKernel:
         if not values or len(values) < 2:
             return 0.0
         return float(_gini_canonical(values))
-

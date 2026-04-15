@@ -21,22 +21,14 @@ from copy import deepcopy
 
 # Rephrase mapping: original pattern → alternatives
 _REPHRASE_MAP = {
-    r"You have (very low|low|moderate|high|very high) trust in other people":
-        "Your level of interpersonal trust is {level}",
-    r"Your risk tolerance is (very low|low|moderate|high|very high)":
-        "When it comes to risk, you are {level}ly tolerant",
-    r"Your competitiveness is (very low|low|moderate|high|very high)":
-        "Your competitive drive is {level}",
-    r"Your life satisfaction is (very low|low|moderate|high|very high)":
-        "You feel {level}ly satisfied with life",
-    r"Your happiness is (very low|low|moderate|high|very high)":
-        "Your overall happiness level is {level}",
-    r"Your social activity level is (very low|low|moderate|high|very high)":
-        "Socially, you are {level}ly active",
-    r"Politically, you are (left-leaning|center-left|centrist|center-right|right-leaning)":
-        "Your political stance is {level}",
-    r"You are (religious|not religious)":
-        "Regarding religion, you are {level}",
+    r"You have (very low|low|moderate|high|very high) trust in other people": "Your level of interpersonal trust is {level}",
+    r"Your risk tolerance is (very low|low|moderate|high|very high)": "When it comes to risk, you are {level}ly tolerant",
+    r"Your competitiveness is (very low|low|moderate|high|very high)": "Your competitive drive is {level}",
+    r"Your life satisfaction is (very low|low|moderate|high|very high)": "You feel {level}ly satisfied with life",
+    r"Your happiness is (very low|low|moderate|high|very high)": "Your overall happiness level is {level}",
+    r"Your social activity level is (very low|low|moderate|high|very high)": "Socially, you are {level}ly active",
+    r"Politically, you are (left-leaning|center-left|centrist|center-right|right-leaning)": "Your political stance is {level}",
+    r"You are (religious|not religious)": "Regarding religion, you are {level}",
 }
 
 # Distractor sentences for noise mode
@@ -104,7 +96,7 @@ def _rephrase(content: str, rng: random.Random) -> str:
         if match:
             level = match.group(1)
             replacement = template.format(level=level)
-            result = result[:match.start()] + replacement + result[match.end():]
+            result = result[: match.start()] + replacement + result[match.end() :]
     return result
 
 

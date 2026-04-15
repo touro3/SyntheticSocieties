@@ -24,7 +24,9 @@ def parse_args():
     parser.add_argument("--population-size", type=int, default=50, help="Number of personas to synthesize.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--ess-path", type=str, default="data/ess_clean.parquet", help="Path to cleaned ESS parquet.")
-    parser.add_argument("--min-cohort-size", type=int, default=30, help="Minimum cohort size after progressive relaxation.")
+    parser.add_argument(
+        "--min-cohort-size", type=int, default=30, help="Minimum cohort size after progressive relaxation."
+    )
     return parser.parse_args()
 
 

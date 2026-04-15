@@ -14,6 +14,7 @@ Design note:
     moderate / low) to approximate the cluster's trust profile. Published
     ESS-11 country-level means serve as the empirical benchmarks.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -122,9 +123,7 @@ def compute_cross_cultural_correlation(
         ValueError: If fewer than 3 clusters are provided.
     """
     if len(cluster_results) < 3:
-        raise ValueError(
-            f"Need at least 3 clusters for meaningful correlation; got {len(cluster_results)}."
-        )
+        raise ValueError(f"Need at least 3 clusters for meaningful correlation; got {len(cluster_results)}.")
 
     trust_means = np.array([r.ess_mean_trust for r in cluster_results])
     coop_rates = np.array([r.simulated_cooperation_rate for r in cluster_results])
@@ -279,7 +278,7 @@ def _compute_alignment_error(
     cy = _minmax01(coop_values.astype(float))
     diff = bx - cy
     mae = float(np.mean(np.abs(diff)))
-    rmse = float(np.sqrt(np.mean(diff ** 2)))
+    rmse = float(np.sqrt(np.mean(diff**2)))
     return mae, rmse
 
 
@@ -297,9 +296,7 @@ def compute_benchmark_fit(
         HoldoutFitResult with correlation and error metrics.
     """
     if len(multi_results) < 3:
-        raise ValueError(
-            f"Need at least 3 clusters for meaningful benchmark fit; got {len(multi_results)}."
-        )
+        raise ValueError(f"Need at least 3 clusters for meaningful benchmark fit; got {len(multi_results)}.")
 
     coop = np.array([r.mean_cooperation_rate for r in multi_results], dtype=float)
 
@@ -310,8 +307,7 @@ def compute_benchmark_fit(
         missing = [r.cluster_name for r in multi_results if r.wvs_trust_pct is None]
         if missing:
             raise ValueError(
-                "WVS benchmark requested but some clusters are missing wvs_trust_pct: "
-                + ", ".join(sorted(missing))
+                "WVS benchmark requested but some clusters are missing wvs_trust_pct: " + ", ".join(sorted(missing))
             )
         bench = np.array([float(r.wvs_trust_pct) / 100.0 for r in multi_results], dtype=float)
     else:

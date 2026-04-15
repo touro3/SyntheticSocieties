@@ -63,11 +63,7 @@ class TestMediationDecomposition:
         # Shares are persona/total and rag/total — interaction fills the rest
         total = result["total_effect"]
         if abs(total) > 1e-10:
-            reconstructed = (
-                result["persona_share"] * total
-                + result["rag_share"] * total
-                + result["interaction_effect"]
-            )
+            reconstructed = result["persona_share"] * total + result["rag_share"] * total + result["interaction_effect"]
             assert reconstructed == pytest.approx(total, abs=1e-10)
 
     def test_negative_total_effect(self):

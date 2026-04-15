@@ -136,6 +136,7 @@ def get_backend(config: ModelConfig):
     """
     if config.backend_type == "huggingface":
         from decision.llm_backend import LLMBackend
+
         return LLMBackend(
             model_id=config.model_id,
             dtype=config.dtype,
@@ -150,15 +151,13 @@ def get_backend(config: ModelConfig):
 
     if config.backend_type == "openai":
         from decision.openai_backend import OpenAIBackend
+
         return OpenAIBackend(
             model_id=config.model_id,
             max_new_tokens=config.max_new_tokens,
             temperature=config.temperature,
-            max_retries=1,     # reduce explosion
-            min_delay=0.25,    # throttle
+            max_retries=1,  # reduce explosion
+            min_delay=0.25,  # throttle
         )
 
-    raise ValueError(
-        f"Unknown backend_type: {config.backend_type!r}. "
-        "Valid values: 'huggingface', 'openai'."
-    )
+    raise ValueError(f"Unknown backend_type: {config.backend_type!r}. Valid values: 'huggingface', 'openai'.")

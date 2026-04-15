@@ -28,10 +28,11 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from agents.agent import Agent
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
-from agents.agent import Agent
+from bgf_logging.event_logger import EventLogger
 from decision.rule_based_ess_policy import RuleBasedESSPolicy
 from environment.institutions import InstitutionManager
 from environment.network import NetworkManager
@@ -46,10 +47,8 @@ from metrics.trust_gradient import (
     compute_trust_recovery_correlation,
 )
 from population.ess_grounding import ESSGrounder
-from population.generator import generate_empirical_population
 from population.society_spec import SocietySpec
 from simulation.kernel import SimulationKernel
-from bgf_logging.event_logger import EventLogger
 
 
 def _make_agent_from_profile_row(row, agent_id: str, rng: np.random.Generator) -> Agent:
@@ -182,10 +181,10 @@ def main() -> None:
     tmp_dir = PROJECT_ROOT / "experiments" / "_trust_gradient_tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("  Trust-Gradient Sub-Population Validation")
     print(f"  Groups: {len(TRUST_GROUPS)}, Rounds: {args.rounds}, Agents: {args.agents}, Seeds: {seeds}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Collect per-seed results for each group
     all_runs: list[dict] = []
@@ -233,18 +232,17 @@ def main() -> None:
     correlation = compute_trust_recovery_correlation(group_results)
 
     # Print summary table
-    print(f"\n{'─'*60}")
+    print(f"\n{'─' * 60}")
     print(f"  {'Group':<20} {'ESS Trust':>10} {'Coop Rate':>10} {'Gini':>8}")
-    print(f"{'─'*60}")
+    print(f"{'─' * 60}")
     for group in TRUST_GROUPS:
         r = group_results[group.name]
-        print(
-            f"  {group.name:<20} {group.ess_reference_mean:>10.3f} "
-            f"{r['coop_rate']:>10.3f} {r['gini']:>8.3f}"
-        )
-    print(f"{'─'*60}")
-    print(f"\n  Spearman r = {correlation['spearman_r']:.3f}  "
-          f"(p = {correlation['p_value']:.3f}, n = {correlation['n_groups']})")
+        print(f"  {group.name:<20} {group.ess_reference_mean:>10.3f} {r['coop_rate']:>10.3f} {r['gini']:>8.3f}")
+    print(f"{'─' * 60}")
+    print(
+        f"\n  Spearman r = {correlation['spearman_r']:.3f}  "
+        f"(p = {correlation['p_value']:.3f}, n = {correlation['n_groups']})"
+    )
     print(f"  {correlation['interpretation']}\n")
 
     # Save results

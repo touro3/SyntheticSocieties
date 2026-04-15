@@ -1,5 +1,5 @@
-from metrics.inequality import gini_coefficient, lorenz_curve
 from metrics.descriptive import mean, median, variance
+from metrics.inequality import gini_coefficient, lorenz_curve
 
 
 def test_gini_equal_distribution():

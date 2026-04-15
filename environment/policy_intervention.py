@@ -42,7 +42,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-
 # ── Rule type alias ──────────────────────────────────────────────────────────
 
 RuleName = Literal[
@@ -54,6 +53,7 @@ RuleName = Literal[
 
 
 # ── Data structures ──────────────────────────────────────────────────────────
+
 
 @dataclass
 class PolicyIntervention:
@@ -112,6 +112,7 @@ class InterventionEvent:
 
 
 # ── Rule implementations ─────────────────────────────────────────────────────
+
 
 def _redistribute_top_pct(agents: list, parameter: float) -> dict[str, float]:
     """Tax the top `parameter` fraction by wealth; distribute pool equally.
@@ -226,6 +227,7 @@ _RULE_FN = {
 
 # ── Engine ───────────────────────────────────────────────────────────────────
 
+
 class InterventionEngine:
     """Applies a schedule of PolicyInterventions during simulation rounds.
 
@@ -256,9 +258,8 @@ class InterventionEngine:
         events: list[InterventionEvent] = []
 
         for idx, intervention in enumerate(self._interventions):
-            should_fire = (
-                round_id == intervention.trigger_round
-                or (intervention.repeat and round_id >= intervention.trigger_round)
+            should_fire = round_id == intervention.trigger_round or (
+                intervention.repeat and round_id >= intervention.trigger_round
             )
             already_fired_once = (not intervention.repeat) and (idx in self._fired)
 
@@ -277,15 +278,17 @@ class InterventionEngine:
             total_transferred = sum(abs(d) for d in deltas.values()) / 2
             n_affected = sum(1 for d in deltas.values() if d != 0.0)
 
-            events.append(InterventionEvent(
-                round_id=round_id,
-                rule=intervention.rule,
-                parameter=intervention.parameter,
-                label=intervention.label,
-                total_transferred=round(total_transferred, 4),
-                n_agents_affected=n_affected,
-                agent_deltas=deltas,
-            ))
+            events.append(
+                InterventionEvent(
+                    round_id=round_id,
+                    rule=intervention.rule,
+                    parameter=intervention.parameter,
+                    label=intervention.label,
+                    total_transferred=round(total_transferred, 4),
+                    n_agents_affected=n_affected,
+                    agent_deltas=deltas,
+                )
+            )
 
             if not intervention.repeat:
                 self._fired.add(idx)
@@ -312,6 +315,7 @@ class InterventionEngine:
 
 
 # ── Sweep helper ─────────────────────────────────────────────────────────────
+
 
 @dataclass
 class SweepPoint:

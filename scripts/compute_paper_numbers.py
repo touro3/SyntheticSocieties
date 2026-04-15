@@ -14,7 +14,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -26,8 +25,8 @@ sys.path.insert(0, str(ROOT))
 
 from metrics.inequality import gini_coefficient
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _parse_action_type(action) -> str:
     """Extract action_type string from raw action field (str, dict, or JSON)."""
@@ -79,6 +78,7 @@ def _stats(values: list[float]) -> dict:
 
 # ── Parsers ───────────────────────────────────────────────────────────────────
 
+
 def _parse_jsonl_events(jsonl_path: Path) -> list[dict]:
     events = []
     with open(jsonl_path) as f:
@@ -114,10 +114,7 @@ def _metrics_from_events(events: list[dict]) -> dict:
             rounds[rid] = []
         rounds[rid].append(at)
 
-    coop_per_round = [
-        sum(1 for a in acts if a == "cooperate") / len(acts)
-        for acts in rounds.values() if acts
-    ]
+    coop_per_round = [sum(1 for a in acts if a == "cooperate") / len(acts) for acts in rounds.values() if acts]
 
     # Per-round Gini (from state_after wealth)
     gini_per_round = []
@@ -165,9 +162,7 @@ def _metrics_from_parquet(parquet_path: Path) -> dict:
 
     # Per-round coop rates
     if "round_id" in df.columns:
-        coop_per_round = df.groupby("round_id")["at"].apply(
-            lambda x: (x == "cooperate").mean()
-        ).tolist()
+        coop_per_round = df.groupby("round_id")["at"].apply(lambda x: (x == "cooperate").mean()).tolist()
     else:
         coop_per_round = [coop_rate]
 
@@ -198,6 +193,7 @@ def _metrics_from_parquet(parquet_path: Path) -> dict:
 
 
 # ── Experiment loaders ────────────────────────────────────────────────────────
+
 
 def _load_experiment(exp_dir: Path) -> Optional[dict]:
     """Load metrics from a single experiment directory."""
@@ -238,6 +234,7 @@ def _load_experiment(exp_dir: Path) -> Optional[dict]:
 
 
 # ── Main aggregation ──────────────────────────────────────────────────────────
+
 
 def compute_paper_numbers(experiments_dir: Path) -> dict:
     """Compute all authoritative paper numbers from experiments."""
@@ -325,15 +322,12 @@ def compute_paper_numbers(experiments_dir: Path) -> dict:
                     "value": val,
                     "range": [bench["low"], bench["high"]],
                     "within_range": within,
-                    "verdict": "within_range" if within else (
-                        "above_range" if val > bench["high"] else "below_range"
-                    ),
+                    "verdict": "within_range" if within else ("above_range" if val > bench["high"] else "below_range"),
                 }
 
     paper_numbers = {
         "_generated_by": "scripts/compute_paper_numbers.py",
         "_note": "All values from actual LLM experiments. phase_c_comparison = 50 agents x 30 rounds.",
-
         "condition_a_ablated": condition_a,
         "condition_b_grounded": condition_b,
         "pure_llm_ess_persona": {
@@ -346,7 +340,6 @@ def compute_paper_numbers(experiments_dir: Path) -> dict:
         },
         "brlhf_reduction_pct": brlhf_reduction,
         "behavioral_ground_truth": bgt_results,
-
         "paper_corrections": {
             "coop_rate_condition_a": {
                 "paper_claims": "≈0.74",
@@ -404,18 +397,24 @@ def _print_summary(paper_numbers: dict) -> None:
     b = paper_numbers.get("condition_b_grounded") or {}
     if a and b:
         print(f"  Phase C experiment: {a.get('n_agents')} agents × {a.get('n_rounds')} rounds")
-        print(f"  Cond A: coop={a.get('coop_rate_overall'):.3f}, B_RLHF={a.get('brlhf'):.3f}, "
-              f"Gini_final={a.get('gini_final'):.3f}")
-        print(f"  Cond B: coop={b.get('coop_rate_overall'):.3f}, B_RLHF={b.get('brlhf'):.3f}, "
-              f"Gini_final={b.get('gini_final'):.3f}")
+        print(
+            f"  Cond A: coop={a.get('coop_rate_overall'):.3f}, B_RLHF={a.get('brlhf'):.3f}, "
+            f"Gini_final={a.get('gini_final'):.3f}"
+        )
+        print(
+            f"  Cond B: coop={b.get('coop_rate_overall'):.3f}, B_RLHF={b.get('brlhf'):.3f}, "
+            f"Gini_final={b.get('gini_final'):.3f}"
+        )
 
     bgt = paper_numbers.get("behavioral_ground_truth", {})
     if bgt:
         print("\n  Behavioral Ground Truth (Condition B):")
         for name, r in bgt.items():
             status = "✓" if r["within_range"] else "✗"
-            print(f"    {name:<15} {r['verdict']:<14} (value={r['value']:.3f}, "
-                  f"range=[{r['range'][0]:.2f},{r['range'][1]:.2f}]) {status}")
+            print(
+                f"    {name:<15} {r['verdict']:<14} (value={r['value']:.3f}, "
+                f"range=[{r['range'][0]:.2f},{r['range'][1]:.2f}]) {status}"
+            )
 
     print()
     reduction = paper_numbers.get("brlhf_reduction_pct")

@@ -22,25 +22,23 @@ import pandas as pd
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from data.ess_schema import (
-    ESS_MISSING_CODES,
-    ESS_MISSING_55,
     ALL_VARIABLE_GROUPS,
     INTERVIEW_META,
     get_ess_columns,
     get_rename_mapping,
 )
 
-
 # ── Defaults ─────────────────────────────────────────────────────────────────
 
 DEFAULT_INTERVIEW = "data/ESS11INTe04_1.csv"
-DEFAULT_MAIN      = "data/ESS11MD_e01_2.csv"
-OUTPUT_PARQUET    = "data/ess_clean.parquet"
-OUTPUT_BEHAVIOR   = "data/behavior/ess_behavior_dataset.csv"
-OUTPUT_DISTS      = "data/empirical_distributions.json"
+DEFAULT_MAIN = "data/ESS11MD_e01_2.csv"
+OUTPUT_PARQUET = "data/ess_clean.parquet"
+OUTPUT_BEHAVIOR = "data/behavior/ess_behavior_dataset.csv"
+OUTPUT_DISTS = "data/empirical_distributions.json"
 
 
 # ── Loading ──────────────────────────────────────────────────────────────────
+
 
 def load_interview(path: str) -> pd.DataFrame:
     """Load the ESS interview metadata file."""
@@ -71,6 +69,7 @@ def load_main(path: str) -> pd.DataFrame:
 
 # ── Joining ──────────────────────────────────────────────────────────────────
 
+
 def join_datasets(interview: pd.DataFrame, main: pd.DataFrame) -> pd.DataFrame:
     """Join interview and main data on respondent ID + country."""
     # Identify shared keys
@@ -100,6 +99,7 @@ def join_datasets(interview: pd.DataFrame, main: pd.DataFrame) -> pd.DataFrame:
 
 # ── Cleaning ─────────────────────────────────────────────────────────────────
 
+
 def clean_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     """
     Replace ESS special codes with NaN.
@@ -112,11 +112,31 @@ def clean_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     # Only use multi-digit codes to avoid destroying valid Likert responses.
     # Single-digit codes (6, 7, 8, 9) are valid answers on 0-10 or 1-7 scales.
     multi_digit_missing = {
-        55, 66, 77, 88, 99,
-        555, 666, 777, 888, 999,
-        5555, 6666, 7777, 8888, 9999,
-        55555, 66666, 77777, 88888, 99999,
-        555555, 666666, 777777, 888888, 999999,
+        55,
+        66,
+        77,
+        88,
+        99,
+        555,
+        666,
+        777,
+        888,
+        999,
+        5555,
+        6666,
+        7777,
+        8888,
+        9999,
+        55555,
+        66666,
+        77777,
+        88888,
+        99999,
+        555555,
+        666666,
+        777777,
+        888888,
+        999999,
     }
 
     numeric_cols = df.select_dtypes(include=[np.number]).columns
@@ -142,12 +162,24 @@ def normalize_scales(df: pd.DataFrame) -> pd.DataFrame:
     """
     # 0–10 scale variables → [0, 1]
     scale_0_10 = [
-        "trust_people", "trust_fairness", "trust_helpfulness",
-        "trust_parliament", "trust_legal", "trust_police",
-        "trust_politicians", "trust_parties", "trust_eu_parliament", "trust_un",
-        "left_right", "life_satisfaction", "satisfaction_economy",
-        "satisfaction_government", "satisfaction_democracy",
-        "satisfaction_education", "satisfaction_health_sys", "happiness",
+        "trust_people",
+        "trust_fairness",
+        "trust_helpfulness",
+        "trust_parliament",
+        "trust_legal",
+        "trust_police",
+        "trust_politicians",
+        "trust_parties",
+        "trust_eu_parliament",
+        "trust_un",
+        "left_right",
+        "life_satisfaction",
+        "satisfaction_economy",
+        "satisfaction_government",
+        "satisfaction_democracy",
+        "satisfaction_education",
+        "satisfaction_health_sys",
+        "happiness",
     ]
     for col in scale_0_10:
         if col in df.columns:
@@ -161,8 +193,10 @@ def normalize_scales(df: pd.DataFrame) -> pd.DataFrame:
 
     # 1–4 inverted scales (1=best, 4=worst → flip so higher = better) → [0, 1]
     scale_1_4_invert = [
-        "immigration_same_ethnicity", "immigration_diff_ethnicity",
-        "immigration_poor_countries", "feel_safe_dark",
+        "immigration_same_ethnicity",
+        "immigration_diff_ethnicity",
+        "immigration_poor_countries",
+        "feel_safe_dark",
     ]
     for col in scale_1_4_invert:
         if col in df.columns:
@@ -170,7 +204,8 @@ def normalize_scales(df: pd.DataFrame) -> pd.DataFrame:
 
     # 1–5 scales → [0, 1]
     scale_1_5 = [
-        "reduce_inequality", "gay_rights",
+        "reduce_inequality",
+        "gay_rights",
     ]
     for col in scale_1_5:
         if col in df.columns:
@@ -186,6 +221,7 @@ def normalize_scales(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── Distributions ────────────────────────────────────────────────────────────
+
 
 def compute_distributions(df: pd.DataFrame) -> dict:
     """
@@ -211,10 +247,7 @@ def compute_distributions(df: pd.DataFrame) -> dict:
                 entry["std"] = float(col.std())
                 entry["min"] = float(col.min())
                 entry["max"] = float(col.max())
-                entry["quantiles"] = {
-                    str(q): float(col.quantile(q))
-                    for q in [0.1, 0.25, 0.5, 0.75, 0.9]
-                }
+                entry["quantiles"] = {str(q): float(col.quantile(q)) for q in [0.1, 0.25, 0.5, 0.75, 0.9]}
             else:
                 entry["type"] = "categorical"
                 vc = col.value_counts(normalize=True)
@@ -229,6 +262,7 @@ def compute_distributions(df: pd.DataFrame) -> dict:
 
 # ── Behavioral proxy ─────────────────────────────────────────────────────────
 
+
 def generate_behavior_proxy(df: pd.DataFrame) -> pd.DataFrame:
     """
     Generate behavioral proxy actions from ESS survey responses.
@@ -240,6 +274,7 @@ def generate_behavior_proxy(df: pd.DataFrame) -> pd.DataFrame:
       - Low risk + high satisfaction → save
       - Fallback → work
     """
+
     def classify_action(row):
         trust = row.get("trust_people", 0.5)
         social = row.get("social_meeting_freq", 0.5)
@@ -270,6 +305,7 @@ def generate_behavior_proxy(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── Main pipeline ────────────────────────────────────────────────────────────
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Ingest ESS datasets for BGF.")
@@ -349,13 +385,13 @@ def main():
     print(f"Countries:          {cleaned['country'].nunique() if 'country' in cleaned.columns else 'N/A'}")
 
     if "country" in cleaned.columns:
-        print(f"\nCountry breakdown:")
+        print("\nCountry breakdown:")
         for country, count in cleaned["country"].value_counts().items():
             print(f"  {country}: {count}")
 
     # Print action distribution
     if "action" in behavior_df.columns:
-        print(f"\nBehavioral proxy distribution:")
+        print("\nBehavioral proxy distribution:")
         for action, count in behavior_df["action"].value_counts().items():
             pct = count / len(behavior_df) * 100
             print(f"  {action}: {count} ({pct:.1f}%)")

@@ -20,6 +20,7 @@ structure and reduces modularity.
 The test controls network evolution directly via NetworkManager.add_edge() calls,
 isolating the modular mechanism from the full LLM inference stack.
 """
+
 from __future__ import annotations
 
 import sys
@@ -28,11 +29,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import networkx as nx
-import pytest
 
 from environment.network import NetworkManager
 from metrics.network_metrics import modularity
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,10 +52,10 @@ def _two_group_network(group_size: int = 6) -> tuple[NetworkManager, list[str], 
     G.add_nodes_from(group_a + group_b)
 
     for i, u in enumerate(group_a):
-        for v in group_a[i + 1:]:
+        for v in group_a[i + 1 :]:
             G.add_edge(u, v)
     for i, u in enumerate(group_b):
-        for v in group_b[i + 1:]:
+        for v in group_b[i + 1 :]:
             G.add_edge(u, v)
 
     # Single bridge edge — minimal inter-group connectivity
@@ -106,8 +105,7 @@ class TestNetworkModularityH4:
         Q_final = modularity(net.graph)
 
         assert Q_final >= Q_initial * 0.90, (
-            f"Intra-group cooperation should not degrade modularity. "
-            f"Q_initial={Q_initial:.4f}, Q_final={Q_final:.4f}."
+            f"Intra-group cooperation should not degrade modularity. Q_initial={Q_initial:.4f}, Q_final={Q_final:.4f}."
         )
 
     def test_cross_group_cooperation_reduces_modularity(self):

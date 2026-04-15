@@ -34,8 +34,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from metrics.complexity import analyze_sweep_results, fit_power_law
-
+from metrics.complexity import analyze_sweep_results
 
 # ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -131,7 +130,7 @@ def simulate_shock(
     for r in range(n_rounds):
         # Apply shock at specified round
         if r == shock_round:
-            wealth *= (1.0 - shock_magnitude)
+            wealth *= 1.0 - shock_magnitude
 
         for i in range(n_agents):
             h = _hash_uniform(f"a{i}", r)
@@ -282,9 +281,12 @@ def main():
         # Sweep 1: bad apple fraction
         print(f"\n[bad_apple] {len(bad_apple_values)} points × {args.n_seeds} seeds")
         metrics = run_sweep_direct(
-            simulate_bad_apple, bad_apple_values,
-            n_seeds=args.n_seeds, n_agents=args.n_agents,
-            n_rounds=args.n_rounds, sweep_name="bad_apple",
+            simulate_bad_apple,
+            bad_apple_values,
+            n_seeds=args.n_seeds,
+            n_agents=args.n_agents,
+            n_rounds=args.n_rounds,
+            sweep_name="bad_apple",
         )
         valid_mask = ~np.isnan(metrics["cooperation_rate"])
         valid_x = np.array(bad_apple_values)[valid_mask]
@@ -294,8 +296,7 @@ def main():
             "sweep_values": valid_x.tolist(),
             "metrics": {k: v.tolist() for k, v in valid_m.items()},
             "analysis": {
-                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv)
-                    for kk, vv in v.items()}
+                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv) for kk, vv in v.items()}
                 for k, v in analysis.items()
             },
         }
@@ -303,9 +304,12 @@ def main():
         # Sweep 2: shock magnitude
         print(f"\n[shock] {len(shock_values)} points × {args.n_seeds} seeds")
         metrics = run_sweep_direct(
-            simulate_shock, shock_values,
-            n_seeds=args.n_seeds, n_agents=args.n_agents,
-            n_rounds=args.n_rounds, sweep_name="shock",
+            simulate_shock,
+            shock_values,
+            n_seeds=args.n_seeds,
+            n_agents=args.n_agents,
+            n_rounds=args.n_rounds,
+            sweep_name="shock",
         )
         valid_mask = ~np.isnan(metrics["cooperation_rate"])
         valid_x = np.array(shock_values)[valid_mask]
@@ -315,8 +319,7 @@ def main():
             "sweep_values": valid_x.tolist(),
             "metrics": {k: v.tolist() for k, v in valid_m.items()},
             "analysis": {
-                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv)
-                    for kk, vv in v.items()}
+                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv) for kk, vv in v.items()}
                 for k, v in analysis.items()
             },
         }
@@ -324,9 +327,12 @@ def main():
         # Sweep 3: network rewiring
         print(f"\n[beta] {len(beta_values)} points × {args.n_seeds} seeds")
         metrics = run_sweep_direct(
-            simulate_beta, beta_values,
-            n_seeds=args.n_seeds, n_agents=args.n_agents,
-            n_rounds=args.n_rounds, sweep_name="beta",
+            simulate_beta,
+            beta_values,
+            n_seeds=args.n_seeds,
+            n_agents=args.n_agents,
+            n_rounds=args.n_rounds,
+            sweep_name="beta",
         )
         valid_mask = ~np.isnan(metrics["cooperation_rate"])
         valid_x = np.array(beta_values)[valid_mask]
@@ -336,14 +342,13 @@ def main():
             "sweep_values": valid_x.tolist(),
             "metrics": {k: v.tolist() for k, v in valid_m.items()},
             "analysis": {
-                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv)
-                    for kk, vv in v.items()}
+                k: {kk: (None if isinstance(vv, float) and np.isnan(vv) else vv) for kk, vv in v.items()}
                 for k, v in analysis.items()
             },
         }
 
         # Summary
-        print(f"\n{'─'*60}")
+        print(f"\n{'─' * 60}")
         for sweep_name, result in all_results.items():
             for metric_name, a in result["analysis"].items():
                 status = "TRANSITION" if a["is_transition"] else "no transition"
@@ -371,9 +376,9 @@ def main():
     # Plot
     if output_path.exists():
         subprocess.run(
-            [sys.executable, "scripts/plot_phase_transitions.py",
-             "--input", str(output_path)],
-            check=False, cwd=str(PROJECT_ROOT),
+            [sys.executable, "scripts/plot_phase_transitions.py", "--input", str(output_path)],
+            check=False,
+            cwd=str(PROJECT_ROOT),
         )
 
 

@@ -8,13 +8,12 @@ Covers:
   - Action distribution: weighted vs unweighted distribution computation
 """
 
-import pytest
 from agents.memory import HierarchicalMemory, MemoryItem
 from agents.profile import AgentProfile
 from agents.state import AgentState
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _item(round_id: int, event_type: str, partner_id=None, outcome=None):
     return MemoryItem(
@@ -28,16 +27,23 @@ def _item(round_id: int, event_type: str, partner_id=None, outcome=None):
 
 def _profile(**overrides):
     defaults = dict(
-        agent_id="agent_0", age=35, income=1000.0,
-        education="college", occupation="worker", location="urban",
-        political_preference="center", social_class="middle",
-        risk_tolerance=0.3, trust_people=0.8,  # high trust, low risk → expects ~56% coop
+        agent_id="agent_0",
+        age=35,
+        income=1000.0,
+        education="college",
+        occupation="worker",
+        location="urban",
+        political_preference="center",
+        social_class="middle",
+        risk_tolerance=0.3,
+        trust_people=0.8,  # high trust, low risk → expects ~56% coop
     )
     defaults.update(overrides)
     return AgentProfile(**defaults)
 
 
 # ── Importance scoring ────────────────────────────────────────────────────────
+
 
 class TestImportanceScoring:
     def test_cooperate_scores_higher_than_work(self):
@@ -47,8 +53,7 @@ class TestImportanceScoring:
         assert mem._score_importance(coop) > mem._score_importance(work)
 
     def test_reciprocated_event_scores_highest(self):
-        reciprocated = _item(1, "cooperate", partner_id="a2",
-                             outcome={"reciprocated": True})
+        reciprocated = _item(1, "cooperate", partner_id="a2", outcome={"reciprocated": True})
         plain_coop = _item(1, "cooperate", partner_id="a2")
         mem = HierarchicalMemory()
         assert mem._score_importance(reciprocated) > mem._score_importance(plain_coop)
@@ -60,8 +65,7 @@ class TestImportanceScoring:
         assert mem._score_importance(big_event) > mem._score_importance(small_event)
 
     def test_importance_clamped_to_one(self):
-        maxed = _item(1, "cooperate", partner_id="a2",
-                      outcome={"reciprocated": True, "wealth_delta": 20})
+        maxed = _item(1, "cooperate", partner_id="a2", outcome={"reciprocated": True, "wealth_delta": 20})
         mem = HierarchicalMemory()
         assert mem._score_importance(maxed) <= 1.0
 
@@ -74,6 +78,7 @@ class TestImportanceScoring:
 
 
 # ── Recency-weighted reflections ──────────────────────────────────────────────
+
 
 class TestRecencyWeightedReflection:
     def test_recent_actions_dominate_reflection(self):
@@ -92,9 +97,7 @@ class TestRecencyWeightedReflection:
         # With recency weighting, cooperate should be listed first (higher weight)
         coop_pos = reflection.find("cooperate")
         work_pos = reflection.find("work")
-        assert coop_pos < work_pos, (
-            f"Expected cooperate before work in reflection, got: {reflection}"
-        )
+        assert coop_pos < work_pos, f"Expected cooperate before work in reflection, got: {reflection}"
 
     def test_reflection_says_recency_weighted(self):
         mem = HierarchicalMemory()
@@ -104,6 +107,7 @@ class TestRecencyWeightedReflection:
 
 
 # ── Importance-based retrieval ────────────────────────────────────────────────
+
 
 class TestImportantRecent:
     def test_returns_all_when_under_limit(self):
@@ -140,6 +144,7 @@ class TestImportantRecent:
 
 
 # ── Action distribution ───────────────────────────────────────────────────────
+
 
 class TestActionDistribution:
     def test_empty_memory_returns_empty_dict(self):
@@ -180,6 +185,7 @@ class TestActionDistribution:
 
 
 # ── Persona re-anchoring ─────────────────────────────────────────────────────
+
 
 class TestPersonaReAnchoring:
     def test_no_anchor_with_insufficient_history(self):

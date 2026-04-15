@@ -8,8 +8,7 @@ It wraps LLMBackend and converts raw-string prompts to chat messages.
 import warnings
 
 _DEPRECATION_MSG = (
-    "FastBatchedBackend is deprecated. Use decision.llm_backend.LLMBackend "
-    "with generate_batch() instead."
+    "FastBatchedBackend is deprecated. Use decision.llm_backend.LLMBackend with generate_batch() instead."
 )
 
 warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
@@ -39,17 +38,13 @@ class _FastBatchedBackend:
     def load(self) -> None:
         self._backend.load()
 
-    def generate_batch(
-        self, prompts: list[str], batch_size: int = 16
-    ) -> list[str]:
+    def generate_batch(self, prompts: list[str], batch_size: int = 16) -> list[str]:
         """Generate responses for a list of raw-text prompts.
 
         Converts each prompt to a single-turn chat message, delegates to
         LLMBackend.generate_batch(), and returns only the text (no latency).
         """
-        messages_list = [
-            [{"role": "user", "content": p}] for p in prompts
-        ]
+        messages_list = [[{"role": "user", "content": p}] for p in prompts]
         results = self._backend.generate_batch(
             messages_list,
             max_batch_size=min(batch_size, 5),
@@ -65,4 +60,4 @@ def __getattr__(name: str):
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["FastBatchedBackend"]
+__all__ = ["FastBatchedBackend"]  # noqa: F822 — exposed via __getattr__

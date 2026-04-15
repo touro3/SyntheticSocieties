@@ -38,6 +38,7 @@ def main() -> None:
         data = json.load(f)
 
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     import numpy as np
@@ -59,8 +60,7 @@ def main() -> None:
 
     # ── Panel A: BRM composite ──────────────────────────────────────────
     ax = axes[0]
-    bars = ax.bar(x, brm_means, yerr=brm_stds, capsize=6,
-                  color=colors, edgecolor="black", linewidth=0.8, width=0.5)
+    bars = ax.bar(x, brm_means, yerr=brm_stds, capsize=6, color=colors, edgecolor="black", linewidth=0.8, width=0.5)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=9.5)
     ax.set_ylabel("BRM Composite Score")
@@ -69,34 +69,64 @@ def main() -> None:
     ax.grid(axis="y", alpha=0.3)
 
     for bar, mean, std in zip(bars, brm_means, brm_stds):
-        ax.text(bar.get_x() + bar.get_width() / 2, mean + std + 0.01,
-                f"{mean:.3f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            mean + std + 0.01,
+            f"{mean:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold",
+        )
 
     # Directionality annotation
     directionality = data.get("directionality_pass", False)
     ax.annotate(
         f"Directionality: {'PASS ✓' if directionality else 'FAIL ✗'}\nMatched > Mismatched > Ungrounded",
-        xy=(0.5, 0.06), xycoords="axes fraction",
-        ha="center", fontsize=8.5,
+        xy=(0.5, 0.06),
+        xycoords="axes fraction",
+        ha="center",
+        fontsize=8.5,
         color="#155724" if directionality else "#721c24",
-        bbox=dict(boxstyle="round,pad=0.3", facecolor="#d4edda" if directionality else "#f8d7da",
-                  edgecolor="#c3e6cb" if directionality else "#f5c6cb", alpha=0.8),
+        bbox=dict(
+            boxstyle="round,pad=0.3",
+            facecolor="#d4edda" if directionality else "#f8d7da",
+            edgecolor="#c3e6cb" if directionality else "#f5c6cb",
+            alpha=0.8,
+        ),
     )
 
     # ── Panel B: Actual vs. Empirical cooperation ───────────────────────
     ax = axes[1]
     width = 0.35
     ax.bar(x - width / 2, act_coops, width, label="Actual (simulated)", color=colors, edgecolor="black", linewidth=0.7)
-    ax.bar(x + width / 2, emp_coops, width, label="Empirical benchmark",
-           color=[c + "80" for c in ["#1f6fb2", "#e67e22", "#e74c3c"]],
-           edgecolor="black", linewidth=0.7, hatch="//")
+    ax.bar(
+        x + width / 2,
+        emp_coops,
+        width,
+        label="Empirical benchmark",
+        color=[c + "80" for c in ["#1f6fb2", "#e67e22", "#e74c3c"]],
+        edgecolor="black",
+        linewidth=0.7,
+        hatch="//",
+    )
 
     # Fix the semi-transparent color strings — use actual alpha parameter
     ax.cla()
-    bar_act = ax.bar(x - width / 2, act_coops, width, label="Actual (simulated)",
-                     color=colors, edgecolor="black", linewidth=0.7)
-    bar_emp = ax.bar(x + width / 2, emp_coops, width, label="Empirical benchmark",
-                     color=colors, edgecolor="black", linewidth=0.7, alpha=0.4, hatch="//")
+    bar_act = ax.bar(
+        x - width / 2, act_coops, width, label="Actual (simulated)", color=colors, edgecolor="black", linewidth=0.7
+    )
+    bar_emp = ax.bar(
+        x + width / 2,
+        emp_coops,
+        width,
+        label="Empirical benchmark",
+        color=colors,
+        edgecolor="black",
+        linewidth=0.7,
+        alpha=0.4,
+        hatch="//",
+    )
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=9.5)
@@ -111,13 +141,13 @@ def main() -> None:
         gap = abs(act - emp)
         if gap > 0.01:
             ymax = max(act, emp) + 0.03
-            ax.annotate(f"Δ={gap:.2f}", xy=(i, ymax), ha="center", fontsize=8,
-                        color="#666666")
+            ax.annotate(f"Δ={gap:.2f}", xy=(i, ymax), ha="center", fontsize=8, color="#666666")
 
     fig.suptitle(
         "Negative Control: Wrong-Culture Grounding\n"
         "Nordic profiles grounded against Nordic (matched) vs. Eastern (mismatched) vs. Ungrounded",
-        fontsize=11, y=1.01,
+        fontsize=11,
+        y=1.01,
     )
     plt.tight_layout()
 

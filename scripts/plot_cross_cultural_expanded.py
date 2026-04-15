@@ -13,6 +13,7 @@ scripts/run_cross_cultural_expanded.py and generates:
 
 Output: analysis/figures/cross_cultural_expanded.png (300 DPI)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -21,11 +22,12 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import pearsonr, spearmanr, linregress
+from scipy.stats import linregress, pearsonr, spearmanr
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -38,27 +40,28 @@ OUTPUT_PATH = Path("analysis/figures/cross_cultural_expanded.png")
 CLUSTER_ORDER = ["eastern", "southern", "western", "anglo", "northern", "nordic"]
 
 CLUSTER_COLORS = {
-    "eastern":  "#d62728",   # red
-    "southern": "#ff7f0e",   # orange
-    "western":  "#2ca02c",   # green
-    "anglo":    "#1f77b4",   # blue
-    "northern": "#9467bd",   # purple
-    "nordic":   "#17becf",   # cyan
+    "eastern": "#d62728",  # red
+    "southern": "#ff7f0e",  # orange
+    "western": "#2ca02c",  # green
+    "anglo": "#1f77b4",  # blue
+    "northern": "#9467bd",  # purple
+    "nordic": "#17becf",  # cyan
 }
 
 CLUSTER_LABELS = {
-    "eastern":  "Eastern\n(PL,CZ,HU,SK)",
+    "eastern": "Eastern\n(PL,CZ,HU,SK)",
     "southern": "Southern\n(IT,ES,PT,GR)",
-    "western":  "Western\n(DE,BE,AT,FR)",
-    "anglo":    "Anglo\n(GB,IE,EE)",
+    "western": "Western\n(DE,BE,AT,FR)",
+    "anglo": "Anglo\n(GB,IE,EE)",
     "northern": "Northern\n(NL,CH,IS)",
-    "nordic":   "Nordic\n(NO,SE,FI,DK)",
+    "nordic": "Nordic\n(NO,SE,FI,DK)",
 }
 
 
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
+
 
 def load_results(path: Path) -> dict:
     if not path.exists():
@@ -94,6 +97,7 @@ def extract_cluster_data(results: dict) -> list[dict]:
 # Regression helpers
 # ---------------------------------------------------------------------------
 
+
 def ols_regression(x: np.ndarray, y: np.ndarray):
     """Return slope, intercept, r_value, p_value, stderr."""
     return linregress(x, y)
@@ -128,6 +132,7 @@ def bootstrap_ci_band(
 # Main plot
 # ---------------------------------------------------------------------------
 
+
 def make_plot(
     rows: list[dict],
     output_path: Path,
@@ -155,14 +160,21 @@ def make_plot(
 
     # Confidence band
     ax.fill_between(
-        x_grid, ci_lo, ci_hi,
-        color="#1f77b4", alpha=0.12, label="95% CI band (bootstrap)",
+        x_grid,
+        ci_lo,
+        ci_hi,
+        color="#1f77b4",
+        alpha=0.12,
+        label="95% CI band (bootstrap)",
     )
 
     # Regression line
     ax.plot(
-        x_grid, y_fit,
-        color="#1f77b4", linewidth=1.6, linestyle="--",
+        x_grid,
+        y_fit,
+        color="#1f77b4",
+        linewidth=1.6,
+        linestyle="--",
         label=f"OLS fit (slope={slope:+.3f})",
     )
 
@@ -177,7 +189,8 @@ def make_plot(
         ei_hi = r["ci_upper"] - yi
 
         ax.errorbar(
-            xi, yi,
+            xi,
+            yi,
             yerr=[[ei_lo], [ei_hi]],
             fmt="o",
             color=color,
@@ -208,7 +221,8 @@ def make_plot(
         f"N clusters = {len(rows)},  N seeds/cluster = {rows[0]['n_seeds']}"
     )
     ax.text(
-        0.03, 0.97,
+        0.03,
+        0.97,
         stat_text,
         transform=ax.transAxes,
         fontsize=9,
@@ -222,7 +236,9 @@ def make_plot(
     ax.set_ylabel("Simulated Cooperation Rate (mean ± 95% CI)", fontsize=12)
     ax.set_title(
         "Cross-Cultural Validation: ESS Trust Gradient vs BGF Simulated Cooperation",
-        fontsize=13, fontweight="bold", pad=12,
+        fontsize=13,
+        fontweight="bold",
+        pad=12,
     )
 
     ax.set_xlim(x.min() - 0.06, x.max() + 0.06)
@@ -279,7 +295,11 @@ def _add_wvs_inset(fig, ax_main, rows: list[dict]) -> None:
             r["wvs_trust_pct"],
             r["mean_coop"],
             yerr=[[r["mean_coop"] - r["ci_lower"]], [r["ci_upper"] - r["mean_coop"]]],
-            fmt="o", color=color, markersize=6, capsize=3, elinewidth=1.2,
+            fmt="o",
+            color=color,
+            markersize=6,
+            capsize=3,
+            elinewidth=1.2,
         )
 
     if len(x_wvs) >= 2 and np.std(x_wvs) > 1e-6:
@@ -298,6 +318,7 @@ def _add_wvs_inset(fig, ax_main, rows: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Plot expanded cross-cultural validation results.")
@@ -332,7 +353,7 @@ def main() -> None:
     pr, pp = pearsonr(x, y)
     sr, sp = spearmanr(x, y)
 
-    print(f"\nCross-Cultural Expanded Validation")
+    print("\nCross-Cultural Expanded Validation")
     print("=" * 50)
     print(f"{'Cluster':<12} {'ESS Trust':>10} {'Coop Mean':>10} {'CI Lower':>9} {'CI Upper':>9} {'N seeds':>8}")
     print("-" * 60)

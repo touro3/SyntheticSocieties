@@ -37,6 +37,7 @@ class MemoryLevel(IntEnum):
     M2 — window + archive count (older events acknowledged but not shown)
     M3 — full hierarchical (reflection + important recent + drift anchor) [default]
     """
+
     M0 = 0
     M1 = 1
     M2 = 2
@@ -88,11 +89,11 @@ class HierarchicalMemory:
     # Social/negative experiences linger longer than routine or ephemeral ones.
     # Mirrors MiroFish's valid_at / expired_at pattern on knowledge-graph nodes.
     _DEFAULT_TTL: dict[str, int | None] = {
-        "cooperate":   15,   # Social observations fade after 15 rounds
-        "work":        10,   # Routine actions fade quickly
-        "save":        10,
-        "steal":       20,   # Negative experiences linger longer
-        "observation":  8,   # NL narrations (kernel feedback) fade after 8 rounds
+        "cooperate": 15,  # Social observations fade after 15 rounds
+        "work": 10,  # Routine actions fade quickly
+        "save": 10,
+        "steal": 20,  # Negative experiences linger longer
+        "observation": 8,  # NL narrations (kernel feedback) fade after 8 rounds
     }
     _DEFAULT_TTL_FALLBACK: int = 12  # For unknown event types
 
@@ -106,8 +107,7 @@ class HierarchicalMemory:
         """
         return cls._DEFAULT_TTL.get(event_type, cls._DEFAULT_TTL_FALLBACK)
 
-    def __init__(self, max_recent: int = 20, archive_size: int = 100,
-                 level: MemoryLevel | int = MemoryLevel.M3):
+    def __init__(self, max_recent: int = 20, archive_size: int = 100, level: MemoryLevel | int = MemoryLevel.M3):
         self.max_recent = max_recent
         self.archive_size = archive_size
         self.level: MemoryLevel = MemoryLevel(int(level))
@@ -292,36 +292,21 @@ class HierarchicalMemory:
         action_summary = ", ".join(action_parts)
 
         # Partner summary with reciprocation rates from outcome data
-        partners: Counter[str] = Counter(
-            m.partner_id for m in items
-            if m.event_type == "cooperate" and m.partner_id
-        )
+        partners: Counter[str] = Counter(m.partner_id for m in items if m.event_type == "cooperate" and m.partner_id)
         partner_summary = ""
         if partners:
             partner_details = []
             for partner, count in partners.most_common(3):
                 # Check outcome data for reciprocation info
-                partner_items = [
-                    m for m in items
-                    if m.event_type == "cooperate" and m.partner_id == partner
-                ]
-                reciprocated = sum(
-                    1 for m in partner_items
-                    if m.outcome.get("reciprocated") is True
-                )
+                partner_items = [m for m in items if m.event_type == "cooperate" and m.partner_id == partner]
+                reciprocated = sum(1 for m in partner_items if m.outcome.get("reciprocated") is True)
                 total_coop = len(partner_items)
-                if reciprocated > 0 or any(
-                    "reciprocated" in m.outcome for m in partner_items
-                ):
+                if reciprocated > 0 or any("reciprocated" in m.outcome for m in partner_items):
                     pct = round(100 * reciprocated / total_coop)
-                    partner_details.append(
-                        f"{partner} (reciprocated {pct}% of the time)"
-                    )
+                    partner_details.append(f"{partner} (reciprocated {pct}% of the time)")
                 else:
                     partner_details.append(partner)
-            partner_summary = (
-                f" Cooperation partners: {', '.join(partner_details)}."
-            )
+            partner_summary = f" Cooperation partners: {', '.join(partner_details)}."
 
         # Outcome trend: wealth and stress changes from recent items
         recent_slice = items[-5:]
@@ -382,8 +367,10 @@ class HierarchicalMemory:
         transparently so batch strategy is invisible to callers.
         """
         now = self._current_round
+
         def _live(item: MemoryItem) -> bool:
             return item.expires_at_round is None or item.expires_at_round >= now
+
         return [i for i in self.recent + self._pending_buffer if _live(i)]
 
     def retrieve(self, query: str | None = None, partner_id: str | None = None, limit: int = 5) -> list[MemoryItem]:

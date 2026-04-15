@@ -219,23 +219,38 @@ class ESSGrounder:
             df = df[df["urbanization"].isin(values)]
             active_filters["urbanization"] = f"{spec.urbanization}:{values}"
 
-        df, desc = self._apply_band(df, "trust_people", spec.trust_people_band, numeric_padding, drop_filters, "trust_people_band")
+        df, desc = self._apply_band(
+            df, "trust_people", spec.trust_people_band, numeric_padding, drop_filters, "trust_people_band"
+        )
         if desc:
             active_filters["trust_people_band"] = desc
 
-        df, desc = self._apply_band(df, "trust_institutions", spec.trust_institutions_band, numeric_padding, drop_filters, "trust_institutions_band")
+        df, desc = self._apply_band(
+            df,
+            "trust_institutions",
+            spec.trust_institutions_band,
+            numeric_padding,
+            drop_filters,
+            "trust_institutions_band",
+        )
         if desc:
             active_filters["trust_institutions_band"] = desc
 
-        df, desc = self._apply_band(df, "social_meeting_freq", spec.social_activity_band, numeric_padding, drop_filters, "social_activity_band")
+        df, desc = self._apply_band(
+            df, "social_meeting_freq", spec.social_activity_band, numeric_padding, drop_filters, "social_activity_band"
+        )
         if desc:
             active_filters["social_activity_band"] = desc
 
-        df, desc = self._apply_band(df, "risk_taking", spec.risk_tolerance_band, numeric_padding, drop_filters, "risk_tolerance_band")
+        df, desc = self._apply_band(
+            df, "risk_taking", spec.risk_tolerance_band, numeric_padding, drop_filters, "risk_tolerance_band"
+        )
         if desc:
             active_filters["risk_tolerance_band"] = desc
 
-        df, desc = self._apply_band(df, "competitiveness", spec.competitiveness_band, numeric_padding, drop_filters, "competitiveness_band")
+        df, desc = self._apply_band(
+            df, "competitiveness", spec.competitiveness_band, numeric_padding, drop_filters, "competitiveness_band"
+        )
         if desc:
             active_filters["competitiveness_band"] = desc
 
@@ -246,7 +261,11 @@ class ESSGrounder:
                 df = df[df["religious_belonging"] == 2]
             active_filters["religiosity_band"] = spec.religiosity_band
 
-        if spec.political_orientation_band and "political_orientation_band" not in drop_filters and "left_right" in df.columns:
+        if (
+            spec.political_orientation_band
+            and "political_orientation_band" not in drop_filters
+            and "left_right" in df.columns
+        ):
             padding = numeric_padding
             if spec.political_orientation_band == "left":
                 df = df[df["left_right"] < min(1.0, 0.30 + padding)]
@@ -258,7 +277,9 @@ class ESSGrounder:
                 df = df[(df["left_right"] >= max(0.0, 0.55 - padding)) & (df["left_right"] < min(1.0, 0.70 + padding))]
             elif spec.political_orientation_band == "right":
                 df = df[df["left_right"] >= max(0.0, 0.70 - padding)]
-            active_filters["political_orientation_band"] = f"{spec.political_orientation_band}(padding={numeric_padding:.2f})"
+            active_filters["political_orientation_band"] = (
+                f"{spec.political_orientation_band}(padding={numeric_padding:.2f})"
+            )
 
         return df.dropna(subset=["age"]).copy(), active_filters
 
@@ -329,7 +350,9 @@ class ESSGrounder:
             return "Strict cohort matching was sufficient."
         return f"Final cohort obtained with widened filter bands ({chosen['step']})."
 
-    def _build_evidence_snippets(self, summary: dict, df: pd.DataFrame, spec: SocietySpec, trace: list[dict]) -> list[str]:
+    def _build_evidence_snippets(
+        self, summary: dict, df: pd.DataFrame, spec: SocietySpec, trace: list[dict]
+    ) -> list[str]:
         snippets = [f"ESS cohort size: {len(df)} respondents."]
         snippets.append(self._relaxation_summary(trace))
         if summary["age_mean"] is not None:

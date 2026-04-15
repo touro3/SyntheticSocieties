@@ -15,7 +15,6 @@ from metrics.complexity import (
     sigmoid,
 )
 
-
 # ── sigmoid ──────────────────────────────────────────────────────────────
 
 
@@ -117,7 +116,7 @@ class TestFitPowerLaw:
 
     def test_output_keys(self):
         rng = np.random.default_rng(42)
-        values = (rng.pareto(2.0, 200) + 1)
+        values = rng.pareto(2.0, 200) + 1
         result = fit_power_law(values)
         expected = {"alpha", "xmin", "ks_statistic", "p_value", "is_power_law", "reliable"}
         assert expected == set(result.keys())

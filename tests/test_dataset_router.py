@@ -12,7 +12,6 @@ import pytest
 
 from decision.dataset_router import DatasetRegistry, RoutedDataset
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -88,6 +87,7 @@ def registry(tmp_path) -> DatasetRegistry:
 # DatasetRegistry.get
 # ---------------------------------------------------------------------------
 
+
 class TestGet:
     def test_returns_correct_dataset(self, registry):
         ds = registry.get("ess11")
@@ -101,6 +101,7 @@ class TestGet:
 # ---------------------------------------------------------------------------
 # DatasetRegistry.list
 # ---------------------------------------------------------------------------
+
 
 class TestList:
     def test_returns_all_datasets(self, registry):
@@ -116,6 +117,7 @@ class TestList:
 # ---------------------------------------------------------------------------
 # DatasetRegistry.route
 # ---------------------------------------------------------------------------
+
 
 class TestRoute:
     def test_returns_list_of_routed_datasets(self, registry):
@@ -160,6 +162,7 @@ class TestRoute:
 # ---------------------------------------------------------------------------
 # DatasetRegistry.build_rag_context
 # ---------------------------------------------------------------------------
+
 
 class TestBuildRagContext:
     def test_includes_title_and_description(self, registry):

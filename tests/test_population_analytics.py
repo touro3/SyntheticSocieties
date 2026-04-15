@@ -28,9 +28,7 @@ def test_population_aggregation_logic():
         .sort(["policy_type", "population_size"])
     )
 
-    row = summary.filter(
-        (pl.col("policy_type") == "mock") & (pl.col("population_size") == 20)
-    ).to_dicts()[0]
+    row = summary.filter((pl.col("policy_type") == "mock") & (pl.col("population_size") == 20)).to_dicts()[0]
 
     assert row["n_runs"] == 2
     assert row["wealth_mean_avg"] == 81.0

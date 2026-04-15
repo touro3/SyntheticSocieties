@@ -7,7 +7,6 @@ import pytest
 from agents.agent import Agent
 from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
-from agents.state import AgentState
 from decision.mock_policy import MockPolicy
 from utils.agent_factory import build_society
 

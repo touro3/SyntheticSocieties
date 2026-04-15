@@ -1,7 +1,6 @@
 """Tests for LLM backend protocol conformance."""
 
-import pytest
-from decision.backend_protocol import LLMBackendProtocol, BatchLLMBackendProtocol
+from decision.backend_protocol import BatchLLMBackendProtocol, LLMBackendProtocol
 
 
 class MockSingleBackend:

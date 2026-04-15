@@ -6,7 +6,6 @@ No GPU required — model.generate() is mocked to simulate hangs and normal retu
 from __future__ import annotations
 
 import time
-import concurrent.futures
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,10 +13,10 @@ import torch
 
 from decision.llm_backend import LLMBackend
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_backend(inference_timeout: int = 2, max_retries: int = 1) -> LLMBackend:
     """Return a pre-loaded LLMBackend with mocked model and tokenizer."""
@@ -38,6 +37,7 @@ def _make_backend(inference_timeout: int = 2, max_retries: int = 1) -> LLMBacken
         "input_ids": torch.zeros(1, 5, dtype=torch.long),
         "attention_mask": torch.ones(1, 5, dtype=torch.long),
     }
+
     # batch tokenizer call (list of texts) → shape [N, 5]
     def _batch_tok(texts, **kwargs):
         n = len(texts) if isinstance(texts, list) else 1
@@ -45,8 +45,11 @@ def _make_backend(inference_timeout: int = 2, max_retries: int = 1) -> LLMBacken
             "input_ids": torch.zeros(n, 5, dtype=torch.long),
             "attention_mask": torch.ones(n, 5, dtype=torch.long),
         }
+
     tok.side_effect = lambda *a, **kw: (
-        _batch_tok(a[0], **kw) if isinstance(a[0], list) else {
+        _batch_tok(a[0], **kw)
+        if isinstance(a[0], list)
+        else {
             "input_ids": torch.zeros(1, 5, dtype=torch.long),
             "attention_mask": torch.ones(1, 5, dtype=torch.long),
         }
@@ -68,6 +71,7 @@ def _make_backend(inference_timeout: int = 2, max_retries: int = 1) -> LLMBacken
 # ---------------------------------------------------------------------------
 # _timed_generate
 # ---------------------------------------------------------------------------
+
 
 class TestTimedGenerate:
     def test_returns_result_on_success(self):
@@ -98,6 +102,7 @@ class TestTimedGenerate:
 # ---------------------------------------------------------------------------
 # generate() — single-agent path
 # ---------------------------------------------------------------------------
+
 
 class TestGenerate:
     def test_normal_return(self):
@@ -155,6 +160,7 @@ class TestGenerate:
 # ---------------------------------------------------------------------------
 # generate_batch() — batch path
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateBatch:
     def _messages(self, n: int) -> list[list[dict]]:
@@ -225,6 +231,7 @@ class TestGenerateBatch:
 # local_files_only is set at load time (no network calls)
 # ---------------------------------------------------------------------------
 
+
 class TestLoadLocalFilesOnly:
     def test_from_pretrained_called_with_local_files_only(self):
         """load() must pass local_files_only=True to prevent mid-run HTTPS CLOSE_WAIT hangs."""
@@ -245,17 +252,20 @@ class TestLoadLocalFilesOnly:
             backend.load()
 
         _, tok_kwargs = tok_call.call_args
-        assert tok_kwargs.get("local_files_only") is True, \
+        assert tok_kwargs.get("local_files_only") is True, (
             "AutoTokenizer.from_pretrained must use local_files_only=True"
+        )
 
         _, model_kwargs = model_call.call_args
-        assert model_kwargs.get("local_files_only") is True, \
+        assert model_kwargs.get("local_files_only") is True, (
             "AutoModelForCausalLM.from_pretrained must use local_files_only=True"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Logprobs-based uncertainty calibration
 # ---------------------------------------------------------------------------
+
 
 class TestLogprobsCalibration:
     """generate() extracts real logprob confidence from output scores."""
@@ -319,4 +329,3 @@ class TestLogprobsCalibration:
         # Token 0 has logits=5.0 vs all others=-10.0
         # log_softmax should give a value close to 0 (high confidence)
         assert logprob > -1.0, "High-confidence token should have logprob close to 0"
-

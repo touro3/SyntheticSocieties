@@ -14,7 +14,6 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
@@ -58,6 +57,7 @@ def generate_behavioral_target(df: pd.DataFrame) -> pd.Series:
       - High risk + high competitiveness → work
       - Low risk + high satisfaction → save
     """
+
     def classify(row):
         trust = row.get("trust_people", 0.5)
         social = row.get("social_meeting_freq", 0.5)
@@ -106,7 +106,7 @@ def main():
 
     # Generate behavioral target
     df["action"] = generate_behavioral_target(df)
-    print(f"\nAction distribution:")
+    print("\nAction distribution:")
     for action, count in df["action"].value_counts().items():
         pct = count / len(df) * 100
         print(f"  {action}: {count} ({pct:.1f}%)")

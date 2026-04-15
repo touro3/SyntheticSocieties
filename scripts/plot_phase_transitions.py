@@ -27,7 +27,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from metrics.complexity import fit_phase_transition, fit_power_law, sigmoid
+from metrics.complexity import fit_power_law, sigmoid
 
 
 def plot_sweep_panel(
@@ -51,10 +51,21 @@ def plot_sweep_panel(
         x_fine = np.linspace(x.min(), x.max(), 200)
         params = fit_result["fit_params"]
         y_fit = sigmoid(x_fine, params["L"], params["k"], params["x0"], params["b"])
-        ax.plot(x_fine, y_fit, color="red", linewidth=2, linestyle="--",
-                label=f"Sigmoid fit (R²={fit_result['r_squared']:.2f})")
-        ax.axvline(fit_result["inflection_point"], color="red", linestyle=":",
-                   alpha=0.5, label=f"Inflection: {fit_result['inflection_point']:.2f}")
+        ax.plot(
+            x_fine,
+            y_fit,
+            color="red",
+            linewidth=2,
+            linestyle="--",
+            label=f"Sigmoid fit (R²={fit_result['r_squared']:.2f})",
+        )
+        ax.axvline(
+            fit_result["inflection_point"],
+            color="red",
+            linestyle=":",
+            alpha=0.5,
+            label=f"Inflection: {fit_result['inflection_point']:.2f}",
+        )
         ax.legend(fontsize=8)
 
     ax.set_xlabel(xlabel, fontsize=10)
@@ -91,8 +102,7 @@ def plot_power_law_panel(
         alpha = result["alpha"]
         # PDF of power law: p(x) = (alpha-1)/xmin * (x/xmin)^(-alpha)
         y_fit = ((alpha - 1) / result["xmin"]) * (x_fit / result["xmin"]) ** (-alpha)
-        ax.plot(x_fit, y_fit, color="red", linewidth=2, linestyle="--",
-                label=f"Power law (alpha={alpha:.2f})")
+        ax.plot(x_fit, y_fit, color="red", linewidth=2, linestyle="--", label=f"Power law (alpha={alpha:.2f})")
         ax.legend(fontsize=8)
 
     ax.set_xscale("log")
@@ -105,10 +115,10 @@ def plot_power_law_panel(
 
 def main():
     parser = argparse.ArgumentParser(description="Plot phase transition results")
-    parser.add_argument("--input", default="analysis/tables/phase_transitions.json",
-                        help="Path to phase_transitions.json")
-    parser.add_argument("--output", default="analysis/figures/phase_transitions.png",
-                        help="Output figure path")
+    parser.add_argument(
+        "--input", default="analysis/tables/phase_transitions.json", help="Path to phase_transitions.json"
+    )
+    parser.add_argument("--output", default="analysis/figures/phase_transitions.png", help="Output figure path")
     args = parser.parse_args()
 
     input_path = PROJECT_ROOT / args.input
@@ -179,8 +189,7 @@ def main():
     if wealth_data:
         plot_power_law_panel(axes[1, 1], wealth_data)
     else:
-        axes[1, 1].text(0.5, 0.5, "No wealth data available",
-                        ha="center", va="center", transform=axes[1, 1].transAxes)
+        axes[1, 1].text(0.5, 0.5, "No wealth data available", ha="center", va="center", transform=axes[1, 1].transAxes)
 
     plt.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,19 +203,13 @@ def _generate_demo_data() -> dict:
     rng = np.random.default_rng(42)
 
     bad_apple_x = [i * 0.02 for i in range(21)]
-    bad_apple_coop = sigmoid(
-        np.array(bad_apple_x), L=-0.45, k=18.0, x0=0.15, b=0.65
-    ) + rng.normal(0, 0.02, 21)
+    bad_apple_coop = sigmoid(np.array(bad_apple_x), L=-0.45, k=18.0, x0=0.15, b=0.65) + rng.normal(0, 0.02, 21)
 
     shock_x = [i * 0.1 for i in range(11)]
-    shock_gini = sigmoid(
-        np.array(shock_x), L=0.35, k=6.0, x0=0.5, b=0.10
-    ) + rng.normal(0, 0.01, 11)
+    shock_gini = sigmoid(np.array(shock_x), L=0.35, k=6.0, x0=0.5, b=0.10) + rng.normal(0, 0.01, 11)
 
     beta_x = [i * 0.1 for i in range(11)]
-    beta_coop = sigmoid(
-        np.array(beta_x), L=-0.25, k=8.0, x0=0.4, b=0.55
-    ) + rng.normal(0, 0.015, 11)
+    beta_coop = sigmoid(np.array(beta_x), L=-0.25, k=8.0, x0=0.4, b=0.55) + rng.normal(0, 0.015, 11)
 
     return {
         "bad_apple": {

@@ -34,12 +34,18 @@ def summarize_synthetic_runs(
     for item in target_items:
         agg[item["name"]] = "mean"
 
-    grouped = synthetic_runs_df.groupby("profile_id", as_index=False).agg(agg).rename(columns={"replication_seed": "n_synthetic"})
+    grouped = (
+        synthetic_runs_df.groupby("profile_id", as_index=False)
+        .agg(agg)
+        .rename(columns={"replication_seed": "n_synthetic"})
+    )
     grouped["synthetic_score_0_100"] = composite_score(grouped, target_items)
     return grouped
 
 
-def compute_pca_projection(real_profiles: pd.DataFrame, synthetic_profiles: pd.DataFrame, target_items: list[dict[str, Any]]) -> dict:
+def compute_pca_projection(
+    real_profiles: pd.DataFrame, synthetic_profiles: pd.DataFrame, target_items: list[dict[str, Any]]
+) -> dict:
     target_names = [f"real_{item['name']}" for item in target_items]
     synth_names = [item["name"] for item in target_items]
 

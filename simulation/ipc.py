@@ -37,8 +37,9 @@ import logging
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,12 @@ _POLL_INTERVAL = 0.5
 _CLIENT_TIMEOUT = 30.0
 
 # Directory names relative to base_dir.
-_CMD_DIR  = "ipc_commands"
+_CMD_DIR = "ipc_commands"
 _RESP_DIR = "ipc_responses"
 
 
 # ── Server ────────────────────────────────────────────────────────────────────
+
 
 class SimulationIPCServer:
     """Background server that processes IPC commands from external processes.
@@ -78,7 +80,7 @@ class SimulationIPCServer:
     ):
         self._agents = agents
         self._base = Path(base_dir)
-        self._cmd_dir  = self._base / _CMD_DIR
+        self._cmd_dir = self._base / _CMD_DIR
         self._resp_dir = self._base / _RESP_DIR
         self._current_round_fn = current_round_fn or (lambda: -1)
 
@@ -95,9 +97,7 @@ class SimulationIPCServer:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(
-            target=self._poll_loop, name="SimulationIPCServer", daemon=True
-        )
+        self._thread = threading.Thread(target=self._poll_loop, name="SimulationIPCServer", daemon=True)
         self._thread.start()
         logger.info("SimulationIPCServer started (base=%s)", self._base)
 
@@ -129,8 +129,8 @@ class SimulationIPCServer:
             return
 
         request_id = cmd.get("request_id", path.stem)
-        command    = cmd.get("command", "")
-        payload    = cmd.get("payload", {})
+        command = cmd.get("command", "")
+        payload = cmd.get("payload", {})
 
         try:
             result = self._dispatch(command, payload)
@@ -153,9 +153,9 @@ class SimulationIPCServer:
     def _dispatch(self, command: str, payload: dict) -> Any:
         handlers: dict[str, Callable] = {
             "interview_agent": self._cmd_interview_agent,
-            "interview_batch":  self._cmd_interview_batch,
-            "get_status":       self._cmd_get_status,
-            "list_agents":      self._cmd_list_agents,
+            "interview_batch": self._cmd_interview_batch,
+            "get_status": self._cmd_get_status,
+            "list_agents": self._cmd_list_agents,
         }
         fn = handlers.get(command)
         if fn is None:
@@ -178,7 +178,7 @@ class SimulationIPCServer:
 
     def _cmd_interview_batch(self, payload: dict) -> dict:
         agent_ids = payload.get("agent_ids", [])
-        question  = payload.get("question", "Describe your recent decisions.")
+        question = payload.get("question", "Describe your recent decisions.")
 
         results = {}
         for aid in agent_ids:
@@ -202,12 +202,12 @@ class SimulationIPCServer:
             entry: dict[str, Any] = {"agent_id": aid}
             if hasattr(agent, "state"):
                 state = agent.state
-                entry["wealth"]  = round(getattr(state, "wealth", 0), 2)
-                entry["stress"]  = round(getattr(state, "stress", 0), 4)
+                entry["wealth"] = round(getattr(state, "wealth", 0), 2)
+                entry["stress"] = round(getattr(state, "stress", 0), 4)
             if hasattr(agent, "profile"):
                 profile = agent.profile
                 entry["country"] = getattr(profile, "country", None)
-                entry["age"]     = getattr(profile, "age", None)
+                entry["age"] = getattr(profile, "age", None)
             agents_info.append(entry)
         return {"agents": agents_info}
 
@@ -222,8 +222,7 @@ class SimulationIPCServer:
         if hasattr(agent, "state"):
             s = agent.state
             parts.append(
-                f"Current state — wealth: {getattr(s, 'wealth', '?'):.1f}, "
-                f"stress: {getattr(s, 'stress', '?'):.2f}."
+                f"Current state — wealth: {getattr(s, 'wealth', '?'):.1f}, stress: {getattr(s, 'stress', '?'):.2f}."
             )
 
         # Memory reflection
@@ -252,6 +251,7 @@ class SimulationIPCServer:
 
 # ── Client ────────────────────────────────────────────────────────────────────
 
+
 class SimulationIPCClient:
     """Client for sending commands to a running SimulationIPCServer.
 
@@ -266,9 +266,9 @@ class SimulationIPCClient:
         timeout: float = _CLIENT_TIMEOUT,
     ):
         self._base = Path(base_dir)
-        self._cmd_dir  = self._base / _CMD_DIR
+        self._cmd_dir = self._base / _CMD_DIR
         self._resp_dir = self._base / _RESP_DIR
-        self._timeout  = timeout
+        self._timeout = timeout
 
     # ── Generic send/receive ──────────────────────────────────────────────────
 
@@ -288,8 +288,8 @@ class SimulationIPCClient:
         request_id = str(uuid.uuid4()).replace("-", "")[:16]
         cmd_obj = {
             "request_id": request_id,
-            "command":    command,
-            "payload":    payload or {},
+            "command": command,
+            "payload": payload or {},
         }
         self._cmd_dir.mkdir(parents=True, exist_ok=True)
         cmd_path = self._cmd_dir / f"cmd_{request_id}.json"
@@ -308,9 +308,7 @@ class SimulationIPCClient:
 
         # Timed out — clean up the command file if still present
         cmd_path.unlink(missing_ok=True)
-        raise TimeoutError(
-            f"IPC command '{command}' (id={request_id}) timed out after {self._timeout}s."
-        )
+        raise TimeoutError(f"IPC command '{command}' (id={request_id}) timed out after {self._timeout}s.")
 
     # ── Convenience wrappers ──────────────────────────────────────────────────
 

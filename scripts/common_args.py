@@ -33,23 +33,32 @@ def add_standard_args(
         seeds: Default seed string (comma-separated, e.g. "1,2,3").
     """
     parser.add_argument(
-        "--rounds", type=int, default=rounds,
+        "--rounds",
+        type=int,
+        default=rounds,
         help=f"Number of simulation rounds (default: {rounds}).",
     )
     parser.add_argument(
-        "--agents", type=int, default=agents,
+        "--agents",
+        type=int,
+        default=agents,
         help=f"Population size (default: {agents}).",
     )
     parser.add_argument(
-        "--seeds", type=str, default=seeds,
+        "--seeds",
+        type=str,
+        default=seeds,
         help='Comma-separated random seeds (default: "%(default)s").',
     )
     parser.add_argument(
-        "--include-llm", action="store_true",
+        "--include-llm",
+        action="store_true",
         help="Run with LLM policy instead of rule-based proxy.",
     )
     parser.add_argument(
-        "--output-dir", type=str, default="experiments",
+        "--output-dir",
+        type=str,
+        default="experiments",
         help="Root directory for experiment output (default: experiments/).",
     )
 

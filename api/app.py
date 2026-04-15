@@ -32,7 +32,6 @@ Endpoints
 
 from __future__ import annotations
 
-import hashlib
 import hmac
 import json
 import logging
@@ -51,6 +50,7 @@ logger = logging.getLogger(__name__)
 try:
     from flask import Flask, jsonify, request
     from flask_cors import CORS
+
     _FLASK_AVAILABLE = True
 except ImportError:
     _FLASK_AVAILABLE = False
@@ -58,13 +58,14 @@ except ImportError:
 try:
     from flask_limiter import Limiter
     from flask_limiter.util import get_remote_address
+
     _LIMITER_AVAILABLE = True
 except ImportError:
     _LIMITER_AVAILABLE = False
 
 _EXPERIMENTS_ROOT = Path("experiments")
-_CONFIGS_ROOT     = Path("configs")
-_TRACKER_INDEX    = Path("tracker/experiment_index.parquet")
+_CONFIGS_ROOT = Path("configs")
+_TRACKER_INDEX = Path("tracker/experiment_index.parquet")
 
 # Bearer-token auth.  Set BGF_API_TOKEN env var to enable.
 # If unset, auth is disabled — intended for local / trusted-network use only.
@@ -81,6 +82,7 @@ _ipc_lock = threading.Lock()
 
 # ── Security helpers ──────────────────────────────────────────────────────────
 
+
 def _check_auth() -> tuple[bool, Any]:
     """Verify bearer token.  Returns (ok, error_response_or_None)."""
     if not _AUTH_TOKEN:
@@ -90,7 +92,7 @@ def _check_auth() -> tuple[bool, Any]:
     if not auth_header.startswith("Bearer "):
         return False, (jsonify({"error": "Authorization header required"}), 401)
 
-    provided = auth_header[len("Bearer "):]
+    provided = auth_header[len("Bearer ") :]
     # hmac.compare_digest prevents timing-oracle attacks.
     if not hmac.compare_digest(provided.encode(), _AUTH_TOKEN.encode()):
         logger.warning("Failed auth attempt from %s", request.remote_addr)
@@ -109,7 +111,7 @@ def _resolve_exp_dir(exp_id: str) -> Path:
         raise ValueError(f"Invalid experiment ID: {exp_id!r}")
 
     exp_dir = (_EXPERIMENTS_ROOT / exp_id).resolve()
-    root    = _EXPERIMENTS_ROOT.resolve()
+    root = _EXPERIMENTS_ROOT.resolve()
     try:
         exp_dir.relative_to(root)
     except ValueError:
@@ -128,9 +130,7 @@ def _validate_config_path(config_path: str) -> Path:
     try:
         p.relative_to(root)
     except ValueError:
-        raise ValueError(
-            f"config_path must be within '{_CONFIGS_ROOT}/': {config_path!r}"
-        )
+        raise ValueError(f"config_path must be within '{_CONFIGS_ROOT}/': {config_path!r}")
     return p
 
 
@@ -143,6 +143,7 @@ def _safe_json_file(path: Path) -> Any:
 
 
 # ── App factory ───────────────────────────────────────────────────────────────
+
 
 def create_app(
     experiments_root: str = "experiments",
@@ -159,14 +160,11 @@ def create_app(
                           or None to allow all (fine for localhost / research).
     """
     if not _FLASK_AVAILABLE:
-        raise ImportError(
-            "Flask and flask-cors are required for the API. "
-            "Install with: pip install flask flask-cors"
-        )
+        raise ImportError("Flask and flask-cors are required for the API. Install with: pip install flask flask-cors")
 
     global _EXPERIMENTS_ROOT, _CONFIGS_ROOT
     _EXPERIMENTS_ROOT = Path(experiments_root)
-    _CONFIGS_ROOT     = Path(configs_root)
+    _CONFIGS_ROOT = Path(configs_root)
 
     app = Flask(__name__)
 
@@ -184,18 +182,16 @@ def create_app(
             default_limits=["300 per hour", "60 per minute"],
             storage_uri="memory://",
         )
-        _simulate_limit  = limiter.limit("10 per minute")
-        _report_limit    = limiter.limit("20 per minute")
-        _write_limit     = limiter.limit("30 per minute")
+        _simulate_limit = limiter.limit("10 per minute")
+        _report_limit = limiter.limit("20 per minute")
+        _write_limit = limiter.limit("30 per minute")
     else:
         # No-op decorators if flask-limiter is not installed.
         def _noop(f):
             return f
+
         _simulate_limit = _report_limit = _write_limit = _noop
-        logger.warning(
-            "flask-limiter not installed — rate limiting disabled. "
-            "Install with: pip install flask-limiter"
-        )
+        logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
     # ── Health ────────────────────────────────────────────────────────────────
 
@@ -223,7 +219,7 @@ def create_app(
 
         body = request.get_json(silent=True) or {}
         config_path_raw = body.get("config_path")
-        resume          = body.get("resume")
+        resume = body.get("resume")
 
         if not config_path_raw:
             return jsonify({"error": "config_path is required"}), 400
@@ -245,6 +241,7 @@ def create_app(
         # Derive experiment_id from config
         try:
             import yaml
+
             with open(config_path) as f:
                 cfg = yaml.safe_load(f)
             exp_id = cfg.get("project", {}).get("experiment_id", "api_run")
@@ -252,8 +249,10 @@ def create_app(
             exp_id = "api_run"
 
         cmd = [
-            sys.executable, "scripts/run_config_simulation.py",
-            "--config", str(config_path),
+            sys.executable,
+            "scripts/run_config_simulation.py",
+            "--config",
+            str(config_path),
         ]
         if resume:
             cmd += ["--resume", str(resume)]
@@ -283,7 +282,7 @@ def create_app(
         except ValueError:
             return jsonify({"error": "Invalid experiment ID"}), 400
 
-        state_path     = exp_dir / "run_state.json"
+        state_path = exp_dir / "run_state.json"
         heartbeat_path = exp_dir / "heartbeat.json"
 
         if not state_path.exists():
@@ -416,7 +415,7 @@ def create_app(
         if not exp_dir.exists():
             return jsonify({"error": "Experiment not found"}), 404
 
-        body     = request.get_json(silent=True) or {}
+        body = request.get_json(silent=True) or {}
         question = str(body.get("question", "Describe your recent decisions."))[:1000]
 
         try:
@@ -424,18 +423,14 @@ def create_app(
 
             with _ipc_lock:
                 if exp_id not in _ipc_clients:
-                    _ipc_clients[exp_id] = SimulationIPCClient(
-                        base_dir=str(exp_dir), timeout=15.0
-                    )
+                    _ipc_clients[exp_id] = SimulationIPCClient(base_dir=str(exp_dir), timeout=15.0)
                 client = _ipc_clients[exp_id]
 
             reply = client.interview_agent(agent_id, question)
             return jsonify(reply)
 
         except TimeoutError:
-            return jsonify({
-                "error": "IPC timeout — is the simulation running with IPC enabled?"
-            }), 504
+            return jsonify({"error": "IPC timeout — is the simulation running with IPC enabled?"}), 504
         except Exception as exc:
             logger.error("interview error (exp=%s agent=%s): %s", exp_id, agent_id, exc)
             return jsonify({"error": "Interview request failed"}), 500
@@ -467,14 +462,16 @@ def create_app(
             return jsonify({"error": "'q' query parameter is required"}), 400
 
         # API key comes from the server environment only — never from the caller.
-        api_key  = os.environ.get("BGF_REPORT_API_KEY") or os.environ.get("OPENAI_API_KEY", "EMPTY")
+        api_key = os.environ.get("BGF_REPORT_API_KEY") or os.environ.get("OPENAI_API_KEY", "EMPTY")
         base_url = None  # Configurable via env if needed: os.environ.get("BGF_REPORT_BASE_URL")
 
         try:
             from analysis.react_report_agent import ReportAgent
 
             agent = ReportAgent(
-                api_key=api_key, base_url=base_url, model=model,
+                api_key=api_key,
+                base_url=base_url,
+                model=model,
                 index_path=str(_TRACKER_INDEX),
             )
             text = agent.generate_report(query)
@@ -495,6 +492,7 @@ def create_app(
 
         try:
             from simulation.crash_recovery import scan_incomplete_runs
+
             runs = scan_incomplete_runs(str(_EXPERIMENTS_ROOT))
             return jsonify({"incomplete_runs": runs})
         except Exception as exc:
@@ -517,8 +515,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="BGF REST API server")
     # Default to localhost — callers must explicitly pass 0.0.0.0 to expose externally.
-    parser.add_argument("--host", default="127.0.0.1",
-                        help="Bind address (default: 127.0.0.1 — set 0.0.0.0 to expose externally)")
+    parser.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1 — set 0.0.0.0 to expose externally)"
+    )
     parser.add_argument("--port", type=int, default=5050)
     parser.add_argument("--experiments-root", default="experiments")
     parser.add_argument("--configs-root", default="configs")
@@ -532,8 +531,7 @@ if __name__ == "__main__":
 
     if not _AUTH_TOKEN:
         logger.warning(
-            "BGF_API_TOKEN is not set — running in open mode. "
-            "Set this env var before exposing the API on a network."
+            "BGF_API_TOKEN is not set — running in open mode. Set this env var before exposing the API on a network."
         )
 
     app = create_app(

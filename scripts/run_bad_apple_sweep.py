@@ -35,7 +35,6 @@ from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from bgf_logging.event_logger import EventLogger
-from decision.mock_policy import MockPolicy
 from decision.rule_based_policy import RuleBasedPolicy
 from decision.schemas import ProposedAction
 from environment.institutions import InstitutionManager
@@ -65,6 +64,7 @@ DEFAULT_N_SEEDS = 3
 
 
 # ── Agent factory ─────────────────────────────────────────────────────────────
+
 
 def _make_agents(n: int, bad_fraction: float, seed: int) -> list[Agent]:
     rng = np.random.default_rng(seed)
@@ -138,6 +138,7 @@ def _run_one(bad_fraction: float, seed: int, n_agents: int, n_rounds: int) -> di
 
 # ── Sigmoid fitting ───────────────────────────────────────────────────────────
 
+
 def _fit_sigmoid(x: np.ndarray, y: np.ndarray) -> dict:
     """Fit L / (1 + exp(-k*(x - f*))) to data. Returns params + R²."""
     try:
@@ -172,6 +173,7 @@ def _fit_sigmoid(x: np.ndarray, y: np.ndarray) -> dict:
 
 # ── Main sweep ────────────────────────────────────────────────────────────────
 
+
 def run_sweep(
     fractions=None,
     n_agents: int = DEFAULT_N_AGENTS,
@@ -192,16 +194,19 @@ def run_sweep(
             seed_coops.append(r["coop_rate"])
             seed_ginis.append(r["gini"])
 
-        per_fraction.append({
-            "bad_fraction": frac,
-            "coop_rate_mean": round(float(np.mean(seed_coops)), 6),
-            "coop_rate_std": round(float(np.std(seed_coops)), 6),
-            "gini_mean": round(float(np.mean(seed_ginis)), 6),
-            "gini_std": round(float(np.std(seed_ginis)), 6),
-            "n_seeds": n_seeds,
-        })
-        print(f"  f={frac:.2f}: coop={np.mean(seed_coops):.3f}±{np.std(seed_coops):.3f}  "
-              f"gini={np.mean(seed_ginis):.3f}")
+        per_fraction.append(
+            {
+                "bad_fraction": frac,
+                "coop_rate_mean": round(float(np.mean(seed_coops)), 6),
+                "coop_rate_std": round(float(np.std(seed_coops)), 6),
+                "gini_mean": round(float(np.mean(seed_ginis)), 6),
+                "gini_std": round(float(np.std(seed_ginis)), 6),
+                "n_seeds": n_seeds,
+            }
+        )
+        print(
+            f"  f={frac:.2f}: coop={np.mean(seed_coops):.3f}±{np.std(seed_coops):.3f}  gini={np.mean(seed_ginis):.3f}"
+        )
 
     # Sigmoid fit
     fracs_arr = np.array([r["bad_fraction"] for r in per_fraction])
@@ -220,8 +225,10 @@ def run_sweep(
 
 # ── Figure ────────────────────────────────────────────────────────────────────
 
+
 def plot_sweep(results: dict, figure_path: Path) -> None:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -230,8 +237,17 @@ def plot_sweep(results: dict, figure_path: Path) -> None:
     coop_errs = [r["coop_rate_std"] for r in results["per_fraction"]]
 
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.errorbar(fracs, coops, yerr=coop_errs, fmt="o-", color="steelblue",
-                linewidth=2, markersize=7, capsize=4, label="Coop rate (mean ± std)")
+    ax.errorbar(
+        fracs,
+        coops,
+        yerr=coop_errs,
+        fmt="o-",
+        color="steelblue",
+        linewidth=2,
+        markersize=7,
+        capsize=4,
+        label="Coop rate (mean ± std)",
+    )
 
     # Plot sigmoid fit if available
     fit = results.get("sigmoid_fit", {})
@@ -239,8 +255,14 @@ def plot_sweep(results: dict, figure_path: Path) -> None:
         x_plot = np.linspace(0, 0.4, 200)
         L, k, f_star = fit["L"], fit["k"], fit["f_star"]
         y_fit = 1 - (L / (1 + np.exp(-k * (x_plot - f_star))))
-        ax.plot(x_plot, y_fit, "--", color="tomato", linewidth=1.5,
-                label=f"Sigmoid fit: f*={f_star:.2f}, k={k:.1f}, R²={fit['r_squared']:.3f}")
+        ax.plot(
+            x_plot,
+            y_fit,
+            "--",
+            color="tomato",
+            linewidth=1.5,
+            label=f"Sigmoid fit: f*={f_star:.2f}, k={k:.1f}, R²={fit['r_squared']:.3f}",
+        )
         ax.axvline(f_star, color="tomato", alpha=0.4, linewidth=1)
 
     ax.set_xlabel("Bad apple fraction $f$")
@@ -258,6 +280,7 @@ def plot_sweep(results: dict, figure_path: Path) -> None:
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(

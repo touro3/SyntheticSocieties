@@ -35,7 +35,7 @@ import json
 import struct
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -45,12 +45,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from metrics.behavioral_realism import compute_composite_brm, compute_rlhf_bias_index
 
-
 # ── ESS-derived benchmarks ────────────────────────────────────────────────
 
 # Published ESS Round 11 cluster cooperation proxies (from cross_cultural_benchmarks.json)
-_NORDIC_BENCHMARK = dict(emp_gini=0.30, emp_coop_rate=0.50)    # high trust culture
-_EASTERN_BENCHMARK = dict(emp_gini=0.31, emp_coop_rate=0.35)   # low trust culture
+_NORDIC_BENCHMARK = dict(emp_gini=0.30, emp_coop_rate=0.50)  # high trust culture
+_EASTERN_BENCHMARK = dict(emp_gini=0.31, emp_coop_rate=0.35)  # low trust culture
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -78,8 +77,8 @@ def _gini(values: list[float]) -> float:
 @dataclass
 class ConditionResult:
     condition: str
-    benchmark_label: str       # "nordic" or "eastern"
-    profile_label: str         # "nordic_profiles", "flat_profiles"
+    benchmark_label: str  # "nordic" or "eastern"
+    profile_label: str  # "nordic_profiles", "flat_profiles"
     n_agents: int
     n_rounds: int
     seed: int
@@ -96,8 +95,8 @@ class ConditionResult:
 
 def _run_one(
     condition: str,
-    profile_type: str,     # "nordic" | "flat"
-    benchmark: dict,       # emp_gini, emp_coop_rate
+    profile_type: str,  # "nordic" | "flat"
+    benchmark: dict,  # emp_gini, emp_coop_rate
     benchmark_label: str,
     n_agents: int,
     n_rounds: int,
@@ -109,7 +108,7 @@ def _run_one(
     if profile_type == "nordic":
         # High-trust Nordic profile: trust_people ~ Beta(5,3) → mean ≈ 0.625
         trust = rng.beta(5, 3, size=n_agents)
-        risk = rng.beta(2, 4, size=n_agents)    # more risk-averse
+        risk = rng.beta(2, 4, size=n_agents)  # more risk-averse
         social = rng.beta(4, 2, size=n_agents)  # more social
     else:
         # Flat ungrounded: RLHF bias — overrides trust to produce ~70% cooperation
@@ -188,16 +187,15 @@ def run_negative_control(
 ) -> list[ConditionResult]:
     """Run all three conditions across seeds."""
     conditions = [
-        ("matched",     "nordic", _NORDIC_BENCHMARK,  "nordic"),
-        ("mismatched",  "nordic", _EASTERN_BENCHMARK, "eastern"),
-        ("ungrounded",  "flat",   _EASTERN_BENCHMARK, "eastern"),
+        ("matched", "nordic", _NORDIC_BENCHMARK, "nordic"),
+        ("mismatched", "nordic", _EASTERN_BENCHMARK, "eastern"),
+        ("ungrounded", "flat", _EASTERN_BENCHMARK, "eastern"),
     ]
 
     results = []
     for condition, profile_type, benchmark, benchmark_label in conditions:
         for seed in seeds:
-            r = _run_one(condition, profile_type, benchmark, benchmark_label,
-                         n_agents, n_rounds, seed)
+            r = _run_one(condition, profile_type, benchmark, benchmark_label, n_agents, n_rounds, seed)
             results.append(r)
     return results
 
@@ -207,6 +205,7 @@ def run_negative_control(
 
 def aggregate(results: list[ConditionResult]) -> dict:
     from collections import defaultdict
+
     by_cond: dict[str, list[ConditionResult]] = defaultdict(list)
     for r in results:
         by_cond[r.condition].append(r)
@@ -248,8 +247,7 @@ def main() -> None:
 
     if not args.plot_only:
         seeds = tuple(range(42, 42 + args.n_seeds))
-        print(f"[negative_control] Running: {args.n_agents} agents, "
-              f"{args.n_rounds} rounds, {args.n_seeds} seeds")
+        print(f"[negative_control] Running: {args.n_agents} agents, {args.n_rounds} rounds, {args.n_seeds} seeds")
         print("  Conditions: MATCHED / MISMATCHED / UNGROUNDED")
 
         results = run_negative_control(
@@ -260,22 +258,25 @@ def main() -> None:
 
         summary = aggregate(results)
         print("\n[negative_control] Results (mean BRM ± std):")
-        print(f"  {'Condition':12s}  {'Profiles':18s}  {'Benchmark':10s}  "
-              f"{'BRM':>8}  {'Coop(act)':>10}  {'Coop(emp)':>10}")
-        print(f"  {'-'*12}  {'-'*18}  {'-'*10}  {'-'*8}  {'-'*10}  {'-'*10}")
+        print(
+            f"  {'Condition':12s}  {'Profiles':18s}  {'Benchmark':10s}  "
+            f"{'BRM':>8}  {'Coop(act)':>10}  {'Coop(emp)':>10}"
+        )
+        print(f"  {'-' * 12}  {'-' * 18}  {'-' * 10}  {'-' * 8}  {'-' * 10}  {'-' * 10}")
         for cond in ["matched", "mismatched", "ungrounded"]:
             s = summary[cond]
-            print(f"  {cond:12s}  {s['profile_label']:18s}  {s['benchmark_label']:10s}  "
-                  f"{s['brm_mean']:.4f}±{s['brm_std']:.4f}  "
-                  f"{s['actual_coop_mean']:>10.3f}  {s['emp_coop_rate']:>10.3f}")
+            print(
+                f"  {cond:12s}  {s['profile_label']:18s}  {s['benchmark_label']:10s}  "
+                f"{s['brm_mean']:.4f}±{s['brm_std']:.4f}  "
+                f"{s['actual_coop_mean']:>10.3f}  {s['emp_coop_rate']:>10.3f}"
+            )
 
         # Directionality check
         matched_brm = summary["matched"]["brm_mean"]
         mismatched_brm = summary["mismatched"]["brm_mean"]
         ungrounded_brm = summary["ungrounded"]["brm_mean"]
         directional = matched_brm > mismatched_brm > ungrounded_brm
-        print(f"\n  Directionality test (matched > mismatched > ungrounded): "
-              f"{'PASS ✓' if directional else 'FAIL ✗'}")
+        print(f"\n  Directionality test (matched > mismatched > ungrounded): {'PASS ✓' if directional else 'FAIL ✗'}")
 
         payload = {
             "n_agents": args.n_agents,
@@ -289,8 +290,8 @@ def main() -> None:
                 "UNGROUNDED achieves lowest BRM. "
                 "This proves ESS grounding is directionally specific, not "
                 "merely 'any demographic info helps'."
-                if directional else
-                "Directionality test failed — investigate conditions."
+                if directional
+                else "Directionality test failed — investigate conditions."
             ),
         }
         with open(json_path, "w") as f:
@@ -299,8 +300,7 @@ def main() -> None:
 
     if json_path.exists():
         subprocess.run(
-            [sys.executable, "scripts/plot_negative_control.py",
-             "--input", str(json_path)],
+            [sys.executable, "scripts/plot_negative_control.py", "--input", str(json_path)],
             check=False,
         )
 

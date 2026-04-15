@@ -9,7 +9,8 @@ import time
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch", reason="torch not installed — skipping LLM backend tests")
 
 from decision.llm_backend import LLMBackend
 

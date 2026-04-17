@@ -88,7 +88,7 @@ ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel 
 | `metrics/complexity.py` | Phase transition detection (sigmoid fit) + power law fitting (Clauset 2009 MLE) |
 | `metrics/` | 15+ evaluation dimensions: Gini, Lorenz, JSD, Wasserstein, network metrics, persona fidelity |
 | `bgf_logging/` | JSONL event and prompt logging for full reproducibility |
-| `tracker/` | DuckDB-based experiment registry: SQL queries across 105+ runs |
+| `tracker/` | DuckDB-based experiment registry: SQL queries across 174+ runs |
 | `docs/formal_framework.md` | Mathematical definitions of BGF, BRM, and B_RLHF |
 | `docs/causal_model.md` | Causal DAG, confound control table, mediation decomposition |
 
@@ -127,7 +127,7 @@ python scripts/run_full_pipeline.py --plots-only
 #   analysis/reports/research_integrity_audit.json
 #   analysis/reports/research_integrity_audit.md
 
-# Run full test suite (929+ tests)
+# Run full test suite (1,272+ tests)
 pytest tests/ -v
 
 # Run specific new metric tests
@@ -211,7 +211,7 @@ result = compute_cross_cultural_correlation(cluster_results)
 ```
 
 Dry-run result (mock policy, rule-based agents): **Spearman ρ = 1.000 (p = 0.000)**.
-GPU experiment pending: `bash scripts/pipeline_cross_cultural.sh --include-llm`
+LLM GPU result (Mistral-7B, 10 seeds/cluster, N=20, T=10): **Pearson r = +0.983, Spearman ρ = +1.000** — gradient fully recovered.
 
 New files: `population/country_clusters.py`, `metrics/cross_cultural.py`,
 `data/cross_cultural_benchmarks.json`, `configs/cross_cultural/`, `scripts/run_cross_cultural.py`,
@@ -245,7 +245,7 @@ Mathematical definitions: `docs/formal_framework.md`.
 
 ### Phase 25 — Contribution Statement
 Rewrote `docs/paper.md` abstract and introduction with:
-- Numbered contribution list (5 contributions)
+- Numbered contribution list (9 contributions)
 - Summary of Contributions box
 - Formal BRM/B_RLHF terminology throughout
 - 7 additional citations (Ouyang 2022, Watts-Strogatz 1998, Barabasi-Albert 1999, Axelrod 1984, etc.)
@@ -342,7 +342,7 @@ experiments/<exp_id>/
 └── summary.json     # Aggregate metrics
 ```
 
-Visualizations in `analysis/figures/` (70+ figures).
+Visualizations in `analysis/figures/` (93+ figures).
 Network exports for Gephi in `analysis/networks/`.
 Phase transition tables in `analysis/tables/`.
 
@@ -365,7 +365,7 @@ Phase transition tables in `analysis/tables/`.
 
 ## Test Suite
 
-**636+ tests** across 53 test files. Run with:
+**1,272+ tests** across 91 test files. Run with:
 
 ```bash
 pytest tests/ -v                    # Full suite
@@ -378,7 +378,7 @@ pytest tests/test_complexity.py -v           # Phase 18: Phase transitions
 pytest tests/test_rag.py -v                  # RAG-specific subset
 ```
 
-Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → **606** (current).
+Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 → 921 → **1,272** (current).
 
 ---
 
@@ -427,7 +427,7 @@ SyntheticSocieties/
 │   ├── formal_framework.md       # NEW: mathematical BGF definitions
 │   └── causal_model.md           # NEW: causal DAG and mediation design
 ├── environment/           # Economy engine, network topology, institutions
-├── experiments/           # 105+ completed experiment runs
+├── experiments/           # 174+ completed experiment runs
 ├── metrics/               # Evaluation metrics
 │   ├── behavioral_realism.py     # NEW: BRM, B_RLHF
 │   ├── persona_decay.py          # NEW: per-round fidelity tracking
@@ -439,7 +439,7 @@ SyntheticSocieties/
 │   ├── run_phase_transition_sweeps.py  # NEW: sweep orchestration
 │   └── plot_phase_transitions.py       # NEW: 4-panel phase diagram
 ├── simulation/            # Event-driven simulation kernel
-├── tests/                 # 636+ tests across 53 files
+├── tests/                 # 1,272+ tests across 91 files
 │   ├── test_behavioral_realism.py     # NEW
 │   ├── test_persona_decay.py          # NEW
 │   ├── test_length_controlled_ablation.py  # NEW
@@ -448,7 +448,7 @@ SyntheticSocieties/
 ├── tracker/               # DuckDB experiment registry + statistical tests
 ├── utils/                 # Configuration and I/O utilities
 └── analysis/
-    ├── figures/           # 70+ generated visualizations
+    ├── figures/           # 93+ generated visualizations
     ├── reports/           # Persona fidelity and comparison reports
     ├── networks/          # GEXF graph exports for Gephi
     └── tables/            # Statistical summary tables + phase transitions

@@ -17,10 +17,22 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Literal
 
 from decision.token_budget import DEFAULT_MAX_TOKENS, budget_for_model
+
+
+def _default_model_cache_dir() -> str | None:
+    """Resolve the HuggingFace model cache directory.
+
+    Resolution order (first non-empty wins):
+      1. BGF_MODEL_CACHE_DIR (project-level override)
+      2. HF_HOME (HuggingFace's own convention)
+      3. None (HuggingFace uses its default ~/.cache/huggingface)
+    """
+    return os.environ.get("BGF_MODEL_CACHE_DIR") or os.environ.get("HF_HOME") or None
 
 
 @dataclass
@@ -73,7 +85,7 @@ class ModelConfig:
             backend_type="huggingface",
             context_length=32768,
             dtype="float16",
-            cache_dir=cache_dir or "/mnt/raid/workspace/lucastourinho/models",
+            cache_dir=cache_dir or _default_model_cache_dir(),
             prompt_budget=4096,
         )
 
@@ -92,7 +104,7 @@ class ModelConfig:
             backend_type="huggingface",
             context_length=131072,
             dtype="float16",
-            cache_dir=cache_dir or "/mnt/raid/workspace/lucastourinho/models",
+            cache_dir=cache_dir or _default_model_cache_dir(),
             prompt_budget=6144,
         )
 

@@ -1,13 +1,13 @@
 # Research Integrity Audit
 
-- Status: **PASS_WITH_WARNINGS**
+- Status: **FAIL**
 - Level: `basic`
 
 ## Blockers
-- None
+- llm_vs_baselines.csv is empty.
 
 ## Warnings
-- Human baseline metrics are legacy/incomplete (missing quality_checks metadata).
+- None
 
 ## Info
 - None

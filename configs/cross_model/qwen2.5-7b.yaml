@@ -23,7 +23,7 @@ population:
 
 llm:
   model_id: Qwen/Qwen2.5-7B-Instruct
-  cache_dir: /mnt/raid/workspace/lucastourinho/models
+  cache_dir: ${oc.env:BGF_MODEL_CACHE_DIR,${oc.env:HF_HOME,~/.cache/huggingface}}
   dtype: bfloat16  # float16 causes NaN in sampling — Qwen2.5 requires bfloat16
   device_map: auto
   temperature: 0.7

@@ -30,7 +30,23 @@ from population._helpers import (
 from population._helpers import (
     safe_int as _safe_int,
 )
+from population._helpers import (
+    safe_normalized_float as _safe_normalized_float,
+)
 from population.society_spec import SocietySpec
+
+
+def normalize_record(record):
+    """Clamp any out-of-range [0,1] fields in a raw persona dict.
+
+    Handles legacy data where health_status was stored on the raw ESS
+    1-5 scale instead of being normalized to [0, 1].  The ESS convention
+    is 1=very good … 5=very bad, so we invert: (5 - val) / 4.
+    """
+    hs = record.get("health_status", None)
+    if hs is not None and hs > 1.0:
+        record["health_status"] = max(0.0, min(1.0, (5.0 - hs) / 4.0))
+    return record
 
 
 class PersonaRecord(BaseModel):
@@ -111,7 +127,7 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
                 social_activity=_safe_float(row.get("social_meeting_freq")),
                 competitiveness=_safe_float(row.get("competitiveness")),
                 leadership_preference=_safe_float(row.get("leadership_preference")),
-                health_status=_safe_float(row.get("self_rated_health")),
+                health_status=_safe_normalized_float(row.get("self_rated_health"), 5.0, 1.0),
                 religiosity=1.0
                 if _safe_int(row.get("religious_belonging")) == 1
                 else 0.0
@@ -348,7 +364,9 @@ def load_persona_records(path: str | Path) -> list[PersonaRecord]:
         for line in f:
             line = line.strip()
             if line:
-                records.append(PersonaRecord(**json.loads(line)))
+                raw = json.loads(line)
+                raw = normalize_record(raw)
+                records.append(PersonaRecord(**raw))
     return records
 
 

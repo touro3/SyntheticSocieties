@@ -4,7 +4,7 @@
   "access_right": "open",
   "license": "MIT",
   "version": "1.0.0",
-  "publication_date": "2026-03-25",
+  "publication_date": "2026-04-22",
   "description": "BGF is an open-source multi-agent economic simulation framework that grounds LLM agent behavior in empirical sociodemographic data from the European Social Survey (ESS). It demonstrates and quantifies the RLHF cooperative bias in instruction-tuned LLMs, introduces the Behavioral Realism Metric (BRM) and RLHF Bias Index (B_RLHF), and provides a reproducible pipeline for LLM-driven computational social science research.",
   "creators": [
     {
@@ -32,5 +32,5 @@
     }
   ],
   "language": "eng",
-  "notes": "Includes 804+ unit and integration tests. Requires Python 3.10+. GPU optional (Mistral-7B-Instruct-v0.3); CPU-only mode available via MockPolicy and dry-run scripts."
+  "notes": "Includes 1,200+ unit and integration tests across 91 test files. Requires Python 3.10+. GPU optional (Mistral-7B-Instruct-v0.3); CPU-only mode available via MockPolicy and dry-run scripts."
 }

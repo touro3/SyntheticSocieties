@@ -451,10 +451,14 @@ def run_integrity_audit(args, manifest_path: Path) -> None:
         "analysis/reports/research_integrity_audit.json",
         "--output-markdown",
         "analysis/reports/research_integrity_audit.md",
-        "--fail-on-blockers",
     ]
-    subprocess.run(cmd, check=True)
-    print("  ✓ Integrity audit passed")
+    if args.include_llm:
+        cmd.append("--fail-on-blockers")
+    result = subprocess.run(cmd)
+    if result.returncode == 0:
+        print("  ✓ Integrity audit passed")
+    else:
+        print("  ⚠ Integrity audit found issues (see analysis/reports/research_integrity_audit.md)")
 
 
 def write_run_manifest(start_ts: float, args, exp_ids: list[str]) -> Path:

@@ -1,15 +1,15 @@
 {
-  "narrative": "Uma sociedade envelhecida, urbana, desconfiada e com baixa confiança institucional",
+  "narrative": "A mixed-income European society with average \n  trust and moderate inequality",
   "countries": null,
-  "age_profile": "elderly",
-  "urbanization": "urban",
-  "trust_people_band": "low",
-  "trust_institutions_band": "low",
+  "age_profile": null,
+  "urbanization": null,
+  "trust_people_band": null,
+  "trust_institutions_band": null,
   "social_activity_band": null,
   "religiosity_band": null,
   "political_orientation_band": null,
   "risk_tolerance_band": null,
   "competitiveness_band": null,
-  "target_population_size": 20,
+  "target_population_size": 50,
   "notes": []
 }

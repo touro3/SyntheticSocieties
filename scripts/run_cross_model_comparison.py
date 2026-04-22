@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 
@@ -34,13 +35,16 @@ from metrics.cross_model import CrossModelResult, build_comparison_table
 _RESULTS_PATH = Path("analysis/cross_model_results.json")
 _FIGURE_PATH = Path("analysis/figures/cross_model_bias_comparison.png")
 
+# Model cache resolved at import time: BGF_MODEL_CACHE_DIR > HF_HOME > HF default.
+_MODEL_CACHE_DIR = os.environ.get("BGF_MODEL_CACHE_DIR") or os.environ.get("HF_HOME") or None
+
 # ── Model registry ────────────────────────────────────────────────────────────
 
 _MODELS = {
     "mistral-7b": {
         "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
         "backend_type": "huggingface",
-        "cache_dir": "/mnt/raid/workspace/lucastourinho/models",
+        "cache_dir": _MODEL_CACHE_DIR,
         "n_agents": 20,
         "n_rounds": 10,
     },
@@ -50,7 +54,7 @@ _MODELS = {
     "qwen2.5-7b": {
         "model_id": "Qwen/Qwen2.5-7B-Instruct",
         "backend_type": "huggingface",
-        "cache_dir": "/mnt/raid/workspace/lucastourinho/models",
+        "cache_dir": _MODEL_CACHE_DIR,
         "dtype": "bfloat16",
         "n_agents": 20,
         "n_rounds": 10,

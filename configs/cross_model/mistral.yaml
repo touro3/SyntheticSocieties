@@ -20,7 +20,7 @@ population:
 
 llm:
   model_id: mistralai/Mistral-7B-Instruct-v0.3
-  cache_dir: /mnt/raid/workspace/lucastourinho/models
+  cache_dir: ${oc.env:BGF_MODEL_CACHE_DIR,${oc.env:HF_HOME,~/.cache/huggingface}}
   dtype: float16
   device_map: auto
   temperature: 0.7

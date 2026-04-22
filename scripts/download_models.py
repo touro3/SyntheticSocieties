@@ -19,11 +19,13 @@ GPU requirements:
     Tested on: NVIDIA A100 40 GB, RTX 3090 24 GB.
     Quantised (4-bit) inference possible with bitsandbytes on 8 GB VRAM.
 
-Cache location:
-    By default, models are cached to ~/.cache/huggingface/hub/.
-    To override:
-        export HF_HOME=/mnt/raid/workspace/lucastourinho/models
-    This is the path used in BGF experiment configs (configs/base_config.yaml).
+Cache location (first non-empty wins):
+    1. BGF_MODEL_CACHE_DIR env var (project-level override)
+    2. HF_HOME env var (HuggingFace convention)
+    3. ~/.cache/huggingface/hub (default)
+
+    To override, set in your shell profile:
+        export BGF_MODEL_CACHE_DIR=/mnt/large-disk/hf-cache
 """
 
 from __future__ import annotations
@@ -65,7 +67,11 @@ def cache_model(hf_id: str, description: str) -> None:
     print(f"\nCaching: {hf_id}")
     print(f"  {description}")
 
-    cache_dir = os.environ.get("HF_HOME") or os.path.expanduser("~/.cache/huggingface/hub")
+    cache_dir = (
+        os.environ.get("BGF_MODEL_CACHE_DIR")
+        or os.environ.get("HF_HOME")
+        or os.path.expanduser("~/.cache/huggingface/hub")
+    )
     print(f"  Cache dir: {cache_dir}")
 
     try:
@@ -94,9 +100,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    hf_home = os.environ.get("HF_HOME", "~/.cache/huggingface/hub")
-    print(f"HF_HOME: {hf_home}")
-    print("To change cache location: export HF_HOME=/your/path\n")
+    cache_root = (
+        os.environ.get("BGF_MODEL_CACHE_DIR")
+        or os.environ.get("HF_HOME")
+        or "~/.cache/huggingface/hub"
+    )
+    print(f"Cache root: {cache_root}")
+    print("To change: export BGF_MODEL_CACHE_DIR=/your/path\n")
 
     if args.model:
         cache_model(args.model, "User-specified model")

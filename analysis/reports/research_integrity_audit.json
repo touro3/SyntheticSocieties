@@ -1,9 +1,9 @@
 {
   "level": "basic",
-  "status": "PASS_WITH_WARNINGS",
-  "blockers": [],
-  "warnings": [
-    "Human baseline metrics are legacy/incomplete (missing quality_checks metadata)."
+  "status": "FAIL",
+  "blockers": [
+    "llm_vs_baselines.csv is empty."
   ],
+  "warnings": [],
   "info": []
 }

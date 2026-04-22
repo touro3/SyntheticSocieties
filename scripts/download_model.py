@@ -1,13 +1,21 @@
 """
 Download LLM model weights for BGF simulation.
 
-Downloads to /mnt/raid/ (big file directory per Tesla server instructions)
-to avoid filling the home directory quota.
+Cache-dir resolution (first non-empty wins):
+    1. --cache-dir CLI argument
+    2. BGF_MODEL_CACHE_DIR env var
+    3. HF_HOME env var
+    4. HuggingFace default (~/.cache/huggingface)
+
+If you have a dedicated large-storage mount, set BGF_MODEL_CACHE_DIR once in
+your shell profile:
+
+    export BGF_MODEL_CACHE_DIR=/mnt/large-disk/hf-cache
 
 Usage:
     python scripts/download_model.py
     python scripts/download_model.py --model mistralai/Mistral-7B-Instruct-v0.3
-    python scripts/download_model.py --model microsoft/Phi-3-mini-4k-instruct
+    python scripts/download_model.py --cache-dir /data/models
 """
 
 import argparse
@@ -19,7 +27,11 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
-DEFAULT_CACHE = "/mnt/raid/workspace/lucastourinho/models"
+DEFAULT_CACHE = (
+    os.environ.get("BGF_MODEL_CACHE_DIR")
+    or os.environ.get("HF_HOME")
+    or str(Path.home() / ".cache" / "huggingface")
+)
 
 
 def parse_args():

@@ -234,6 +234,10 @@ class TestGenerateBatch:
 
 
 class TestLoadLocalFilesOnly:
+    def teardown_method(self):
+        """Reset singleton + global tokenizer to prevent cross-test pollution."""
+        LLMBackend.reset()
+
     def test_from_pretrained_called_with_local_files_only(self):
         """load() must pass local_files_only=True to prevent mid-run HTTPS CLOSE_WAIT hangs."""
         backend = LLMBackend(model_id="fake/model", inference_timeout=5)

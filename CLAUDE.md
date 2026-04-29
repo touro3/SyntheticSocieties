@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+## Context Navigation
+When you need to understand the codebase, docs, or any files in this project:
+1. ALWAYS query the knowledge graph first: `/graphify query "your question"`
+2. Only read raw files if I explicitly say "read the file" or "look at the raw file"
+3. Use `graphify-out/wiki/index.md` as your navigation entrypoint for browsing structure
+
 ## Project Overview
 
 **SyntheticSocieties** is an agent-based economic simulation framework (called BGF — Behavioral Grounding Framework) that tests whether LLMs grounded in empirical socio-economic data (for example from the European Social Survey, ESS) produce more realistic behavior than naive LLMs. Agents make economic decisions (work, save, cooperate, steal) in a game-theoretic setting while evolving across simulation rounds.

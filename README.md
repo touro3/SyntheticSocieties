@@ -127,7 +127,7 @@ python scripts/run_full_pipeline.py --plots-only
 #   analysis/reports/research_integrity_audit.json
 #   analysis/reports/research_integrity_audit.md
 
-# Run full test suite (1,272+ tests)
+# Run full test suite (1,203 tests)
 pytest tests/ -v
 
 # Run specific new metric tests
@@ -365,7 +365,7 @@ Phase transition tables in `analysis/tables/`.
 
 ## Test Suite
 
-**1,272+ tests** across 91 test files. Run with:
+**1,203 tests** across 91 test files. Run with:
 
 ```bash
 pytest tests/ -v                    # Full suite
@@ -378,7 +378,7 @@ pytest tests/test_complexity.py -v           # Phase 18: Phase transitions
 pytest tests/test_rag.py -v                  # RAG-specific subset
 ```
 
-Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 → 921 → **1,272** (current).
+Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 → 921 → **1,203** (current, measured across 91 files).
 
 ---
 
@@ -439,7 +439,7 @@ SyntheticSocieties/
 │   ├── run_phase_transition_sweeps.py  # NEW: sweep orchestration
 │   └── plot_phase_transitions.py       # NEW: 4-panel phase diagram
 ├── simulation/            # Event-driven simulation kernel
-├── tests/                 # 1,272+ tests across 91 files
+├── tests/                 # 1,203 tests across 91 files
 │   ├── test_behavioral_realism.py     # NEW
 │   ├── test_persona_decay.py          # NEW
 │   ├── test_length_controlled_ablation.py  # NEW

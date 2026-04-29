@@ -117,7 +117,12 @@ def build_padded_prompt(
         padding_lines: list[str] = []
         pool = list(_PADDING_POOL)
 
-        while current_tokens < target_token_count - 25:
+        # Guard: cap iterations to prevent infinite loop if estimate_tokens
+        # is miscalibrated (e.g. returns 0 due to a broken tokenizer).
+        max_pad_iters = len(_PADDING_POOL) * 5
+        pad_iter = 0
+        while current_tokens < target_token_count - 25 and pad_iter < max_pad_iters:
+            pad_iter += 1
             if not pool:
                 pool = list(_PADDING_POOL)  # Recycle if exhausted
             line = rng.choice(pool)

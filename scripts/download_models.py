@@ -100,11 +100,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    cache_root = (
-        os.environ.get("BGF_MODEL_CACHE_DIR")
-        or os.environ.get("HF_HOME")
-        or "~/.cache/huggingface/hub"
-    )
+    cache_root = os.environ.get("BGF_MODEL_CACHE_DIR") or os.environ.get("HF_HOME") or "~/.cache/huggingface/hub"
     print(f"Cache root: {cache_root}")
     print("To change: export BGF_MODEL_CACHE_DIR=/your/path\n")
 

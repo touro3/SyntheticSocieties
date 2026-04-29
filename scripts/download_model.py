@@ -28,9 +28,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 DEFAULT_MODEL = "mistralai/Mistral-7B-Instruct-v0.3"
 DEFAULT_CACHE = (
-    os.environ.get("BGF_MODEL_CACHE_DIR")
-    or os.environ.get("HF_HOME")
-    or str(Path.home() / ".cache" / "huggingface")
+    os.environ.get("BGF_MODEL_CACHE_DIR") or os.environ.get("HF_HOME") or str(Path.home() / ".cache" / "huggingface")
 )
 
 

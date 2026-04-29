@@ -120,9 +120,7 @@ class ESSR11Loader:
         self.features: list[str] = list(loader_cfg.get("features", _DEFAULT_FEATURES))
         self.n_bootstrap: int = int(loader_cfg.get("n_bootstrap", 500))
         self.cv_folds: int = int(loader_cfg.get("cv_folds", 10))
-        self.output_json: Optional[Path] = (
-            Path(loader_cfg["output_json"]) if loader_cfg.get("output_json") else None
-        )
+        self.output_json: Optional[Path] = Path(loader_cfg["output_json"]) if loader_cfg.get("output_json") else None
         self.min_n: int = int(loader_cfg.get("min_n", 100))
 
     # ------------------------------------------------------------------
@@ -172,8 +170,14 @@ class ESSR11Loader:
     def _clean(self, df: pd.DataFrame) -> pd.DataFrame:
         warnings: list[str] = []
 
-        scale_10 = ["trust_people", "trust_fairness", "trust_helpfulness",
-                    "risk_taking", "social_meeting_freq", "reduce_inequality"]
+        scale_10 = [
+            "trust_people",
+            "trust_fairness",
+            "trust_helpfulness",
+            "risk_taking",
+            "social_meeting_freq",
+            "reduce_inequality",
+        ]
         for col in scale_10:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
@@ -199,8 +203,9 @@ class ESSR11Loader:
             df["_target"] = (raw_target == 1).astype(float)
             df["_target"] = df["_target"].where(raw_target.notna())
         else:
-            raise ValueError(f"Target column '{self.target_col}' not found after renaming. "
-                             f"Available: {list(df.columns)}")
+            raise ValueError(
+                f"Target column '{self.target_col}' not found after renaming. Available: {list(df.columns)}"
+            )
 
         return df
 
@@ -263,9 +268,13 @@ class ESSR11Loader:
 
         boot_arr = np.array(boot_aucs)
         ci_lo, ci_hi = (
-            float(np.percentile(boot_arr, 2.5)),
-            float(np.percentile(boot_arr, 97.5)),
-        ) if len(boot_arr) > 10 else (float("nan"), float("nan"))
+            (
+                float(np.percentile(boot_arr, 2.5)),
+                float(np.percentile(boot_arr, 97.5)),
+            )
+            if len(boot_arr) > 10
+            else (float("nan"), float("nan"))
+        )
 
         # Recover original-scale coefficients: coef_orig = coef_std / std
         coef_std = clf.coef_[0].tolist()
@@ -370,5 +379,6 @@ try:
 except ImportError:
     if __name__ == "__main__":
         import sys
+
         print("Install hydra-core to use CLI mode. Import ESSR11Loader directly for API use.")
         sys.exit(1)

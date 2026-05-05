@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -127,7 +127,7 @@ def _render_table(exp_dirs: list[Path], stale_s: float, active_only: bool) -> st
 
 def _clear_screen():
     if _IS_TTY:
-        os.system("clear")
+        subprocess.run(["clear"], check=False)
 
 
 def main():

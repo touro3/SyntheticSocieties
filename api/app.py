@@ -75,6 +75,12 @@ _AUTH_TOKEN: str | None = os.environ.get("BGF_API_TOKEN")
 # Blocks path-traversal sequences like "../", "%2e%2e", etc.
 _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 
+# Valid LLM model name: HF model IDs (org/name) and OpenAI slugs.
+# Allows letters, digits, dots, hyphens, forward-slashes, colons — nothing else.
+_MODEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/:-]{0,100}$")
+
+_MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
+
 # Active IPC clients keyed by experiment_id (populated on demand)
 _ipc_clients: dict[str, Any] = {}
 _ipc_lock = threading.Lock()
@@ -120,12 +126,14 @@ def _resolve_exp_dir(exp_id: str) -> Path:
 
 
 def _validate_config_path(config_path: str) -> Path:
-    """Ensure config_path stays inside the configs/ directory.
+    """Ensure config_path stays inside the configs/ directory and is a YAML file.
 
-    Prevents an API caller from pointing a simulation at an arbitrary YAML
-    file anywhere on the filesystem (e.g., /etc/passwd, ~/.ssh/config).
+    Prevents an API caller from pointing a simulation at an arbitrary file
+    anywhere on the filesystem (e.g., /etc/passwd, ~/.ssh/config).
     """
     p = Path(config_path).resolve()
+    if p.suffix not in {".yaml", ".yml"}:
+        raise ValueError(f"config_path must be a YAML file (.yaml or .yml): {config_path!r}")
     root = _CONFIGS_ROOT.resolve()
     try:
         p.relative_to(root)
@@ -183,14 +191,18 @@ def create_app(
             storage_uri="memory://",
         )
         _simulate_limit = limiter.limit("10 per minute")
-        _report_limit = limiter.limit("20 per minute")
+        _report_limit = limiter.limit("5 per minute")
         _write_limit = limiter.limit("30 per minute")
+        _read_limit = limiter.limit("60 per minute")
+        _experiments_limit = limiter.limit("30 per minute")
+        _incomplete_limit = limiter.limit("10 per minute")
     else:
         # No-op decorators if flask-limiter is not installed.
         def _noop(f):
             return f
 
         _simulate_limit = _report_limit = _write_limit = _noop
+        _read_limit = _experiments_limit = _incomplete_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
     # ── Health ────────────────────────────────────────────────────────────────
@@ -271,6 +283,7 @@ def create_app(
     # ── Status ────────────────────────────────────────────────────────────────
 
     @app.get("/status/<exp_id>")
+    @_read_limit
     def status(exp_id: str):
         """Poll the run_state.json for a specific experiment."""
         ok, err = _check_auth()
@@ -301,6 +314,7 @@ def create_app(
     # ── Results ───────────────────────────────────────────────────────────────
 
     @app.get("/results/<exp_id>")
+    @_read_limit
     def results(exp_id: str):
         """Return summary.json and metrics.json for a completed experiment."""
         ok, err = _check_auth()
@@ -327,6 +341,7 @@ def create_app(
     # ── List experiments ──────────────────────────────────────────────────────
 
     @app.get("/experiments")
+    @_experiments_limit
     def experiments_list():
         """List all experiments from the DuckDB tracker."""
         ok, err = _check_auth()
@@ -460,6 +475,10 @@ def create_app(
 
         if not query:
             return jsonify({"error": "'q' query parameter is required"}), 400
+        if len(query) > _MAX_QUERY_LEN:
+            return jsonify({"error": f"'q' exceeds maximum length of {_MAX_QUERY_LEN} characters"}), 400
+        if not _MODEL_RE.match(model):
+            return jsonify({"error": "Invalid model name"}), 400
 
         # API key comes from the server environment only — never from the caller.
         api_key = os.environ.get("BGF_REPORT_API_KEY") or os.environ.get("OPENAI_API_KEY", "EMPTY")
@@ -484,6 +503,7 @@ def create_app(
     # ── Scan incomplete runs ──────────────────────────────────────────────────
 
     @app.get("/incomplete")
+    @_incomplete_limit
     def incomplete():
         """List all experiments with status != complete (resumable runs)."""
         ok, err = _check_auth()

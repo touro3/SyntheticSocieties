@@ -36,6 +36,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Download LLM model for BGF.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="HuggingFace model ID")
     parser.add_argument("--cache-dir", default=DEFAULT_CACHE, help="Download directory")
+    parser.add_argument(
+        "--trust-remote-code",
+        action="store_true",
+        default=False,
+        help="Allow executing custom model code from HuggingFace (opt-in, use only for trusted repos)",
+    )
     return parser.parse_args()
 
 
@@ -59,11 +65,14 @@ def main():
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    if args.trust_remote_code:
+        print("  WARNING: --trust-remote-code enabled — only use with repos you trust.")
+
     print("\nDownloading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(
         args.model,
         cache_dir=str(cache_path),
-        trust_remote_code=True,
+        trust_remote_code=args.trust_remote_code,
     )
     print(f"  Tokenizer ready: vocab_size={tokenizer.vocab_size}")
 
@@ -72,7 +81,7 @@ def main():
         args.model,
         torch_dtype=torch.float16,
         cache_dir=str(cache_path),
-        trust_remote_code=True,
+        trust_remote_code=args.trust_remote_code,
         device_map="cpu",  # Download to CPU first
     )
 

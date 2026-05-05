@@ -51,7 +51,10 @@ class _TrackerTools:
         if not path.exists():
             raise FileNotFoundError(f"Experiment index not found: {path}. Run a simulation first to populate it.")
         conn = duckdb.connect()
-        conn.execute(f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{path}')")
+        if path.suffix != ".parquet":
+            raise ValueError(f"Experiment index must be a .parquet file: {path}")
+        safe_path = str(path.resolve()).replace("'", "''")
+        conn.execute(f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{safe_path}')")
         return conn
 
     # ── Individual tools ──────────────────────────────────────────────────────
@@ -80,12 +83,15 @@ class _TrackerTools:
         """Show per-seed wealth variance for a given policy."""
         try:
             conn = self._conn()
-            df = conn.execute(f"""
+            df = conn.execute(
+                """
                 SELECT experiment_id, seed, wealth_mean, wealth_gini, stress_mean
                 FROM experiments
-                WHERE policy_type = '{policy}'
+                WHERE policy_type = ?
                 ORDER BY seed
-            """).fetchdf()
+            """,
+                [policy],
+            ).fetchdf()
             if df.empty:
                 return f"No experiments found for policy='{policy}'."
             return df.to_string(index=False)
@@ -118,9 +124,8 @@ class _TrackerTools:
     def experiment_detail(self, experiment_id: str) -> str:
         """Return all columns for a specific experiment by ID."""
         try:
-            safe_id = experiment_id.replace("'", "''")
             conn = self._conn()
-            df = conn.execute(f"SELECT * FROM experiments WHERE experiment_id = '{safe_id}'").fetchdf()
+            df = conn.execute("SELECT * FROM experiments WHERE experiment_id = ?", [experiment_id]).fetchdf()
             if df.empty:
                 return f"Experiment '{experiment_id}' not found."
             return df.T.to_string(header=False)

@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -179,7 +180,7 @@ def main():
 
                 if args.restart_cmd:
                     print(f"  Restarting: {args.restart_cmd}")
-                    subprocess.Popen(args.restart_cmd, shell=True)
+                    subprocess.Popen(shlex.split(args.restart_cmd))
                     action_taken = True
 
                 if not args.pid and not args.restart_cmd:

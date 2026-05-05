@@ -66,7 +66,10 @@ def _connect(
     path = Path(index_path)
     if not path.exists():
         raise FileNotFoundError(f"Experiment index not found: {path}")
-    conn.execute(f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{path}')")
+    if path.suffix != ".parquet":
+        raise ValueError(f"Experiment index must be a .parquet file: {path}")
+    safe_path = str(path.resolve()).replace("'", "''")
+    conn.execute(f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{safe_path}')")
 
     where_sql = _build_filters_sql(
         experiment_ids=experiment_ids,
@@ -126,7 +129,8 @@ def query_by_seed(
         policy_types=policy_types,
         require_cmp_only=require_cmp_only,
     )
-    return conn.execute(f"""
+    return conn.execute(
+        """
         SELECT
             experiment_id,
             seed,
@@ -134,9 +138,11 @@ def query_by_seed(
             wealth_gini,
             stress_mean
         FROM experiments
-        WHERE policy_type = '{policy}'
+        WHERE policy_type = ?
         ORDER BY seed
-    """).fetchdf()
+    """,
+        [policy],
+    ).fetchdf()
 
 
 def query_by_ablation(

@@ -25,6 +25,10 @@ import threading
 import uuid
 from pathlib import Path
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -33,6 +37,14 @@ try:
     from flask_cors import CORS
 except ImportError:
     raise ImportError("Flask and flask-cors are required. Install with: pip install flask flask-cors")
+
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+
+    _LIMITER_AVAILABLE = True
+except ImportError:
+    _LIMITER_AVAILABLE = False
 
 from environment.payoffs import DEFAULT_PAYOFFS  # noqa: E402 — requires sys.path patch above
 
@@ -166,6 +178,26 @@ def _append_csv(session: dict) -> None:
 
 app = Flask(__name__, static_folder=str(REPO_ROOT / "human_experiment" / "app" / "static"))
 CORS(app)
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024  # 64 KB — survey answers need no more
+
+if _LIMITER_AVAILABLE:
+    _limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=["200 per hour", "60 per minute"],
+        storage_uri="memory://",
+    )
+    _session_limit = _limiter.limit("10 per minute")
+    _action_limit = _limiter.limit("60 per minute")
+    _complete_limit = _limiter.limit("5 per minute")
+    _status_limit = _limiter.limit("30 per minute")
+else:
+
+    def _noop(f):
+        return f
+
+    _session_limit = _action_limit = _complete_limit = _status_limit = _noop
+    logger.warning("flask-limiter not installed — rate limiting disabled.")
 
 
 @app.get("/health")
@@ -174,6 +206,7 @@ def health():
 
 
 @app.post("/session")
+@_session_limit
 def create_session():
     """Create a new participant session.
 
@@ -182,8 +215,14 @@ def create_session():
         pre_risk   float  1-10 risk tolerance score from pre-survey
     """
     body = request.get_json(silent=True) or {}
-    pre_trust = float(body.get("pre_trust", 5))
-    pre_risk = float(body.get("pre_risk", 5))
+    try:
+        pre_trust = float(body.get("pre_trust", 5))
+        pre_risk = float(body.get("pre_risk", 5))
+    except (TypeError, ValueError):
+        return jsonify({"error": "pre_trust and pre_risk must be numbers"}), 400
+    # Clamp to survey scale [1, 10] before normalising to [0, 1].
+    pre_trust = max(1.0, min(10.0, pre_trust))
+    pre_risk = max(1.0, min(10.0, pre_risk))
 
     # Normalise from 1-10 to 0-1
     trust_norm = (pre_trust - 1) / 9.0
@@ -217,6 +256,7 @@ def create_session():
 
 
 @app.post("/action")
+@_action_limit
 def take_action():
     """Submit an action for the current round.
 
@@ -248,6 +288,7 @@ def take_action():
 
 
 @app.get("/status/<session_id>")
+@_status_limit
 def get_status(session_id: str):
     with _session_lock:
         session = _sessions.get(session_id)
@@ -266,6 +307,7 @@ def get_status(session_id: str):
 
 
 @app.post("/complete")
+@_complete_limit
 def complete_session():
     """Mark the session as complete and persist the data.
 
@@ -308,7 +350,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Human baseline experiment server")
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1 — pass 0.0.0.0 to expose externally)"
+    )
     parser.add_argument("--port", type=int, default=5050)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()

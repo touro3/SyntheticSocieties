@@ -29,12 +29,24 @@ _METRICS_FLUSH_INTERVAL = 50
 
 
 class SimulationKernel:
-    def __init__(self, agents: list, world, logger, heartbeat_path: Optional[Path] = None) -> None:
+    def __init__(
+        self,
+        agents: list,
+        world,
+        logger,
+        heartbeat_path: Optional[Path] = None,
+        collective_memory=None,
+    ) -> None:
         self.agents = agents
         self.world = world
         self.logger = logger
         self.heartbeat_path = Path(heartbeat_path) if heartbeat_path else None
+        self.collective_memory = collective_memory or getattr(world, "collective_memory", None)
         self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
+        if self.collective_memory is not None:
+            for agent in agents:
+                if hasattr(agent.policy, "collective_memory") and getattr(agent.policy, "collective_memory") is None:
+                    agent.policy.collective_memory = self.collective_memory
         self._processor = RoundProcessor(
             world=world,
             agent_lookup=self.agent_lookup,
@@ -63,8 +75,9 @@ class SimulationKernel:
         return isinstance(policy, LLMPolicy) and hasattr(backend, "generate_batch")
 
     def run_round(self) -> None:
-        self.world.apply_exogenous_updates()
+        applied_injections = self.world.apply_exogenous_updates() or []
         round_id = self.world.state.round_id
+        self._advance_collective_memory(round_id, applied_injections)
 
         # Advance each agent's memory clock — expires stale beliefs.
         for agent in self.agents:
@@ -136,6 +149,10 @@ class SimulationKernel:
                 social_context=social_context,
                 population_context=pop_context,
                 ablation_level=getattr(policy, "ablation_level", 5),
+                max_tokens=getattr(policy, "prompt_budget", None),
+                collective_context=policy.collective_memory.get_context()
+                if getattr(policy, "collective_memory", None) is not None
+                else None,
             )
 
             if policy.perturbation_mode:
@@ -173,8 +190,9 @@ class SimulationKernel:
 
         policy = sample_policy
 
-        self.world.apply_exogenous_updates()
+        applied_injections = self.world.apply_exogenous_updates() or []
         round_id = self.world.state.round_id
+        self._advance_collective_memory(round_id, applied_injections)
 
         # Advance each agent's memory clock — expires stale beliefs.
         for agent in self.agents:
@@ -394,6 +412,31 @@ class SimulationKernel:
             )
             agent.memory.add(obs_item)
 
+    def _advance_collective_memory(self, round_id: int, applied_injections: list[dict]) -> None:
+        if self.collective_memory is None:
+            return
+        self.collective_memory.advance_round(round_id)
+        for injection in applied_injections:
+            if not isinstance(injection, dict):
+                continue
+            event_type = str(injection.get("event_type", injection.get("type", "narrative")))
+            payload = injection.get("payload", {})
+            if not isinstance(payload, dict):
+                payload = {"content": payload}
+
+            content = payload.get("content") or payload.get("message")
+            if not content and event_type == "signal_update":
+                signal = payload.get("signal", payload)
+                if isinstance(signal, dict):
+                    content = ", ".join(f"{key}={value}" for key, value in signal.items())
+            if not content and event_type == "wealth_shock":
+                content = f"Wealth shock magnitude {payload.get('magnitude', payload.get('amount', 0.0))}"
+
+            if content:
+                importance = {"wealth_shock": 0.9, "narrative": 0.75, "signal_update": 0.6}.get(event_type, 0.5)
+                fact_type = "shock" if event_type == "wealth_shock" else event_type
+                self.collective_memory.record(round_id, fact_type, str(content), importance=importance)
+
     # ── Per-round metrics ────────────────────────────────────────────────────
 
     def _log_round_metrics(self) -> None:
@@ -409,6 +452,13 @@ class SimulationKernel:
         action_counts = dict(Counter(actions))
         total_actions = sum(action_counts.values())
         action_dist = {k: round(v / total_actions, 3) if total_actions > 0 else 0 for k, v in action_counts.items()}
+        if self.collective_memory is not None and action_dist.get("cooperate", 0.0) >= 0.6:
+            self.collective_memory.record(
+                round_id,
+                "norm_shift",
+                f"Cooperation reached {action_dist['cooperate']:.0%} of recorded actions.",
+                importance=0.7,
+            )
 
         # Wealth stats
         wealths = [a.state.wealth for a in self.agents]

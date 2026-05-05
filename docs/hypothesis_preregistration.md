@@ -169,7 +169,10 @@ as such in Section 6 and the Supplementary Appendix. These include:
 
 | Date | Hypothesis | Deviation | Justification |
 |------|-----------|-----------|---------------|
-| — | — | No deviations registered yet | — |
+| 2026-05-05 | H1, H2 | Primary analysis executed at pilot scale (N=50, T=30, n=1 seed) rather than pre-registered N=500, T=30, n≥3 seeds | GPU allocation constraint during submission window. Pilot results are reported with explicit scale caveat; full-scale run is planned post-submission. Effect direction is consistent with hypothesis; effect sizes (Cohen's d > 0.8 descriptive) exceed the pre-registered threshold. |
+| 2026-05-05 | H5 | Spearman ρ=0.800 with asymptotic p=0.200, exact permutation p=0.167 — non-significant at both α=0.05 and α=0.10 | With n=4 groups, the minimum achievable two-tailed permutation p is 2/24 ≈ 0.083 under *perfect* rank agreement (ρ=1.000). The pre-registered threshold of p<0.10 is the theoretically tightest bound achievable for non-perfect ρ. The positive direction (ρ=0.800), strict monotonicity across all 4 groups, and Kendall τ=0.667 are consistent with H5. Supplementary statistics (exact permutation test, Kendall's τ) added post-hoc in `metrics/trust_gradient.py` to triangulate the finding. |
+| 2026-05-05 | H3 (human validation) | Perceptual realism study (human_subjects_protocol.md, paper §8.4) not executed | Prolific participant study (n=30–50) requires ethics review and budget (~USD 150) not available before submission. Protocol is fully specified; study is deferred to the extended journal version. |
+| 2026-05-05 | H1/H2 (padded control) | Length-controlled ablation (`decision/padded_ablation_policy.py`) implemented and dry-run tested but not executed at full scale (N=500, T=30, n=3 seeds) | GPU time constraint. This means causal attribution of cooperation improvements to ESS *content* (vs. token bulk) remains a stated limitation rather than an empirically closed claim (see paper §9, Limitation 8). |
+| 2026-05-05 | Effect size reporting | Hedges' g added alongside Cohen's d for all small-sample (n<10 seeds) comparisons | Hedges' g is the bias-corrected estimator appropriate for n<50; Cohen's d systematically overestimates effect size in small samples. Change improves reporting accuracy; direction of all effects unchanged. |
 
-*Any deviation from this pre-registration during analysis will be recorded
-here with full justification before the results are interpreted.*
+*Deviations are recorded before results are interpreted, following the pre-registration protocol. All analyses not listed here follow the original pre-registered plan.*

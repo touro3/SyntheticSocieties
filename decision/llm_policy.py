@@ -22,6 +22,7 @@ class LLMPolicy(LLMPolicyBase):
         perturbation_mode: Optional[str] = None,
         graph_rag=None,
         sql_rag=None,
+        collective_memory=None,
         ablation_level: int = 5,
         prompt_budget: Optional[int] = None,
     ):
@@ -33,6 +34,7 @@ class LLMPolicy(LLMPolicyBase):
         self.perturbation_mode = perturbation_mode
         self.graph_rag = graph_rag
         self.sql_rag = sql_rag
+        self.collective_memory = collective_memory
         self.ablation_level = ablation_level
         self.prompt_budget = prompt_budget
 
@@ -62,6 +64,10 @@ class LLMPolicy(LLMPolicyBase):
                 agent_satisfaction=getattr(profile, "life_satisfaction", None),
             )
 
+        collective_context = None
+        if self.collective_memory is not None:
+            collective_context = self.collective_memory.get_context()
+
         # Build prompt
         messages = build_prompt(
             profile=profile,
@@ -74,6 +80,7 @@ class LLMPolicy(LLMPolicyBase):
             population_context=pop_context,
             ablation_level=self.ablation_level,
             max_tokens=self.prompt_budget,
+            collective_context=collective_context,
         )
 
         # Apply perturbation if configured
@@ -102,6 +109,7 @@ class LLMPolicy(LLMPolicyBase):
             population_context=pop_context,
             ablation_level=self.ablation_level,
             max_tokens=self.prompt_budget,
+            collective_context=collective_context,
         )
         self._log_prompt(
             round_id=round_id,
@@ -115,6 +123,7 @@ class LLMPolicy(LLMPolicyBase):
                 "rag_context": {
                     "sql_rag_present": bool(pop_context),
                     "graph_rag_present": bool(social_context),
+                    "collective_context_present": bool(collective_context),
                 }
             },
         )

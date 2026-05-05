@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random as _random
+import random
 from typing import Optional
 
 from agents.agent import Agent
@@ -211,6 +212,31 @@ def generate_empirical_population(
         _shuffle_traits(agents)
 
     return agents
+
+
+def from_seed_document(
+    doc,
+    n_agents: int,
+    policy=None,
+    backend=None,
+    rng: random.Random | None = None,
+    memory_size: int = 10,
+):
+    """Generate PersonaRecords, or Agents when a policy is supplied, from text.
+
+    This is intentionally lightweight: ``SeedExtractor`` creates
+    PersonaRecord-compatible rows and the existing persona conversion helper
+    performs the normal AgentProfile/AgentState construction.
+    """
+    from population.persona_synthesizer import persona_records_to_agents
+    from population.seed_extractor import SeedExtractor
+
+    extractor = SeedExtractor(backend=backend)
+    entities = extractor.extract(doc)
+    records = extractor.to_persona_records(entities, n_agents=n_agents, rng=rng)
+    if policy is None:
+        return records
+    return persona_records_to_agents(records, policy=policy, memory_size=memory_size)
 
 
 # ── Counterfactual Identity helper ───────────────────────────────────────────

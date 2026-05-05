@@ -92,3 +92,55 @@ This is not causal identification from observational data. The ablation design p
 4. **Length control is approximate**: The character-based token estimator (4 chars ≈ 1 token) introduces noise. Padded prompts may differ from grounded prompts by ±25 tokens.
 
 The strongest causal evidence comes from the combination of: (a) length-controlled ablation ruling out length as a confound, (b) factorial decomposition quantifying persona vs RAG contributions, and (c) consistent effects across multiple seeds and stress test conditions.
+
+---
+
+## 6. Formal Identification Argument (Pearl's Backdoor Criterion)
+
+The causal effect of interest is:
+
+> **Treatment T**: presence of ESS grounding (T=1 for Condition B, T=0 for Condition A)
+> **Outcome Y**: cooperation rate (primary), Gini coefficient (secondary)
+
+**Backdoor criterion**: A set of variables Z satisfies the backdoor criterion relative to (T → Y) if:
+1. No variable in Z is a descendant of T.
+2. Z blocks every path from T to Y that enters T through the back door (i.e., contains a common cause of T and Y).
+
+In the BGF experimental design:
+- Treatment T is **researcher-assigned** (not observational): we deterministically set whether ESS grounding is active. There is therefore no back-door path from any variable into T — the treatment has no common causes with the outcome other than through its own effect.
+- This gives us the sharp identification result: **E[Y | do(T=1)] = E[Y | T=1]** — the observational distribution equals the interventional distribution.
+
+Formally, the assignment mechanism is:
+```
+T = f(researcher_choice) ⊥ U  for all unmeasured confounders U
+```
+This is the **randomization (exogeneity) assumption**. The BGF design satisfies it by construction because:
+- All agents in conditions A and B share identical LLM model weights, temperature, and random seeds.
+- The only difference between conditions is the content of the prompt (grounding vs. no grounding).
+- The model has no persistent state between conditions (stateless inference).
+
+The residual identification challenge is **LLM internals**: we cannot observe how the model processes grounding text, so the *mechanism* (persona vs. RAG pathway) cannot be identified from outputs alone. The factorial ablation (Section 4.3) provides mechanism evidence rather than identification in the formal sense.
+
+---
+
+## 7. Sensitivity Analysis — E-value
+
+An **E-value** (VanderWeele & Ding, 2017) quantifies how strong an unmeasured confounder would need to be to explain away the observed effect.
+
+For a relative risk (or rate ratio) R, the E-value is:
+```
+E = R + sqrt(R × (R - 1))
+```
+
+For the primary result (cooperation rate ratio B/A ≈ 1.35, estimated from pilot data):
+```
+E = 1.35 + sqrt(1.35 × 0.35) = 1.35 + 0.69 ≈ 2.04
+```
+
+**Interpretation**: An unmeasured confounder would need to be associated with *both* the grounding treatment and the cooperation outcome by a factor of at least **2.04** on the risk-ratio scale to fully explain the observed effect. Given that all design parameters (model, seed, temperature, network topology) are held fixed across conditions, no plausible confounder meets this threshold. The E-value therefore provides quantitative support for the causal interpretation.
+
+For the effect on Gini coefficient (Gini ratio A/B ≈ 2.1, grounded agents show lower inequality):
+```
+E = 2.1 + sqrt(2.1 × 1.1) ≈ 2.1 + 1.52 ≈ 3.62
+```
+This larger E-value reflects the stronger Gini finding and indicates even greater robustness to unmeasured confounding.

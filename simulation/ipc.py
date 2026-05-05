@@ -13,6 +13,7 @@ Supported commands
 ──────────────────
   interview_agent   Query a single agent about its reasoning history.
   interview_batch   Query multiple agents at once.
+  inject_event      Queue an exogenous world-state event for the next round.
   get_status        Return current round, agent count, alive agent list.
   list_agents       List all agent IDs registered with the server.
 
@@ -77,8 +78,10 @@ class SimulationIPCServer:
         agents: dict[str, Any],
         base_dir: str | Path = ".",
         current_round_fn: Optional[Callable[[], int]] = None,
+        world_state: Any | None = None,
     ):
         self._agents = agents
+        self._world_state = world_state
         self._base = Path(base_dir)
         self._cmd_dir = self._base / _CMD_DIR
         self._resp_dir = self._base / _RESP_DIR
@@ -89,6 +92,7 @@ class SimulationIPCServer:
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._lock = threading.Lock()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -154,6 +158,7 @@ class SimulationIPCServer:
         handlers: dict[str, Callable] = {
             "interview_agent": self._cmd_interview_agent,
             "interview_batch": self._cmd_interview_batch,
+            "inject_event": self._cmd_inject_event,
             "get_status": self._cmd_get_status,
             "list_agents": self._cmd_list_agents,
         }
@@ -189,6 +194,16 @@ class SimulationIPCServer:
                 results[aid] = self._build_agent_answer(agent, question)
         return {"question": question, "responses": results}
 
+    def _cmd_inject_event(self, payload: dict) -> dict:
+        if not isinstance(payload, dict):
+            return {"error": "Injection payload must be a JSON object."}
+        if not payload.get("event_type"):
+            return {"error": "Missing 'event_type' in injection payload."}
+        error = self._apply_injection(payload)
+        if error:
+            return {"error": error}
+        return {"status": "ok", "round": self._current_round_fn()}
+
     def _cmd_get_status(self, payload: dict) -> dict:  # noqa: ARG002
         return {
             "current_round": self._current_round_fn(),
@@ -210,6 +225,16 @@ class SimulationIPCServer:
                 entry["age"] = getattr(profile, "age", None)
             agents_info.append(entry)
         return {"agents": agents_info}
+
+    def _apply_injection(self, event: dict) -> str | None:
+        if self._world_state is None:
+            return "IPC server was not configured with a world_state."
+        with self._lock:
+            pending = getattr(self._world_state, "pending_injections", None)
+            if pending is None:
+                return "world_state does not expose pending_injections."
+            pending.append(event)
+        return None
 
     # ── Answer builder ────────────────────────────────────────────────────────
 
@@ -319,6 +344,14 @@ class SimulationIPCClient:
     def interview_batch(self, agent_ids: list[str], question: str) -> dict:
         """Ask multiple agents the same question in one round-trip."""
         return self.send("interview_batch", {"agent_ids": agent_ids, "question": question})
+
+    def inject_event(self, event_type: str | dict, payload: dict | None = None) -> dict:
+        """Queue an exogenous event in the running simulation."""
+        if isinstance(event_type, dict) and payload is None:
+            event = event_type
+        else:
+            event = {"event_type": event_type, "payload": payload or {}}
+        return self.send("inject_event", event)
 
     def get_status(self) -> dict:
         """Return current round, agent count, and agent ID list."""

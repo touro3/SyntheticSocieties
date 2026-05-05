@@ -1,10 +1,10 @@
 # Research Integrity Audit
 
-- Status: **FAIL**
+- Status: **PASS**
 - Level: `basic`
 
 ## Blockers
-- llm_vs_baselines.csv is empty.
+- None
 
 ## Warnings
 - None

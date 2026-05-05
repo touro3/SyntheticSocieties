@@ -8,15 +8,30 @@ transfers empirical trust signals to simulated behavior.
 
 Central hypothesis:
     rank(ESS trust mean) ≈ rank(simulated cooperation rate)
-    Measured via Spearman rank correlation (r), with significance threshold p < 0.10.
+    Measured via Spearman rank correlation (ρ), with significance threshold p < 0.10.
+
+Statistical note on n=4 groups
+──────────────────────────────
+With n=4 ordered groups the exact permutation distribution for Spearman ρ has
+only 4! = 24 equally-likely rank orderings.  The minimum achievable two-tailed
+p-value is 2/24 ≈ 0.083 (one permutation more extreme on each tail), meaning
+conventional α=0.05 is *unachievable* regardless of effect size.  The pre-
+registered threshold is therefore p < 0.10.  Three complementary statistics are
+reported to triangulate:
+
+  1. Spearman ρ          — pre-registered primary test (asymptotic p)
+  2. Exact permutation p — exact two-tailed p from all 4! orderings
+  3. Kendall's τ-b       — rank concordance (no ties assumption)
+  4. is_monotone         — strict monotonicity of simulated cooperation rates
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from itertools import permutations as _permutations
 
 import numpy as np
-from scipy.stats import spearmanr
+from scipy.stats import kendalltau, spearmanr
 
 
 @dataclass
@@ -102,19 +117,44 @@ def compute_trust_gradient(
     return gradient
 
 
+def _exact_spearman_permutation_p(x: np.ndarray, observed_r: float) -> float:
+    """Exact two-tailed permutation p-value for Spearman ρ.
+
+    Enumerates all n! rank orderings of y and counts the fraction whose
+    Spearman ρ is as extreme (|r| ≥ |observed_r|) as the observed value.
+    Only feasible for n ≤ 8 (8! = 40,320 permutations).
+    """
+    n = len(x)
+    ranks_x = np.argsort(np.argsort(x)).astype(float)
+    count = 0
+    total = 0
+    for perm in _permutations(range(n)):
+        ranks_y = np.array(perm, dtype=float)
+        # Spearman ρ = Pearson r of ranks
+        r = float(np.corrcoef(ranks_x, ranks_y)[0, 1])
+        if abs(r) >= abs(observed_r) - 1e-10:
+            count += 1
+        total += 1
+    return count / total
+
+
 def compute_trust_recovery_correlation(
     group_results: dict[str, dict],
     cultural_groups: list[TrustGroup] | None = None,
 ) -> dict:
-    """Compute Spearman rank correlation between ESS trust and simulated cooperation.
+    """Compute trust-gradient correlation between ESS trust means and simulated cooperation.
 
-    This is the primary validation metric for Phase 17. A positive, significant
-    correlation (r > 0, p < 0.10) provides evidence that the grounding function Φ
-    transfers empirical trust signals to simulated behavioral outcomes.
+    Reports three complementary statistics to triangulate the relationship
+    under the power constraint imposed by n=4 groups:
 
-    The significance threshold is set at p < 0.10 (rather than the conventional
-    0.05) because with n=4 groups the exact permutation test has only 24 possible
-    rank orderings and the minimum achievable p-value is 1/24 ≈ 0.042.
+      - Spearman ρ (pre-registered primary statistic)
+      - Exact permutation p-value (precise finite-sample inference)
+      - Kendall's τ-b (concordance index, independent confirmation)
+      - is_monotone (strict rank preservation)
+
+    The significance threshold is p < 0.10 because with n=4 groups the minimum
+    achievable two-tailed p under perfect rank agreement is 2/24 ≈ 0.083.
+    Conventional α=0.05 is structurally unachievable regardless of effect size.
 
     Args:
         group_results: Mapping of group name → metrics dict with ``coop_rate``.
@@ -122,11 +162,9 @@ def compute_trust_recovery_correlation(
 
     Returns:
         dict with keys:
-            - ``spearman_r``: Spearman correlation coefficient ∈ [-1, 1].
-            - ``p_value``: Two-tailed p-value for the null hypothesis r = 0.
-            - ``n_groups``: Number of groups compared.
-            - ``is_significant``: True when p_value < 0.10.
-            - ``interpretation``: Human-readable summary of the finding.
+            spearman_r, p_value_asymptotic, p_value_exact, kendall_tau,
+            kendall_p, is_monotone, n_groups, min_achievable_p,
+            is_significant, interpretation.
     """
     groups = cultural_groups if cultural_groups is not None else TRUST_GROUPS
 
@@ -134,38 +172,56 @@ def compute_trust_recovery_correlation(
     sim_coop = np.array([float(group_results[g.name]["coop_rate"]) for g in groups])
 
     n = len(groups)
+    # Minimum achievable two-tailed p under any ranking (1 extreme perm each tail)
+    import math
+    min_p = 2.0 / math.factorial(n)
 
     if np.std(sim_coop) < 1e-10:
-        # Constant sequence — correlation undefined
-        r, p = 0.0, 1.0
+        r, p_asymp = 0.0, 1.0
+        tau, p_tau = 0.0, 1.0
+        p_exact = 1.0
     else:
-        result = spearmanr(ess_trust, sim_coop)
-        r = float(result.statistic)
-        p = float(result.pvalue)
+        sp = spearmanr(ess_trust, sim_coop)
+        r = float(sp.statistic)
+        p_asymp = float(sp.pvalue)
+        p_exact = _exact_spearman_permutation_p(ess_trust, r)
+        kt = kendalltau(ess_trust, sim_coop)
+        tau = float(kt.statistic)
+        p_tau = float(kt.pvalue)
 
-    is_sig = bool(p < 0.10 and r > 0)
+    # Strict monotone: each step in trust produces a strictly higher coop rate
+    is_mono = bool(np.all(np.diff(sim_coop) > 0))
+
+    is_sig = bool(p_exact < 0.10 and r > 0)
 
     if is_sig:
         interp = (
-            f"Positive gradient recovery confirmed (r={r:.3f}, p={p:.3f}). "
-            f"Higher-trust ESS sub-populations produce higher cooperation rates, "
-            f"supporting the grounding hypothesis."
+            f"Gradient recovery confirmed: Spearman ρ={r:.3f} (exact p={p_exact:.3f}), "
+            f"Kendall τ={tau:.3f} (p={p_tau:.3f}), monotone={is_mono}. "
+            f"Higher-trust ESS sub-populations produce higher cooperation rates."
         )
     elif r > 0:
         interp = (
-            f"Positive trend observed (r={r:.3f}, p={p:.3f}) but not statistically "
-            f"significant at p<0.10. More seeds or agents may be needed."
+            f"Positive trend observed: Spearman ρ={r:.3f} (exact p={p_exact:.3f}), "
+            f"Kendall τ={tau:.3f}, monotone={is_mono}. "
+            f"Not significant at p<0.10; note minimum achievable p={min_p:.3f} at n={n}."
         )
     else:
         interp = (
-            f"No positive gradient recovery (r={r:.3f}, p={p:.3f}). "
-            f"Trust grounding did not produce a cooperation gradient in this run."
+            f"No gradient recovery: Spearman ρ={r:.3f} (exact p={p_exact:.3f}), "
+            f"Kendall τ={tau:.3f}, monotone={is_mono}."
         )
 
     return {
-        "spearman_r": r,
-        "p_value": p,
+        "spearman_r": round(r, 4),
+        "p_value": round(p_exact, 4),          # canonical key; exact permutation (preferred for n≤8)
+        "p_value_asymptotic": round(p_asymp, 4),
+        "p_value_exact": round(p_exact, 4),
+        "kendall_tau": round(tau, 4),
+        "kendall_p": round(p_tau, 4),
+        "is_monotone": is_mono,
         "n_groups": n,
+        "min_achievable_p": round(min_p, 4),
         "is_significant": is_sig,
         "interpretation": interp,
     }

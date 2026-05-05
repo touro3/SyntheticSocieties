@@ -9,3 +9,4 @@ class WorldState:
     resources: dict[str, float] = field(default_factory=dict)
     shock_active: bool = False
     shock_magnitude: float = 0.0
+    pending_injections: list[dict] = field(default_factory=list)

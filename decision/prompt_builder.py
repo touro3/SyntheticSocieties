@@ -275,6 +275,18 @@ def build_memory_block(
     return "\n".join(lines)
 
 
+def build_collective_context_block(collective_context: Optional[list[str]] = None) -> str:
+    """Build shared world-fact context visible to all agents."""
+    if not collective_context:
+        return ""
+    lines = ["Community knowledge:"]
+    for item in collective_context:
+        text = str(item).strip()
+        if text:
+            lines.append(f"  {text}")
+    return "\n".join(lines)
+
+
 # Drift detection threshold: if |actual - expected| > this, produce an anchor.
 _DRIFT_THRESHOLD = 0.25
 
@@ -383,6 +395,7 @@ def build_prompt(
     population_context: Optional[str] = None,
     ablation_level: int = 5,
     max_tokens: Optional[int] = None,
+    collective_context: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Build a complete chat-format prompt for the LLM based on ablation level.
@@ -395,6 +408,8 @@ def build_prompt(
     persona = build_persona_block(profile)
     state_desc = build_state_block(state, ablation_level)
     memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
+    collective_desc = build_collective_context_block(collective_context)
+    memory_with_collective = f"{collective_desc}\n\n{memory_desc}" if collective_desc else memory_desc
     context_desc = build_context_block(context)
     # Pin the action-order shuffle to (round_id, agent_id) so that any
     # subsequent call with the same inputs (e.g. the logging path) produces
@@ -414,7 +429,7 @@ def build_prompt(
         system=system_text,
         persona=persona,
         state=state_desc,
-        memory=memory_desc,
+        memory=memory_with_collective,
         context=context_desc,
         population_context=population_context,
         social_context=social_context,
@@ -457,6 +472,7 @@ def build_prompt_staged(
     population_context: Optional[str] = None,
     ablation_level: int = 5,
     max_tokens: Optional[int] = None,
+    collective_context: Optional[list[str]] = None,
 ) -> list[dict]:
     """Build a chat-format prompt via 4 sequential construction stages.
 
@@ -484,6 +500,8 @@ def build_prompt_staged(
 
     # ── Stage 3: History ─────────────────────────────────────────────────────
     memory_desc = build_memory_block(memory, window=memory_window, profile=profile)
+    collective_desc = build_collective_context_block(collective_context)
+    memory_with_collective = f"{collective_desc}\n\n{memory_desc}" if collective_desc else memory_desc
 
     # ── Stage 4: World + RAG context ─────────────────────────────────────────
     context_desc = build_context_block(context)
@@ -498,7 +516,7 @@ def build_prompt_staged(
         system=system_text,
         persona=persona,
         state=state_desc,
-        memory=memory_desc,
+        memory=memory_with_collective,
         context=context_desc,
         population_context=population_context,
         social_context=social_context,
@@ -544,6 +562,7 @@ def build_prompt_text(
     population_context: Optional[str] = None,
     ablation_level: int = 5,
     max_tokens: Optional[int] = None,
+    collective_context: Optional[list[str]] = None,
 ) -> str:
     """
     Build a plain-text version of the prompt (for logging/debugging).
@@ -559,6 +578,7 @@ def build_prompt_text(
         population_context=population_context,
         ablation_level=ablation_level,
         max_tokens=max_tokens,
+        collective_context=collective_context,
     )
     parts = []
     for msg in messages:

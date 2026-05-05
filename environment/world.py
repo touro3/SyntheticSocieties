@@ -25,5 +25,54 @@ class World:
     def execute_action(self, action, agent, agent_lookup) -> dict:
         return self.institution_manager.execute(action, agent, self.state, agent_lookup)
 
-    def apply_exogenous_updates(self) -> None:
+    def apply_exogenous_updates(self) -> list[dict]:
         self.state.round_id += 1
+        applied = list(getattr(self.state, "pending_injections", []))
+        self.state.pending_injections.clear()
+        for injection in applied:
+            self._apply_injection(injection)
+        return applied
+
+    def _apply_injection(self, injection: dict) -> None:
+        if not isinstance(injection, dict):
+            return
+        event_type = str(injection.get("event_type", injection.get("type", "narrative")))
+        payload = injection.get("payload", {})
+        if not isinstance(payload, dict):
+            payload = {"content": payload}
+
+        if event_type == "wealth_shock":
+            magnitude = payload.get("magnitude", payload.get("amount", payload.get("shock_magnitude", 0.0)))
+            try:
+                self.state.shock_magnitude = float(magnitude)
+            except (TypeError, ValueError):
+                self.state.shock_magnitude = 0.0
+            self.state.shock_active = True
+            message = payload.get("content") or payload.get("message") or f"wealth shock {self.state.shock_magnitude}"
+            self.state.public_signal["wealth_shock"] = str(message)
+
+        if event_type == "signal_update":
+            signal = payload.get("signal", payload)
+            if isinstance(signal, dict):
+                self.state.public_signal.update({str(k): str(v) for k, v in signal.items()})
+
+        if event_type == "narrative":
+            content = payload.get("content", payload.get("message", ""))
+            if content:
+                self.state.public_signal["narrative"] = str(content)
+
+        prices = payload.get("prices")
+        if isinstance(prices, dict):
+            for key, value in prices.items():
+                try:
+                    self.state.prices[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    continue
+
+        resources = payload.get("resources")
+        if isinstance(resources, dict):
+            for key, value in resources.items():
+                try:
+                    self.state.resources[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    continue

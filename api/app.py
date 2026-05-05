@@ -25,6 +25,7 @@ Endpoints
   GET    /results/<exp_id>         Return summary.json + key metrics
   GET    /experiments              List all experiments in tracker
   POST   /interview/<exp_id>/<agent_id>  Interview a live agent via IPC
+  POST   /inject/<exp_id>          Inject a live exogenous event via IPC
   GET    /report                   Run ReACT agent on a query (sync, slow)
   GET    /health                   Liveness probe
   GET    /incomplete               List resumable (non-complete) runs
@@ -78,6 +79,7 @@ _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 # Valid LLM model name: HF model IDs (org/name) and OpenAI slugs.
 # Allows letters, digits, dots, hyphens, forward-slashes, colons — nothing else.
 _MODEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/:-]{0,100}$")
+_INJECTION_TYPES = {"wealth_shock", "signal_update", "narrative"}
 
 _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 
@@ -449,6 +451,56 @@ def create_app(
         except Exception as exc:
             logger.error("interview error (exp=%s agent=%s): %s", exp_id, agent_id, exc)
             return jsonify({"error": "Interview request failed"}), 500
+
+    # ── Live exogenous injection ─────────────────────────────────────────────
+
+    @app.post("/inject/<exp_id>")
+    @_write_limit
+    def inject(exp_id: str):
+        """
+        Inject a variable or event into a running simulation.
+
+        Body (JSON):
+          event_type   str   "wealth_shock" | "signal_update" | "narrative"
+          payload      dict  Event-type-specific parameters
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        try:
+            exp_dir = _resolve_exp_dir(exp_id)
+        except ValueError:
+            return jsonify({"error": "Invalid experiment ID"}), 400
+
+        if not exp_dir.exists():
+            return jsonify({"error": "Experiment not found"}), 404
+
+        body = request.get_json(silent=True) or {}
+        event_type = str(body.get("event_type", "")).strip()
+        payload = body.get("payload", {})
+
+        if event_type not in _INJECTION_TYPES:
+            return jsonify({"error": f"Invalid event_type. Expected one of: {sorted(_INJECTION_TYPES)}"}), 400
+        if not isinstance(payload, dict):
+            return jsonify({"error": "payload must be a JSON object"}), 400
+
+        try:
+            from simulation.ipc import SimulationIPCClient
+
+            with _ipc_lock:
+                if exp_id not in _ipc_clients:
+                    _ipc_clients[exp_id] = SimulationIPCClient(base_dir=str(exp_dir), timeout=15.0)
+                client = _ipc_clients[exp_id]
+
+            reply = client.inject_event(event_type, payload)
+            return jsonify(reply)
+
+        except TimeoutError:
+            return jsonify({"error": "IPC timeout — is the simulation running with IPC enabled?"}), 504
+        except Exception as exc:
+            logger.error("inject error (exp=%s event=%s): %s", exp_id, event_type, exc)
+            return jsonify({"error": "Injection request failed"}), 500
 
     # ── ReACT report (synchronous, can be slow) ───────────────────────────────
 

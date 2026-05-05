@@ -301,12 +301,16 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     network_manager = build_network(config, agents)
     world = build_world(config, network_manager)
     logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
+    from agents.collective_memory import CollectiveMemory
+
+    collective_memory = CollectiveMemory()
 
     kernel = SimulationKernel(
         agents=agents,
         world=world,
         logger=logger,
         heartbeat_path=run_dir / "heartbeat.json",
+        collective_memory=collective_memory,
     )
 
     num_rounds = config["simulation"]["rounds"]
@@ -365,6 +369,16 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     shutdown = GracefulShutdown()
     shutdown.register()
 
+    from simulation.ipc import SimulationIPCServer
+
+    ipc_server = SimulationIPCServer(
+        agents=kernel.agent_lookup,
+        base_dir=run_dir,
+        current_round_fn=lambda: world.state.round_id,
+        world_state=world.state,
+    )
+    ipc_server.start()
+
     try:
         completed = kernel.run(num_rounds=num_rounds, start_round=start_round, stop_flag=shutdown)
         run_mgr.tick(start_round + completed)
@@ -377,6 +391,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         run_mgr.fail(str(exc))
         raise
     finally:
+        ipc_server.stop()
         shutdown.unregister()
 
     summary = summarize_agents(agents)

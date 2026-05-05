@@ -40,6 +40,7 @@ from decision.prompt_builder import AblationLevel, get_neighbors
 from decision.random_policy import RandomPolicy
 from decision.rule_based_policy import RuleBasedPolicy
 from decision.schemas import ProposedAction
+from decision.social_policy import SocialAction, SocialPolicy
 from decision.template_policy import TemplatePolicy
 
 __all__ = [
@@ -53,6 +54,8 @@ __all__ = [
     # Policies (LLM-based)
     "LLMPolicy",
     "AblatedLLMPolicy",
+    "SocialAction",
+    "SocialPolicy",
     # Helpers & constants
     "AblationLevel",
     "get_neighbors",

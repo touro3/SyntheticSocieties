@@ -200,6 +200,33 @@ def cohens_d(
     return float((a.mean() - b.mean()) / pooled_std)
 
 
+def hedges_g(
+    group_a: Sequence[float],
+    group_b: Sequence[float],
+) -> float:
+    """Hedges' g: bias-corrected effect size for small samples.
+
+    Preferred over Cohen's d when n < 50 (typical for multi-seed simulation
+    experiments).  The correction factor J(df) ≈ 1 − 3/(4·df − 1) removes
+    the positive bias of d in small samples.
+
+    Args:
+        group_a: Observations from condition A.
+        group_b: Observations from condition B.
+
+    Returns:
+        Hedges' g (positive when group_a > group_b).  Magnitude thresholds
+        are the same as Cohen's d: small 0.2, medium 0.5, large 0.8.
+    """
+    d = cohens_d(group_a, group_b)
+    n = len(group_a) + len(group_b)
+    df = n - 2
+    if df <= 0:
+        return d
+    j = 1.0 - 3.0 / (4.0 * df - 1.0)
+    return d * j
+
+
 # ── Non-Parametric Significance ───────────────────────────────────────────────
 
 
@@ -294,6 +321,7 @@ def power_report(
     ci_a, ci_b.
     """
     d = cohens_d(group_a, group_b)
+    g = hedges_g(group_a, group_b)
     mw = mann_whitney_u(group_a, group_b, alternative="two-sided")
     ci_a = report_metric(list(group_a))
     ci_b = report_metric(list(group_b))
@@ -314,6 +342,7 @@ def power_report(
 
     return {
         "cohens_d": round(d, 4),
+        "hedges_g": round(g, 4),
         "interpretation": interp,
         "mann_whitney": mw,
         "min_seeds_80pct_power": min_seeds,

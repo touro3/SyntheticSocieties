@@ -103,6 +103,7 @@ class LLMBackend:
         max_retries: int = 2,
         quantization: Optional[str] = None,
         allow_remote_code: bool = False,
+        allow_remote_downloads: bool = False,
     ):
         self.model_id = model_id
         self.dtype = getattr(torch, dtype, torch.float16) if _TORCH_AVAILABLE else dtype
@@ -119,6 +120,7 @@ class LLMBackend:
         # trust_remote_code allows arbitrary Python execution from the model
         # repo.  Only enable this when you control the model source.
         self.allow_remote_code = allow_remote_code
+        self.allow_remote_downloads = allow_remote_downloads
 
         self.model = None
         self.tokenizer = None
@@ -166,7 +168,7 @@ class LLMBackend:
             self.model_id,
             cache_dir=self.cache_dir,
             trust_remote_code=self.allow_remote_code,
-            local_files_only=True,
+            local_files_only=not self.allow_remote_downloads,
         )
 
         # Ensure pad token exists
@@ -178,7 +180,7 @@ class LLMBackend:
             device_map=self.device_map,
             cache_dir=self.cache_dir,
             trust_remote_code=self.allow_remote_code,
-            local_files_only=True,
+            local_files_only=not self.allow_remote_downloads,
             attn_implementation="eager",  # P100 doesn't support flash attention
         )
 

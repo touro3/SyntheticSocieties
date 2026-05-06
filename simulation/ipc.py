@@ -326,9 +326,17 @@ class SimulationIPCClient:
         while time.monotonic() < deadline:
             if resp_path.exists():
                 raw = resp_path.read_text(encoding="utf-8")
-                resp_path.unlink(missing_ok=True)
-                data = json.loads(raw)
-                return data.get("result", data)
+                # Guard against reading a partially-written / empty file
+                # (race condition where the file exists but the server
+                # hasn't finished flushing the JSON content yet).
+                if raw.strip():
+                    try:
+                        data = json.loads(raw)
+                        resp_path.unlink(missing_ok=True)
+                        return data.get("result", data)
+                    except json.JSONDecodeError:
+                        # File exists but contains partial JSON — retry.
+                        pass
             time.sleep(_POLL_INTERVAL)
 
         # Timed out — clean up the command file if still present

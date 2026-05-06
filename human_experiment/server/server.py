@@ -19,13 +19,12 @@ Usage:
 from __future__ import annotations
 
 import csv
+import logging
 import random
 import sys
 import threading
 import uuid
 from pathlib import Path
-
-import logging
 
 logger = logging.getLogger(__name__)
 

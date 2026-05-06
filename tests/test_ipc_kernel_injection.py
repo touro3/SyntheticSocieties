@@ -7,15 +7,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
 
-from conftest import make_agent
-
 
 def test_kernel_consumes_wealth_shock_injection_in_round(minimal_kernel):
     """A wealth_shock injection queued on world_state should be drained in one round."""
     world = minimal_kernel.world
-    world.state.pending_injections.append(
-        {"event_type": "wealth_shock", "payload": {"magnitude": 20.0}}
-    )
+    world.state.pending_injections.append({"event_type": "wealth_shock", "payload": {"magnitude": 20.0}})
     minimal_kernel.run_round()
 
     assert world.state.shock_active is True

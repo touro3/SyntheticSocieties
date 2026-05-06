@@ -40,7 +40,7 @@ from typing import Any, Optional
 import duckdb
 import numpy as np
 import pandas as pd
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_score
@@ -364,7 +364,6 @@ class ESSR11Loader:
 
 try:
     import hydra
-    from omegaconf import OmegaConf
 
     @hydra.main(version_base=None, config_path="../configs", config_name="base_config")
     def main(cfg: DictConfig) -> None:

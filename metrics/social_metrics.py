@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from environment.social_env import SocialEnvironment
 
 
-def engagement_rate(social_env: "SocialEnvironment") -> float:
+def engagement_rate(social_env: SocialEnvironment) -> float:
     """Fraction of posts that received at least one reaction."""
     posts = [p for p in social_env.posts.values() if p.parent_id is None]
     if not posts:
@@ -16,7 +16,7 @@ def engagement_rate(social_env: "SocialEnvironment") -> float:
     return engaged / len(posts)
 
 
-def post_diversity(social_env: "SocialEnvironment") -> float:
+def post_diversity(social_env: SocialEnvironment) -> float:
     """Shannon entropy over action types (post / comment / react).
 
     Higher values indicate more varied social behaviour.
@@ -41,7 +41,7 @@ def post_diversity(social_env: "SocialEnvironment") -> float:
     return round(entropy, 4)
 
 
-def network_amplification(social_env: "SocialEnvironment") -> float:
+def network_amplification(social_env: SocialEnvironment) -> float:
     """Average reactions per post (measures how content spreads through the network)."""
     posts = [p for p in social_env.posts.values() if p.parent_id is None]
     if not posts:

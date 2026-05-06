@@ -1,5 +1,3 @@
-import pytest
-
 from population.seed_extractor import ExtractedEntity, SeedDocument, SeedExtractor
 
 

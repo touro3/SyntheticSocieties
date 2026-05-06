@@ -1,7 +1,6 @@
 """Tests for ReportAgent and _TrackerTools (analysis/react_report_agent.py)."""
 
 import sys
-import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest
-
 from conftest import make_agent
+
 from simulation.ipc import SimulationIPCClient, SimulationIPCServer
 
 

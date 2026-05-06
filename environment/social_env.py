@@ -215,9 +215,7 @@ class SocialEnvironment:
             if last_action == "cooperate" or not trending:
                 content = f"Round {round_id}: community action — {last_action}."
                 content = content[: self.MAX_SHORT_FORM_CHARS]
-                action = types.SimpleNamespace(
-                    action_type="post", content=content, target_id=None, reaction=None
-                )
+                action = types.SimpleNamespace(action_type="post", content=content, target_id=None, reaction=None)
             else:
                 target_post = trending[0]
                 reaction = "like" if last_action in ("work", "save") else "disagree"

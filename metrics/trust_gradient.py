@@ -174,6 +174,7 @@ def compute_trust_recovery_correlation(
     n = len(groups)
     # Minimum achievable two-tailed p under any ranking (1 extreme perm each tail)
     import math
+
     min_p = 2.0 / math.factorial(n)
 
     if np.std(sim_coop) < 1e-10:
@@ -214,7 +215,7 @@ def compute_trust_recovery_correlation(
 
     return {
         "spearman_r": round(r, 4),
-        "p_value": round(p_exact, 4),          # canonical key; exact permutation (preferred for n≤8)
+        "p_value": round(p_exact, 4),  # canonical key; exact permutation (preferred for n≤8)
         "p_value_asymptotic": round(p_asymp, 4),
         "p_value_exact": round(p_exact, 4),
         "kendall_tau": round(tau, 4),

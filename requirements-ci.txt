@@ -19,3 +19,5 @@ pytest-timeout
 openai==1.51.0
 polars==1.8.2
 orjson==3.10.7
+flask>=3.0
+flask-cors>=4.0

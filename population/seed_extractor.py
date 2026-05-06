@@ -182,9 +182,9 @@ class SeedExtractor:
                 "role": "system",
                 "content": (
                     "Extract social-simulation seed entities from the user document. "
-                    "Respond with JSON only: {\"entities\":[{\"name\":str,"
-                    "\"entity_type\":str,\"stance\":str,\"attributes\":dict,"
-                    "\"relationships\":[{\"target\":str,\"relationship\":str,\"weight\":float}]}]}."
+                    'Respond with JSON only: {"entities":[{"name":str,'
+                    '"entity_type":str,"stance":str,"attributes":dict,'
+                    '"relationships":[{"target":str,"relationship":str,"weight":float}]}]}.'
                 ),
             },
             {

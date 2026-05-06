@@ -5,11 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import pytest
+from conftest import make_agent
 
 from agents.collective_memory import CollectiveMemory
-from conftest import make_agent
-from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
 from environment.world import World
 from environment.world_state import WorldState
@@ -21,7 +19,6 @@ def _make_cooperation_kernel(event_logger):
     We set up two agents with a stub network so MockPolicy sees a neighbor
     and wealth >= 100, triggering the 'cooperate' branch.
     """
-    from bgf_logging.event_logger import EventLogger
     from environment.network import NetworkManager
     from simulation.kernel import SimulationKernel
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import random as _random
 import random
+import random as _random
 from typing import Optional
 
 from agents.agent import Agent

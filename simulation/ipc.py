@@ -2,7 +2,7 @@
 File-system IPC for post-hoc agent interviews.
 
 Enables interactive querying of a running (or completed) simulation without
-modifying kernel.py.  Mirrors MiroFish's SimulationIPC pattern:
+modifying kernel.py.  Mirrors SimulationIPC pattern:
 
   ┌─────────────────────┐        ipc_commands/       ┌──────────────────────┐
   │  SimulationIPCClient │ ──── cmd_<uuid>.json ────► │  SimulationIPCServer │

@@ -395,20 +395,22 @@ def create_app(
                     if not exp_dir.is_dir():
                         continue
                     state = _safe_json_file(exp_dir / "run_state.json")
-                    meta  = _safe_json_file(exp_dir / "metadata.json")
-                    summ  = _safe_json_file(exp_dir / "summary.json")
+                    meta = _safe_json_file(exp_dir / "metadata.json")
+                    summ = _safe_json_file(exp_dir / "summary.json")
                     if state is None and meta is None:
                         continue
                     wealth = summ.get("wealth", {}).get("values", []) if summ else []
                     wealth_mean = sum(wealth) / len(wealth) if wealth else None
-                    runs.append({
-                        "experiment_id": exp_dir.name,
-                        "status":        (state or {}).get("status"),
-                        "policy_type":   (meta or {}).get("policy_type"),
-                        "seed":          (meta or {}).get("seed"),
-                        "wealth_mean":   round(wealth_mean, 3) if wealth_mean is not None else None,
-                        "gini":          None,
-                    })
+                    runs.append(
+                        {
+                            "experiment_id": exp_dir.name,
+                            "status": (state or {}).get("status"),
+                            "policy_type": (meta or {}).get("policy_type"),
+                            "seed": (meta or {}).get("seed"),
+                            "wealth_mean": round(wealth_mean, 3) if wealth_mean is not None else None,
+                            "gini": None,
+                        }
+                    )
                     if len(runs) >= 500:
                         break
             return jsonify({"experiments": runs, "note": "Tracker index not available — using filesystem scan"})

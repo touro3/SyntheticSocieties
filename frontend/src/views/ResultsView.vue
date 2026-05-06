@@ -9,9 +9,10 @@
     <div v-else-if="err" class="empty card" style="color:var(--rose)">{{ err }}</div>
 
     <template v-else>
-      <!-- Summary row -->
-      <div class="summary-row">
-        <div class="metric-card" v-for="m in summaryMetrics" :key="m.label">
+      <!-- Summary row — glassmorphism + staggered spring reveal -->
+      <div class="summary-row" ref="summaryRowRef">
+        <div class="metric-card reveal" v-for="m in summaryMetrics" :key="m.label" v-tilt>
+          <div class="metric-icon">{{ m.icon }}</div>
           <div class="metric-val" :style="{ color: m.color }">{{ m.val }}</div>
           <div class="metric-label">{{ m.label }}</div>
         </div>
@@ -111,11 +112,15 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { api, gini, mean } from '../api/index.js'
+import { useReveal } from '../composables/useReveal.js'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
 
 const route  = useRoute()
 const expId  = route.params.expId
+
+const summaryRowRef = ref(null)
+useReveal(summaryRowRef)
 
 const loading = ref(true)
 const err     = ref('')
@@ -141,12 +146,12 @@ const wealthMedian = computed(() => {
 })
 
 const summaryMetrics = computed(() => [
-  { label: 'Agents',      val: summary.value?.num_agents ?? meta.value?.population_size ?? '—', color: 'var(--blue)' },
-  { label: 'Gini',        val: computedGini.value.toFixed(4),                                   color: 'var(--amber)' },
-  { label: 'Wealth Mean', val: wealthMean.value.toFixed(1),                                     color: 'var(--teal)' },
-  { label: 'Wealth Max',  val: wealthMax.value.toFixed(1),                                      color: 'var(--green)' },
-  { label: 'Policy',      val: meta.value?.policy_type ?? '—',                                  color: 'var(--purple)' },
-  { label: 'Rounds',      val: meta.value?.rounds ?? '—',                                       color: 'var(--text2)' },
+  { icon: '🤖', label: 'Agents',      val: summary.value?.num_agents ?? meta.value?.population_size ?? '—', color: 'var(--blue)' },
+  { icon: '⚖️', label: 'Gini',        val: computedGini.value.toFixed(4),                                   color: 'var(--amber)' },
+  { icon: '💰', label: 'Wealth Mean', val: wealthMean.value.toFixed(1),                                     color: 'var(--teal)' },
+  { icon: '📈', label: 'Wealth Max',  val: wealthMax.value.toFixed(1),                                      color: 'var(--green)' },
+  { icon: '🧠', label: 'Policy',      val: meta.value?.policy_type ?? '—',                                  color: 'var(--purple)' },
+  { icon: '🔄', label: 'Rounds',      val: meta.value?.rounds ?? '—',                                       color: 'var(--text2)' },
 ])
 
 const flatMetrics = computed(() => {
@@ -239,22 +244,44 @@ onBeforeUnmount(() => { if (chart) chart.destroy() })
 .page-title { font-size: 1.6rem; font-weight: 700; color: var(--text2); word-break: break-all; }
 
 .summary-row {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px; margin-bottom: 24px;
 }
 .metric-card {
-  background: var(--bg3); border: 1px solid var(--border);
-  border-radius: 12px; padding: 18px; text-align: center;
+  /* Glassmorphism metric tile */
+  background: rgba(26,31,53,.68);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255,255,255,.058);
+  border-radius: 14px; padding: 20px; text-align: center;
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.045);
+  transform-style: preserve-3d;  /* enables v-tilt z-depth */
+  /* border-color + shadow transition; v-tilt handles transform directly */
+  transition: border-color .25s, box-shadow .25s;
 }
-.metric-val   { font-size: 1.4rem; font-weight: 700; }
-.metric-label { font-size: .72rem; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+.metric-card:hover {
+  border-color: rgba(99,102,241,.3);
+  box-shadow: 0 8px 36px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06), var(--glow);
+}
+.metric-icon  { font-size: 1.3rem; margin-bottom: 8px; }
+.metric-val   { font-size: 1.35rem; font-weight: 700; }
+.metric-label { font-size: .71rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-top: 5px; }
 
 .results-layout { display: grid; grid-template-columns: 1fr 280px; gap: 24px; align-items: start; }
 @media (max-width: 800px) { .results-layout { grid-template-columns: 1fr; } }
 
 .data-col { display: flex; flex-direction: column; gap: 20px; }
 
-.chart-card { display: flex; flex-direction: column; gap: 12px; }
+.chart-card {
+  display: flex; flex-direction: column; gap: 12px;
+  animation: card-spring-in .55s var(--ease-spring) both;
+}
+@keyframes card-spring-in {
+  from { opacity: 0; transform: translateY(18px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
 .gini-badge { font-size: .84rem; color: var(--text2); }
 .gini-badge strong { color: var(--amber); font-size: 1rem; }
 .gini-hint  { font-size: .76rem; color: var(--text3); margin-left: 6px; }

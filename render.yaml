@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: synthetic-societies-api
+    runtime: python
+    repo: https://github.com/touro3/SyntheticSocieties
+    branch: main
+    plan: free
+    buildCommand: pip install -r requirements-api.txt && pip install -e . --no-deps
+    startCommand: gunicorn 'api.app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --timeout 300
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: BGF_API_TOKEN
+        sync: false   # set manually in Render dashboard for auth
+      - key: OPENAI_API_KEY
+        sync: false   # optional — needed only for /report endpoint

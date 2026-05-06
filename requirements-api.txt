@@ -1,0 +1,21 @@
+# Lightweight requirements for the API-only deployment (Render.com free tier).
+# No torch, no transformers — keeps the image under 512 MB RAM.
+# Simulation runs use CPU-only policies (random, rule_based, mock, template).
+
+pyyaml>=6.0
+numpy>=1.26
+scipy>=1.11
+pandas>=2.2
+pyarrow>=17.0
+duckdb>=1.1
+pydantic>=2.8
+networkx>=3.3
+scikit-learn>=1.3
+orjson>=3.10
+polars>=1.8
+openai>=1.0
+
+flask>=3.0
+flask-cors>=4.0
+flask-limiter>=3.8
+gunicorn>=23.0

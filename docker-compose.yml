@@ -1,0 +1,25 @@
+# Synthetic Societies — Local Development
+# Usage:
+#   docker compose up          → API at http://localhost:5050
+#   docker compose up --build  → rebuild after code changes
+
+services:
+  api:
+    build: .
+    ports:
+      - "5050:5050"
+    environment:
+      - PORT=5050
+      - BGF_API_TOKEN=              # leave empty for open mode locally
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      # Mount experiments + tracker so the API sees local simulation results
+      - ./experiments:/app/experiments
+      - ./tracker:/app/tracker
+      - ./configs:/app/configs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5050/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

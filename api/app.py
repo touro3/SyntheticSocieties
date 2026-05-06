@@ -176,7 +176,7 @@ def create_app(
     _EXPERIMENTS_ROOT = Path(experiments_root)
     _CONFIGS_ROOT = Path(configs_root)
 
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=Path(__file__).parent / "templates")
 
     # Limit incoming request bodies to 1 MB to prevent memory exhaustion.
     app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
@@ -206,6 +206,15 @@ def create_app(
         _simulate_limit = _report_limit = _write_limit = _noop
         _read_limit = _experiments_limit = _incomplete_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
+
+    # ── Landing page ──────────────────────────────────────────────────────────
+
+    @app.get("/")
+    def index():
+        from flask import render_template
+
+        base_url = request.host_url.rstrip("/")
+        return render_template("index.html", base_url=base_url)
 
     # ── Health ────────────────────────────────────────────────────────────────
 
@@ -365,9 +374,10 @@ def create_app(
             policy = request.args.get("policy") or None
 
             conn = duckdb.connect()
+            # _TRACKER_INDEX is server-controlled (not user input), safe to format.
+            parquet_path = str(_TRACKER_INDEX).replace("'", "''")
             conn.execute(
-                "CREATE VIEW exp AS SELECT * FROM read_parquet(?)",
-                [str(_TRACKER_INDEX)],
+                f"CREATE VIEW exp AS SELECT * FROM read_parquet('{parquet_path}')",
             )
 
             # Use parameterized queries to prevent SQL injection.
@@ -610,4 +620,5 @@ if __name__ == "__main__":
         experiments_root=args.experiments_root,
         configs_root=args.configs_root,
     )
-    app.run(host=args.host, port=args.port, debug=args.debug)
+    port = int(os.environ.get("PORT", args.port))
+    app.run(host=args.host, port=port, debug=args.debug)

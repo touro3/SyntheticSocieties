@@ -1,3 +1,5 @@
+import pytest
+
 from population.seed_extractor import ExtractedEntity, SeedDocument, SeedExtractor
 
 
@@ -41,3 +43,28 @@ def test_seed_extractor_regex_fallback_extracts_document_entities():
 
     assert "Energy Ministry" in names
     assert any(entity.stance in {"support", "concern", "neutral"} for entity in entities)
+
+
+def test_seed_extractor_round_trips_to_json(tmp_path):
+    """save() followed by load() must reproduce the same entities."""
+    extractor = SeedExtractor(backend=None)
+    original = [
+        ExtractedEntity(
+            name="Central Bank",
+            entity_type="institution",
+            stance="concern",
+            attributes={"income_decile": 7},
+        ),
+        ExtractedEntity(name="Households", entity_type="person_or_group", stance="neutral", attributes={}),
+    ]
+
+    cache_path = str(tmp_path / "entities.json")
+    extractor.save(cache_path, original)
+    loaded = SeedExtractor.load(cache_path)
+
+    assert len(loaded) == len(original)
+    assert loaded[0].name == "Central Bank"
+    assert loaded[0].entity_type == "institution"
+    assert loaded[0].stance == "concern"
+    assert loaded[0].attributes.get("income_decile") == 7
+    assert loaded[1].name == "Households"

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import types
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
@@ -188,6 +189,67 @@ class SocialEnvironment:
                 if isinstance(signal, dict):
                     self.state.public_signal.update({str(k): str(v) for k, v in signal.items()})
         return applied
+
+    def apply_round_decay(self, current_round: int, max_post_age: int = 10) -> None:
+        """Remove posts older than max_post_age rounds to keep the feed fresh."""
+        cutoff = current_round - max_post_age
+        stale = [pid for pid, post in self.posts.items() if post.round_id < cutoff]
+        for pid in stale:
+            self.posts.pop(pid, None)
+            if pid in self._timeline:
+                self._timeline.remove(pid)
+
+    def step(self, agents: list, round_id: int) -> list[dict]:
+        """Generate and execute rule-based social actions for all agents.
+
+        Cooperating agents post; others react to trending posts (or post if
+        nothing is trending yet). Returns a list of executed event dicts.
+        """
+        events = []
+        agent_lookup = {a.profile.agent_id: a for a in agents}
+        trending = self.get_trending(top_n=3)
+
+        for agent in agents:
+            last_action = agent.state.last_action or "work"
+
+            if last_action == "cooperate" or not trending:
+                content = f"Round {round_id}: community action — {last_action}."
+                content = content[: self.MAX_SHORT_FORM_CHARS]
+                action = types.SimpleNamespace(
+                    action_type="post", content=content, target_id=None, reaction=None
+                )
+            else:
+                target_post = trending[0]
+                reaction = "like" if last_action in ("work", "save") else "disagree"
+                action = types.SimpleNamespace(
+                    action_type="react",
+                    content="",
+                    target_id=target_post.post_id,
+                    reaction=reaction,
+                )
+
+            validation = self.validate_action(action, agent, agent_lookup)
+            if validation.valid:
+                event = self.execute_action(action, agent, agent_lookup)
+                events.append(event)
+
+        return events
+
+    def get_stats(self) -> dict:
+        """Return aggregate counts suitable for per-round metrics."""
+        posts = [p for p in self.posts.values() if p.parent_id is None]
+        comments = [p for p in self.posts.values() if p.parent_id is not None]
+        total_reactions = sum(sum(p.reactions.values()) for p in self.posts.values())
+        reaction_types = {r: 0 for r in self.VALID_REACTIONS}
+        for _, _, r in self._reaction_ledger:
+            if r in reaction_types:
+                reaction_types[r] += 1
+        return {
+            "total_posts": len(posts),
+            "total_comments": len(comments),
+            "total_reactions": total_reactions,
+            "reaction_types": reaction_types,
+        }
 
     def _neighbors(self, agent_id: str) -> list[str]:
         if self.network_manager is None:

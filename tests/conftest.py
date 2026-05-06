@@ -9,12 +9,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pytest
 
 from agents.agent import Agent
+from agents.collective_memory import CollectiveMemory
 from agents.memory import MemoryBuffer
 from agents.profile import AgentProfile
 from agents.state import AgentState
 from bgf_logging.event_logger import EventLogger
 from decision.mock_policy import MockPolicy
 from environment.institutions import InstitutionManager
+from environment.social_env import SocialEnvironment
 from environment.world import World
 from environment.world_state import WorldState
 
@@ -97,3 +99,26 @@ def world():
 @pytest.fixture
 def event_logger(tmp_path):
     return EventLogger(tmp_path / "events.jsonl", overwrite=True)
+
+
+@pytest.fixture
+def collective_memory():
+    return CollectiveMemory()
+
+
+@pytest.fixture
+def social_env():
+    return SocialEnvironment()
+
+
+@pytest.fixture
+def minimal_kernel(world, sample_agent, collective_memory, social_env, event_logger):
+    from simulation.kernel import SimulationKernel
+
+    return SimulationKernel(
+        agents=[sample_agent],
+        world=world,
+        logger=event_logger,
+        collective_memory=collective_memory,
+        social_env=social_env,
+    )

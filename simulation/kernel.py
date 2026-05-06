@@ -36,12 +36,14 @@ class SimulationKernel:
         logger,
         heartbeat_path: Optional[Path] = None,
         collective_memory=None,
+        social_env=None,
     ) -> None:
         self.agents = agents
         self.world = world
         self.logger = logger
         self.heartbeat_path = Path(heartbeat_path) if heartbeat_path else None
         self.collective_memory = collective_memory or getattr(world, "collective_memory", None)
+        self.social_env = social_env
         self.agent_lookup = {agent.profile.agent_id: agent for agent in agents}
         if self.collective_memory is not None:
             for agent in agents:
@@ -79,6 +81,9 @@ class SimulationKernel:
         round_id = self.world.state.round_id
         self._advance_collective_memory(round_id, applied_injections)
 
+        if self.social_env is not None:
+            self.social_env.apply_round_decay(round_id)
+
         # Advance each agent's memory clock — expires stale beliefs.
         for agent in self.agents:
             agent.memory.advance_round(round_id)
@@ -97,6 +102,9 @@ class SimulationKernel:
                 round_id,
                 perception=perception,
             )
+
+        if self.social_env is not None:
+            self.social_env.step(self.agents, round_id)
 
         # Memory update on the sequential path — no cached neighbors available
         # so get_agent_context() is called per-agent as before.
@@ -194,6 +202,9 @@ class SimulationKernel:
         round_id = self.world.state.round_id
         self._advance_collective_memory(round_id, applied_injections)
 
+        if self.social_env is not None:
+            self.social_env.apply_round_decay(round_id)
+
         # Advance each agent's memory clock — expires stale beliefs.
         for agent in self.agents:
             agent.memory.advance_round(round_id)
@@ -239,6 +250,9 @@ class SimulationKernel:
                 round_id,
                 perception=perception,
             )
+
+        if self.social_env is not None:
+            self.social_env.step(self.agents, round_id)
 
         # Build neighbor cache from already-assembled agent_data before freeing
         # it — avoids a second get_agent_context() traversal in the memory step.
@@ -400,6 +414,14 @@ class SimulationKernel:
 
             narration = f"Round {round_id} observations: {'; '.join(neighbor_actions)}."
 
+            if self.social_env is not None:
+                sctx = self.social_env.get_agent_context(agent.profile.agent_id)
+                feed = sctx.get("feed", [])[:2]
+                if feed:
+                    feed_note = "; ".join(p["content"][:60] for p in feed if p.get("content"))
+                    if feed_note:
+                        narration += f" Social feed: [{feed_note}]"
+
             obs_item = MemoryItem(
                 round_id=round_id,
                 partner_id=None,
@@ -513,6 +535,9 @@ class SimulationKernel:
             "n_agents": len(self.agents),
             "llm_quality": llm_quality,
         }
+
+        if self.social_env is not None:
+            metrics["social_actions"] = self.social_env.get_stats()
 
         self.round_metrics.append(metrics)
 

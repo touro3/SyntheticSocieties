@@ -67,6 +67,16 @@ class CollectiveMemory:
             selected = ranked[: max(0, max_items)]
             return [f"Round {fact.round_id} {fact.fact_type}: {fact.content}" for fact in selected]
 
+    def contribute(self, agent_id: str, round_id: int, fact_text: str, importance: float = 0.4) -> None:
+        """Allow an individual agent to add a belief to collective memory.
+
+        Agent-contributed facts use a lower default importance than
+        kernel-recorded facts to reflect that they are subjective beliefs
+        rather than observed population-level events.
+        """
+        content = f"[{agent_id}] {str(fact_text).strip()}"
+        self.record(round_id, "agent_belief", content, importance=importance)
+
     def snapshot(self) -> list[WorldFact]:
         with self._lock:
             return list(self._facts)

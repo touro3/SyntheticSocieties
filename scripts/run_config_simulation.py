@@ -302,8 +302,10 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     world = build_world(config, network_manager)
     logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
     from agents.collective_memory import CollectiveMemory
+    from environment.social_env import SocialEnvironment
 
     collective_memory = CollectiveMemory()
+    social_env = SocialEnvironment(state=world.state, network_manager=network_manager)
 
     kernel = SimulationKernel(
         agents=agents,
@@ -311,6 +313,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         logger=logger,
         heartbeat_path=run_dir / "heartbeat.json",
         collective_memory=collective_memory,
+        social_env=social_env,
     )
 
     num_rounds = config["simulation"]["rounds"]
@@ -398,6 +401,15 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     events = load_events(run_dir / "events.jsonl")
     event_behavior = behavior_summary_from_events(events)
     summary = merge_behavior_summary(summary, event_behavior)
+
+    if social_env is not None:
+        from metrics.social_metrics import engagement_rate, network_amplification, post_diversity
+
+        summary["social_metrics"] = {
+            "engagement_rate": round(engagement_rate(social_env), 4),
+            "post_diversity": round(post_diversity(social_env), 4),
+            "network_amplification": round(network_amplification(social_env), 4),
+        }
 
     save_json(summary, run_dir / "summary.json")
 

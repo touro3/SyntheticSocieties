@@ -407,6 +407,40 @@ class SeedExtractor:
             return "upper_middle"
         return "middle"
 
+    def save(self, path: str, entities: list[ExtractedEntity]) -> None:
+        """Persist extracted entities to a JSON file for later reuse."""
+        from pathlib import Path
+
+        data = [
+            {
+                "name": e.name,
+                "entity_type": e.entity_type,
+                "stance": e.stance,
+                "attributes": e.attributes,
+            }
+            for e in entities
+        ]
+        Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False))
+
+    @staticmethod
+    def load(path: str) -> list[ExtractedEntity]:
+        """Load previously saved entities from a JSON file."""
+        from pathlib import Path
+
+        raw = json.loads(Path(path).read_text())
+        entities = []
+        for item in raw:
+            if isinstance(item, dict) and item.get("name"):
+                entities.append(
+                    ExtractedEntity(
+                        name=str(item["name"]),
+                        entity_type=str(item.get("entity_type", "entity")),
+                        stance=str(item.get("stance", "neutral")),
+                        attributes=item.get("attributes", {}),
+                    )
+                )
+        return entities
+
     @staticmethod
     def _optional_float(value: Any) -> float | None:
         if value is None:

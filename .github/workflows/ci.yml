@@ -155,10 +155,25 @@ jobs:
           path: coverage.xml
           retention-days: 7
 
+  frontend:
+    name: "Frontend build (Vue + Vite)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend deps
+        run: npm --prefix frontend install
+      - name: Build Vue app
+        run: npm --prefix frontend run build
+      - name: Verify build output
+        run: test -f api/static/index.html && echo "Build OK" || (echo "Build missing index.html" && exit 1)
+
   docker:
     name: "Build & push Docker image to GHCR"
     runs-on: ubuntu-latest
-    needs: [test, lint, coverage]
+    needs: [test, lint, coverage, frontend]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: read

@@ -67,6 +67,7 @@ except ImportError:
 _EXPERIMENTS_ROOT = Path("experiments")
 _CONFIGS_ROOT = Path("configs")
 _TRACKER_INDEX = Path("tracker/experiment_index.parquet")
+_STATIC_DIR = Path(__file__).parent / "static"
 
 # Bearer-token auth.  Set BGF_API_TOKEN env var to enable.
 # If unset, auth is disabled — intended for local / trusted-network use only.
@@ -176,7 +177,7 @@ def create_app(
     _EXPERIMENTS_ROOT = Path(experiments_root)
     _CONFIGS_ROOT = Path(configs_root)
 
-    app = Flask(__name__, template_folder=Path(__file__).parent / "templates")
+    app = Flask(__name__, template_folder=Path(__file__).parent / "templates", static_folder=None)
 
     # Limit incoming request bodies to 1 MB to prevent memory exhaustion.
     app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
@@ -207,14 +208,41 @@ def create_app(
         _read_limit = _experiments_limit = _incomplete_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
-    # ── Landing page ──────────────────────────────────────────────────────────
+    # ── Static assets for Vue SPA (built to api/static/) ─────────────────────
+
+    @app.get("/assets/<path:filename>")
+    def vue_assets(filename: str):
+        from flask import send_from_directory
+
+        assets_dir = _STATIC_DIR / "assets"
+        if not assets_dir.exists():
+            return ("", 404)
+        return send_from_directory(str(assets_dir), filename)
+
+    # ── Landing page / Vue SPA ────────────────────────────────────────────────
 
     @app.get("/")
     def index():
-        from flask import render_template
+        from flask import render_template, send_from_directory
 
+        idx = _STATIC_DIR / "index.html"
+        if idx.exists():
+            return send_from_directory(str(_STATIC_DIR), "index.html")
+        # Fallback: serve old static template
         base_url = request.host_url.rstrip("/")
         return render_template("index.html", base_url=base_url)
+
+    # ── List available config files ───────────────────────────────────────────
+
+    @app.get("/configs")
+    def list_configs():
+        configs = []
+        if _CONFIGS_ROOT.exists():
+            for p in sorted(_CONFIGS_ROOT.rglob("*.yaml")):
+                rel = str(p.relative_to(_CONFIGS_ROOT.parent))
+                if "__pycache__" not in rel:
+                    configs.append(rel)
+        return jsonify({"configs": configs})
 
     # ── Health ────────────────────────────────────────────────────────────────
 
@@ -360,7 +388,30 @@ def create_app(
             return err
 
         if not _TRACKER_INDEX.exists():
-            return jsonify({"experiments": [], "note": "Tracker index not found"})
+            # Fallback: scan experiments/ directory directly
+            runs = []
+            if _EXPERIMENTS_ROOT.exists():
+                for exp_dir in sorted(_EXPERIMENTS_ROOT.iterdir(), reverse=True):
+                    if not exp_dir.is_dir():
+                        continue
+                    state = _safe_json_file(exp_dir / "run_state.json")
+                    meta  = _safe_json_file(exp_dir / "metadata.json")
+                    summ  = _safe_json_file(exp_dir / "summary.json")
+                    if state is None and meta is None:
+                        continue
+                    wealth = summ.get("wealth", {}).get("values", []) if summ else []
+                    wealth_mean = sum(wealth) / len(wealth) if wealth else None
+                    runs.append({
+                        "experiment_id": exp_dir.name,
+                        "status":        (state or {}).get("status"),
+                        "policy_type":   (meta or {}).get("policy_type"),
+                        "seed":          (meta or {}).get("seed"),
+                        "wealth_mean":   round(wealth_mean, 3) if wealth_mean is not None else None,
+                        "gini":          None,
+                    })
+                    if len(runs) >= 500:
+                        break
+            return jsonify({"experiments": runs, "note": "Tracker index not available — using filesystem scan"})
 
         try:
             import duckdb

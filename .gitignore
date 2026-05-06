@@ -188,3 +188,7 @@ TOP_TIER_RESEARCH.md
 graphify-out/
 
 
+
+# Frontend build output (generated in CI/Render build)
+api/static/
+frontend/node_modules/

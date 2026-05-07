@@ -189,6 +189,4 @@ graphify-out/
 
 
 
-# Frontend build output (generated in CI/Render build)
-api/static/
 frontend/node_modules/

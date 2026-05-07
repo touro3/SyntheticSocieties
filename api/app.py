@@ -1137,7 +1137,56 @@ def create_app(
 
         overall_completeness = round(df.notna().sum().sum() / (len(df) * len(df.columns)) * 100, 1)
 
+        # ── Natural language narrative (injected into agent prompts) ──────
+        def _level(val, lo, hi, labels):
+            if val is None:
+                return None
+            return labels[0] if val >= hi else labels[2] if val < lo else labels[1]
+
+        dim_by_name = {d["name"]: d for d in dimensions if d["status"] != "fallback"}
+        narrative_parts = [f"Population dataset '{f.filename}' ({len(df):,} respondents)."]
+
+        def _dim_sentence(name, scale_max, lo, hi, labels):
+            d = dim_by_name.get(name)
+            if d and d["stats"].get("mean") is not None:
+                m = d["stats"]["mean"]
+                label = _level(m, lo, hi, labels)
+                return f"{name.replace('_', ' ').title()}: {label} (μ={m:.2f}/{scale_max})."
+            return None
+
+        for name, scale, lo, hi, labels in [
+            ("trust_institutions", "1.0", 0.4, 0.65, ["high", "moderate", "low"]),
+            ("trust_people", "1.0", 0.4, 0.65, ["high", "moderate", "low"]),
+            ("risk_tolerance", "1.0", 0.3, 0.60, ["risk-seeking", "moderate", "risk-averse"]),
+            ("life_satisfaction", "1.0", 0.4, 0.65, ["high", "moderate", "low"]),
+            ("competitiveness", "1.0", 0.4, 0.65, ["high", "moderate", "low"]),
+            ("social_activity", "1.0", 0.4, 0.65, ["high", "moderate", "low"]),
+        ]:
+            s = _dim_sentence(name, scale, lo, hi, labels)
+            if s:
+                narrative_parts.append(s)
+
+        income_dim = dim_by_name.get("income")
+        if income_dim and income_dim["stats"].get("mean") is not None:
+            narrative_parts.append(f"Mean income decile: {income_dim['stats']['mean']:.1f}/10.")
+
+        if coverage_pct == 100:
+            narrative_parts.append("All 16 simulation dimensions grounded in this dataset.")
+        elif coverage_pct >= 70:
+            narrative_parts.append(
+                f"{covered}/{total_dims} simulation dimensions grounded in data; "
+                f"{fallback_count} use configuration defaults."
+            )
+        else:
+            narrative_parts.append(
+                f"Only {covered}/{total_dims} dimensions grounded; "
+                f"{fallback_count} agent attributes use configuration defaults."
+            )
+
+        narrative = " ".join(narrative_parts)
+
         analysis = {
+            "filename": f.filename,
             "dimensions": dimensions,
             "coverage": {
                 "direct": direct,
@@ -1156,21 +1205,25 @@ def create_app(
                 f"{len(df):,} rows · {len(df.columns)} columns · "
                 f"{covered}/{total_dims} BGF dimensions covered ({coverage_pct}%)"
             ),
+            "narrative": narrative,
         }
 
-        # ── Persist ───────────────────────────────────────────────────────
+        # ── Persist parquet + analysis sidecar ────────────────────────────
         _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         file_id = str(_uuid.uuid4())
         out_path = _UPLOADS_DIR / f"{file_id}.parquet"
+        analysis_path = _UPLOADS_DIR / f"{file_id}_analysis.json"
         try:
             df.to_parquet(out_path, index=False)
+            analysis_path.write_text(json.dumps(analysis, ensure_ascii=False))
         except Exception as exc:
             logger.error("ESS upload write failed: %s", exc)
             return jsonify({"error": "Failed to save uploaded file"}), 500
 
         logger.info(
-            "Data uploaded: file_id=%s rows=%d cols=%d coverage=%d%%",
+            "Data uploaded: file_id=%s filename=%r rows=%d cols=%d coverage=%d%%",
             file_id,
+            f.filename,
             len(df),
             len(df.columns),
             coverage_pct,
@@ -1241,8 +1294,9 @@ def create_app(
         if pop_source not in _VALID_SOURCES:
             return jsonify({"error": f"Invalid population_source. Choose from: {sorted(_VALID_SOURCES)}"}), 400
 
-        # Optional custom ESS data file (only meaningful when pop_source == "empirical")
+        # Optional custom data file (only meaningful when pop_source == "empirical")
         ess_data_path: str | None = None
+        ess_population_context: str | None = None
         raw_file_id = str(body.get("ess_data_file_id", "")).strip()
         if raw_file_id:
             if not _FILE_ID_RE.match(raw_file_id):
@@ -1254,8 +1308,16 @@ def create_app(
             except ValueError:
                 return jsonify({"error": "Invalid ess_data_file_id"}), 400
             if not candidate.exists():
-                return jsonify({"error": "Uploaded ESS data file not found — please re-upload"}), 404
+                return jsonify({"error": "Uploaded data file not found — please re-upload"}), 404
             ess_data_path = str(candidate)
+            # Load analysis sidecar for the population narrative
+            analysis_sidecar = _UPLOADS_DIR / f"{raw_file_id}_analysis.json"
+            if analysis_sidecar.exists():
+                try:
+                    sidecar = json.loads(analysis_sidecar.read_text())
+                    ess_population_context = sidecar.get("narrative")
+                except Exception:
+                    pass
 
         try:
             bad_apple_frac = float(body.get("bad_apple_frac", 0.0))
@@ -1299,6 +1361,8 @@ def create_app(
         }
         if ess_data_path:
             cfg_dict["data"] = {"ess_clean_path": ess_data_path}
+            if ess_population_context:
+                cfg_dict["data"]["population_context"] = ess_population_context
         if bad_apple_frac > 0:
             cfg_dict["bad_apple"] = {"fraction": bad_apple_frac}
         if policy in ("llm", "generative_agents"):
@@ -1330,6 +1394,8 @@ def create_app(
         ]
         if ess_data_path:
             cmd.append(f"data.ess_clean_path={ess_data_path}")
+            if ess_population_context:
+                cmd.append(f"data.population_context={ess_population_context}")
 
         # Append LLM-specific overrides for GPU/API policies
         run_env = None

@@ -178,7 +178,8 @@ def _build_rag_components(config: dict):
     from decision.sql_rag import SQLRAG
 
     graph_rag = GraphRAG()
-    sql_rag = SQLRAG(data_path=_get_ess_clean_path(config))
+    static_ctx = config.get("data", {}).get("population_context")
+    sql_rag = SQLRAG(data_path=_get_ess_clean_path(config), static_context=static_ctx)
     return graph_rag, sql_rag
 
 

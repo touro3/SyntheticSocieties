@@ -13,12 +13,22 @@ import pandas as pd
 class SQLRAG:
     _GENDER_ENCODING = {"male": 1, "female": 2}  # ESS codebook section 3.2
 
-    def __init__(self, data_path: str | Path = "data/ess_clean.parquet"):
+    # ESS columns used in peer-group queries
+    _PEER_COLS = {"age", "gender", "country", "income_decile", "trust_people", "risk_taking", "life_satisfaction"}
+
+    def __init__(
+        self,
+        data_path: str | Path = "data/ess_clean.parquet",
+        static_context: Optional[str] = None,
+    ):
         # Initialise before the existence check so __del__ never sees a missing
         # attribute if __init__ raises (e.g. FileNotFoundError below).
         self.conn = None
         self._initialized = False
+        self._available_cols: set[str] = set()
+        self._has_peer_cols: bool = False
         self.data_path = Path(data_path)
+        self.static_context = static_context  # narrative from analysis sidecar
         if not self.data_path.exists():
             raise FileNotFoundError(f"Population data not found: {self.data_path}")
 
@@ -26,11 +36,17 @@ class SQLRAG:
         """Lazily open a DuckDB connection and register the population view.
 
         Idempotent — safe to call multiple times.
-        Raises on failure so callers don't silently get wrong results.
+        Detects available columns so queries can adapt to arbitrary data files.
         """
         if self.conn is None:
             self.conn = duckdb.connect()
             self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
+            try:
+                cols_df = self.conn.execute("DESCRIBE population").fetchdf()
+                self._available_cols = set(cols_df["column_name"].tolist())
+            except Exception:
+                self._available_cols = set()
+            self._has_peer_cols = bool(self._available_cols & self._PEER_COLS)
             self._initialized = True
 
     def query_population_trends(self, query: str) -> str:
@@ -64,6 +80,11 @@ class SQLRAG:
     ) -> str:
         """Grounded query: How do peers (age/gender/country/income) usually behave?
 
+        Adaptive: if the data file lacks ESS demographic columns, returns the
+        static population narrative from the analysis sidecar (if available),
+        or a generic fallback.  This ensures LLM agents always receive some
+        population grounding even when a non-ESS file is uploaded.
+
         Returns distribution-level information (mean, std, median, sample size)
         rather than just averages, so the LLM can understand population variance
         and where the agent sits relative to their peer group.
@@ -80,7 +101,14 @@ class SQLRAG:
         try:
             self._connect()
         except Exception as e:
-            return f"Population database not available: {e}"
+            return self.static_context or f"Population database not available: {e}"
+
+        # If the data file has no ESS demographic columns, skip SQL queries and
+        # return the narrative from the analysis sidecar as population context.
+        if not self._has_peer_cols:
+            if self.static_context:
+                return self.static_context
+            return "No peer demographic data available in the uploaded dataset."
 
         # Robust gender mapping
         if isinstance(gender, int):
@@ -89,56 +117,101 @@ class SQLRAG:
             g_val = self._GENDER_ENCODING.get(str(gender).lower(), 1)
 
         def _run_query(age_window: int, include_country: bool, include_income: bool = False) -> Optional[str]:
-            where_clauses = ["age BETWEEN ? AND ?", "gender = ?"]
-            params: list = [age - age_window, age + age_window, g_val]
-            if include_country and country:
+            # Only add WHERE clauses for columns that actually exist in the data
+            have_age = "age" in self._available_cols
+            have_gender = "gender" in self._available_cols
+            where_clauses = []
+            params: list = []
+            if have_age:
+                where_clauses.append("age BETWEEN ? AND ?")
+                params.extend([age - age_window, age + age_window])
+            if have_gender:
+                where_clauses.append("gender = ?")
+                params.append(g_val)
+            # Legacy path kept for callers that pass age_window without the new flags
+            if include_country and country and "country" in self._available_cols:
                 where_clauses.append("country = ?")
                 params.append(country)
-            if include_income and income_decile is not None:
+            if include_income and income_decile is not None and "income_decile" in self._available_cols:
                 where_clauses.append("income_decile BETWEEN ? AND ?")
                 params.extend([income_decile - 2.5, income_decile + 2.5])
-            q = f"""
-            SELECT
-                COUNT(*) AS n_peers,
-                AVG(trust_people) * 10 AS avg_trust,
-                STDDEV(trust_people) * 10 AS std_trust,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trust_people) * 10 AS median_trust,
-                AVG(income_decile) AS avg_income_decile,
-                AVG(risk_taking) * 10 AS avg_risk,
-                STDDEV(risk_taking) * 10 AS std_risk,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY risk_taking) * 10 AS median_risk,
-                AVG(life_satisfaction) * 10 AS avg_satisfaction,
-                STDDEV(life_satisfaction) * 10 AS std_satisfaction,
-                PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q25,
-                PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q75
-            FROM population
-            WHERE {" AND ".join(where_clauses)}
-            """  # noqa: S608 — no user-supplied table names, only parameterised values
+
+            # Build SELECT only for columns that exist
+            have_trust = "trust_people" in self._available_cols
+            have_income = "income_decile" in self._available_cols
+            have_risk = "risk_taking" in self._available_cols
+            have_sat = "life_satisfaction" in self._available_cols
+
+            if not (have_trust or have_risk or have_sat):
+                return None  # nothing useful to report — caller will use static_context
+
+            select_parts = ["COUNT(*) AS n_peers"]
+            if have_trust:
+                select_parts += [
+                    "AVG(trust_people) * 10 AS avg_trust",
+                    "STDDEV(trust_people) * 10 AS std_trust",
+                    "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trust_people) * 10 AS median_trust",
+                    "PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q25",
+                    "PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY trust_people) * 10 AS trust_q75",
+                ]
+            if have_income:
+                select_parts.append("AVG(income_decile) AS avg_income_decile")
+            if have_risk:
+                select_parts += [
+                    "AVG(risk_taking) * 10 AS avg_risk",
+                    "STDDEV(risk_taking) * 10 AS std_risk",
+                    "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY risk_taking) * 10 AS median_risk",
+                ]
+            if have_sat:
+                select_parts += [
+                    "AVG(life_satisfaction) * 10 AS avg_satisfaction",
+                    "STDDEV(life_satisfaction) * 10 AS std_satisfaction",
+                ]
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+            q = f"SELECT {', '.join(select_parts)} FROM population {where_sql}"  # noqa: S608
             try:
                 res = self.conn.execute(q, params).fetchdf()
-                if res.empty or pd.isna(res.iloc[0]["avg_trust"]):
+                if res.empty:
                     return None
                 row = res.iloc[0]
                 n = int(row["n_peers"])
                 if n < 5:
                     return None
 
-                income_line = (
-                    f"  Income decile: {income_decile:.1f} (peer avg {row['avg_income_decile']:.1f})."
-                    if income_decile is not None
-                    else f"  Income decile: avg {row['avg_income_decile']:.1f}."
-                )
-                parts = [
-                    f"Based on {n} peers in your demographic bracket:",
-                    f"  Trust: avg {row['avg_trust']:.1f}/10 (std {row['std_trust']:.1f}, median {row['median_trust']:.1f}, IQR [{row['trust_q25']:.1f}-{row['trust_q75']:.1f}]).",
-                    f"  Risk tolerance: avg {row['avg_risk']:.1f}/10 (std {row['std_risk']:.1f}, median {row['median_risk']:.1f}).",
-                    f"  Life satisfaction: avg {row['avg_satisfaction']:.1f}/10 (std {row['std_satisfaction']:.1f}).",
-                    income_line,
-                ]
+                parts = [f"Based on {n} peers in your demographic bracket:"]
+                if have_trust and not pd.isna(row.get("avg_trust")):
+                    parts.append(
+                        f"  Trust: avg {row['avg_trust']:.1f}/10 (std {row['std_trust']:.1f},"
+                        f" median {row['median_trust']:.1f},"
+                        f" IQR [{row['trust_q25']:.1f}-{row['trust_q75']:.1f}])."
+                    )
+                if have_risk and not pd.isna(row.get("avg_risk")):
+                    parts.append(
+                        f"  Risk tolerance: avg {row['avg_risk']:.1f}/10"
+                        f" (std {row['std_risk']:.1f}, median {row['median_risk']:.1f})."
+                    )
+                if have_sat and not pd.isna(row.get("avg_satisfaction")):
+                    parts.append(
+                        f"  Life satisfaction: avg {row['avg_satisfaction']:.1f}/10"
+                        f" (std {row['std_satisfaction']:.1f})."
+                    )
+                if have_income and not pd.isna(row.get("avg_income_decile")):
+                    income_line = (
+                        f"  Income decile: {income_decile:.1f} (peer avg {row['avg_income_decile']:.1f})."
+                        if income_decile is not None
+                        else f"  Income decile: avg {row['avg_income_decile']:.1f}."
+                    )
+                    parts.append(income_line)
 
-                # Show where the agent falls relative to peers
+                # Agent position relative to peers
                 agent_position_parts = []
-                if agent_trust is not None and not pd.isna(row["std_trust"]) and row["std_trust"] > 0:
+                if (
+                    have_trust
+                    and agent_trust is not None
+                    and not pd.isna(row.get("std_trust", float("nan")))
+                    and row["std_trust"] > 0
+                ):
                     z_trust = (agent_trust * 10 - row["avg_trust"]) / row["std_trust"]
                     if z_trust > 0.5:
                         agent_position_parts.append(
@@ -148,7 +221,12 @@ class SQLRAG:
                         agent_position_parts.append(
                             f"your trust ({agent_trust * 10:.1f}) is below average for your peers"
                         )
-                if agent_risk is not None and not pd.isna(row["std_risk"]) and row["std_risk"] > 0:
+                if (
+                    have_risk
+                    and agent_risk is not None
+                    and not pd.isna(row.get("std_risk", float("nan")))
+                    and row["std_risk"] > 0
+                ):
                     z_risk = (agent_risk * 10 - row["avg_risk"]) / row["std_risk"]
                     if z_risk > 0.5:
                         agent_position_parts.append(f"your risk tolerance ({agent_risk * 10:.1f}) is above average")
@@ -172,7 +250,7 @@ class SQLRAG:
             if result:
                 return result
 
-        return "No peer group data found for this demographic."
+        return self.static_context or "No peer group data found for this demographic."
 
     def close(self):
         """Release DuckDB resources."""

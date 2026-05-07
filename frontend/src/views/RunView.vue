@@ -207,6 +207,18 @@
             <!-- Analysis report (NotebookLM-style) -->
             <div v-if="uploadStatus === 'done' && uploadInfo?.analysis" class="analysis-report">
 
+              <!-- Filename chip -->
+              <div class="upload-filename-chip">
+                <span class="file-icon">◈</span>
+                <span class="file-name">{{ uploadFilename }}</span>
+                <span class="file-rows">{{ uploadInfo.rows.toLocaleString() }} rows</span>
+              </div>
+
+              <!-- Narrative (the key "NotebookLM" output — used in agent prompts) -->
+              <div class="analysis-narrative">
+                {{ uploadInfo.analysis.narrative }}
+              </div>
+
               <!-- Summary bar -->
               <div class="analysis-summary">
                 <span class="analysis-icon">◉</span>
@@ -389,9 +401,10 @@ const launching      = ref(false)
 const error          = ref('')
 const launched       = ref(false)
 const launchedId     = ref('')
-const uploadStatus   = ref('')   // '' | 'uploading' | 'done' | 'error'
-const uploadInfo     = ref(null) // { rows, columns } on success
+const uploadStatus   = ref('')      // '' | 'uploading' | 'done' | 'error'
+const uploadInfo     = ref(null)    // full server response on success
 const uploadError    = ref('')
+const uploadFilename = ref('')      // original filename shown in panel
 
 const policies = [
   { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
@@ -504,13 +517,14 @@ async function uploadEssFile(event) {
   uploadStatus.value = 'uploading'
   uploadError.value = ''
   uploadInfo.value = null
+  uploadFilename.value = file.name
   form.value.ess_data_file_id = ''
   try {
     const fd = new FormData()
     fd.append('file', file)
     const r = await api.uploadEssData(fd)
     form.value.ess_data_file_id = r.data.file_id
-    uploadInfo.value = r.data  // full response: rows, columns, analysis
+    uploadInfo.value = r.data
     uploadStatus.value = 'done'
   } catch(e) {
     uploadStatus.value = 'error'
@@ -542,7 +556,7 @@ async function launch() {
 
 function resetForm() {
   launched.value = false; launchedId.value = ''; error.value = ''
-  uploadStatus.value = ''; uploadInfo.value = null; uploadError.value = ''
+  uploadStatus.value = ''; uploadInfo.value = null; uploadError.value = ''; uploadFilename.value = ''
   form.value.ess_data_file_id = ''
 }
 </script>
@@ -840,6 +854,22 @@ function resetForm() {
 .analysis-report {
   display: flex; flex-direction: column; gap: 8px;
   animation: fade-in-up .3s var(--ease-spring) both;
+}
+
+.upload-filename-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 6px;
+  background: var(--bg4); border: 1px solid var(--border2);
+}
+.file-icon { color: var(--blue2); font-size: .8rem; flex-shrink: 0; }
+.file-name { font-size: .74rem; font-weight: 600; color: var(--text); flex: 1;
+             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-rows { font-size: .67rem; color: var(--text3); flex-shrink: 0; }
+
+.analysis-narrative {
+  font-size: .73rem; color: var(--text2); line-height: 1.55;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(99,102,241,.07); border-left: 2px solid var(--indigo);
 }
 
 .analysis-summary {

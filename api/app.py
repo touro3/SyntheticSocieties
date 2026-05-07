@@ -1026,11 +1026,13 @@ def create_app(
 
         missing = _ESS_REQUIRED_COLS - set(df.columns)
         if missing:
-            return jsonify({
-                "error": f"Missing required columns: {sorted(missing)}",
-                "required_columns": sorted(_ESS_REQUIRED_COLS),
-                "found_columns": sorted(df.columns.tolist()),
-            }), 422
+            return jsonify(
+                {
+                    "error": f"Missing required columns: {sorted(missing)}",
+                    "required_columns": sorted(_ESS_REQUIRED_COLS),
+                    "found_columns": sorted(df.columns.tolist()),
+                }
+            ), 422
 
         _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         file_id = str(_uuid.uuid4())
@@ -1042,11 +1044,13 @@ def create_app(
             return jsonify({"error": "Failed to save uploaded file"}), 500
 
         logger.info("ESS data uploaded: file_id=%s rows=%d cols=%d", file_id, len(df), len(df.columns))
-        return jsonify({
-            "file_id": file_id,
-            "rows": len(df),
-            "columns": df.columns.tolist(),
-        }), 200
+        return jsonify(
+            {
+                "file_id": file_id,
+                "rows": len(df),
+                "columns": df.columns.tolist(),
+            }
+        ), 200
 
     # ── No-code wizard simulate ──────────────────────────────────────────
 

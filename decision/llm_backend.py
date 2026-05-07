@@ -120,7 +120,9 @@ class LLMBackend:
         # headroom while halving KV-cache allocation vs the old 256.
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
-        self.cache_dir = cache_dir
+        # Honour BGF_MODEL_CACHE env var so generated configs can use null
+        # and still find a custom model directory without hardcoding paths.
+        self.cache_dir = cache_dir or __import__("os").environ.get("BGF_MODEL_CACHE")
         self.context_length = context_length
         self.inference_timeout = inference_timeout
         self.max_retries = max_retries

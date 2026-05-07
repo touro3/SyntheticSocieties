@@ -17,7 +17,7 @@ data:
   sample_mode: resample
 llm:
   model_id: mistralai/Mistral-7B-Instruct-v0.3
-  cache_dir: /mnt/raid/workspace/lucastourinho/models
+  cache_dir: null
   dtype: float16
   device_map: auto
   temperature: 0.7

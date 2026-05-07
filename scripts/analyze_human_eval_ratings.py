@@ -77,9 +77,9 @@ def compute_metrics(records: list[dict]) -> dict:
         "n_participants": n_participants,
         "mean_realism_a": round(float(np.mean(all_a)), 3) if all_a else None,
         "mean_realism_b": round(float(np.mean(all_b)), 3) if all_b else None,
-        "b_preferred_pct": round(
-            sum(1 for r in records if r.get("preferred") == "B") / len(records) * 100, 1
-        ) if records else None,
+        "b_preferred_pct": round(sum(1 for r in records if r.get("preferred") == "B") / len(records) * 100, 1)
+        if records
+        else None,
     }
 
     return {"overall": overall, "vignettes": vignette_stats}
@@ -151,10 +151,17 @@ def main() -> None:
     parser.add_argument("--input", type=Path, default=_DEFAULT_INPUT)
     parser.add_argument("--output-json", type=Path, default=_DEFAULT_OUTPUT_JSON)
     parser.add_argument("--output-png", type=Path, default=_DEFAULT_OUTPUT_PNG)
-    parser.add_argument("--min-participants", type=int, default=_MIN_PARTICIPANTS,
-                        help="Minimum participants required for publication analysis")
-    parser.add_argument("--allow-insufficient", action="store_true",
-                        help="Continue even if min_participants threshold not met (dev mode)")
+    parser.add_argument(
+        "--min-participants",
+        type=int,
+        default=_MIN_PARTICIPANTS,
+        help="Minimum participants required for publication analysis",
+    )
+    parser.add_argument(
+        "--allow-insufficient",
+        action="store_true",
+        help="Continue even if min_participants threshold not met (dev mode)",
+    )
     args = parser.parse_args()
 
     print(f"Loading ratings: {args.input}")
@@ -187,8 +194,7 @@ def main() -> None:
     )
     for vid, vs in metrics["vignettes"].items():
         print(
-            f"  {vid}: A={vs['mean_a']}±{vs['std_a']}  B={vs['mean_b']}±{vs['std_b']}  "
-            f"prefer_B={vs['prefer_b_pct']}%"
+            f"  {vid}: A={vs['mean_a']}±{vs['std_a']}  B={vs['mean_b']}±{vs['std_b']}  prefer_B={vs['prefer_b_pct']}%"
         )
 
     plot_boxplot(records, args.output_png)

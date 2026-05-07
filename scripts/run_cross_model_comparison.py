@@ -50,12 +50,15 @@ _MODELS = {
     },
     # Qwen2.5-7B-Instruct: non-gated, comparable to Mistral/Llama3 in scale and RLHF training.
     # Replaces meta-llama/Llama-3.1-8B-Instruct which requires gated HF access.
-    # NOTE: must use bfloat16 — float16 causes NaN in sampling probability tensors.
+    # dtype: float16 — P100 (CC 6.0) has no hardware bfloat16; bfloat16 triggers
+    # CPU offload via accelerate which causes 30-50s/token and action collapse.
+    # quantization: 4bit — NF4 reduces footprint to ~4 GB, keeping all layers on GPU.
     "qwen2.5-7b": {
         "model_id": "Qwen/Qwen2.5-7B-Instruct",
         "backend_type": "huggingface",
         "cache_dir": _MODEL_CACHE_DIR,
-        "dtype": "bfloat16",
+        "dtype": "float16",
+        "quantization": "4bit",
         "n_agents": 20,
         "n_rounds": 10,
     },
@@ -236,7 +239,8 @@ def _run_condition(
         "llm": {
             "model_id": model_spec["model_id"],
             "cache_dir": model_spec.get("cache_dir"),
-            "dtype": "float16",
+            "dtype": model_spec.get("dtype", "float16"),
+            "quantization": model_spec.get("quantization", "4bit"),
             "device_map": "auto",
             "temperature": 0.7,
             "max_new_tokens": 128,
@@ -251,6 +255,7 @@ def _run_condition(
         backend_type=model_spec["backend_type"],
         cache_dir=model_spec.get("cache_dir"),
         dtype=model_spec.get("dtype", "float16"),
+        quantization=model_spec.get("quantization", "4bit"),
         max_new_tokens=128,
         temperature=0.7,
     )
@@ -291,6 +296,25 @@ def _run_condition(
 
     elapsed = time.time() - t0
     print(f"coop={coop_rate:.2f}, bias={rlhf_bias:.3f}, gini={gini:.3f} ({elapsed:.0f}s)")
+
+    # Explicitly release model weights before returning so the CUDA context is
+    # clean for the next condition's model load.  Without this, a poisoned context
+    # from inference errors in Condition A carries over and crashes Condition B's
+    # from_pretrained call at set_module_tensor_to_device → value.to(device).
+    try:
+        backend.between_seeds()
+    except Exception:
+        pass
+    del backend
+    import gc as _gc
+    _gc.collect()
+    try:
+        import torch as _torch
+        if _torch.cuda.is_available():
+            _torch.cuda.synchronize()
+            _torch.cuda.empty_cache()
+    except Exception:
+        pass
 
     return CrossModelResult(
         model_id=model_name,

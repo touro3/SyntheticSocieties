@@ -41,11 +41,16 @@ class SocialEnvironment:
         self.posts: dict[str, Post] = {}
         self._timeline: list[str] = []
         self._reaction_ledger: set[tuple[str, str, str]] = set()
+        # Monotonic counter — never reuses IDs even after apply_round_decay.
+        # Using len(self.posts)+1 caused ID collisions after deletions, leaving
+        # stale IDs in _timeline that produced KeyError in get_trending().
+        self._post_counter: int = 0
 
     def submit_post(self, agent_id: str, content: str, parent_id: str | None = None) -> Post:
         if parent_id is not None and parent_id not in self.posts:
             raise ValueError(f"Unknown parent post: {parent_id}")
-        post_id = f"post_{len(self.posts) + 1}"
+        self._post_counter += 1
+        post_id = f"post_{self._post_counter}"
         post = Post(
             post_id=post_id,
             author_id=agent_id,
@@ -73,7 +78,11 @@ class SocialEnvironment:
 
     def get_feed(self, agent_id: str, n: int = 10) -> list[Post]:
         neighbors = set(self._neighbors(agent_id))
-        indexed = [(idx, self.posts[pid]) for idx, pid in enumerate(self._timeline)]
+        indexed = [
+            (idx, self.posts[pid])
+            for idx, pid in enumerate(self._timeline)
+            if pid in self.posts  # guard against stale _timeline entries
+        ]
 
         def _score(item: tuple[int, Post]) -> tuple[float, int]:
             idx, post = item
@@ -196,8 +205,11 @@ class SocialEnvironment:
         stale = [pid for pid, post in self.posts.items() if post.round_id < cutoff]
         for pid in stale:
             self.posts.pop(pid, None)
-            if pid in self._timeline:
-                self._timeline.remove(pid)
+            # Remove ALL occurrences: old len()-based ID generation could insert
+            # duplicates; a single remove() would leave a stale entry that causes
+            # KeyError in get_feed(). The monotonic counter prevents new duplicates,
+            # but purging all is the safe contract regardless.
+            self._timeline = [t for t in self._timeline if t != pid]
 
     def step(self, agents: list, round_id: int) -> list[dict]:
         """Generate and execute rule-based social actions for all agents.

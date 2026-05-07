@@ -101,7 +101,7 @@
             <h2 class="section-title">Actions</h2>
             <div class="action-btns">
               <router-link :to="`/monitor/${expId}`" class="btn btn-outline">
-                ⟳ Monitor View
+                ◫ Monitor View
               </router-link>
               <router-link :to="`/interact/${expId}`" class="btn btn-outline">
                 ◎ Interview Agent
@@ -114,29 +114,38 @@
 
           <!-- Quick inject -->
           <div class="card">
-            <h2 class="section-title">Inject Event</h2>
-            <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px">
-              Inject into a currently-running simulation.
-            </p>
-            <div class="field">
-              <label>Event type</label>
-              <select v-model="inject.type">
-                <option value="wealth_shock">💸 wealth_shock</option>
-                <option value="signal_update">📡 signal_update</option>
-                <option value="narrative">📢 narrative</option>
-              </select>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <h2 class="section-title" style="margin:0">Inject Event</h2>
+              <span v-if="isRunning" class="live-chip">● Live</span>
+              <span v-else class="stopped-chip">◌ Completed</span>
             </div>
-            <div class="field" style="margin-top:10px">
-              <label>Payload (JSON)</label>
-              <textarea v-model="inject.payload" rows="3"
-                style="font-family:monospace;font-size:.8rem"
-                placeholder='{"factor": 0.5}' />
+
+            <div v-if="!isRunning" class="inject-note">
+              Inject works on actively running simulations only.
+              <router-link to="/run" style="color:var(--blue2);margin-left:4px">New run →</router-link>
             </div>
-            <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px"
-              @click="doInject" :disabled="injecting">
-              <span v-if="injecting" class="spin">⟳</span> Inject
-            </button>
-            <div v-if="injectResult" class="inject-result mono">{{ injectResult }}</div>
+
+            <template v-else>
+              <div class="field">
+                <label>Event type</label>
+                <select v-model="inject.type">
+                  <option value="wealth_shock">▼ wealth_shock</option>
+                  <option value="signal_update">◎ signal_update</option>
+                  <option value="narrative">▶ narrative</option>
+                </select>
+              </div>
+              <div class="field" style="margin-top:10px">
+                <label>Payload (JSON)</label>
+                <textarea v-model="inject.payload" rows="3"
+                  style="font-family:monospace;font-size:.8rem"
+                  placeholder='{"factor": 0.5}' />
+              </div>
+              <button class="btn btn-outline" style="width:100%;justify-content:center;margin-top:10px"
+                @click="doInject" :disabled="injecting">
+                <span v-if="injecting" class="spin">⟳</span> Inject
+              </button>
+              <div v-if="injectResult" class="inject-result mono">{{ injectResult }}</div>
+            </template>
           </div>
 
           <!-- Behavior summary -->
@@ -181,6 +190,12 @@ let chart = null
 const inject    = ref({ type: 'wealth_shock', payload: '{"factor": 0.5}' })
 const injecting = ref(false)
 const injectResult = ref('')
+
+// Whether the sim associated with these results is still running
+const isRunning = computed(() => {
+  const st = meta.value?.status ?? summary.value?.status
+  return st === 'running' || st === 'pending'
+})
 
 // ── Wealth data — try multiple paths the API might use ─────────────
 const wealthValues = computed(() => {
@@ -229,12 +244,12 @@ const actionBreakdown = computed(() => {
 })
 
 const kpis = computed(() => [
-  { icon: '🤖', label: 'Agents',      val: summary.value?.num_agents ?? meta.value?.population_size ?? '—', color: 'var(--blue2)' },
-  { icon: '⚖️', label: 'Gini',        val: computedGini.value.toFixed(4),                                   color: 'var(--amber)' },
-  { icon: '💰', label: 'Wealth Mean', val: wealthValues.value.length ? wealthMean.value.toFixed(1) : '—',   color: 'var(--teal)' },
-  { icon: '🧠', label: 'Policy',      val: meta.value?.policy_type ?? '—',                                  color: 'var(--purple)' },
-  { icon: '🔄', label: 'Rounds',      val: meta.value?.rounds ?? '—',                                       color: 'var(--text2)' },
-  { icon: '🤝', label: 'Coop Rate',   val: behavior.value?.cooperation_rate != null ? fmtPct(behavior.value.cooperation_rate) : '—', color: 'var(--green)' },
+  { icon: '◆', label: 'Agents',      val: summary.value?.num_agents ?? meta.value?.population_size ?? '—', color: 'var(--blue2)' },
+  { icon: '◎', label: 'Gini',        val: computedGini.value.toFixed(4),                                   color: 'var(--amber)' },
+  { icon: '▲', label: 'Wealth Mean', val: wealthValues.value.length ? wealthMean.value.toFixed(1) : '—',   color: 'var(--teal)' },
+  { icon: '◈', label: 'Policy',      val: meta.value?.policy_type ?? '—',                                  color: 'var(--purple)' },
+  { icon: '◻', label: 'Rounds',      val: meta.value?.rounds ?? '—',                                       color: 'var(--text2)' },
+  { icon: '⬡', label: 'Coop Rate',   val: behavior.value?.cooperation_rate != null ? fmtPct(behavior.value.cooperation_rate) : '—', color: 'var(--green)' },
 ])
 
 const hasMetrics  = computed(() => metrics.value && Object.keys(flatMetrics.value).length > 0)
@@ -329,20 +344,20 @@ onBeforeUnmount(() => { if (chart) { chart.destroy(); chart = null } })
 /* ── KPI row ─────────────────────────────────────────────────────── */
 .kpi-row {
   display: grid; grid-template-columns: repeat(6, 1fr);
-  gap: 12px; margin-bottom: 22px;
+  gap: 12px; margin-bottom: 24px;
 }
 @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 600px)  { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
 .kpi {
-  background: rgba(22,28,48,.8);
-  border: 1px solid var(--border); border-radius: 13px; padding: 16px;
+  background: rgba(13,21,40,.85);
+  border: 1px solid var(--border); border-radius: 14px; padding: 16px;
   text-align: center; transform-style: preserve-3d;
   transition: border-color .25s, box-shadow .25s;
 }
-.kpi:hover { border-color: rgba(99,102,241,.28); box-shadow: var(--glow); }
-.kpi-icon  { font-size: .82rem; color: var(--text3); margin-bottom: 5px; }
-.kpi-val   { font-size: 1.2rem; font-weight: 700; }
-.kpi-label { font-size: .68rem; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-top: 4px; }
+.kpi:hover { border-color: rgba(99,102,241,.22); box-shadow: var(--glow); }
+.kpi-icon  { font-size: .82rem; color: var(--text3); margin-bottom: 8px; }
+.kpi-val   { font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; }
+.kpi-label { font-size: .65rem; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-top: 5px; font-weight: 600; }
 
 /* ── Grid ───────────────────────────────────────────────────────── */
 .results-grid { display: grid; grid-template-columns: 1fr 260px; gap: 20px; align-items: start; }
@@ -384,5 +399,21 @@ dd { font-size: .8rem; color: var(--text); word-break: break-all; }
   border: 1px solid var(--border); border-radius: 8px;
   padding: 10px; font-size: .73rem; color: var(--teal);
   white-space: pre-wrap; max-height: 120px; overflow-y: auto;
+}
+
+.live-chip {
+  font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--green); padding: 2px 8px; border-radius: 99px;
+  background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.2);
+}
+.stopped-chip {
+  font-size: .67rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--text3); padding: 2px 8px; border-radius: 99px;
+  background: rgba(100,116,139,.08); border: 1px solid rgba(100,116,139,.15);
+}
+.inject-note {
+  font-size: .82rem; color: var(--text3); padding: 12px 0;
+  border-bottom: 1px solid var(--border); margin-bottom: 2px;
+  line-height: 1.6;
 }
 </style>

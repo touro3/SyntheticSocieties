@@ -169,55 +169,61 @@ onMounted(async () => {
 }
 
 /* ── Filters ────────────────────────────────────────────────────── */
-.filters { padding: 14px 18px; margin-bottom: 16px; }
+.filters { padding: 16px 20px; margin-bottom: 16px; }
 .filter-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-.filter-group { display: flex; flex-direction: column; gap: 6px; }
-.filter-group label { font-size: .72rem; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.filter-group { display: flex; flex-direction: column; gap: 7px; }
+.filter-group label { font-size: .68rem; color: var(--text3); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 
 .tab-row { display: flex; gap: 4px; flex-wrap: wrap; }
 .ftab {
-  padding: 5px 11px; border-radius: 7px;
+  padding: 5px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: transparent;
-  font-size: .76rem; color: var(--text3);
-  transition: all .15s; cursor: pointer;
+  font-size: .75rem; color: var(--text3);
+  transition: all .15s; cursor: pointer; font-weight: 500;
 }
-.ftab:hover  { color: var(--text); border-color: var(--blue2); }
-.ftab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.ftab:hover  { color: var(--text); border-color: var(--border2); background: rgba(255,255,255,.03); }
+.ftab.active {
+  background: linear-gradient(135deg, var(--indigo), var(--blue));
+  color: #fff; border-color: transparent;
+  box-shadow: 0 2px 10px rgba(99,102,241,.3);
+}
 
-.search-wrap { flex: 1; min-width: 200px; max-width: 280px; }
+.search-wrap { flex: 1; min-width: 200px; max-width: 300px; }
 .search-input { width: 100%; }
 
 .count-bar {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px; padding: 0 2px;
 }
-.count { font-size: .82rem; color: var(--text2); }
+.count { font-size: .82rem; color: var(--text2); font-weight: 500; }
 .note  { font-size: .74rem; color: var(--text3); }
 
 /* ── Table ──────────────────────────────────────────────────────── */
 .table-card { padding: 0; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th {
-  padding: 11px 14px; text-align: left;
-  font-size: .7rem; font-weight: 600;
-  letter-spacing: .05em; color: var(--text3); text-transform: uppercase;
+  padding: 12px 16px; text-align: left;
+  font-size: .68rem; font-weight: 700;
+  letter-spacing: .07em; color: var(--text3); text-transform: uppercase;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--text2); }
 .arrow { color: var(--blue2); }
 td {
-  padding: 10px 14px; font-size: .82rem;
-  border-bottom: 1px solid rgba(42,48,80,.4);
+  padding: 11px 16px; font-size: .82rem;
+  border-bottom: 1px solid rgba(20,30,60,.6);
   vertical-align: middle;
 }
 .exp-row { cursor: pointer; transition: background .12s; }
 .exp-row:hover td { background: rgba(99,102,241,.04); }
-.exp-id { color: var(--text2); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-row:hover td:first-child { color: var(--text); }
+.exp-id { color: var(--text2); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s; }
 .dim { color: var(--text3); }
 .row-acts { display: flex; gap: 5px; }
 
 /* ── Pagination ─────────────────────────────────────────────────── */
-.pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 18px; }
-.page-info { font-size: .82rem; color: var(--text2); }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 20px; }
+.page-info { font-size: .82rem; color: var(--text2); font-weight: 500; }
 </style>

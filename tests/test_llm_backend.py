@@ -60,6 +60,12 @@ def _make_backend(inference_timeout: int = 2, max_retries: int = 1) -> LLMBacken
     # Mock model
     model = MagicMock()
     model.device = torch.device("cpu")
+    # parameters() must yield an object with a real .device so that
+    # next(self.model.parameters()).device resolves to a torch.device.
+    # Use side_effect (callable) so repeated calls each return a fresh iterator.
+    _mock_param = MagicMock()
+    _mock_param.device = torch.device("cpu")
+    model.parameters.side_effect = lambda: iter([_mock_param])
     # Normal output: shape [1, 8] — first 5 are input tokens, last 3 are new
     model.generate.return_value = torch.zeros(1, 8, dtype=torch.long)
 
@@ -245,6 +251,8 @@ class TestLoadLocalFilesOnly:
         mock_model = MagicMock()
         mock_model.eval.return_value = None
         mock_model.device = torch.device("cpu")
+        _mp = MagicMock(); _mp.device = torch.device("cpu")
+        mock_model.parameters.side_effect = lambda: iter([_mp])
 
         mock_tok = MagicMock()
         mock_tok.pad_token = "<pad>"

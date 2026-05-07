@@ -24,7 +24,8 @@ population:
 llm:
   model_id: Qwen/Qwen2.5-7B-Instruct
   cache_dir: ${oc.env:BGF_MODEL_CACHE_DIR,${oc.env:HF_HOME,~/.cache/huggingface}}
-  dtype: bfloat16  # float16 causes NaN in sampling — Qwen2.5 requires bfloat16
+  quantization: 4bit  # NF4 4-bit — ~4 GB; avoids CPU offload on P100 (CC 6.0, no hw bfloat16)
+  dtype: float16      # compute dtype for 4-bit dequant; bfloat16 offloads to CPU on P100
   device_map: auto
   temperature: 0.7
   max_new_tokens: 256

@@ -119,7 +119,37 @@ def _get_ess_clean_path(config: dict) -> str:
     return config.get("data", {}).get("ess_clean_path", "data/ess_clean.parquet")
 
 
+_OPENAI_COMPAT_PROVIDERS = {
+    # provider  → (base_url or None, env-var for key, key-fallback)
+    "openai": (None,                                    "OPENAI_API_KEY",  None),
+    "groq":   ("https://api.groq.com/openai/v1",       "GROQ_API_KEY",    None),
+    "ollama": ("http://localhost:11434/v1",              None,              "ollama"),
+}
+
+
 def _build_llm_backend(llm_cfg: dict):
+    import os as _os
+    backend_type = llm_cfg.get("backend_type", "huggingface")
+
+    if backend_type in _OPENAI_COMPAT_PROVIDERS:
+        from decision.openai_backend import OpenAIBackend
+        base_url, env_var, key_fallback = _OPENAI_COMPAT_PROVIDERS[backend_type]
+        api_key = (
+            llm_cfg.get("api_key")
+            or ((_os.environ.get(env_var) or None) if env_var else None)
+            or key_fallback
+        )
+        backend = OpenAIBackend(
+            model_id=llm_cfg.get("model_id", "gpt-4o-mini"),
+            max_new_tokens=llm_cfg.get("max_new_tokens", 256),
+            temperature=llm_cfg.get("temperature", 0.7),
+            max_retries=llm_cfg.get("max_retries", 2),
+            api_key=api_key,
+            base_url=base_url,
+        )
+        backend.load()
+        return backend
+
     from decision.llm_backend import LLMBackend
 
     backend = LLMBackend.get_instance(
@@ -133,8 +163,6 @@ def _build_llm_backend(llm_cfg: dict):
         max_retries=llm_cfg.get("max_retries", 2),
         quantization=llm_cfg.get("quantization", None),
     )
-    # Override the default batch size if the config specifies one.
-    # With 4-bit quant the default is 16; fp16 defaults to 4.
     if "max_batch_size" in llm_cfg:
         backend._max_batch_size = int(llm_cfg["max_batch_size"])
     backend.load()
@@ -288,7 +316,22 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     }
     save_json(metadata, run_dir / "metadata.json")
 
-    policy = build_policy(config)
+    # Write run_state.json immediately so /status can see the experiment
+    # even while the policy / LLM model is still loading.
+    from simulation.crash_recovery import RunStateManager as _EarlyRSM
+    _early_run_mgr = _EarlyRSM(run_dir)
+    if not (run_dir / "run_state.json").exists():
+        _early_run_mgr.start(
+            total_rounds=config["simulation"]["rounds"],
+            experiment_id=experiment_id,
+        )
+
+    try:
+        policy = build_policy(config)
+    except Exception as exc:
+        _early_run_mgr.fail(str(exc))
+        raise
+
     pop_source = config.get("population", {}).get("source", "synthetic")
 
     if pop_source == "empirical":
@@ -366,8 +409,8 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     from simulation.crash_recovery import RunStateManager
     from simulation.signal_handler import GracefulShutdown
 
-    run_mgr = RunStateManager(run_dir)
-    if start_round == 0:
+    run_mgr = _early_run_mgr  # reuse the manager that wrote the early run_state.json
+    if start_round == 0 and run_mgr._state is None:
         run_mgr.start(total_rounds=num_rounds, experiment_id=experiment_id)
     shutdown = GracefulShutdown()
     shutdown.register()

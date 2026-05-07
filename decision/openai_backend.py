@@ -27,6 +27,7 @@ class OpenAIBackend:
         max_new_tokens: int = 256,
         temperature: float = 0.7,
         api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
         timeout: float = 30.0,
         max_retries: int = 2,
         min_delay: float = 0.2,
@@ -34,8 +35,9 @@ class OpenAIBackend:
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
+        self.base_url = base_url  # None → OpenAI default; set for Ollama/Groq/etc.
         # Prefer explicit argument; fall back to environment variable.
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("GROQ_API_KEY")
         self.timeout = timeout
         self.max_retries = max_retries
         self.min_delay = min_delay
@@ -52,9 +54,15 @@ class OpenAIBackend:
         from openai import OpenAI
 
         if not self.api_key:
-            raise ValueError("OpenAI API key not set. Pass api_key= or set the OPENAI_API_KEY environment variable.")
+            raise ValueError(
+                "API key not set. Pass api_key= or set OPENAI_API_KEY / GROQ_API_KEY. "
+                "For Ollama (local, no key needed) use provider='ollama'."
+            )
 
-        self._client = OpenAI(api_key=self.api_key, timeout=self.timeout)
+        kwargs: dict = {"api_key": self.api_key, "timeout": self.timeout}
+        if self.base_url:
+            kwargs["base_url"] = self.base_url
+        self._client = OpenAI(**kwargs)
 
     # ── LRU cache helpers ─────────────────────────────────────────────────────
 

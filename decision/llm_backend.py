@@ -106,6 +106,14 @@ class LLMBackend:
         allow_remote_downloads: bool = False,
     ):
         self.model_id = model_id
+        # Reject bfloat16 before any work: P100 (CC 6.0) has no hardware bfloat16.
+        # accelerate silently falls back to CPU emulation, causing 30-50s/token.
+        if dtype == "bfloat16":
+            raise ValueError(
+                f"dtype='bfloat16' is not supported on Tesla P100 (CC 6.0). "
+                "Use dtype='float16'. bfloat16 triggers silent CPU offload via "
+                "accelerate, producing action collapse from garbled outputs."
+            )
         self.dtype = getattr(torch, dtype, torch.float16) if _TORCH_AVAILABLE else dtype
         self.device_map = device_map
         # Agent decisions are short JSON (~40 tokens).  128 gives ample
@@ -176,6 +184,13 @@ class LLMBackend:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
         # ── Quantization config ──────────────────────────────────────────────
+        # max_memory: pin the model to the current visible GPU only.
+        # Setting cpu to "0GiB" hard-blocks accelerate from offloading layers
+        # to CPU, which would raise ValueError and invalidate the experiment.
+        # With 4-bit NF4 a 7B model fits in ~4 GB; 14 GiB leaves 10 GB for KV-cache.
+        _visible_gpu_idx = 0  # CUDA_VISIBLE_DEVICES remaps the target to device 0
+        _max_memory: dict = {_visible_gpu_idx: "14GiB", "cpu": "0GiB"}
+
         model_kwargs: dict = dict(
             device_map=self.device_map,
             cache_dir=self.cache_dir,
@@ -200,7 +215,19 @@ class LLMBackend:
                 bnb_4bit_use_double_quant=True,
             )
             model_kwargs["quantization_config"] = bnb_config
-            logger.info("  Loading with NF4 quantization (bitsandbytes)")
+            model_kwargs["max_memory"] = _max_memory
+            # Explicitly override the model's config.json torch_dtype (bfloat16 for
+            # Qwen2.5 and Mistral) so that unquantized layers (embed_tokens, lm_head,
+            # norm) load in float16 instead of bfloat16. P100 (CC 6.0) has no hardware
+            # bfloat16; without this override those layers trigger a CUDA device-side
+            # assert in the NF4 dequantization kernel, poisoning the CUDA context and
+            # crashing the next model load.
+            model_kwargs["torch_dtype"] = self.dtype
+            logger.info(
+                "  Loading with NF4 4-bit quantization (bitsandbytes) | "
+                "torch_dtype=%s | max_memory=%s",
+                self.dtype, _max_memory,
+            )
 
         elif self.quantization in ("8bit", "8"):
             try:
@@ -213,10 +240,16 @@ class LLMBackend:
 
             bnb_config = BitsAndBytesConfig(load_in_8bit=True)
             model_kwargs["quantization_config"] = bnb_config
-            logger.info("  Loading with INT8 quantization (bitsandbytes)")
+            model_kwargs["max_memory"] = _max_memory
+            model_kwargs["torch_dtype"] = self.dtype  # same bfloat16 override reason
+            logger.info(
+                "  Loading with INT8 quantization (bitsandbytes) | "
+                "torch_dtype=%s | max_memory=%s",
+                self.dtype, _max_memory,
+            )
 
         else:
-            # Standard fp16/bf16 loading
+            # Standard fp16/bf16 loading — no max_memory constraint needed
             model_kwargs["torch_dtype"] = self.dtype
 
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -227,6 +260,9 @@ class LLMBackend:
         self.model.eval()
         self._loaded = True
 
+        # Fail-fast: any CPU-offloaded parameters mean quantization didn't work.
+        self._assert_no_cpu_offload()
+
         # Register tokenizer for exact token counting in prompt budget trimming.
         # Without this, token_budget falls back to a ±25% char heuristic, causing
         # prompts to silently exceed the model's context window on some inputs.
@@ -235,9 +271,39 @@ class LLMBackend:
         _set_tok(self.tokenizer)
 
         elapsed = time.time() - start
-        logger.info("Model loaded in %.1fs", elapsed)
+        try:
+            actual_dtype = next(self.model.parameters()).dtype
+            gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"
+            gpu_mem_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
+            logger.info(
+                "Model loaded in %.1fs | dtype=%s | GPU=%s | VRAM=%.1fGB",
+                elapsed, actual_dtype, gpu_name, gpu_mem_gb,
+            )
+        except StopIteration:
+            logger.info("Model loaded in %.1fs", elapsed)
 
-        # Report GPU usage
+    def _assert_no_cpu_offload(self) -> None:
+        """Raise immediately if any model parameters landed on CPU or disk.
+
+        With 4-bit NF4 + max_memory cpu=0GiB all tensors must be on CUDA.
+        Any CPU/meta device means the max_memory constraint was ignored or the
+        model is too large for the GPU — either way the experiment is invalid.
+        """
+        off_device = [
+            (name, str(p.device))
+            for name, p in self.model.named_parameters()
+            if p.device.type != "cuda"
+        ]
+        if off_device:
+            sample = off_device[:5]
+            raise RuntimeError(
+                f"CPU/disk offload detected after model load — "
+                f"{len(off_device)} parameter(s) are not on CUDA (sample: {sample}). "
+                "Ensure quantization='4bit', dtype='float16', and that "
+                "max_memory is set correctly for this GPU."
+            )
+
+        # Report GPU usage after confirming everything is on-device
         if torch.cuda.is_available():
             for i in range(torch.cuda.device_count()):
                 allocated = torch.cuda.memory_allocated(i) / 1e9
@@ -309,17 +375,34 @@ class LLMBackend:
             max_length=self.context_length,
         )
 
-        # Move to model device
-        if hasattr(self.model, "device"):
-            device = self.model.device
-        else:
-            device = next(self.model.parameters()).device
+        # Move to model device.
+        # Use next(parameters()) rather than model.device: with device_map="auto"
+        # the model has no single .device attribute (it's sharded), and the attr
+        # may resolve to "meta" or raise. The embedding layer — first param — is
+        # always on the primary CUDA device for quantized models.
+        device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        # InfNanRemoveLogitsProcessor: guards against float16 logit overflow.
+        # Qwen2.5-7B (vocab_size=152064) + 4-bit NF4 + float16 can produce lm_head
+        # logits > 65504 (float16 max) that become Inf, then NaN after softmax,
+        # crashing torch.multinomial with "probability tensor contains inf/nan".
+        # This processor replaces Inf→max_float16 and NaN→-inf before sampling.
+        try:
+            from transformers.generation.logits_process import (
+                InfNanRemoveLogitsProcessor,
+                LogitsProcessorList,
+            )
+            _logits_processor = LogitsProcessorList([InfNanRemoveLogitsProcessor()])
+        except ImportError:
+            _logits_processor = None
 
         gen_kwargs_base = dict(
             max_new_tokens=max_tokens,
             pad_token_id=self.tokenizer.pad_token_id,
         )
+        if _logits_processor is not None:
+            gen_kwargs_base["logits_processor"] = _logits_processor
 
         # Enable score output for logprob extraction
         if return_logprobs:
@@ -575,12 +658,18 @@ class LLMBackend:
             max_length=self.context_length,
         )
 
-        # Move to model device
-        if hasattr(self.model, "device"):
-            device = self.model.device
-        else:
-            device = next(self.model.parameters()).device
+        # Move to model device (same reasoning as generate() — use parameters()).
+        device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
+
+        try:
+            from transformers.generation.logits_process import (
+                InfNanRemoveLogitsProcessor,
+                LogitsProcessorList,
+            )
+            _lp = LogitsProcessorList([InfNanRemoveLogitsProcessor()])
+        except ImportError:
+            _lp = None
 
         gen_kwargs = dict(
             max_new_tokens=max_tokens,
@@ -589,6 +678,8 @@ class LLMBackend:
             top_p=0.9 if temp > 0 else 1.0,
             pad_token_id=self.tokenizer.pad_token_id,
         )
+        if _lp is not None:
+            gen_kwargs["logits_processor"] = _lp
 
         start = time.time()
         _timed_out = False
@@ -711,7 +802,21 @@ class LLMBackend:
         """
         gc.collect()
         if torch.cuda.is_available():
-            torch.cuda.synchronize()
+            # empty_cache BEFORE synchronize: async OOM from inference surfaces at
+            # synchronize() — draining first reduces the chance of a spurious raise.
+            torch.cuda.empty_cache()
+            try:
+                torch.cuda.synchronize()
+            except RuntimeError as exc:
+                if "out of memory" in str(exc).lower():
+                    logger.warning(
+                        "CUDA OOM at between_seeds synchronize (deferred async error"
+                        " from previous inference); draining cache and continuing: %s",
+                        exc,
+                    )
+                    torch.cuda.empty_cache()
+                else:
+                    raise
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
             allocated = torch.cuda.memory_allocated() / 1e9

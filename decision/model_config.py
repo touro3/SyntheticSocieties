@@ -85,6 +85,7 @@ class ModelConfig:
             backend_type="huggingface",
             context_length=32768,
             dtype="float16",
+            quantization="4bit",
             cache_dir=cache_dir or _default_model_cache_dir(),
             prompt_budget=4096,
         )
@@ -104,6 +105,7 @@ class ModelConfig:
             backend_type="huggingface",
             context_length=131072,
             dtype="float16",
+            quantization="4bit",
             cache_dir=cache_dir or _default_model_cache_dir(),
             prompt_budget=6144,
         )
@@ -157,6 +159,7 @@ def get_backend(config: ModelConfig):
             temperature=config.temperature,
             cache_dir=config.cache_dir,
             context_length=config.context_length,
+            quantization=config.quantization,
             inference_timeout=getattr(config, "inference_timeout", 120),
             max_retries=getattr(config, "max_retries", 2),
         )

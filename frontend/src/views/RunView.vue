@@ -7,6 +7,15 @@
       </div>
     </div>
 
+    <!-- Step progress indicator -->
+    <div class="step-progress">
+      <div v-for="(s, i) in stepLabels" :key="i" class="sp-item">
+        <div class="sp-dot" :class="{ done: i < currentStep }">{{ i + 1 }}</div>
+        <span class="sp-label">{{ s }}</span>
+        <div v-if="i < stepLabels.length - 1" class="sp-line"></div>
+      </div>
+    </div>
+
     <div class="wizard-layout">
 
       <!-- ── LEFT: Wizard form ─────────────────────────────────────── -->
@@ -25,14 +34,69 @@
             <button v-for="p in policies" :key="p.value"
               class="policy-btn" :class="{ selected: form.policy === p.value }"
               @click="form.policy = p.value">
-              <span class="p-icon">{{ p.icon }}</span>
+              <span class="p-glyph">{{ p.glyph }}</span>
               <span class="p-name">{{ p.name }}</span>
               <span class="p-desc">{{ p.desc }}</span>
               <span class="p-tag" :class="p.gpu ? 'gpu' : 'cpu'">{{ p.gpu ? 'GPU' : 'CPU' }}</span>
             </button>
           </div>
-          <div v-if="selectedPolicy?.gpu" class="warn-box">
-            ⚠ LLM policies require a local GPU deployment. Cloud (Render) supports CPU policies only.
+
+          <!-- LLM provider selector -->
+          <div v-if="selectedPolicy?.gpu" class="llm-config">
+            <div class="llm-config-head">Provider</div>
+            <div class="provider-grid">
+              <button v-for="p in providers" :key="p.value"
+                class="provider-btn" :class="{ selected: form.llm_backend === p.value }"
+                @click="selectProvider(p)">
+                <div class="prov-top">
+                  <span class="prov-glyph">{{ p.glyph }}</span>
+                  <span v-if="p.free" class="prov-free">Free</span>
+                </div>
+                <span class="prov-name">{{ p.name }}</span>
+                <span class="prov-desc">{{ p.desc }}</span>
+              </button>
+            </div>
+
+            <!-- Model picker -->
+            <div class="field" v-if="selectedProvider?.models?.length">
+              <label>Model</label>
+              <div class="model-row">
+                <button v-for="m in selectedProvider.models" :key="m.id"
+                  class="model-btn" :class="{ selected: form.llm_model_id === m.id }"
+                  @click="form.llm_model_id = m.id">
+                  <span class="mb-name">{{ m.name }}</span>
+                  <span class="mb-note">{{ m.note }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- API key field -->
+            <div class="field" v-if="selectedProvider?.needsKey">
+              <label>{{ selectedProvider.keyLabel }}</label>
+              <input v-model="form.llm_api_key" type="password"
+                :placeholder="selectedProvider.keyPlaceholder" />
+              <span class="hint">
+                Key is sent to this server only — never logged.
+                <a v-if="selectedProvider.keyLink" :href="selectedProvider.keyLink"
+                  target="_blank" rel="noopener" class="key-link">
+                  Get a key →
+                </a>
+              </span>
+            </div>
+
+            <!-- Ollama info -->
+            <div v-if="form.llm_backend === 'ollama'" class="info-box">
+              Ollama must be running locally on the server (<code>ollama serve</code>).
+              No API key or GPU required — models run on CPU.
+              <a href="https://ollama.com/download" target="_blank" rel="noopener" class="key-link">
+                Download Ollama →
+              </a>
+            </div>
+
+            <!-- Local GPU warning -->
+            <div v-if="form.llm_backend === 'huggingface'" class="warn-box">
+              Requires a CUDA-capable GPU on the server. Cloud (Render free tier) supports CPU policies only.
+            </div>
           </div>
         </div>
 
@@ -88,7 +152,7 @@
             <button v-for="n in networks" :key="n.value"
               class="option-btn" :class="{ selected: form.network_type === n.value }"
               @click="form.network_type = n.value">
-              <span class="o-icon">{{ n.icon }}</span>
+              <span class="o-glyph">{{ n.glyph }}</span>
               <span class="o-name">{{ n.name }}</span>
               <span class="o-desc">{{ n.desc }}</span>
             </button>
@@ -108,7 +172,7 @@
             <button v-for="s in sources" :key="s.value"
               class="option-btn" :class="{ selected: form.population_source === s.value }"
               @click="form.population_source = s.value">
-              <span class="o-icon">{{ s.icon }}</span>
+              <span class="o-glyph">{{ s.glyph }}</span>
               <span class="o-name">{{ s.name }}</span>
               <span class="o-desc">{{ s.desc }}</span>
             </button>
@@ -160,6 +224,14 @@
                 </span>
               </span>
             </div>
+            <div class="sum-row" v-if="selectedPolicy?.gpu">
+              <span class="sum-key">Provider</span>
+              <span class="sum-val mono">{{ selectedProvider?.name ?? form.llm_backend }}</span>
+            </div>
+            <div class="sum-row" v-if="selectedPolicy?.gpu && form.llm_model_id">
+              <span class="sum-key">Model</span>
+              <span class="sum-val mono" style="font-size:.72rem">{{ form.llm_model_id }}</span>
+            </div>
             <div class="sum-row">
               <span class="sum-key">Agents</span>
               <span class="sum-val mono">{{ form.agents }}</span>
@@ -202,7 +274,7 @@
         <!-- Launched state -->
         <div v-if="launched" class="card launched-card">
           <div class="launched-icon">✓</div>
-          <h3>Simulation Started!</h3>
+          <h3>Simulation Started</h3>
           <p class="mono" style="font-size:.78rem;color:var(--text3)">{{ launchedId }}</p>
           <div style="display:flex;gap:8px;margin-top:14px">
             <router-link :to="`/monitor/${launchedId}`" class="btn btn-primary btn-sm">
@@ -232,6 +304,9 @@ const form = ref({
   population_source: 'synthetic',
   bad_apple_frac: 0,
   seed: 42,
+  llm_backend: 'ollama',
+  llm_model_id: 'llama3.2',
+  llm_api_key: '',
 })
 
 const launching   = ref(false)
@@ -240,46 +315,121 @@ const launched    = ref(false)
 const launchedId  = ref('')
 
 const policies = [
-  { value: 'mock',       icon: '🤖', name: 'Mock',        desc: 'Fixed action every round — fastest',       gpu: false },
-  { value: 'random',     icon: '🎲', name: 'Random',      desc: 'Uniform random action each round',         gpu: false },
-  { value: 'rule_based', icon: '⚖️', name: 'Rule-Based',  desc: 'Heuristic rules on wealth + stress',       gpu: false },
-  { value: 'template',   icon: '📋', name: 'Template',    desc: 'Template prompt, no LLM — deterministic',  gpu: false },
-  { value: 'llm',        icon: '🧠', name: 'LLM',         desc: 'Mistral-7B or GPT — grounded reasoning',   gpu: true  },
-  { value: 'generative_agents', icon: '🌐', name: 'Generative', desc: 'Park et al. 2023 fictional persona', gpu: true  },
+  { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
+  { value: 'random',            glyph: '◈', name: 'Random',      desc: 'Uniform random action each round',          gpu: false },
+  { value: 'rule_based',        glyph: '◆', name: 'Rule-Based',  desc: 'Heuristic rules on wealth + stress',        gpu: false },
+  { value: 'template',          glyph: '▣', name: 'Template',    desc: 'Template prompt, no LLM — deterministic',   gpu: false },
+  { value: 'llm',               glyph: '▲', name: 'LLM',         desc: 'Mistral-7B or GPT — grounded reasoning',    gpu: true  },
+  { value: 'generative_agents', glyph: '⬡', name: 'Generative',  desc: 'Park et al. 2023 fictional persona',        gpu: true  },
+]
+
+const providers = [
+  {
+    value: 'ollama', glyph: '◈', name: 'Ollama', free: true,
+    desc: 'Local — no key, no GPU',
+    needsKey: false,
+    models: [
+      { id: 'llama3.2',        name: 'Llama 3.2',   note: '3B · very fast' },
+      { id: 'llama3.1',        name: 'Llama 3.1',   note: '8B · balanced' },
+      { id: 'mistral',         name: 'Mistral',     note: '7B · capable' },
+      { id: 'gemma2',          name: 'Gemma 2',     note: '9B · Google' },
+      { id: 'qwen2.5',         name: 'Qwen 2.5',    note: '7B · multilingual' },
+    ],
+  },
+  {
+    value: 'groq', glyph: '▲', name: 'Groq', free: true,
+    desc: 'Cloud API · free tier',
+    needsKey: true,
+    keyLabel: 'Groq API Key',
+    keyPlaceholder: 'gsk_…',
+    keyLink: 'https://console.groq.com/keys',
+    models: [
+      { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', note: 'Best quality' },
+      { id: 'llama-3.1-8b-instant',    name: 'Llama 3.1 8B',  note: 'Fastest' },
+      { id: 'mixtral-8x7b-32768',      name: 'Mixtral 8x7B',  note: 'Long context' },
+      { id: 'gemma2-9b-it',            name: 'Gemma 2 9B',    note: 'Efficient' },
+    ],
+  },
+  {
+    value: 'openai', glyph: '◆', name: 'OpenAI', free: false,
+    desc: 'ChatGPT · paid API',
+    needsKey: true,
+    keyLabel: 'OpenAI API Key',
+    keyPlaceholder: 'sk-…',
+    keyLink: 'https://platform.openai.com/api-keys',
+    models: [
+      { id: 'gpt-4o-mini', name: 'GPT-4o mini', note: 'Fast · low cost' },
+      { id: 'gpt-4o',      name: 'GPT-4o',      note: 'Best quality' },
+    ],
+  },
+  {
+    value: 'huggingface', glyph: '◻', name: 'Local GPU', free: true,
+    desc: 'Mistral-7B · needs CUDA',
+    needsKey: false,
+    models: [
+      { id: 'mistralai/Mistral-7B-Instruct-v0.3', name: 'Mistral 7B v0.3', note: 'Default' },
+    ],
+  },
 ]
 
 const networks = [
-  { value: 'random',      icon: '◌', name: 'Erdős–Rényi',     desc: 'Random edges — each pair connected with prob p' },
-  { value: 'small_world', icon: '⬡', name: 'Watts-Strogatz',  desc: 'Small-world — high clustering + short paths' },
+  { value: 'random',      glyph: '◌', name: 'Erdős–Rényi',    desc: 'Random edges — each pair connected with prob p' },
+  { value: 'small_world', glyph: '⬡', name: 'Watts-Strogatz', desc: 'Small-world — high clustering + short paths' },
 ]
 
 const sources = [
-  { value: 'synthetic',  icon: '⚙',  name: 'Synthetic',  desc: 'Default demographic profiles' },
-  { value: 'empirical',  icon: '📊', name: 'Empirical',   desc: 'Sampled from ESS Round 11 microdata' },
+  { value: 'synthetic', glyph: '◎', name: 'Synthetic',  desc: 'Default demographic profiles' },
+  { value: 'empirical', glyph: '◉', name: 'Empirical',  desc: 'Sampled from ESS Round 11 microdata' },
 ]
 
 const actions = [
-  { name: 'work',      delta: '+8 wealth',  desc: 'Earn from employment',            color: 'var(--green)' },
-  { name: 'save',      delta: '+4 wealth',  desc: 'Accumulate savings',              color: 'var(--teal)' },
-  { name: 'cooperate', delta: '−3 + pool',  desc: 'Lose 3, generate +12 shared',     color: 'var(--blue2)' },
-  { name: 'steal',     delta: '50% pool',   desc: 'Bad apples only — drains pool',   color: 'var(--rose)' },
+  { name: 'work',      delta: '+8 wealth',  desc: 'Earn from employment',          color: 'var(--green)' },
+  { name: 'save',      delta: '+4 wealth',  desc: 'Accumulate savings',            color: 'var(--teal)' },
+  { name: 'cooperate', delta: '-3 + pool',  desc: 'Lose 3, generate +12 shared',   color: 'var(--blue2)' },
+  { name: 'steal',     delta: '50% pool',   desc: 'Bad apples only — drains pool', color: 'var(--rose)' },
 ]
 
-const selectedPolicy = computed(() => policies.find(p => p.value === form.value.policy))
+const selectedPolicy   = computed(() => policies.find(p => p.value === form.value.policy))
+const selectedProvider = computed(() => providers.find(p => p.value === form.value.llm_backend))
+
+const stepLabels = ['Policy', 'Scale', 'Network', 'Population', 'Adversarial']
+const currentStep = computed(() => {
+  if (launched.value) return 5
+  if (form.value.bad_apple_frac > 0) return 4
+  if (form.value.population_source !== 'synthetic') return 3
+  if (form.value.network_type !== 'random') return 2
+  return 1
+})
+
+function selectProvider(p) {
+  form.value.llm_backend  = p.value
+  form.value.llm_model_id = p.models?.[0]?.id ?? ''
+  form.value.llm_api_key  = ''
+}
 
 const estimatedTime = computed(() => {
-  const { policy, agents, rounds } = form.value
-  if (policy === 'mock')       return `~${Math.round(agents * rounds / 10000 * 2 + 1)}s`
-  if (policy === 'random')     return `~${Math.round(agents * rounds / 5000 * 2 + 1)}s`
-  if (policy === 'rule_based') return `~${Math.round(agents * rounds / 3000 * 2 + 2)}s`
-  if (policy === 'template')   return `~${Math.round(agents * rounds / 2000 * 3 + 3)}s`
+  const { policy, agents, rounds, llm_backend, llm_model_id } = form.value
+  if (policy === 'mock')       return `~${Math.max(1, Math.round(agents * rounds / 10000 * 2))}s`
+  if (policy === 'random')     return `~${Math.max(1, Math.round(agents * rounds / 5000 * 2))}s`
+  if (policy === 'rule_based') return `~${Math.max(1, Math.round(agents * rounds / 3000 * 2 + 1))}s`
+  if (policy === 'template')   return `~${Math.max(2, Math.round(agents * rounds / 2000 * 3))}s`
+  if (llm_backend === 'groq')   return `~${Math.round(agents * rounds * 0.5)}s · Groq fast inference`
+  if (llm_backend === 'openai') return `~${Math.round(agents * rounds * 0.8)}s · ${llm_model_id}`
+  if (llm_backend === 'ollama') return `~${Math.round(agents * rounds * 2)}s · local CPU/GPU`
   return 'GPU required — minutes to hours'
 })
 
 async function launch() {
   error.value = ''; launching.value = true
   try {
-    const r = await api.simulateWizard({ ...form.value })
+    const body = { ...form.value }
+    if (!selectedPolicy.value?.gpu) {
+      delete body.llm_backend
+      delete body.llm_model_id
+      delete body.llm_api_key
+    }
+    if (!body.llm_api_key) delete body.llm_api_key
+    const r = await api.simulateWizard(body)
     launchedId.value = r.data.experiment_id
     launched.value = true
     setTimeout(() => router.push(`/monitor/${launchedId.value}`), 1200)
@@ -296,7 +446,38 @@ function resetForm() {
 </script>
 
 <style scoped>
-.page-header { margin-bottom: 28px; }
+.page-header { margin-bottom: 20px; }
+
+/* ── Step progress ──────────────────────────────────────────────── */
+.step-progress {
+  display: flex; align-items: center; gap: 0;
+  margin-bottom: 28px; padding: 16px 20px;
+  background: rgba(13,21,40,.7); border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.sp-item { display: flex; align-items: center; flex: 1; min-width: 0; }
+.sp-dot {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--bg4); border: 1px solid var(--border2);
+  color: var(--text3); font-size: .72rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .3s var(--ease-spring);
+}
+.sp-dot.done {
+  background: linear-gradient(135deg, var(--indigo), var(--blue));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 0 14px rgba(99,102,241,.4);
+}
+.sp-label {
+  font-size: .72rem; color: var(--text3); margin: 0 8px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.sp-line {
+  flex: 1; height: 1px; min-width: 12px;
+  background: var(--border); margin: 0 4px;
+}
+@media (max-width: 680px) { .sp-label { display: none; } }
 
 .wizard-layout {
   display: grid; grid-template-columns: 1fr 300px;
@@ -308,17 +489,18 @@ function resetForm() {
 .wizard-form { display: flex; flex-direction: column; gap: 16px; }
 .step-card { display: flex; flex-direction: column; gap: 18px; }
 
-.step-head {
-  display: flex; align-items: flex-start; gap: 14px;
-}
+.step-head { display: flex; align-items: flex-start; gap: 14px; }
 .step-num {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--blue); color: #fff;
-  font-size: .8rem; font-weight: 700;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--indigo), var(--blue));
+  color: #fff;
+  font-size: .78rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(99,102,241,.35);
+  letter-spacing: -.02em;
 }
-.step-title { font-size: .95rem; font-weight: 600; }
+.step-title { font-size: .95rem; font-weight: 600; color: var(--text); }
 .step-sub   { font-size: .78rem; color: var(--text2); margin-top: 2px; }
 
 /* ── Policy grid ────────────────────────────────────────────────── */
@@ -329,14 +511,14 @@ function resetForm() {
 @media (max-width: 600px) { .policy-grid { grid-template-columns: 1fr 1fr; } }
 
 .policy-btn {
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 5px;
   padding: 14px 12px; border-radius: 12px;
   background: var(--bg3); border: 1px solid var(--border);
   text-align: left; cursor: pointer; position: relative;
   transition: border-color .2s, background .2s, transform .3s var(--ease-spring);
 }
-.policy-btn:hover { border-color: rgba(99,102,241,.35); background: rgba(99,102,241,.06); transform: translateY(-2px); }
-.policy-btn.selected { border-color: var(--blue); background: rgba(99,102,241,.1); }
+.policy-btn:hover    { border-color: rgba(99,102,241,.4); background: rgba(99,102,241,.07); transform: translateY(-2px); }
+.policy-btn.selected { border-color: var(--blue); background: rgba(99,102,241,.12); }
 .policy-btn.selected::after {
   content: '✓'; position: absolute; top: 8px; right: 8px;
   width: 16px; height: 16px; border-radius: 50%;
@@ -344,15 +526,69 @@ function resetForm() {
   font-size: .62rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
-.p-icon { font-size: 1.2rem; }
-.p-name { font-size: .84rem; font-weight: 600; }
-.p-desc { font-size: .73rem; color: var(--text2); line-height: 1.4; }
+.p-glyph { font-size: 1.1rem; color: var(--blue2); font-family: monospace; }
+.p-name  { font-size: .84rem; font-weight: 600; color: #fff; }
+.p-desc  { font-size: .73rem; color: rgba(255,255,255,.55); line-height: 1.4; }
 .p-tag {
   font-size: .62rem; font-weight: 700; letter-spacing: .04em;
   padding: 2px 7px; border-radius: 4px; width: fit-content; margin-top: 2px;
 }
-.p-tag.cpu { background: rgba(16,185,129,.12); color: var(--green); }
-.p-tag.gpu { background: rgba(139,92,246,.12); color: var(--purple); }
+.p-tag.cpu { background: rgba(16,185,129,.15); color: var(--green); }
+.p-tag.gpu { background: rgba(139,92,246,.15); color: var(--purple); }
+
+/* ── LLM config ─────────────────────────────────────────────────── */
+.llm-config { display: flex; flex-direction: column; gap: 12px; }
+.llm-config-head { font-size: .72rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+
+.provider-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (max-width: 520px) { .provider-grid { grid-template-columns: 1fr; } }
+
+.provider-btn {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 13px; border-radius: 11px;
+  background: var(--bg3); border: 1px solid var(--border);
+  text-align: left; cursor: pointer; position: relative;
+  transition: border-color .2s, background .2s, transform .25s var(--ease-spring);
+}
+.provider-btn:hover    { border-color: rgba(99,102,241,.4); transform: translateY(-1px); }
+.provider-btn.selected { border-color: var(--blue); background: rgba(99,102,241,.1); }
+.provider-btn.selected::after {
+  content: '✓'; position: absolute; top: 7px; right: 8px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--blue); color: #fff;
+  font-size: .58rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.prov-top  { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.prov-glyph { font-size: .9rem; color: var(--blue2); font-family: monospace; }
+.prov-free {
+  font-size: .58rem; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  background: rgba(16,185,129,.15); color: var(--green); letter-spacing: .03em;
+}
+.prov-name { font-size: .82rem; font-weight: 600; color: #fff; }
+.prov-desc { font-size: .7rem; color: rgba(255,255,255,.5); }
+
+.info-box {
+  background: rgba(20,184,166,.06); border: 1px solid rgba(20,184,166,.18);
+  border-radius: 10px; padding: 10px 14px; font-size: .8rem; color: var(--teal);
+  line-height: 1.6;
+}
+.info-box code { background: rgba(20,184,166,.12); padding: 1px 5px; border-radius: 4px; font-size: .76rem; }
+
+.model-row { display: flex; gap: 8px; }
+.model-btn {
+  flex: 1; display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px; border-radius: 9px;
+  background: var(--bg3); border: 1px solid var(--border);
+  cursor: pointer; text-align: left; transition: border-color .2s;
+}
+.model-btn:hover    { border-color: rgba(99,102,241,.35); }
+.model-btn.selected { border-color: var(--blue); background: rgba(99,102,241,.1); }
+.mb-name { font-size: .82rem; font-weight: 600; color: #fff; }
+.mb-note { font-size: .7rem; color: rgba(255,255,255,.45); }
 
 .warn-box {
   background: rgba(245,158,11,.07); border: 1px solid rgba(245,158,11,.2);
@@ -363,7 +599,7 @@ function resetForm() {
 .slider-group { display: flex; flex-direction: column; gap: 20px; }
 .slider-row { display: flex; flex-direction: column; gap: 8px; }
 .slider-row label {
-  font-size: .82rem; font-weight: 500; color: var(--text2);
+  font-size: .82rem; font-weight: 500; color: #fff;
   display: flex; align-items: center; gap: 8px;
 }
 .slider-val { color: var(--blue2); font-weight: 700; }
@@ -406,25 +642,32 @@ function resetForm() {
 /* ── Option buttons ─────────────────────────────────────────────── */
 .option-row { display: flex; gap: 10px; }
 .option-btn {
-  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  flex: 1; display: flex; flex-direction: column; gap: 5px;
   padding: 14px; border-radius: 12px;
   background: var(--bg3); border: 1px solid var(--border);
   text-align: left; cursor: pointer;
   transition: border-color .2s, background .2s, transform .25s var(--ease-spring);
 }
-.option-btn:hover { border-color: rgba(99,102,241,.35); transform: translateY(-2px); }
+.option-btn:hover    { border-color: rgba(99,102,241,.35); transform: translateY(-2px); }
 .option-btn.selected { border-color: var(--blue); background: rgba(99,102,241,.08); }
-.o-icon { font-size: 1.1rem; }
-.o-name { font-size: .84rem; font-weight: 600; }
-.o-desc { font-size: .73rem; color: var(--text2); line-height: 1.4; }
+.o-glyph { font-size: 1rem; color: var(--blue2); font-family: monospace; }
+.o-name  { font-size: .84rem; font-weight: 600; color: #fff; }
+.o-desc  { font-size: .73rem; color: rgba(255,255,255,.5); line-height: 1.4; }
 
 /* ── Launch button ──────────────────────────────────────────────── */
 .launch-btn {
   width: 100%; justify-content: center;
-  padding: 14px; font-size: 1rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(99,102,241,.3);
+  padding: 15px; font-size: 1rem; font-weight: 700;
+  border-radius: 13px; letter-spacing: -.01em;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
+  box-shadow: 0 4px 24px rgba(99,102,241,.4), 0 1px 0 rgba(255,255,255,.1) inset;
+  transition: transform .35s var(--ease-spring), box-shadow .2s, filter .2s;
 }
+.launch-btn:not(:disabled):hover {
+  box-shadow: 0 8px 40px rgba(99,102,241,.55), 0 1px 0 rgba(255,255,255,.12) inset;
+  filter: brightness(1.1);
+}
+.launch-btn:disabled { opacity: .6; cursor: not-allowed; }
 
 /* ── Sidebar: summary ───────────────────────────────────────────── */
 .wizard-sidebar { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 24px; }
@@ -437,7 +680,7 @@ function resetForm() {
 }
 .sum-row:last-child { border-bottom: none; }
 .sum-key { color: var(--text3); }
-.sum-val { color: var(--text); font-weight: 500; }
+.sum-val { color: #fff; font-weight: 500; }
 
 /* ── Action list ────────────────────────────────────────────────── */
 .action-list { display: flex; flex-direction: column; gap: 8px; }
@@ -445,6 +688,13 @@ function resetForm() {
 .act-name  { color: var(--text2); min-width: 70px; }
 .act-delta { font-weight: 600; min-width: 70px; font-size: .8rem; }
 .act-desc  { color: var(--text3); }
+
+/* ── Field ──────────────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: .76rem; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; }
+.hint { font-size: .72rem; color: var(--text3); }
+.key-link { color: var(--blue2); margin-left: 6px; font-size: .72rem; }
+.key-link:hover { color: #fff; }
 
 /* ── Launched card ──────────────────────────────────────────────── */
 .launched-card {
@@ -459,5 +709,5 @@ function resetForm() {
   font-size: 1.4rem; display: flex; align-items: center; justify-content: center;
   margin: 0 auto 12px;
 }
-.launched-card h3 { font-size: 1rem; margin-bottom: 6px; }
+.launched-card h3 { font-size: 1rem; margin-bottom: 6px; color: #fff; }
 </style>

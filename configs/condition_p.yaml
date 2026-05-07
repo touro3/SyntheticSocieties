@@ -42,6 +42,7 @@ population:
 llm:
   model_id: mistralai/Mistral-7B-Instruct-v0.3
   cache_dir: null
+  quantization: 4bit   # NF4 4-bit — ~4 GB vs ~14.5 GB float16; required on 16 GB GPU
   dtype: float16
   device_map: auto
   temperature: 0.7

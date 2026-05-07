@@ -122,6 +122,119 @@ _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 _ipc_clients: dict[str, Any] = {}
 _ipc_lock = threading.Lock()
 
+# ── AI simulation design ──────────────────────────────────────────────────────
+
+_DESIGN_SYSTEM_PROMPT = """You are a population designer for BGF (Behavioral Grounding Framework), \
+an agent-based economic simulation where agents choose work/save/cooperate/steal each round.
+
+Analyze the user's simulation description and return a JSON object with EXACTLY these fields:
+{
+  "scenario_title": "short descriptive title (≤8 words)",
+  "scenario_description": "2-3 sentence context for what this simulation models",
+  "config": {
+    "agents": <integer 5-200>,
+    "rounds": <integer 5-100>,
+    "policy": <"rule_based" | "llm" | "random">,
+    "network_type": <"random" | "small_world">,
+    "bad_apple_frac": <float 0.0-0.3>
+  },
+  "population_traits": {
+    "trust_institutions": <float 0.0-1.0>,
+    "trust_people": <float 0.0-1.0>,
+    "risk_taking": <float 0.0-1.0>,
+    "life_satisfaction": <float 0.0-1.0>,
+    "competitiveness": <float 0.0-1.0>,
+    "income_decile_avg": <float 1.0-10.0>,
+    "age_mean": <float 18-80>,
+    "urbanization": <float 0.0-1.0>
+  },
+  "population_narrative": "2-4 sentences injected into agent decision prompts. Describe trust levels, economic tendencies, social structure, and cultural context so agents behave realistically.",
+  "reasoning": "1-2 sentences explaining key parameter choices"
+}
+
+Guidelines:
+- small_world network when community/tribe/neighborhood is implied; random otherwise
+- rule_based policy is fastest and realistic; use llm only if deep reasoning is requested
+- increase bad_apple_frac for scenarios with corruption/fraud/adversarial dynamics
+- high income → income_decile_avg 7-9; working class → 3-5; mixed → 4-6
+- population_narrative is the most important field — make it specific and behaviorally rich
+
+Return ONLY valid JSON, no markdown fences."""
+
+
+def _call_design_llm(provider: str, api_key: str, user_msg: str) -> dict:
+    """Call OpenAI or Groq to generate a simulation design from a prompt."""
+    try:
+        import openai
+    except ImportError as exc:
+        raise RuntimeError("openai package not installed — pip install openai") from exc
+
+    if provider == "groq":
+        client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        model = "llama-3.3-70b-versatile"
+    else:
+        client = openai.OpenAI(api_key=api_key)
+        model = "gpt-4o-mini"
+
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _DESIGN_SYSTEM_PROMPT},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.4,
+        max_tokens=1000,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(resp.choices[0].message.content)
+
+
+def _generate_population_parquet(design: dict, n_agents: int) -> str | None:
+    """Synthesise a population parquet from AI-designed trait distributions."""
+    try:
+        import numpy as np
+        import pandas as pd
+
+        traits = design.get("population_traits", {})
+        rng = np.random.default_rng(42)
+
+        def _s(mean_val: float, std: float = 0.15, lo: float = 0.0, hi: float = 1.0) -> np.ndarray:
+            return np.clip(rng.normal(mean_val, std, n_agents), lo, hi).astype(np.float32)
+
+        df = pd.DataFrame(
+            {
+                "trust_institutions": _s(traits.get("trust_institutions", 0.5)),
+                "trust_people": _s(traits.get("trust_people", 0.5)),
+                "risk_taking": _s(traits.get("risk_taking", 0.5)),
+                "life_satisfaction": _s(traits.get("life_satisfaction", 0.6)),
+                "competitiveness": _s(traits.get("competitiveness", 0.5)),
+                "income_decile": _s(traits.get("income_decile_avg", 5.0), std=2.0, lo=1.0, hi=10.0),
+                "age": _s(traits.get("age_mean", 40.0), std=12.0, lo=18.0, hi=85.0).astype(np.int32),
+                "urbanization": _s(traits.get("urbanization", 0.6)),
+                "gender": rng.choice([1, 2], size=n_agents).astype(np.int32),
+            }
+        )
+
+        _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        import uuid as _uuid2
+
+        file_id = str(_uuid2.uuid4())
+        out_path = _UPLOADS_DIR / f"{file_id}.parquet"
+        df.to_parquet(out_path, index=False)
+
+        # Analysis sidecar so simulate_wizard can load the narrative
+        title = design.get("scenario_title", "AI-generated population")
+        analysis = {
+            "filename": f"ai_{title.lower().replace(' ', '_')}.parquet",
+            "narrative": design.get("population_narrative", ""),
+            "generated": True,
+        }
+        (_UPLOADS_DIR / f"{file_id}_analysis.json").write_text(json.dumps(analysis, ensure_ascii=False))
+        return file_id
+    except Exception as exc:
+        logger.error("Population parquet generation failed: %s", exc)
+        return None
+
 
 # ── Security helpers ──────────────────────────────────────────────────────────
 
@@ -1237,6 +1350,120 @@ def create_app(
             }
         ), 200
 
+    # ── AI simulation design ─────────────────────────────────────────────────────
+
+    @app.post("/design-simulation")
+    @_simulate_limit
+    def design_simulation():
+        """
+        AI agent interprets a natural language prompt and designs a full simulation.
+
+        Body (JSON):
+          prompt    str   Natural language scenario description (required, ≤2000 chars)
+          file_id   str   UUID of previously uploaded data file (optional context)
+          api_key   str   OpenAI or Groq API key (optional, falls back to server env)
+          provider  str   "openai" | "groq"  (default: openai)
+
+        Returns:
+          design_id            str   Save token for this design
+          scenario_title       str
+          scenario_description str
+          config               dict  Recommended wizard form values
+          population_traits    dict  Trait means used to synthesise the population
+          population_narrative str   Rich description injected into agent prompts
+          reasoning            str   AI explanation of choices
+          file_id              str   UUID of the generated synthetic population parquet
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        import uuid as _uuid
+
+        body = request.get_json(silent=True) or {}
+        prompt = str(body.get("prompt", "")).strip()[:2000]
+        if not prompt:
+            return jsonify({"error": "prompt is required"}), 400
+
+        provider = str(body.get("provider", "openai")).strip()
+        if provider not in {"openai", "groq"}:
+            provider = "openai"
+
+        # API key: body > server env
+        api_key = (
+            str(body.get("api_key", "")).strip()
+            or (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "")
+            or os.environ.get("OPENAI_API_KEY", "")
+        )
+        if not api_key:
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "No API key available. Pass api_key in the request body "
+                            "or set OPENAI_API_KEY / GROQ_API_KEY on the server."
+                        )
+                    }
+                ),
+                400,
+            )
+
+        # Optionally enrich with attached data file narrative
+        file_id_raw = str(body.get("file_id", "")).strip()
+        data_context = ""
+        if file_id_raw and _FILE_ID_RE.match(file_id_raw):
+            sidecar = _UPLOADS_DIR / f"{file_id_raw}_analysis.json"
+            if sidecar.exists():
+                try:
+                    attached = json.loads(sidecar.read_text())
+                    data_context = f"\n\nAttached dataset: {attached.get('narrative', '')}"
+                except Exception:
+                    pass
+
+        # Call LLM
+        try:
+            design = _call_design_llm(provider, api_key, f"{prompt}{data_context}")
+        except Exception as exc:
+            logger.error("design_simulation LLM call failed: %s", exc)
+            return jsonify({"error": f"AI design failed: {exc}"}), 500
+
+        # Validate top-level structure — tolerate partial responses
+        for key in ("scenario_title", "config", "population_traits", "population_narrative"):
+            if key not in design:
+                design.setdefault(key, {} if key in ("config", "population_traits") else "")
+
+        # Clamp config values to safe ranges
+        cfg = design.get("config", {})
+        cfg["agents"] = max(5, min(200, int(cfg.get("agents", 20))))
+        cfg["rounds"] = max(5, min(100, int(cfg.get("rounds", 10))))
+        if cfg.get("policy") not in {"mock", "random", "rule_based", "template", "llm"}:
+            cfg["policy"] = "rule_based"
+        if cfg.get("network_type") not in {"random", "small_world"}:
+            cfg["network_type"] = "random"
+        cfg["bad_apple_frac"] = max(0.0, min(0.3, float(cfg.get("bad_apple_frac", 0.0))))
+        design["config"] = cfg
+
+        # Synthesise population parquet from trait distributions
+        gen_file_id = _generate_population_parquet(design, cfg["agents"])
+
+        design_id = str(_uuid.uuid4())
+        design["design_id"] = design_id
+        design["generated_file_id"] = gen_file_id
+        design["source_prompt"] = prompt
+
+        # Persist so simulate_wizard can retrieve it by design_id
+        _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        (_UPLOADS_DIR / f"{design_id}_design.json").write_text(json.dumps(design, ensure_ascii=False))
+
+        logger.info(
+            "Simulation designed: id=%s title=%r agents=%d file_id=%s",
+            design_id,
+            design.get("scenario_title"),
+            cfg["agents"],
+            gen_file_id,
+        )
+        return jsonify({"design_id": design_id, "file_id": gen_file_id, **design}), 200
+
     # ── No-code wizard simulate ──────────────────────────────────────────
 
     @app.post("/simulate-wizard")
@@ -1316,6 +1543,32 @@ def create_app(
                 try:
                     sidecar = json.loads(analysis_sidecar.read_text())
                     ess_population_context = sidecar.get("narrative")
+                except Exception:
+                    pass
+
+        # Optional: apply a saved AI design (design_id from /design-simulation)
+        design_id_raw = str(body.get("design_id", "")).strip()
+        if design_id_raw and _FILE_ID_RE.match(design_id_raw):
+            design_path = _UPLOADS_DIR / f"{design_id_raw}_design.json"
+            if design_path.exists():
+                try:
+                    saved_design = json.loads(design_path.read_text())
+                    # Population narrative: design fills in if no upload context present
+                    if not ess_population_context:
+                        ess_population_context = saved_design.get("population_narrative")
+                    # Use AI-generated population parquet if no uploaded file
+                    if not ess_data_path:
+                        gen_fid = str(saved_design.get("generated_file_id", "")).strip()
+                        if gen_fid and _FILE_ID_RE.match(gen_fid):
+                            gen_candidate = (_UPLOADS_DIR / f"{gen_fid}.parquet").resolve()
+                            uploads_root = _UPLOADS_DIR.resolve()
+                            try:
+                                gen_candidate.relative_to(uploads_root)
+                                if gen_candidate.exists():
+                                    ess_data_path = str(gen_candidate)
+                                    pop_source = "empirical"
+                            except ValueError:
+                                pass
                 except Exception:
                     pass
 

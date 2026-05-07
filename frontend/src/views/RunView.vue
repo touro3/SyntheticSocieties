@@ -21,6 +21,85 @@
       <!-- ── LEFT: Wizard form ─────────────────────────────────────── -->
       <div class="wizard-form">
 
+        <!-- Step 0: AI Design (optional) -->
+        <div class="step-card card design-card">
+          <div class="step-head">
+            <span class="step-num design-num">✦</span>
+            <div>
+              <div class="step-title">
+                AI Simulation Design
+                <span class="optional-tag">optional</span>
+              </div>
+              <div class="step-sub">Describe your scenario — the AI configures the wizard and synthesises a population</div>
+            </div>
+          </div>
+
+          <textarea
+            v-model="designPrompt"
+            class="design-textarea"
+            placeholder="e.g. Simulate 50 Wall Street traders in a competitive market with 5% corrupt agents and a market crash in round 20…"
+            rows="3"
+          />
+
+          <div class="design-controls">
+            <select v-model="designProvider" class="design-select">
+              <option value="openai">OpenAI</option>
+              <option value="groq">Groq (free tier)</option>
+            </select>
+            <input
+              v-model="designApiKey"
+              type="password"
+              class="design-key-input"
+              :placeholder="designProvider === 'groq' ? 'gsk_… (groq.com/keys)' : 'sk-… (platform.openai.com)'"
+            />
+            <button
+              class="btn btn-primary design-btn"
+              @click="runDesign"
+              :disabled="!designPrompt.trim() || designStatus === 'loading'"
+            >
+              <span v-if="designStatus === 'loading'" class="spin">⟳</span>
+              <span v-else>✦</span>
+              {{ designStatus === 'loading' ? 'Designing…' : 'Design' }}
+            </button>
+          </div>
+
+          <div v-if="designStatus === 'error'" class="upload-error-msg">✗ {{ designError }}</div>
+
+          <!-- Result panel -->
+          <div v-if="designResult" class="design-result">
+            <div class="design-title">{{ designResult.scenario_title }}</div>
+            <div class="design-desc">{{ designResult.scenario_description }}</div>
+
+            <div class="design-chips">
+              <span class="chip">{{ designResult.config?.agents }} agents</span>
+              <span class="chip">{{ designResult.config?.rounds }} rounds</span>
+              <span class="chip">{{ designResult.config?.policy }}</span>
+              <span class="chip">{{ designResult.config?.network_type }}</span>
+              <span v-if="designResult.config?.bad_apple_frac > 0" class="chip chip-warn">
+                {{ (designResult.config.bad_apple_frac * 100).toFixed(0) }}% adversarial
+              </span>
+            </div>
+
+            <div v-if="designResult.population_narrative" class="design-narrative">
+              <span class="narrative-label">Population context → injected into agent prompts</span>
+              {{ designResult.population_narrative }}
+            </div>
+
+            <div v-if="designResult.reasoning" class="design-reasoning">
+              <span class="reasoning-label">Reasoning</span>
+              {{ designResult.reasoning }}
+            </div>
+
+            <div class="design-action-row">
+              <button v-if="!designApplied" class="btn btn-primary" @click="applyDesign">
+                Apply to Wizard →
+              </button>
+              <div v-else class="design-applied-badge">✓ Applied — wizard configured below</div>
+              <button class="btn btn-ghost btn-sm" @click="clearDesign">Clear</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Step 1: Policy -->
         <div class="step-card card">
           <div class="step-head">
@@ -395,16 +474,26 @@ const form = ref({
   llm_model_id: 'llama3.2',
   llm_api_key: '',
   ess_data_file_id: '',
+  design_id: '',
 })
 
 const launching      = ref(false)
 const error          = ref('')
 const launched       = ref(false)
 const launchedId     = ref('')
-const uploadStatus   = ref('')      // '' | 'uploading' | 'done' | 'error'
-const uploadInfo     = ref(null)    // full server response on success
+const uploadStatus   = ref('')
+const uploadInfo     = ref(null)
 const uploadError    = ref('')
-const uploadFilename = ref('')      // original filename shown in panel
+const uploadFilename = ref('')
+
+// AI design state
+const designPrompt   = ref('')
+const designApiKey   = ref('')
+const designProvider = ref('openai')
+const designStatus   = ref('')   // '' | 'loading' | 'done' | 'error'
+const designError    = ref('')
+const designResult   = ref(null)
+const designApplied  = ref(false)
 
 const policies = [
   { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
@@ -532,6 +621,53 @@ async function uploadEssFile(event) {
   }
 }
 
+async function runDesign() {
+  if (!designPrompt.value.trim()) return
+  designStatus.value = 'loading'
+  designError.value = ''
+  designResult.value = null
+  designApplied.value = false
+  try {
+    const r = await api.designSimulation({
+      prompt: designPrompt.value,
+      provider: designProvider.value,
+      api_key: designApiKey.value || form.value.llm_api_key || undefined,
+      file_id: form.value.ess_data_file_id || undefined,
+    })
+    designResult.value = r.data
+    designStatus.value = 'done'
+  } catch(e) {
+    designStatus.value = 'error'
+    designError.value = e.response?.data?.error || 'Design failed — check server logs.'
+  }
+}
+
+function applyDesign() {
+  const d = designResult.value
+  if (!d) return
+  const cfg = d.config || {}
+  if (cfg.agents)                    form.value.agents           = cfg.agents
+  if (cfg.rounds)                    form.value.rounds           = cfg.rounds
+  if (cfg.policy)                    form.value.policy           = cfg.policy
+  if (cfg.network_type)              form.value.network_type     = cfg.network_type
+  if (cfg.bad_apple_frac !== undefined) form.value.bad_apple_frac = cfg.bad_apple_frac
+  // Use the AI-generated population parquet if available
+  if (d.file_id) {
+    form.value.ess_data_file_id   = d.file_id
+    form.value.population_source  = 'empirical'
+  }
+  form.value.design_id = d.design_id || ''
+  designApplied.value = true
+}
+
+function clearDesign() {
+  designResult.value  = null
+  designStatus.value  = ''
+  designError.value   = ''
+  designApplied.value = false
+  form.value.design_id = ''
+}
+
 async function launch() {
   error.value = ''; launching.value = true
   try {
@@ -541,8 +677,9 @@ async function launch() {
       delete body.llm_model_id
       delete body.llm_api_key
     }
-    if (!body.llm_api_key) delete body.llm_api_key
+    if (!body.llm_api_key)      delete body.llm_api_key
     if (!body.ess_data_file_id) delete body.ess_data_file_id
+    if (!body.design_id)        delete body.design_id
     const r = await api.simulateWizard(body)
     launchedId.value = r.data.experiment_id
     launched.value = true
@@ -558,6 +695,8 @@ function resetForm() {
   launched.value = false; launchedId.value = ''; error.value = ''
   uploadStatus.value = ''; uploadInfo.value = null; uploadError.value = ''; uploadFilename.value = ''
   form.value.ess_data_file_id = ''
+  clearDesign()
+  designPrompt.value = ''; designApiKey.value = ''
 }
 </script>
 
@@ -932,4 +1071,81 @@ function resetForm() {
   margin: 0 auto 12px;
 }
 .launched-card h3 { font-size: 1rem; margin-bottom: 6px; color: #fff; }
+
+/* ── AI Design card ─────────────────────────────────────────────── */
+.design-card {
+  border-color: rgba(99,102,241,.35);
+  background: rgba(99,102,241,.04);
+}
+.design-num {
+  background: linear-gradient(135deg, #7c3aed, var(--indigo));
+  font-size: .85rem;
+}
+.design-textarea {
+  width: 100%; padding: 12px 14px; resize: vertical;
+  background: var(--bg4); border: 1px solid var(--border2);
+  border-radius: 10px; color: var(--text); font-size: .84rem;
+  line-height: 1.5; font-family: inherit;
+  transition: border-color .2s;
+}
+.design-textarea:focus { outline: none; border-color: var(--indigo); }
+.design-textarea::placeholder { color: var(--text3); }
+.design-controls {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+.design-select {
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--bg4); border: 1px solid var(--border2);
+  color: var(--text); font-size: .8rem; min-width: 130px;
+}
+.design-key-input {
+  flex: 1; padding: 8px 12px; border-radius: 8px;
+  background: var(--bg4); border: 1px solid var(--border2);
+  color: var(--text); font-size: .8rem; min-width: 160px;
+}
+.design-btn { white-space: nowrap; }
+.design-result {
+  display: flex; flex-direction: column; gap: 10px;
+  animation: fade-in-up .3s var(--ease-spring) both;
+}
+.design-title {
+  font-size: .97rem; font-weight: 700; color: #fff;
+  letter-spacing: -.01em;
+}
+.design-desc { font-size: .8rem; color: var(--text2); line-height: 1.55; }
+.design-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.chip {
+  padding: 3px 9px; border-radius: 20px; font-size: .72rem; font-weight: 600;
+  background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3);
+  color: var(--blue2);
+}
+.chip-warn {
+  background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3);
+  color: #f87171;
+}
+.design-narrative {
+  padding: 10px 12px; border-radius: 8px;
+  background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2);
+  font-size: .78rem; color: var(--text2); line-height: 1.6;
+}
+.narrative-label, .reasoning-label {
+  display: block; font-size: .65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--indigo); margin-bottom: 4px;
+}
+.design-reasoning {
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--bg4); border: 1px solid var(--border);
+  font-size: .76rem; color: var(--text3); line-height: 1.5;
+}
+.design-action-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.design-applied-badge {
+  padding: 6px 14px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+  background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.3);
+  color: var(--green);
+}
 </style>

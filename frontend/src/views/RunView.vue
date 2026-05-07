@@ -185,8 +185,9 @@
               <span class="optional-tag">optional</span>
             </div>
             <div class="ess-upload-desc">
-              Upload your own <code>.csv</code> or <code>.parquet</code> file to replace the built-in
-              ESS Round 11 dataset. Leave empty to use the default.
+              Upload any <code>.csv</code> or <code>.parquet</code> file. The system will analyze it
+              and map whatever columns are present to simulation dimensions — no required columns.
+              Leave empty to use the built-in ESS Round 11 dataset.
             </div>
 
             <label class="upload-label" :class="{ uploading: uploadStatus === 'uploading' }">
@@ -194,21 +195,61 @@
               <span class="upload-btn">
                 <span v-if="uploadStatus === 'uploading'" class="spin">⟳</span>
                 <span v-else>↑</span>
-                {{ uploadStatus === 'uploading' ? 'Uploading…' : 'Choose file (.csv / .parquet)' }}
+                {{ uploadStatus === 'uploading' ? 'Analyzing…' : (uploadStatus === 'done' ? '↑ Replace file' : 'Choose file (.csv / .parquet)') }}
               </span>
             </label>
 
-            <div v-if="uploadStatus === 'done' && uploadInfo" class="upload-success">
-              ✓ {{ uploadInfo.rows.toLocaleString() }} rows · {{ uploadInfo.columns.length }} columns loaded
-            </div>
+            <!-- Error state -->
             <div v-if="uploadStatus === 'error'" class="upload-error-msg">
               ✗ {{ uploadError }}
             </div>
 
-            <div class="ess-cols-note">
-              Required columns:
-              <code>trust_institutions</code> <code>trust_parliament</code>
-              <code>trust_legal</code> <code>trust_police</code>
+            <!-- Analysis report (NotebookLM-style) -->
+            <div v-if="uploadStatus === 'done' && uploadInfo?.analysis" class="analysis-report">
+
+              <!-- Summary bar -->
+              <div class="analysis-summary">
+                <span class="analysis-icon">◉</span>
+                <span class="analysis-text">{{ uploadInfo.analysis.summary }}</span>
+                <span class="coverage-badge"
+                  :class="uploadInfo.analysis.coverage.pct >= 70 ? 'cov-high' : uploadInfo.analysis.coverage.pct >= 40 ? 'cov-mid' : 'cov-low'">
+                  {{ uploadInfo.analysis.coverage.pct }}%
+                </span>
+              </div>
+
+              <!-- Coverage breakdown -->
+              <div class="dim-coverage">
+                <div class="dim-row" v-for="d in uploadInfo.analysis.dimensions" :key="d.name">
+                  <span class="dim-status" :class="'dim-' + d.status">
+                    {{ d.status === 'direct' ? '✓' : d.status === 'computed' ? '◐' : '—' }}
+                  </span>
+                  <span class="dim-name">{{ d.name.replace(/_/g, ' ') }}</span>
+                  <span class="dim-source">{{ d.status === 'fallback' ? 'config default' : d.source }}</span>
+                  <span class="dim-mean" v-if="d.stats?.mean != null">
+                    μ {{ d.stats.mean.toFixed(2) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Quality row -->
+              <div class="quality-row">
+                <span class="q-item">
+                  <span class="q-label">Completeness</span>
+                  <span class="q-val">{{ uploadInfo.analysis.quality.completeness_pct }}%</span>
+                </span>
+                <span class="q-item">
+                  <span class="q-label">Direct dims</span>
+                  <span class="q-val">{{ uploadInfo.analysis.coverage.direct }}</span>
+                </span>
+                <span class="q-item">
+                  <span class="q-label">Derived dims</span>
+                  <span class="q-val">{{ uploadInfo.analysis.coverage.computed }}</span>
+                </span>
+                <span class="q-item">
+                  <span class="q-label">Fallback dims</span>
+                  <span class="q-val">{{ uploadInfo.analysis.coverage.fallback }}</span>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -469,7 +510,7 @@ async function uploadEssFile(event) {
     fd.append('file', file)
     const r = await api.uploadEssData(fd)
     form.value.ess_data_file_id = r.data.file_id
-    uploadInfo.value = { rows: r.data.rows, columns: r.data.columns }
+    uploadInfo.value = r.data  // full response: rows, columns, analysis
     uploadStatus.value = 'done'
   } catch(e) {
     uploadStatus.value = 'error'
@@ -789,23 +830,63 @@ function resetForm() {
   border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.1); color: #fff;
 }
 
-.upload-success {
-  font-size: .76rem; color: var(--green);
-  background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2);
-  border-radius: 6px; padding: 6px 12px;
-}
 .upload-error-msg {
   font-size: .75rem; color: var(--rose);
   background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.2);
   border-radius: 6px; padding: 6px 12px;
 }
-.ess-cols-note {
-  font-size: .72rem; color: var(--text3); line-height: 1.6;
+
+/* ── Analysis report ─────────────────────────────────────────────── */
+.analysis-report {
+  display: flex; flex-direction: column; gap: 8px;
+  animation: fade-in-up .3s var(--ease-spring) both;
 }
-.ess-cols-note code {
-  color: var(--teal); background: rgba(20,184,166,.1);
-  border-radius: 3px; padding: 0 4px; margin-right: 4px;
+
+.analysis-summary {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(16,185,129,.07); border: 1px solid rgba(16,185,129,.2);
+  border-radius: 8px; padding: 8px 12px;
 }
+.analysis-icon { color: var(--green); font-size: .9rem; flex-shrink: 0; }
+.analysis-text { font-size: .74rem; color: var(--text2); flex: 1; line-height: 1.4; }
+.coverage-badge {
+  font-size: .68rem; font-weight: 800; border-radius: 6px;
+  padding: 2px 8px; flex-shrink: 0;
+}
+.cov-high { background: rgba(16,185,129,.18); color: var(--green); }
+.cov-mid  { background: rgba(234,179,8,.15);  color: #eab308; }
+.cov-low  { background: rgba(244,63,94,.15);  color: var(--rose); }
+
+.dim-coverage {
+  display: flex; flex-direction: column; gap: 3px;
+  max-height: 220px; overflow-y: auto;
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px;
+}
+.dim-row {
+  display: grid; grid-template-columns: 18px 1fr 1fr auto;
+  gap: 6px; align-items: center; font-size: .72rem;
+  padding: 2px 0;
+}
+.dim-status { font-weight: 700; text-align: center; font-size: .8rem; }
+.dim-direct   { color: var(--green); }
+.dim-computed { color: #eab308; }
+.dim-fallback { color: var(--text3); }
+.dim-name  { color: var(--text2); font-weight: 500; text-transform: capitalize; }
+.dim-source{ color: var(--text3); font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dim-mean  { color: var(--blue2); font-size: .67rem; font-family: monospace; text-align: right; }
+
+.quality-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.q-item {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; min-width: 60px;
+  background: var(--bg4); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px;
+}
+.q-label { font-size: .62rem; color: var(--text3); text-transform: uppercase; letter-spacing: .03em; }
+.q-val   { font-size: .84rem; font-weight: 700; color: var(--text); margin-top: 2px; }
 
 /* ── Launched card ──────────────────────────────────────────────── */
 .launched-card {

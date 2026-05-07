@@ -86,11 +86,35 @@ _INJECTION_TYPES = {"wealth_shock", "signal_update", "narrative"}
 # UUID v4 pattern for uploaded file IDs.
 _FILE_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
 
-# Columns that must exist in any user-uploaded ESS data file.
-_ESS_REQUIRED_COLS = {"trust_institutions", "trust_parliament", "trust_legal", "trust_police"}
-
 # Maximum uploaded file size: 50 MB.
 _UPLOAD_MAX_BYTES = 50 * 1024 * 1024
+
+# BGF dimensions: (name, primary_col, computed_from, description)
+# Mirrors the mapping in population/generator.py.  computed_from lists
+# the source columns used to derive the dimension when primary_col is absent.
+_BGF_DIMENSIONS: list[tuple[str, str, list[str], str]] = [
+    ("age", "age", [], "Agent age → wealth init & risk defaults"),
+    ("income", "income_decile", [], "Income decile → initial wealth"),
+    (
+        "trust_institutions",
+        "trust_institutions",
+        ["trust_parliament", "trust_legal", "trust_police"],
+        "Institutional trust → cooperation bias",
+    ),
+    ("trust_people", "trust_people", [], "Interpersonal trust"),
+    ("education", "education_level", [], "Education level"),
+    ("location", "urbanization", [], "Urban / rural → network density"),
+    ("political_preference", "left_right", [], "Political orientation"),
+    ("risk_tolerance", "risk_taking", [], "Risk tolerance → decision variance"),
+    ("social_activity", "social_meeting_freq", [], "Social interaction frequency"),
+    ("competitiveness", "competitiveness", [], "Competitive drive"),
+    ("leadership_preference", "leadership_preference", [], "Leadership tendency"),
+    ("life_satisfaction", "life_satisfaction", [], "Wellbeing → cooperation tendency"),
+    ("health_status", "self_rated_health", [], "Self-rated health"),
+    ("religiosity", "religious_belonging", [], "Religious identity"),
+    ("country", "country", [], "Country-level context"),
+    ("gender", "gender", [], "Demographic attribute"),
+]
 
 _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 
@@ -984,17 +1008,19 @@ def create_app(
     @app.post("/upload-ess-data")
     @_write_limit
     def upload_ess_data():
-        """Upload a custom ESS-compatible data file (.csv or .parquet).
+        """Upload a population data file (.csv or .parquet) for empirical grounding.
 
-        Returns a file_id that can be passed to /simulate-wizard as
-        ess_data_file_id to use the uploaded file as the population source.
+        No required columns — accepts any tabular file.  Returns a structured
+        analysis of which BGF simulation dimensions the file covers (directly,
+        via derivation, or via config fallback), mirroring the column mapping
+        in population/generator.py.
 
-        Required columns: trust_institutions, trust_parliament,
-                          trust_legal, trust_police
+        The returned file_id can be passed to /simulate-wizard as ess_data_file_id.
         """
         import io
         import uuid as _uuid
 
+        import numpy as np
         import pandas as pd
 
         ok, err = _check_auth()
@@ -1024,16 +1050,115 @@ def create_app(
         except Exception as exc:
             return jsonify({"error": f"Could not parse file: {exc}"}), 422
 
-        missing = _ESS_REQUIRED_COLS - set(df.columns)
-        if missing:
-            return jsonify(
-                {
-                    "error": f"Missing required columns: {sorted(missing)}",
-                    "required_columns": sorted(_ESS_REQUIRED_COLS),
-                    "found_columns": sorted(df.columns.tolist()),
-                }
-            ), 422
+        if df.empty:
+            return jsonify({"error": "File contains no rows"}), 422
 
+        # Derive trust_institutions if absent (mirrors ESSGrounder.load)
+        cols = set(df.columns)
+        if "trust_institutions" not in cols:
+            src = [c for c in ("trust_parliament", "trust_legal", "trust_police") if c in cols]
+            if src:
+                df["trust_institutions"] = df[src].mean(axis=1)
+                cols.add("trust_institutions")
+
+        # ── Dimension analysis ────────────────────────────────────────────
+        def _col_stats(col: str) -> dict:
+            s = df[col].dropna()
+            if s.empty:
+                return {}
+            out: dict = {"non_null_pct": round(len(s) / len(df) * 100, 1)}
+            if pd.api.types.is_numeric_dtype(s):
+                out["mean"] = round(float(s.mean()), 3)
+                out["std"] = round(float(s.std()), 3)
+                out["min"] = round(float(s.min()), 3)
+                out["max"] = round(float(s.max()), 3)
+            else:
+                top = s.value_counts().head(3).to_dict()
+                out["top_values"] = {str(k): int(v) for k, v in top.items()}
+            return out
+
+        dimensions = []
+        direct = computed = fallback_count = 0
+
+        for dim_name, primary_col, computed_from, description in _BGF_DIMENSIONS:
+            if primary_col in cols:
+                status = "direct"
+                direct += 1
+                source = primary_col
+                stats = _col_stats(primary_col)
+            elif any(c in cols for c in computed_from):
+                status = "computed"
+                computed += 1
+                available = [c for c in computed_from if c in cols]
+                source = ", ".join(available)
+                derived = df[available].mean(axis=1)
+                stats = {
+                    "non_null_pct": round(derived.notna().sum() / len(df) * 100, 1),
+                    "mean": round(float(derived.mean()), 3),
+                    "std": round(float(derived.std()), 3),
+                }
+            else:
+                status = "fallback"
+                fallback_count += 1
+                source = "config default"
+                stats = {}
+
+            dimensions.append(
+                {
+                    "name": dim_name,
+                    "status": status,
+                    "source": source,
+                    "description": description,
+                    "stats": stats,
+                }
+            )
+
+        total_dims = len(_BGF_DIMENSIONS)
+        covered = direct + computed
+        coverage_pct = round(covered / total_dims * 100)
+
+        # ── Per-column stats (numeric, capped at 30) ──────────────────────
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        col_stats = []
+        for col in numeric_cols[:30]:
+            s = df[col].dropna()
+            if s.empty:
+                continue
+            col_stats.append(
+                {
+                    "col": col,
+                    "non_null_pct": round(len(s) / len(df) * 100, 1),
+                    "mean": round(float(s.mean()), 3),
+                    "std": round(float(s.std()), 3),
+                    "min": round(float(s.min()), 3),
+                    "max": round(float(s.max()), 3),
+                }
+            )
+
+        overall_completeness = round(df.notna().sum().sum() / (len(df) * len(df.columns)) * 100, 1)
+
+        analysis = {
+            "dimensions": dimensions,
+            "coverage": {
+                "direct": direct,
+                "computed": computed,
+                "fallback": fallback_count,
+                "total": total_dims,
+                "pct": coverage_pct,
+            },
+            "column_stats": col_stats,
+            "quality": {
+                "completeness_pct": overall_completeness,
+                "total_rows": len(df),
+                "total_columns": len(df.columns),
+            },
+            "summary": (
+                f"{len(df):,} rows · {len(df.columns)} columns · "
+                f"{covered}/{total_dims} BGF dimensions covered ({coverage_pct}%)"
+            ),
+        }
+
+        # ── Persist ───────────────────────────────────────────────────────
         _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
         file_id = str(_uuid.uuid4())
         out_path = _UPLOADS_DIR / f"{file_id}.parquet"
@@ -1043,12 +1168,19 @@ def create_app(
             logger.error("ESS upload write failed: %s", exc)
             return jsonify({"error": "Failed to save uploaded file"}), 500
 
-        logger.info("ESS data uploaded: file_id=%s rows=%d cols=%d", file_id, len(df), len(df.columns))
+        logger.info(
+            "Data uploaded: file_id=%s rows=%d cols=%d coverage=%d%%",
+            file_id,
+            len(df),
+            len(df.columns),
+            coverage_pct,
+        )
         return jsonify(
             {
                 "file_id": file_id,
                 "rows": len(df),
                 "columns": df.columns.tolist(),
+                "analysis": analysis,
             }
         ), 200
 

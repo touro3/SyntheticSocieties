@@ -401,8 +401,11 @@ Test Infrastructure
 ## Sub-phase 28.4 — Human Evaluation Study
 [x] Design human evaluation study protocol (`docs/human_subjects_protocol.md`)
 [x] Implement analysis pipeline for participant data (`scripts/analyze_human_baseline.py`)
-[ ] Deploy on Mechanical Turk or Prolific (budget: $100-200)
-[ ] Collect realism ratings (Condition A vs B)
+[x] Build self-hosted vignette survey UI (`frontend/src/views/HumanEvalView.vue`)
+[x] Add API endpoints: /human-eval/scenarios, /human-eval/rating, /human-eval/results
+[x] 3 pre-built Condition A vs B vignettes (stability, wealth shock, adversarial agent)
+[ ] Deploy on Prolific (budget: $100-200, share URL: /human-eval)
+[ ] Collect realism ratings (n=30-50 participants)
 [ ] Analyze qualitative feedback
 [ ] Generate `analysis/figures/human_eval_boxplot.png`
 

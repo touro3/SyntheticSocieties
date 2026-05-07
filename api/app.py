@@ -1665,9 +1665,27 @@ def create_app(
 
         def _run():
             try:
-                subprocess.run(cmd, check=True, env=run_env)
+                result = subprocess.run(
+                    cmd,
+                    check=True,
+                    env=run_env,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.stdout:
+                    logger.info("Wizard run %s stdout: %s", exp_id, result.stdout[-1000:])
             except subprocess.CalledProcessError as exc:
-                logger.error("Wizard simulation failed (exp=%s): %s", exp_id, exc)
+                stderr_tail = (exc.stderr or "")[-800:]
+                stdout_tail = (exc.stdout or "")[-400:]
+                logger.error(
+                    "Wizard simulation failed (exp=%s) rc=%s\nstdout: %s\nstderr: %s",
+                    exp_id,
+                    exc.returncode,
+                    stdout_tail,
+                    stderr_tail,
+                )
+            except Exception as exc:
+                logger.error("Wizard _run thread error (exp=%s): %s", exp_id, exc)
 
         thread = threading.Thread(target=_run, name=f"wiz-{exp_id}", daemon=True)
         thread.start()

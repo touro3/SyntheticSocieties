@@ -334,12 +334,16 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
 
     pop_source = config.get("population", {}).get("source", "synthetic")
 
-    if pop_source == "empirical":
-        agents = generate_empirical_population(config, policy)
-        print(f"Generated empirical population: {len(agents)} agents from ESS data")
-    else:
-        agents = generate_population(config, policy)
-        print(f"Generated synthetic population: {len(agents)} agents")
+    try:
+        if pop_source == "empirical":
+            agents = generate_empirical_population(config, policy)
+            print(f"Generated empirical population: {len(agents)} agents from ESS data")
+        else:
+            agents = generate_population(config, policy)
+            print(f"Generated synthetic population: {len(agents)} agents")
+    except Exception as exc:
+        _early_run_mgr.fail(str(exc))
+        raise
 
     network_manager = build_network(config, agents)
     world = build_world(config, network_manager)

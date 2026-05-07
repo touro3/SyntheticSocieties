@@ -14,11 +14,18 @@
       <span class="spin">⟳</span> Connecting to simulation…
     </div>
 
-    <!-- Not found -->
+    <!-- Initialising (404, still within patience window) -->
+    <div v-else-if="!notFound && !state.status" class="card empty-card">
+      <div class="empty-icon"><span class="spin" style="font-size:1.5rem">⟳</span></div>
+      <h3>Initialising…</h3>
+      <p>Waiting for the simulation process to start. This takes a few seconds for LLM policies.</p>
+    </div>
+
+    <!-- Not found (exhausted retries) -->
     <div v-else-if="notFound" class="card empty-card">
       <div class="empty-icon">◌</div>
       <h3>Experiment not found</h3>
-      <p>No run found for <code class="mono">{{ expId }}</code>. It may still be initialising.</p>
+      <p>No run state for <code class="mono">{{ expId }}</code> after 2 minutes. The subprocess may have crashed.</p>
       <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
         <button class="btn btn-outline btn-sm" @click="refresh">⟳ Retry</button>
         <router-link to="/run" class="btn btn-primary btn-sm">Launch a run →</router-link>
@@ -453,14 +460,25 @@ const staleMinutes = computed(() => {
 
 const fmtTime = ts => ts ? new Date(ts * 1000).toLocaleTimeString() : '—'
 
+let notFoundRetries = 0
+const NOT_FOUND_MAX_RETRIES = 40  // 40 × 3s = 2 minutes patience window
+
 async function refresh() {
   try {
     const r = await api.status(expId)
     state.value     = r.data || {}
     heartbeat.value = r.data?.heartbeat || null
     notFound.value  = false
+    notFoundRetries = 0
   } catch(e) {
-    if (e.response?.status === 404) notFound.value = true
+    if (e.response?.status === 404) {
+      notFoundRetries++
+      // Keep notFound false while the subprocess is still initialising
+      // (writing run_state.json can take a few seconds for LLM policies)
+      if (notFoundRetries > NOT_FOUND_MAX_RETRIES) {
+        notFound.value = true
+      }
+    }
   }
 }
 
@@ -468,6 +486,7 @@ function startPolling() {
   polling.value = true
   timer = setInterval(async () => {
     await refresh()
+    if (notFound.value) stopPolling()
     if (['complete','failed'].includes(state.value.status)) stopPolling()
   }, 3000)
 }
@@ -480,7 +499,9 @@ function stopPolling() {
 onMounted(async () => {
   await refresh()
   loading.value = false
-  if (!notFound.value && !['complete','failed'].includes(state.value.status)) {
+  // Always start polling — startPolling will stop itself if notFound persists
+  // beyond NOT_FOUND_MAX_RETRIES or when the run finishes
+  if (!['complete','failed'].includes(state.value.status)) {
     startPolling()
   }
 })

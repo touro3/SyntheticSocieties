@@ -5,6 +5,7 @@ import MonitorView     from '../views/MonitorView.vue'
 import ExperimentsView from '../views/ExperimentsView.vue'
 import ResultsView     from '../views/ResultsView.vue'
 import InteractView    from '../views/InteractView.vue'
+import HumanEvalView   from '../views/HumanEvalView.vue'
 
 export default createRouter({
   history: createWebHashHistory(),
@@ -15,6 +16,7 @@ export default createRouter({
     { path: '/experiments',         component: ExperimentsView },
     { path: '/results/:expId',      component: ResultsView },
     { path: '/interact/:expId',     component: InteractView },
+    { path: '/human-eval',          component: HumanEvalView },
   ],
   scrollBehavior: () => ({ top: 0 }),
 })

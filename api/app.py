@@ -29,6 +29,9 @@ Endpoints
   GET    /report                   Run ReACT agent on a query (sync, slow)
   GET    /health                   Liveness probe
   GET    /incomplete               List resumable (non-complete) runs
+  GET    /human-eval/scenarios     Return vignette pairs for Prolific study
+  POST   /human-eval/rating        Save a participant rating
+  GET    /human-eval/results       Aggregate results (admin, requires auth)
 """
 
 from __future__ import annotations
@@ -1712,6 +1715,277 @@ def create_app(
                 "params": resp_params,
             }
         ), 202
+
+    # ── Human evaluation study ────────────────────────────────────────────────
+
+    _HUMAN_EVAL_DIR = Path("data/human")
+    _HUMAN_EVAL_RATINGS = _HUMAN_EVAL_DIR / "prolific_ratings.jsonl"
+    _human_eval_limit = limiter.limit("120 per hour") if _LIMITER_AVAILABLE else _noop
+
+    # Pre-built vignette pairs: same economic scenario, Condition A vs B agent
+    _VIGNETTES = [
+        {
+            "id": "v1",
+            "scenario": "Round 8 of 10. Economy is stable. Your wealth: 240.",
+            "agents": {
+                "A": {
+                    "label": "Agent A",
+                    "decisions": [
+                        {"round": 1, "action": "cooperate", "rationale": "I'll cooperate to build trust."},
+                        {"round": 2, "action": "cooperate", "rationale": "Cooperating is generally good."},
+                        {"round": 3, "action": "cooperate", "rationale": "Let's all work together."},
+                        {"round": 4, "action": "cooperate", "rationale": "Cooperation benefits everyone."},
+                        {"round": 5, "action": "cooperate", "rationale": "I believe in teamwork."},
+                        {"round": 6, "action": "cooperate", "rationale": "Staying cooperative."},
+                        {"round": 7, "action": "cooperate", "rationale": "Cooperative as always."},
+                        {"round": 8, "action": "cooperate", "rationale": "Maintaining cooperation."},
+                    ],
+                    "final_wealth": 195,
+                },
+                "B": {
+                    "label": "Agent B",
+                    "decisions": [
+                        {
+                            "round": 1,
+                            "action": "work",
+                            "rationale": "Starting cautiously — don't know these agents yet.",
+                        },
+                        {
+                            "round": 2,
+                            "action": "cooperate",
+                            "rationale": "Agent 3 cooperated last round; I'll reciprocate.",
+                        },
+                        {
+                            "round": 3,
+                            "action": "save",
+                            "rationale": "Wealth dropped — need buffer before risking cooperation.",
+                        },
+                        {
+                            "round": 4,
+                            "action": "cooperate",
+                            "rationale": "Agents 3 and 7 are reliable partners; joining coalition.",
+                        },
+                        {
+                            "round": 5,
+                            "action": "work",
+                            "rationale": "Agent 5 defected on me twice — rebuilding independently.",
+                        },
+                        {
+                            "round": 6,
+                            "action": "cooperate",
+                            "rationale": "Back above threshold; selectively cooperating with trusted peers.",
+                        },
+                        {
+                            "round": 7,
+                            "action": "cooperate",
+                            "rationale": "Coalition with agents 3, 7, 9 is holding — continuing.",
+                        },
+                        {
+                            "round": 8,
+                            "action": "save",
+                            "rationale": "Shock incoming (I heard from neighbors); hedging.",
+                        },
+                    ],
+                    "final_wealth": 312,
+                },
+            },
+        },
+        {
+            "id": "v2",
+            "scenario": "Round 12 of 20. Wealth shock hit at round 10 (50% loss). Your wealth: 85.",
+            "agents": {
+                "A": {
+                    "label": "Agent A",
+                    "decisions": [
+                        {"round": 9, "action": "cooperate", "rationale": "Cooperation is the best strategy."},
+                        {"round": 10, "action": "cooperate", "rationale": "I cooperate regardless."},
+                        {"round": 11, "action": "cooperate", "rationale": "Still choosing to cooperate."},
+                        {"round": 12, "action": "cooperate", "rationale": "Cooperation remains my choice."},
+                    ],
+                    "final_wealth": 62,
+                },
+                "B": {
+                    "label": "Agent B",
+                    "decisions": [
+                        {"round": 9, "action": "cooperate", "rationale": "Network is stable; staying engaged."},
+                        {
+                            "round": 10,
+                            "action": "work",
+                            "rationale": "Shock wiped half my wealth — survival mode: work only.",
+                        },
+                        {
+                            "round": 11,
+                            "action": "work",
+                            "rationale": "Still below safety threshold (100). Not risking cooperation yet.",
+                        },
+                        {
+                            "round": 12,
+                            "action": "work",
+                            "rationale": "Slowly recovering. Will re-enter cooperative rounds at ~120.",
+                        },
+                    ],
+                    "final_wealth": 141,
+                },
+            },
+        },
+        {
+            "id": "v3",
+            "scenario": "Round 5 of 10. One adversarial agent (agent 2) is stealing. Your wealth: 180.",
+            "agents": {
+                "A": {
+                    "label": "Agent A",
+                    "decisions": [
+                        {"round": 1, "action": "cooperate", "rationale": "I always cooperate."},
+                        {"round": 2, "action": "cooperate", "rationale": "Cooperation benefits the group."},
+                        {"round": 3, "action": "cooperate", "rationale": "Keeping up the cooperative spirit."},
+                        {"round": 4, "action": "cooperate", "rationale": "I believe in collective action."},
+                        {"round": 5, "action": "cooperate", "rationale": "Continuing to cooperate."},
+                    ],
+                    "final_wealth": 148,
+                },
+                "B": {
+                    "label": "Agent B",
+                    "decisions": [
+                        {
+                            "round": 1,
+                            "action": "cooperate",
+                            "rationale": "Healthy network — contributing to public pool.",
+                        },
+                        {
+                            "round": 2,
+                            "action": "cooperate",
+                            "rationale": "Strong returns. Coalition with agents 4 and 6 working.",
+                        },
+                        {
+                            "round": 3,
+                            "action": "work",
+                            "rationale": "Agent 2 keeps stealing from the pool. Withdrawing contribution.",
+                        },
+                        {
+                            "round": 4,
+                            "action": "save",
+                            "rationale": "Agent 2 still active. Pool is contaminated — storing privately.",
+                        },
+                        {
+                            "round": 5,
+                            "action": "work",
+                            "rationale": "Until agent 2 is isolated by the network, I'm working solo.",
+                        },
+                    ],
+                    "final_wealth": 224,
+                },
+            },
+        },
+    ]
+
+    @app.get("/human-eval/scenarios")
+    @_human_eval_limit
+    def human_eval_scenarios():
+        """Return the vignette pairs for the human evaluation study."""
+        prolific_pid = request.args.get("PROLIFIC_PID", "")
+        return jsonify(
+            {
+                "vignettes": _VIGNETTES,
+                "prolific_pid": prolific_pid,
+                "instructions": (
+                    "You will see pairs of AI agents making decisions in an economic game. "
+                    "Each round agents choose: work (+8 wealth), save (+4 wealth), or "
+                    "cooperate (−3 now, +12 shared if others cooperate too). "
+                    "Rate which agent's behavior feels more realistic on a 1–7 scale."
+                ),
+            }
+        )
+
+    @app.post("/human-eval/rating")
+    @_human_eval_limit
+    def human_eval_rating():
+        """Save a participant's rating for a vignette pair."""
+        body: dict = request.get_json(force=True, silent=True) or {}
+        required = {"vignette_id", "prolific_pid", "realism_a", "realism_b", "preferred"}
+        missing = required - body.keys()
+        if missing:
+            return jsonify({"error": f"Missing fields: {sorted(missing)}"}), 400
+
+        vid = str(body["vignette_id"])[:16]
+        pid = re.sub(r"[^A-Za-z0-9_\-]", "", str(body["prolific_pid"]))[:64]
+        realism_a = body["realism_a"]
+        realism_b = body["realism_b"]
+        preferred = str(body.get("preferred", ""))[:4]
+        comment = str(body.get("comment", ""))[:500]
+
+        if not (1 <= realism_a <= 7 and 1 <= realism_b <= 7):
+            return jsonify({"error": "realism scores must be integers 1–7"}), 400
+        if preferred not in ("A", "B", "tie"):
+            return jsonify({"error": "preferred must be 'A', 'B', or 'tie'"}), 400
+
+        import time
+
+        record = {
+            "vignette_id": vid,
+            "prolific_pid": pid,
+            "realism_a": int(realism_a),
+            "realism_b": int(realism_b),
+            "preferred": preferred,
+            "comment": comment,
+            "ts": int(time.time()),
+        }
+
+        _HUMAN_EVAL_DIR.mkdir(parents=True, exist_ok=True)
+        with _HUMAN_EVAL_RATINGS.open("a") as fh:
+            fh.write(json.dumps(record) + "\n")
+
+        return jsonify({"status": "saved", "record": record}), 201
+
+    @app.get("/human-eval/results")
+    def human_eval_results():
+        """Aggregate ratings — admin view (no rate limit, but requires auth if token set)."""
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        if not _HUMAN_EVAL_RATINGS.exists():
+            return jsonify({"n_ratings": 0, "vignettes": {}})
+
+        ratings: list[dict] = []
+        with _HUMAN_EVAL_RATINGS.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if line:
+                    try:
+                        ratings.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+
+        from collections import defaultdict
+
+        agg: dict[str, dict] = defaultdict(
+            lambda: {"n": 0, "sum_a": 0, "sum_b": 0, "prefer_a": 0, "prefer_b": 0, "prefer_tie": 0}
+        )
+        for r in ratings:
+            v = agg[r["vignette_id"]]
+            v["n"] += 1
+            v["sum_a"] += r["realism_a"]
+            v["sum_b"] += r["realism_b"]
+            if r["preferred"] == "A":
+                v["prefer_a"] += 1
+            elif r["preferred"] == "B":
+                v["prefer_b"] += 1
+            else:
+                v["prefer_tie"] += 1
+
+        summary = {}
+        for vid, v in agg.items():
+            n = v["n"]
+            summary[vid] = {
+                "n": n,
+                "mean_realism_a": round(v["sum_a"] / n, 2),
+                "mean_realism_b": round(v["sum_b"] / n, 2),
+                "prefer_a_pct": round(v["prefer_a"] / n * 100, 1),
+                "prefer_b_pct": round(v["prefer_b"] / n * 100, 1),
+                "prefer_tie_pct": round(v["prefer_tie"] / n * 100, 1),
+            }
+
+        return jsonify({"n_ratings": len(ratings), "vignettes": summary})
 
     # ── Scan incomplete runs ──────────────────────────────────────────────────
 

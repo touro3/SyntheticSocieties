@@ -66,6 +66,7 @@ const links = [
   { to: '/',            icon: '⬡', label: 'Dashboard' },
   { to: '/run',         icon: '▶', label: 'Run Simulation' },
   { to: '/experiments', icon: '◫', label: 'Experiments' },
+  { to: '/human-eval',  icon: '◈', label: 'Human Eval' },
 ]
 
 onMounted(async () => {

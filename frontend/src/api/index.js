@@ -21,6 +21,9 @@ export const api = {
   interview:      (expId, agentId, question)  => http.post(`/interview/${expId}/${agentId}`, { question }),
   inject:         (expId, eventType, payload) => http.post(`/inject/${expId}`, { event_type: eventType, payload }),
   incomplete:     ()                          => http.get('/incomplete'),
+  humanEvalScenarios: (pid)                   => http.get('/human-eval/scenarios', { params: pid ? { PROLIFIC_PID: pid } : {} }),
+  humanEvalRating: (body)                     => http.post('/human-eval/rating', body),
+  humanEvalResults: ()                        => http.get('/human-eval/results'),
 }
 
 export function gini(values) {

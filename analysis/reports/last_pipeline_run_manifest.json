@@ -1,13 +1,11 @@
 {
-  "generated_at_utc": "2026-05-07T11:49:56.841487+00:00",
+  "generated_at_utc": "2026-05-07T20:50:41.607115+00:00",
   "args": {
     "seeds": [
-      42,
-      123,
-      7
+      42
     ],
-    "rounds": 2,
-    "agents": 3,
+    "rounds": 5,
+    "agents": 10,
     "include_llm": false,
     "include_perturbation": false,
     "plots_only": false,
@@ -17,32 +15,10 @@
     "skip_integrity_audit": false
   },
   "experiment_ids": [
-    "cmp_template_s7",
-    "cmp_rule_s123",
-    "cmp_template_s123",
-    "cmp_rule_s42",
-    "cmp_rule_s7",
-    "cmp_random_s123",
-    "cmp_random_s42",
-    "cmp_template_s42",
-    "cmp_rbe_s123",
-    "cmp_random_s7",
-    "cmp_rbe_s42",
-    "cmp_rbe_s7"
+    "cmp_rbe_s42"
   ],
   "summary_paths": [
-    "experiments/cmp_template_s7/summary.json",
-    "experiments/cmp_rule_s123/summary.json",
-    "experiments/cmp_template_s123/summary.json",
-    "experiments/cmp_rule_s42/summary.json",
-    "experiments/cmp_rule_s7/summary.json",
-    "experiments/cmp_random_s123/summary.json",
-    "experiments/cmp_random_s42/summary.json",
-    "experiments/cmp_template_s42/summary.json",
-    "experiments/cmp_rbe_s123/summary.json",
-    "experiments/cmp_random_s7/summary.json",
-    "experiments/cmp_rbe_s42/summary.json",
-    "experiments/cmp_rbe_s7/summary.json"
+    "experiments/cmp_rbe_s42/summary.json"
   ],
   "analysis_outputs_modified_since_run_start": {
     "figures": [

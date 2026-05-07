@@ -1,7 +1,9 @@
 {
   "level": "basic",
-  "status": "PASS",
-  "blockers": [],
+  "status": "FAIL",
+  "blockers": [
+    "llm_vs_baselines.csv is empty."
+  ],
   "warnings": [],
   "info": []
 }

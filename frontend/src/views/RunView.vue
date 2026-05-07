@@ -46,12 +46,24 @@
               <option value="openai">OpenAI</option>
               <option value="groq">Groq (free tier)</option>
             </select>
-            <input
-              v-model="designApiKey"
-              type="password"
-              class="design-key-input"
-              :placeholder="designProvider === 'groq' ? 'gsk_… (groq.com/keys)' : 'sk-… (platform.openai.com)'"
-            />
+            <div class="design-key-wrap">
+              <input
+                v-model="designApiKey"
+                type="password"
+                class="design-key-input"
+                :placeholder="designProvider === 'groq' ? 'gsk_…' : 'sk-…'"
+              />
+              <a v-if="designProvider === 'openai'"
+                href="https://platform.openai.com/api-keys"
+                target="_blank" rel="noopener" class="key-link key-link-sm">
+                Get key →
+              </a>
+              <a v-else
+                href="https://console.groq.com/keys"
+                target="_blank" rel="noopener" class="key-link key-link-sm">
+                Get key (free) →
+              </a>
+            </div>
             <button
               class="btn btn-primary design-btn"
               @click="runDesign"
@@ -1098,11 +1110,19 @@ function resetForm() {
   background: var(--bg4); border: 1px solid var(--border2);
   color: var(--text); font-size: .8rem; min-width: 130px;
 }
+.design-key-wrap {
+  flex: 1; display: flex; align-items: center; gap: 6px; min-width: 160px;
+}
 .design-key-input {
   flex: 1; padding: 8px 12px; border-radius: 8px;
   background: var(--bg4); border: 1px solid var(--border2);
-  color: var(--text); font-size: .8rem; min-width: 160px;
+  color: var(--text); font-size: .8rem;
 }
+.key-link-sm {
+  font-size: .72rem; white-space: nowrap; color: var(--blue2);
+  text-decoration: none; opacity: .8;
+}
+.key-link-sm:hover { opacity: 1; text-decoration: underline; }
 .design-btn { white-space: nowrap; }
 .design-result {
   display: flex; flex-direction: column; gap: 10px;

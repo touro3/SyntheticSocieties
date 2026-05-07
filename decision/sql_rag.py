@@ -21,33 +21,40 @@ class SQLRAG:
         data_path: str | Path = "data/ess_clean.parquet",
         static_context: Optional[str] = None,
     ):
-        # Initialise before the existence check so __del__ never sees a missing
-        # attribute if __init__ raises (e.g. FileNotFoundError below).
         self.conn = None
         self._initialized = False
         self._available_cols: set[str] = set()
         self._has_peer_cols: bool = False
         self.data_path = Path(data_path)
         self.static_context = static_context  # narrative from analysis sidecar
-        if not self.data_path.exists():
-            raise FileNotFoundError(f"Population data not found: {self.data_path}")
+        # Don't raise on missing file — degrade gracefully to static_context.
+        # The default ESS parquet is gitignored and absent on cloud deployments;
+        # raising here kills LLM policy builds on Render/CI.
 
     def _connect(self) -> None:
         """Lazily open a DuckDB connection and register the population view.
 
         Idempotent — safe to call multiple times.
         Detects available columns so queries can adapt to arbitrary data files.
+        When the data file is missing, marks the instance as having no peer
+        columns so callers fall back to static_context instead of querying.
         """
-        if self.conn is None:
-            self.conn = duckdb.connect()
-            self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
-            try:
-                cols_df = self.conn.execute("DESCRIBE population").fetchdf()
-                self._available_cols = set(cols_df["column_name"].tolist())
-            except Exception:
-                self._available_cols = set()
-            self._has_peer_cols = bool(self._available_cols & self._PEER_COLS)
+        if self._initialized:
+            return
+        if not self.data_path.exists():
+            # File absent — no SQL queries possible; callers use static_context.
+            self._has_peer_cols = False
             self._initialized = True
+            return
+        self.conn = duckdb.connect()
+        self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
+        try:
+            cols_df = self.conn.execute("DESCRIBE population").fetchdf()
+            self._available_cols = set(cols_df["column_name"].tolist())
+        except Exception:
+            self._available_cols = set()
+        self._has_peer_cols = bool(self._available_cols & self._PEER_COLS)
+        self._initialized = True
 
     def query_population_trends(self, query: str) -> str:
         """Execute a SELECT query against the population database."""
@@ -55,6 +62,9 @@ class SQLRAG:
             self._connect()
         except Exception as e:
             return f"Population database not available: {e}"
+
+        if self.conn is None:
+            return self.static_context or "Population database not available (data file absent)."
 
         # Security: Enforce SELECT-only
         if not query.strip().upper().startswith("SELECT"):

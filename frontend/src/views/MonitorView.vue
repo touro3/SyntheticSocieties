@@ -21,14 +21,18 @@
       <p>Waiting for the simulation process to start. This takes a few seconds for LLM policies.</p>
     </div>
 
-    <!-- Not found (exhausted retries) -->
+    <!-- Not found (still polling in background) -->
     <div v-else-if="notFound" class="card empty-card">
       <div class="empty-icon">◌</div>
-      <h3>Experiment not found</h3>
-      <p>No run state for <code class="mono">{{ expId }}</code> after 2 minutes. The subprocess may have crashed.</p>
-      <div style="display:flex;gap:10px;margin-top:16px;justify-content:center">
-        <button class="btn btn-outline btn-sm" @click="refresh">⟳ Retry</button>
-        <router-link to="/run" class="btn btn-primary btn-sm">Launch a run →</router-link>
+      <h3>Waiting for run…</h3>
+      <p>
+        No state yet for <code class="mono">{{ expId }}</code>.
+        Checking every 3 s — LLM policy startup can take 30–60 s on first launch.
+      </p>
+      <div style="display:flex;gap:10px;margin-top:16px;justify-content:center;align-items:center">
+        <span class="spin" style="font-size:.9rem;color:var(--text3)">⟳</span>
+        <span style="font-size:.78rem;color:var(--text3)">Still polling…</span>
+        <router-link to="/run" class="btn btn-ghost btn-sm" style="margin-left:8px">Launch another →</router-link>
       </div>
     </div>
 
@@ -461,7 +465,9 @@ const staleMinutes = computed(() => {
 const fmtTime = ts => ts ? new Date(ts * 1000).toLocaleTimeString() : '—'
 
 let notFoundRetries = 0
-const NOT_FOUND_MAX_RETRIES = 40  // 40 × 3s = 2 minutes patience window
+// After PATIENCE_RETRIES consecutive 404s, show the "not found" card —
+// but keep polling so the user doesn't need F5 if startup is just slow.
+const PATIENCE_RETRIES = 20  // 20 × 3s = 60s before showing not-found card
 
 async function refresh() {
   try {
@@ -473,11 +479,7 @@ async function refresh() {
   } catch(e) {
     if (e.response?.status === 404) {
       notFoundRetries++
-      // Keep notFound false while the subprocess is still initialising
-      // (writing run_state.json can take a few seconds for LLM policies)
-      if (notFoundRetries > NOT_FOUND_MAX_RETRIES) {
-        notFound.value = true
-      }
+      if (notFoundRetries >= PATIENCE_RETRIES) notFound.value = true
     }
   }
 }
@@ -486,8 +488,10 @@ function startPolling() {
   polling.value = true
   timer = setInterval(async () => {
     await refresh()
-    if (notFound.value) stopPolling()
-    if (['complete','failed'].includes(state.value.status)) stopPolling()
+    // Stop only when the run reaches a terminal state; keep going on notFound
+    // so the experiment is picked up automatically once the subprocess writes
+    // run_state.json (no F5 required)
+    if (['complete', 'failed'].includes(state.value.status)) stopPolling()
   }, 3000)
 }
 
@@ -499,11 +503,8 @@ function stopPolling() {
 onMounted(async () => {
   await refresh()
   loading.value = false
-  // Always start polling — startPolling will stop itself if notFound persists
-  // beyond NOT_FOUND_MAX_RETRIES or when the run finishes
-  if (!['complete','failed'].includes(state.value.status)) {
-    startPolling()
-  }
+  // Always poll — stops only on terminal status or component unmount
+  startPolling()
 })
 
 onBeforeUnmount(stopPolling)

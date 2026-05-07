@@ -553,6 +553,11 @@ def create_app(
             if data is not None:
                 payload[fname.replace(".json", "")] = data
 
+        # Include AI-design scenario context if present
+        scenario = _safe_json_file(exp_dir / "scenario.json")
+        if scenario:
+            payload["scenario"] = scenario
+
         return jsonify(payload)
 
     # ── List experiments ──────────────────────────────────────────────────────
@@ -786,6 +791,13 @@ def create_app(
             history_lines.append(entry)
         history_text = "\n".join(history_lines)
 
+        # ── Load scenario context if this run was created via AI design ────────
+        scenario_ctx = _safe_json_file(exp_dir / "scenario.json") or {}
+        scenario_title = scenario_ctx.get("scenario_title", "")
+        scenario_description = scenario_ctx.get("scenario_description", "")
+        population_narrative = scenario_ctx.get("population_narrative", "")
+        population_traits = scenario_ctx.get("population_traits", {})
+
         # ── Try OpenAI for natural-language answer ────────────────────────────
         oai_key = os.environ.get("OPENAI_API_KEY", "")
         if oai_key:
@@ -793,16 +805,38 @@ def create_app(
                 from openai import OpenAI as _OAI
 
                 oai = _OAI(api_key=oai_key)
+
+                # Build scenario persona block (empty string if no design context)
+                if scenario_title:
+                    trait_lines = (
+                        "\n".join(f"  {k}: {v}" for k, v in population_traits.items()) if population_traits else ""
+                    )
+                    scenario_block = (
+                        f"\nScenario: {scenario_title}\n"
+                        f"Context: {scenario_description}\n"
+                        f"Your population background: {population_narrative}\n"
+                        + (f"Your trait profile:\n{trait_lines}\n" if trait_lines else "")
+                        + "\nAnswer questions in-character for this scenario. "
+                        "If asked about opinions, predictions, or scenario-specific topics, "
+                        "answer from your character's perspective shaped by the traits above. "
+                        "Connect your answers to your behavioral history where relevant.\n"
+                    )
+                else:
+                    scenario_block = ""
+
                 system_prompt = (
-                    f"You are {agent_id}, a synthetic economic agent in a completed simulation ({exp_id}). "
+                    f"You are {agent_id}, a synthetic agent in a completed BGF simulation ({exp_id})."
+                    f"{scenario_block}\n"
                     f"You played {total_rounds} rounds. Your dominant strategy was '{dominant}' "
                     f"({', '.join(f'{v}× {k}' for k, v in sorted(action_counts.items(), key=lambda x: -x[1]))}). "
                     f"Final wealth: {final_wealth:.1f} (started at {first_wealth:.1f}, delta {wealth_delta:+.1f}). "
                     f"Final stress: {final_stress:.2f}. Cooperation rounds: {coop_count}.\n\n"
                     f"Recent round history:\n{history_text}\n\n"
                     "Answer the user's question in first-person as this agent, "
-                    "drawing only from the data above. Be natural and concise (2-4 sentences). "
-                    "Do not mention 'LLM fallback' or simulation internals."
+                    "drawing from the scenario context and behavioral data above. "
+                    "Be natural and concise (2-4 sentences). "
+                    "Do not mention 'LLM fallback', simulation internals, or action names like 'cooperate/work/save' "
+                    "unless directly asked about strategy."
                 )
                 resp = oai.chat.completions.create(
                     model="gpt-4o-mini",
@@ -985,6 +1019,51 @@ def create_app(
                     f"my {total_rounds} rounds were dominated by {dominant}. "
                     f"Network neighbors weren't logged in detail for this experiment."
                 )
+
+        elif scenario_title and not any(
+            w in q_low
+            for w in (
+                "wealth",
+                "strategy",
+                "cooperation",
+                "trust",
+                "neighbor",
+                "round",
+                "last decision",
+                "feel",
+                "rich",
+                "money",
+                "cooperat",
+                "social",
+                "pool",
+            )
+        ):
+            # Question is scenario-specific (election, policy, climate, etc.) but no
+            # LLM key available.  Derive an in-character answer from population traits.
+            trust_level = population_traits.get("trust_institutions", 0.5)
+            life_sat = population_traits.get("life_satisfaction", 0.5)
+
+            if trust_level >= 0.6:
+                trust_stance = "I tend to trust established institutions and their processes"
+            elif trust_level <= 0.35:
+                trust_stance = "I'm skeptical of institutions — they rarely deliver on their promises"
+            else:
+                trust_stance = "I have mixed feelings about how reliable institutions are"
+
+            if life_sat >= 0.6:
+                outlook = "and I'm broadly optimistic about how things will unfold"
+            elif life_sat <= 0.35:
+                outlook = "and I'm frankly worried about the direction things are heading"
+            else:
+                outlook = "though I try to keep a realistic outlook"
+
+            answer = (
+                f"Speaking as someone shaped by the '{scenario_title}' context: {trust_stance}, "
+                f"{outlook}. My experience across {total_rounds} rounds — where I mainly "
+                f"{'cooperated' if coop_count > total_rounds // 3 else 'acted independently'} — "
+                f"reinforced that {'working together pays off' if coop_count > total_rounds // 3 else 'self-reliance matters'}. "
+                f"That shapes how I read the question you're asking."
+            )
 
         else:
             # Generic behavioral summary
@@ -1666,7 +1745,32 @@ def create_app(
                 env_var = "GROQ_API_KEY" if llm_backend == "groq" else "OPENAI_API_KEY"
                 run_env = {**_os.environ, env_var: llm_api_key}
 
+        # Snapshot the design context now (before the thread) so the closure is safe.
+        _scenario_snapshot: dict | None = None
+        if design_id_raw and _FILE_ID_RE.match(design_id_raw):
+            _dp = _UPLOADS_DIR / f"{design_id_raw}_design.json"
+            if _dp.exists():
+                try:
+                    _sd = json.loads(_dp.read_text())
+                    _scenario_snapshot = {
+                        "scenario_title": _sd.get("scenario_title", ""),
+                        "scenario_description": _sd.get("scenario_description", ""),
+                        "population_narrative": _sd.get("population_narrative", ""),
+                        "reasoning": _sd.get("reasoning", ""),
+                        "population_traits": _sd.get("population_traits", {}),
+                    }
+                except Exception:
+                    pass
+
+        def _persist_scenario(exp_out: Path) -> None:
+            if _scenario_snapshot and exp_out.exists():
+                try:
+                    (exp_out / "scenario.json").write_text(json.dumps(_scenario_snapshot, indent=2))
+                except Exception as _e:
+                    logger.warning("Could not write scenario.json for %s: %s", exp_id, _e)
+
         def _run():
+            exp_out = _EXPERIMENTS_ROOT / exp_id
             try:
                 result = subprocess.run(
                     cmd,
@@ -1677,6 +1781,7 @@ def create_app(
                 )
                 if result.stdout:
                     logger.info("Wizard run %s stdout: %s", exp_id, result.stdout[-1000:])
+                _persist_scenario(exp_out)
             except subprocess.CalledProcessError as exc:
                 stderr_tail = (exc.stderr or "")[-800:]
                 stdout_tail = (exc.stdout or "")[-400:]
@@ -1687,8 +1792,10 @@ def create_app(
                     stdout_tail,
                     stderr_tail,
                 )
+                _persist_scenario(exp_out)  # Save context even on failure
             except Exception as exc:
                 logger.error("Wizard _run thread error (exp=%s): %s", exp_id, exc)
+                _persist_scenario(exp_out)
 
         thread = threading.Thread(target=_run, name=f"wiz-{exp_id}", daemon=True)
         thread.start()

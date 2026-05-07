@@ -21,6 +21,39 @@
     </div>
 
     <template v-else>
+
+      <!-- Scenario context card (shown when simulation was designed via AI prompt) -->
+      <div v-if="scenario?.scenario_title" class="card scenario-card">
+        <div class="scenario-header">
+          <span class="scenario-icon">✦</span>
+          <span class="scenario-label">AI-Designed Scenario</span>
+        </div>
+        <h2 class="scenario-title">{{ scenario.scenario_title }}</h2>
+        <p class="scenario-desc">{{ scenario.scenario_description }}</p>
+        <div v-if="scenario.population_narrative" class="scenario-narrative">
+          {{ scenario.population_narrative }}
+        </div>
+        <div v-if="scenario.population_traits && Object.keys(scenario.population_traits).length" class="scenario-traits">
+          <div
+            v-for="(val, key) in scenario.population_traits"
+            :key="key"
+            class="trait-pill"
+          >
+            <span class="trait-key">{{ key.replace(/_/g, ' ') }}</span>
+            <span class="trait-bar-wrap">
+              <span
+                class="trait-bar"
+                :style="{ width: traitPct(key, val) + '%' }"
+              ></span>
+            </span>
+            <span class="trait-val">{{ traitFmt(key, val) }}</span>
+          </div>
+        </div>
+        <div class="scenario-hint">
+          Interview agents below to get in-character responses about this scenario.
+        </div>
+      </div>
+
       <!-- KPI row -->
       <div class="kpi-row" ref="kpiRef">
         <div class="kpi reveal" v-for="(m, i) in kpis" :key="m.label" :style="{ '--i': i }" v-tilt>
@@ -184,6 +217,7 @@ const err     = ref('')
 const summary = ref(null)
 const metrics = ref(null)
 const meta    = ref(null)
+const scenario = ref(null)
 const wealthCanvas = ref(null)
 let chart = null
 
@@ -317,9 +351,10 @@ async function doInject() {
 onMounted(async () => {
   try {
     const r = await api.results(expId)
-    summary.value = r.data.summary  ?? null
-    metrics.value = r.data.metrics  ?? null
-    meta.value    = r.data.metadata ?? null
+    summary.value  = r.data.summary  ?? null
+    metrics.value  = r.data.metrics  ?? null
+    meta.value     = r.data.metadata ?? null
+    scenario.value = r.data.scenario ?? null
     await nextTick()
     drawChart()
   } catch(e) {
@@ -330,6 +365,19 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => { if (chart) { chart.destroy(); chart = null } })
+
+function traitPct(key, val) {
+  // income_decile_avg is 1-10; age_mean is 18-80; everything else is 0-1
+  if (key === 'income_decile_avg') return Math.round((val - 1) / 9 * 100)
+  if (key === 'age_mean') return Math.round((val - 18) / 62 * 100)
+  return Math.round(Number(val) * 100)
+}
+
+function traitFmt(key, val) {
+  if (key === 'age_mean') return Math.round(val) + ' yrs'
+  if (key === 'income_decile_avg') return 'D' + Math.round(val)
+  return (Number(val) * 100).toFixed(0) + '%'
+}
 </script>
 
 <style scoped>
@@ -415,5 +463,49 @@ dd { font-size: .8rem; color: var(--text); word-break: break-all; }
   font-size: .82rem; color: var(--text3); padding: 12px 0;
   border-bottom: 1px solid var(--border); margin-bottom: 2px;
   line-height: 1.6;
+}
+
+/* ── Scenario card ──────────────────────────────────────────── */
+.scenario-card {
+  margin-bottom: 1.25rem;
+  border-color: rgba(91, 141, 238, .3);
+  background: linear-gradient(135deg, rgba(91,141,238,.04) 0%, var(--surface1) 60%);
+}
+.scenario-header {
+  display: flex; align-items: center; gap: .45rem;
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--blue1); margin-bottom: .5rem;
+}
+.scenario-icon { font-size: .85rem; }
+.scenario-label { font-weight: 700; }
+.scenario-title { margin: 0 0 .5rem; font-size: 1.15rem; color: var(--text0); }
+.scenario-desc { margin: 0 0 .75rem; font-size: .88rem; color: var(--text2); line-height: 1.6; }
+.scenario-narrative {
+  font-size: .84rem; color: var(--text1); line-height: 1.65;
+  border-left: 2px solid var(--blue1); padding-left: .75rem;
+  margin-bottom: .85rem; font-style: italic;
+}
+.scenario-traits {
+  display: flex; flex-direction: column; gap: .35rem; margin-bottom: .85rem;
+}
+.trait-pill {
+  display: flex; align-items: center; gap: .6rem; font-size: .82rem;
+}
+.trait-key {
+  min-width: 150px; color: var(--text2); text-transform: capitalize;
+  font-size: .78rem;
+}
+.trait-bar-wrap {
+  flex: 1; height: 5px; background: var(--surface2);
+  border-radius: 3px; overflow: hidden;
+}
+.trait-bar {
+  display: block; height: 100%; background: var(--blue1);
+  border-radius: 3px; transition: width .4s ease;
+}
+.trait-val { min-width: 40px; text-align: right; color: var(--text1); font-size: .78rem; }
+.scenario-hint {
+  font-size: .78rem; color: var(--text3);
+  border-top: 1px solid var(--border); padding-top: .6rem; margin-top: .25rem;
 }
 </style>

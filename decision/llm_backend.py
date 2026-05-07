@@ -110,7 +110,7 @@ class LLMBackend:
         # accelerate silently falls back to CPU emulation, causing 30-50s/token.
         if dtype == "bfloat16":
             raise ValueError(
-                f"dtype='bfloat16' is not supported on Tesla P100 (CC 6.0). "
+                "dtype='bfloat16' is not supported on Tesla P100 (CC 6.0). "
                 "Use dtype='float16'. bfloat16 triggers silent CPU offload via "
                 "accelerate, producing action collapse from garbled outputs."
             )

@@ -581,7 +581,6 @@ def create_app(
             action_counts[a] = action_counts.get(a, 0) + 1
         dominant = max(action_counts, key=action_counts.get) if action_counts else "unknown"
         final_state = agent_events[-1].get("state_after", {})
-        first_state = agent_events[0].get("state_after", {})
         last_ev = agent_events[-1]
         last_action = last_ev.get("action", {}).get("action_type", "unknown")
         last_round = last_ev.get("round_id", total_rounds)
@@ -591,7 +590,6 @@ def create_app(
         final_stress = final_state.get("stress", 0)
         wealth_delta = final_wealth - first_wealth
         coop_count = action_counts.get("cooperate", 0)
-        steal_count = action_counts.get("steal", 0)
 
         # ── Build per-agent social/interaction maps ───────────────────────────
         # neighbors seen across all rounds (union of perception.network.neighbors)
@@ -990,7 +988,9 @@ def create_app(
         if not ok:
             return err
 
-        import time, yaml as _yaml
+        import time
+
+        import yaml as _yaml
 
         body = request.get_json(silent=True) or {}
 

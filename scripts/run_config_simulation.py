@@ -405,7 +405,6 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             print(f"Warning: graph persona enrichment skipped ({exc})")
 
     # ── Graceful shutdown wiring ──────────────────────────────────────────────
-    from simulation.crash_recovery import RunStateManager
     from simulation.signal_handler import GracefulShutdown
 
     run_mgr = _early_run_mgr  # reuse the manager that wrote the early run_state.json

@@ -366,6 +366,7 @@ def create_app(
 
         # Detect stale LLM run: running, 0 rounds completed, updated > 90s ago
         import time as _time
+
         if state.get("status") == "running" and state.get("completed_rounds", 0) == 0:
             updated_at = state.get("updated_at") or state.get("started_at") or 0
             if _time.time() - float(updated_at) > 90:
@@ -579,32 +580,32 @@ def create_app(
             a = ev.get("action", {}).get("action_type", "unknown")
             action_counts[a] = action_counts.get(a, 0) + 1
         dominant = max(action_counts, key=action_counts.get) if action_counts else "unknown"
-        final_state  = agent_events[-1].get("state_after", {})
-        first_state  = agent_events[0].get("state_after", {})
-        last_ev      = agent_events[-1]
-        last_action  = last_ev.get("action", {}).get("action_type", "unknown")
-        last_round   = last_ev.get("round_id", total_rounds)
-        last_reason  = last_ev.get("action", {}).get("reasoning_summary", "")
+        final_state = agent_events[-1].get("state_after", {})
+        first_state = agent_events[0].get("state_after", {})
+        last_ev = agent_events[-1]
+        last_action = last_ev.get("action", {}).get("action_type", "unknown")
+        last_round = last_ev.get("round_id", total_rounds)
+        last_reason = last_ev.get("action", {}).get("reasoning_summary", "")
         final_wealth = final_state.get("wealth", 0)
         first_wealth = agent_events[0].get("state_after", {}).get("wealth", final_wealth)
         final_stress = final_state.get("stress", 0)
         wealth_delta = final_wealth - first_wealth
-        coop_count   = action_counts.get("cooperate", 0)
-        steal_count  = action_counts.get("steal", 0)
+        coop_count = action_counts.get("cooperate", 0)
+        steal_count = action_counts.get("steal", 0)
 
         # ── Build per-agent social/interaction maps ───────────────────────────
         # neighbors seen across all rounds (union of perception.network.neighbors)
         all_neighbors: set = set()
         # agents cooperated WITH (target_agent_id when action=cooperate)
-        coop_targets: dict = {}   # agent_id → count
+        coop_targets: dict = {}  # agent_id → count
         # agents who stole from us or we never cooperated with
         steal_targets: dict = {}  # agent_id → count
 
         for ev in agent_events:
             nb_list = ev.get("perception", {}).get("network", {}).get("neighbors", [])
             all_neighbors.update(nb_list)
-            act_type   = ev.get("action", {}).get("action_type", "")
-            target     = ev.get("action", {}).get("target_agent_id")
+            act_type = ev.get("action", {}).get("action_type", "")
+            target = ev.get("action", {}).get("target_agent_id")
             if act_type == "cooperate" and target:
                 coop_targets[target] = coop_targets.get(target, 0) + 1
             if act_type == "steal" and target:
@@ -612,23 +613,26 @@ def create_app(
 
         # Neighbors never cooperated with = potential "don't trust" candidates
         never_coop_neighbors = sorted(all_neighbors - set(coop_targets.keys()))
-        most_coop_neighbor   = max(coop_targets, key=coop_targets.get) if coop_targets else None
-        most_stolen_from     = max(steal_targets, key=steal_targets.get) if steal_targets else None
+        most_coop_neighbor = max(coop_targets, key=coop_targets.get) if coop_targets else None
+        most_stolen_from = max(steal_targets, key=steal_targets.get) if steal_targets else None
 
         # Build a history block for the OpenAI prompt (last 10 rounds)
         history_lines = []
         for ev in agent_events[-10:]:
-            r   = ev.get("round_id", "?")
+            r = ev.get("round_id", "?")
             act = ev.get("action", {}).get("action_type", "?")
-            w   = ev.get("state_after", {}).get("wealth")
-            s   = ev.get("state_after", {}).get("stress")
+            w = ev.get("state_after", {}).get("wealth")
+            s = ev.get("state_after", {}).get("stress")
             rsn = ev.get("action", {}).get("reasoning_summary", "")
             # Strip LLM-fallback markers to present clean data
             rsn = rsn.replace("[LLM fallback: ", "").rstrip("]")
             entry = f"Round {r}: {act}"
-            if w is not None: entry += f", wealth {w:.0f}"
-            if s is not None: entry += f", stress {s:.2f}"
-            if rsn:           entry += f" — {rsn}"
+            if w is not None:
+                entry += f", wealth {w:.0f}"
+            if s is not None:
+                entry += f", stress {s:.2f}"
+            if rsn:
+                entry += f" — {rsn}"
             history_lines.append(entry)
         history_text = "\n".join(history_lines)
 
@@ -637,6 +641,7 @@ def create_app(
         if oai_key:
             try:
                 from openai import OpenAI as _OAI
+
                 oai = _OAI(api_key=oai_key)
                 system_prompt = (
                     f"You are {agent_id}, a synthetic economic agent in a completed simulation ({exp_id}). "
@@ -653,7 +658,7 @@ def create_app(
                     model="gpt-4o-mini",
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        {"role": "user",   "content": question},
+                        {"role": "user", "content": question},
                     ],
                     max_tokens=220,
                     temperature=0.7,
@@ -667,35 +672,62 @@ def create_app(
         q_low = question.lower()
 
         def _wealth_feel(w: float) -> str:
-            if w >= 120: return "quite wealthy and secure"
-            if w >= 80:  return "comfortable, though not rich"
-            if w >= 50:  return "adequate but cautious"
+            if w >= 120:
+                return "quite wealthy and secure"
+            if w >= 80:
+                return "comfortable, though not rich"
+            if w >= 50:
+                return "adequate but cautious"
             return "stretched and concerned"
 
         def _stress_desc(s: float) -> str:
-            if s > 0.4:   return "quite stressed"
-            if s > 0.1:   return "moderately stressed"
-            if s > -0.1:  return "fairly relaxed"
+            if s > 0.4:
+                return "quite stressed"
+            if s > 0.1:
+                return "moderately stressed"
+            if s > -0.1:
+                return "fairly relaxed"
             return "very calm and settled"
 
         last_reason_clean = last_reason.replace("[LLM fallback: ", "").rstrip("]")
 
         # Detect "which agent" / "who" specificity first — most specific branch
-        _who_keywords   = ("which agent", "who do", "who don't", "who don", "name an agent",
-                           "any agent", "specific agent", "which one", "who would")
-        _distrust_words = ("don't trust", "dont trust", "not trust", "least trust", "avoid",
-                           "suspicious", "who to avoid", "who not to",
-                           "don't you trust", "dont you trust", "you not trust",
-                           "distrust", "no trust", "wouldn't trust")
-        _trust_words    = ("trust most", "most trust", "rely on", "cooperate with most",
-                           "best ally", "favorite")
+        _who_keywords = (
+            "which agent",
+            "who do",
+            "who don't",
+            "who don",
+            "name an agent",
+            "any agent",
+            "specific agent",
+            "which one",
+            "who would",
+        )
+        _distrust_words = (
+            "don't trust",
+            "dont trust",
+            "not trust",
+            "least trust",
+            "avoid",
+            "suspicious",
+            "who to avoid",
+            "who not to",
+            "don't you trust",
+            "dont you trust",
+            "you not trust",
+            "distrust",
+            "no trust",
+            "wouldn't trust",
+        )
+        _trust_words = ("trust most", "most trust", "rely on", "cooperate with most", "best ally", "favorite")
 
-        is_who_question  = any(w in q_low for w in _who_keywords)
+        is_who_question = any(w in q_low for w in _who_keywords)
         # Also detect: "which agent ... trust ... not/don't/at all/never"
         _negations = ("not", "don't", "dont", "never", "at all", "least", "no")
-        is_distrust_q    = (any(w in q_low for w in _distrust_words) or
-                            (is_who_question and "trust" in q_low and any(n in q_low for n in _negations)))
-        is_trust_q       = any(w in q_low for w in _trust_words)
+        is_distrust_q = any(w in q_low for w in _distrust_words) or (
+            is_who_question and "trust" in q_low and any(n in q_low for n in _negations)
+        )
+        is_trust_q = any(w in q_low for w in _trust_words)
 
         if is_who_question and is_distrust_q:
             # "Which agent don't you trust / would you avoid?"
@@ -789,7 +821,8 @@ def create_app(
             if nb_list:
                 coop_note = (
                     f" I cooperated with {most_coop_neighbor} {coop_targets[most_coop_neighbor]}× most."
-                    if most_coop_neighbor else " I didn't build cooperative ties with any of them."
+                    if most_coop_neighbor
+                    else " I didn't build cooperative ties with any of them."
                 )
                 answer = (
                     f"My network included {', '.join(nb_list[:4])}{'...' if len(nb_list) > 4 else ''}.{coop_note} "
@@ -853,14 +886,17 @@ def create_app(
         if run_state_path.exists():
             try:
                 import json as _json
+
                 with run_state_path.open() as _f:
                     _rs = _json.load(_f)
                 _status = _rs.get("status", "unknown")
                 if _status in ("complete", "completed", "failed"):
-                    return jsonify({
-                        "error": f"Simulation is {_status} — inject only works on actively running simulations.",
-                        "status": _status,
-                    }), 409
+                    return jsonify(
+                        {
+                            "error": f"Simulation is {_status} — inject only works on actively running simulations.",
+                            "status": _status,
+                        }
+                    ), 409
             except Exception:
                 pass
 
@@ -876,7 +912,9 @@ def create_app(
             return jsonify(reply)
 
         except TimeoutError:
-            return jsonify({"error": "IPC timeout — simulation may not have IPC enabled. Run a new simulation to inject events."}), 504
+            return jsonify(
+                {"error": "IPC timeout — simulation may not have IPC enabled. Run a new simulation to inject events."}
+            ), 504
         except Exception as exc:
             logger.error("inject error (exp=%s event=%s): %s", exp_id, event_type, exc)
             return jsonify({"error": f"Injection failed: {exc}"}), 500
@@ -957,20 +995,20 @@ def create_app(
         body = request.get_json(silent=True) or {}
 
         # ── Validate and clamp wizard params ─────────────────────────────
-        _VALID_POLICIES  = {"mock", "random", "rule_based", "template", "llm", "generative_agents"}
-        _VALID_NETWORKS  = {"random", "small_world"}
-        _VALID_SOURCES   = {"synthetic", "empirical"}
-        _VALID_BACKENDS  = {"huggingface", "openai"}
+        _VALID_POLICIES = {"mock", "random", "rule_based", "template", "llm", "generative_agents"}
+        _VALID_NETWORKS = {"random", "small_world"}
+        _VALID_SOURCES = {"synthetic", "empirical"}
+        _VALID_BACKENDS = {"huggingface", "openai"}
         _VALID_OAI_MODELS = {"gpt-4o-mini", "gpt-4o", "gpt-4o-2024-11-20", "gpt-4-turbo", "o1-mini"}
 
-        policy  = str(body.get("policy", "rule_based"))
+        policy = str(body.get("policy", "rule_based"))
         if policy not in _VALID_POLICIES:
             return jsonify({"error": f"Invalid policy. Choose from: {sorted(_VALID_POLICIES)}"}), 400
 
         try:
             agents = max(5, min(500, int(body.get("agents", 20))))
             rounds = max(5, min(100, int(body.get("rounds", 10))))
-            seed   = int(body.get("seed", 42))
+            seed = int(body.get("seed", 42))
         except (TypeError, ValueError):
             return jsonify({"error": "agents, rounds, seed must be integers"}), 400
 
@@ -989,23 +1027,19 @@ def create_app(
             bad_apple_frac = 0.0
 
         # ── LLM backend / provider params ────────────────────────────────────
-        _VALID_BACKENDS  = {"huggingface", "openai", "groq", "ollama"}
+        _VALID_BACKENDS = {"huggingface", "openai", "groq", "ollama"}
 
-        llm_backend  = str(body.get("llm_backend", "openai"))
+        llm_backend = str(body.get("llm_backend", "openai"))
         if llm_backend not in _VALID_BACKENDS:
             llm_backend = "openai"
 
         llm_model_id = str(body.get("llm_model_id", "gpt-4o-mini"))
 
         # Accept key under either name
-        llm_api_key  = (
-            str(body.get("openai_api_key", "")).strip()
-            or str(body.get("llm_api_key",    "")).strip()
-            or None
-        )
+        llm_api_key = str(body.get("openai_api_key", "")).strip() or str(body.get("llm_api_key", "")).strip() or None
 
         # ── Generate experiment ID and YAML config ────────────────────────
-        ts     = int(time.time())
+        ts = int(time.time())
         exp_id = f"wizard_{policy}_{agents}a_{rounds}r_{ts}"
 
         wizard_dir = _CONFIGS_ROOT / "wizard"
@@ -1045,7 +1079,8 @@ def create_app(
         cmd = [
             sys.executable,
             "scripts/run_config_simulation.py",
-            "--config", str(base_cfg if base_cfg.exists() else config_path),
+            "--config",
+            str(base_cfg if base_cfg.exists() else config_path),
             f"project.experiment_id={exp_id}",
             f"project.seed={seed}",
             f"simulation.rounds={rounds}",
@@ -1064,6 +1099,7 @@ def create_app(
             ]
             if llm_api_key:
                 import os as _os
+
                 env_var = "GROQ_API_KEY" if llm_backend == "groq" else "OPENAI_API_KEY"
                 run_env = {**_os.environ, env_var: llm_api_key}
 
@@ -1086,14 +1122,16 @@ def create_app(
             "bad_apple_frac": bad_apple_frac,
         }
         if policy in ("llm", "generative_agents"):
-            resp_params["llm_backend"]  = llm_backend
+            resp_params["llm_backend"] = llm_backend
             resp_params["llm_model_id"] = llm_model_id
 
-        return jsonify({
-            "experiment_id": exp_id,
-            "status": "started",
-            "params": resp_params,
-        }), 202
+        return jsonify(
+            {
+                "experiment_id": exp_id,
+                "status": "started",
+                "params": resp_params,
+            }
+        ), 202
 
     # ── Scan incomplete runs ──────────────────────────────────────────────────
 

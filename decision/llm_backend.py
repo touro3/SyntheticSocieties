@@ -224,9 +224,9 @@ class LLMBackend:
             # crashing the next model load.
             model_kwargs["torch_dtype"] = self.dtype
             logger.info(
-                "  Loading with NF4 4-bit quantization (bitsandbytes) | "
-                "torch_dtype=%s | max_memory=%s",
-                self.dtype, _max_memory,
+                "  Loading with NF4 4-bit quantization (bitsandbytes) | torch_dtype=%s | max_memory=%s",
+                self.dtype,
+                _max_memory,
             )
 
         elif self.quantization in ("8bit", "8"):
@@ -243,9 +243,9 @@ class LLMBackend:
             model_kwargs["max_memory"] = _max_memory
             model_kwargs["torch_dtype"] = self.dtype  # same bfloat16 override reason
             logger.info(
-                "  Loading with INT8 quantization (bitsandbytes) | "
-                "torch_dtype=%s | max_memory=%s",
-                self.dtype, _max_memory,
+                "  Loading with INT8 quantization (bitsandbytes) | torch_dtype=%s | max_memory=%s",
+                self.dtype,
+                _max_memory,
             )
 
         else:
@@ -277,7 +277,10 @@ class LLMBackend:
             gpu_mem_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
             logger.info(
                 "Model loaded in %.1fs | dtype=%s | GPU=%s | VRAM=%.1fGB",
-                elapsed, actual_dtype, gpu_name, gpu_mem_gb,
+                elapsed,
+                actual_dtype,
+                gpu_name,
+                gpu_mem_gb,
             )
         except StopIteration:
             logger.info("Model loaded in %.1fs", elapsed)
@@ -289,11 +292,7 @@ class LLMBackend:
         Any CPU/meta device means the max_memory constraint was ignored or the
         model is too large for the GPU — either way the experiment is invalid.
         """
-        off_device = [
-            (name, str(p.device))
-            for name, p in self.model.named_parameters()
-            if p.device.type != "cuda"
-        ]
+        off_device = [(name, str(p.device)) for name, p in self.model.named_parameters() if p.device.type != "cuda"]
         if off_device:
             sample = off_device[:5]
             raise RuntimeError(
@@ -393,6 +392,7 @@ class LLMBackend:
                 InfNanRemoveLogitsProcessor,
                 LogitsProcessorList,
             )
+
             _logits_processor = LogitsProcessorList([InfNanRemoveLogitsProcessor()])
         except ImportError:
             _logits_processor = None
@@ -667,6 +667,7 @@ class LLMBackend:
                 InfNanRemoveLogitsProcessor,
                 LogitsProcessorList,
             )
+
             _lp = LogitsProcessorList([InfNanRemoveLogitsProcessor()])
         except ImportError:
             _lp = None

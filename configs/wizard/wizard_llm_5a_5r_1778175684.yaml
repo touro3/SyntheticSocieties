@@ -1,0 +1,18 @@
+bad_apple:
+  fraction: 0.1
+llm:
+  backend_type: ollama
+  model_id: llama3.2
+network:
+  type: small_world
+policy:
+  type: llm
+population:
+  source: empirical
+project:
+  experiment_id: wizard_llm_5a_5r_1778175684
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 5
+  rounds: 5

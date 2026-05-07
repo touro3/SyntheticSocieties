@@ -307,9 +307,11 @@ def _run_condition(
         pass
     del backend
     import gc as _gc
+
     _gc.collect()
     try:
         import torch as _torch
+
         if _torch.cuda.is_available():
             _torch.cuda.synchronize()
             _torch.cuda.empty_cache()

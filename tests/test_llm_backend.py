@@ -251,7 +251,8 @@ class TestLoadLocalFilesOnly:
         mock_model = MagicMock()
         mock_model.eval.return_value = None
         mock_model.device = torch.device("cpu")
-        _mp = MagicMock(); _mp.device = torch.device("cpu")
+        _mp = MagicMock()
+        _mp.device = torch.device("cpu")
         mock_model.parameters.side_effect = lambda: iter([_mp])
 
         mock_tok = MagicMock()

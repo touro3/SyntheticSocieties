@@ -121,24 +121,22 @@ def _get_ess_clean_path(config: dict) -> str:
 
 _OPENAI_COMPAT_PROVIDERS = {
     # provider  → (base_url or None, env-var for key, key-fallback)
-    "openai": (None,                                    "OPENAI_API_KEY",  None),
-    "groq":   ("https://api.groq.com/openai/v1",       "GROQ_API_KEY",    None),
-    "ollama": ("http://localhost:11434/v1",              None,              "ollama"),
+    "openai": (None, "OPENAI_API_KEY", None),
+    "groq": ("https://api.groq.com/openai/v1", "GROQ_API_KEY", None),
+    "ollama": ("http://localhost:11434/v1", None, "ollama"),
 }
 
 
 def _build_llm_backend(llm_cfg: dict):
     import os as _os
+
     backend_type = llm_cfg.get("backend_type", "huggingface")
 
     if backend_type in _OPENAI_COMPAT_PROVIDERS:
         from decision.openai_backend import OpenAIBackend
+
         base_url, env_var, key_fallback = _OPENAI_COMPAT_PROVIDERS[backend_type]
-        api_key = (
-            llm_cfg.get("api_key")
-            or ((_os.environ.get(env_var) or None) if env_var else None)
-            or key_fallback
-        )
+        api_key = llm_cfg.get("api_key") or ((_os.environ.get(env_var) or None) if env_var else None) or key_fallback
         backend = OpenAIBackend(
             model_id=llm_cfg.get("model_id", "gpt-4o-mini"),
             max_new_tokens=llm_cfg.get("max_new_tokens", 256),
@@ -319,6 +317,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     # Write run_state.json immediately so /status can see the experiment
     # even while the policy / LLM model is still loading.
     from simulation.crash_recovery import RunStateManager as _EarlyRSM
+
     _early_run_mgr = _EarlyRSM(run_dir)
     if not (run_dir / "run_state.json").exists():
         _early_run_mgr.start(

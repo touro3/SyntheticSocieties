@@ -22,6 +22,7 @@ export default defineConfig({
       '/report': 'http://localhost:5050',
       '/incomplete': 'http://localhost:5050',
       '/configs': 'http://localhost:5050',
+      '/simulate-wizard': 'http://localhost:5050',
     },
   },
 })

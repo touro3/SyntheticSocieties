@@ -615,6 +615,130 @@ def create_app(
             logger.error("report error (q=%r): %s", query[:100], exc, exc_info=True)
             return jsonify({"error": "Report generation failed"}), 500
 
+    # ── No-code wizard simulate ──────────────────────────────────────────
+
+    @app.post("/simulate-wizard")
+    @_simulate_limit
+    def simulate_wizard():
+        """
+        Launch a simulation from wizard parameters (no YAML knowledge needed).
+
+        Body (JSON):
+          policy           str   "mock"|"random"|"rule_based"|"template"|"llm"  (default: rule_based)
+          agents           int   Population size 5-500                           (default: 20)
+          rounds           int   Simulation rounds 5-100                        (default: 10)
+          network_type     str   "random"|"small_world"                         (default: random)
+          population_source str  "synthetic"|"empirical"                        (default: synthetic)
+          seed             int   Random seed                                    (default: 42)
+          bad_apple_frac   float Fraction of adversarial agents 0.0-0.3        (default: 0.0)
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        import time, yaml as _yaml
+
+        body = request.get_json(silent=True) or {}
+
+        # ── Validate and clamp wizard params ─────────────────────────────
+        _VALID_POLICIES = {"mock", "random", "rule_based", "template", "llm", "generative_agents"}
+        _VALID_NETWORKS = {"random", "small_world"}
+        _VALID_SOURCES  = {"synthetic", "empirical"}
+
+        policy  = str(body.get("policy", "rule_based"))
+        if policy not in _VALID_POLICIES:
+            return jsonify({"error": f"Invalid policy. Choose from: {sorted(_VALID_POLICIES)}"}), 400
+
+        try:
+            agents = max(5, min(500, int(body.get("agents", 20))))
+            rounds = max(5, min(100, int(body.get("rounds", 10))))
+            seed   = int(body.get("seed", 42))
+        except (TypeError, ValueError):
+            return jsonify({"error": "agents, rounds, seed must be integers"}), 400
+
+        network_type = str(body.get("network_type", "random"))
+        if network_type not in _VALID_NETWORKS:
+            return jsonify({"error": f"Invalid network_type. Choose from: {sorted(_VALID_NETWORKS)}"}), 400
+
+        pop_source = str(body.get("population_source", "synthetic"))
+        if pop_source not in _VALID_SOURCES:
+            return jsonify({"error": f"Invalid population_source. Choose from: {sorted(_VALID_SOURCES)}"}), 400
+
+        try:
+            bad_apple_frac = float(body.get("bad_apple_frac", 0.0))
+            bad_apple_frac = max(0.0, min(0.3, bad_apple_frac))
+        except (TypeError, ValueError):
+            bad_apple_frac = 0.0
+
+        # ── Generate experiment ID and YAML config ────────────────────────
+        ts     = int(time.time())
+        exp_id = f"wizard_{policy}_{agents}a_{rounds}r_{ts}"
+
+        wizard_dir = _CONFIGS_ROOT / "wizard"
+        wizard_dir.mkdir(parents=True, exist_ok=True)
+        config_path = wizard_dir / f"{exp_id}.yaml"
+
+        cfg_dict = {
+            "project": {
+                "name": "bgf-wizard",
+                "experiment_id": exp_id,
+                "seed": seed,
+            },
+            "simulation": {
+                "rounds": rounds,
+                "population_size": agents,
+            },
+            "policy": {"type": policy},
+            "population": {"source": pop_source},
+            "network": {"type": network_type},
+        }
+        if bad_apple_frac > 0:
+            cfg_dict["bad_apple"] = {"fraction": bad_apple_frac}
+
+        try:
+            config_path.write_text(_yaml.dump(cfg_dict, default_flow_style=False))
+        except Exception as exc:
+            logger.error("Wizard config write failed: %s", exc)
+            return jsonify({"error": "Failed to write wizard config"}), 500
+
+        # ── Inherit base config values via --config + overrides ───────────
+        base_cfg = _CONFIGS_ROOT / "base_config.yaml"
+        cmd = [
+            sys.executable,
+            "scripts/run_config_simulation.py",
+            "--config", str(base_cfg if base_cfg.exists() else config_path),
+            f"project.experiment_id={exp_id}",
+            f"project.seed={seed}",
+            f"simulation.rounds={rounds}",
+            f"simulation.population_size={agents}",
+            f"policy.type={policy}",
+            f"population.source={pop_source}",
+            f"network.type={network_type}",
+        ]
+
+        def _run():
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError as exc:
+                logger.error("Wizard simulation failed (exp=%s): %s", exp_id, exc)
+
+        thread = threading.Thread(target=_run, name=f"wiz-{exp_id}", daemon=True)
+        thread.start()
+
+        return jsonify({
+            "experiment_id": exp_id,
+            "status": "started",
+            "params": {
+                "policy": policy,
+                "agents": agents,
+                "rounds": rounds,
+                "network_type": network_type,
+                "population_source": pop_source,
+                "seed": seed,
+                "bad_apple_frac": bad_apple_frac,
+            },
+        }), 202
+
     # ── Scan incomplete runs ──────────────────────────────────────────────────
 
     @app.get("/incomplete")

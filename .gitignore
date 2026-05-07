@@ -73,6 +73,12 @@ dmypy.json
 .ruff_cache/
 
 # =========================
+# Runtime-generated upload / wizard artifacts
+# =========================
+uploads/
+configs/wizard/
+
+# =========================
 # Logs / outputs
 # =========================
 *.log

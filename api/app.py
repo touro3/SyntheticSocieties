@@ -68,6 +68,7 @@ _EXPERIMENTS_ROOT = Path("experiments")
 _CONFIGS_ROOT = Path("configs")
 _TRACKER_INDEX = Path("tracker/experiment_index.parquet")
 _STATIC_DIR = Path(__file__).parent / "static"
+_UPLOADS_DIR = Path("uploads") / "ess_data"
 
 # Bearer-token auth.  Set BGF_API_TOKEN env var to enable.
 # If unset, auth is disabled — intended for local / trusted-network use only.
@@ -81,6 +82,15 @@ _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 # Allows letters, digits, dots, hyphens, forward-slashes, colons — nothing else.
 _MODEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/:-]{0,100}$")
 _INJECTION_TYPES = {"wealth_shock", "signal_update", "narrative"}
+
+# UUID v4 pattern for uploaded file IDs.
+_FILE_ID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+
+# Columns that must exist in any user-uploaded ESS data file.
+_ESS_REQUIRED_COLS = {"trust_institutions", "trust_parliament", "trust_legal", "trust_police"}
+
+# Maximum uploaded file size: 50 MB.
+_UPLOAD_MAX_BYTES = 50 * 1024 * 1024
 
 _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 
@@ -179,8 +189,10 @@ def create_app(
 
     app = Flask(__name__, template_folder=Path(__file__).parent / "templates", static_folder=None)
 
-    # Limit incoming request bodies to 1 MB to prevent memory exhaustion.
-    app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
+    # Allow up to 52 MB to accommodate ESS data file uploads (max 50 MB).
+    # JSON-only endpoints send small payloads; the upload endpoint enforces
+    # its own 50 MB cap after reading.
+    app.config["MAX_CONTENT_LENGTH"] = 52 * 1024 * 1024  # 52 MB
 
     # CORS — restrict to caller-specified origins (default: open for research).
     CORS(app, origins=allowed_origins or "*")
@@ -967,6 +979,75 @@ def create_app(
             logger.error("report error (q=%r): %s", query[:100], exc, exc_info=True)
             return jsonify({"error": "Report generation failed"}), 500
 
+    # ── ESS data file upload ──────────────────────────────────────────────
+
+    @app.post("/upload-ess-data")
+    @_write_limit
+    def upload_ess_data():
+        """Upload a custom ESS-compatible data file (.csv or .parquet).
+
+        Returns a file_id that can be passed to /simulate-wizard as
+        ess_data_file_id to use the uploaded file as the population source.
+
+        Required columns: trust_institutions, trust_parliament,
+                          trust_legal, trust_police
+        """
+        import io
+        import uuid as _uuid
+
+        import pandas as pd
+
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        if "file" not in request.files:
+            return jsonify({"error": "No file provided — send multipart/form-data with field 'file'"}), 400
+
+        f = request.files["file"]
+        if not f.filename:
+            return jsonify({"error": "Empty filename"}), 400
+
+        fname_lower = f.filename.lower()
+        if not (fname_lower.endswith(".csv") or fname_lower.endswith(".parquet")):
+            return jsonify({"error": "Only .csv and .parquet files are accepted"}), 400
+
+        raw = f.read()
+        if len(raw) > _UPLOAD_MAX_BYTES:
+            return jsonify({"error": "File too large — maximum is 50 MB"}), 413
+
+        try:
+            if fname_lower.endswith(".csv"):
+                df = pd.read_csv(io.BytesIO(raw))
+            else:
+                df = pd.read_parquet(io.BytesIO(raw))
+        except Exception as exc:
+            return jsonify({"error": f"Could not parse file: {exc}"}), 422
+
+        missing = _ESS_REQUIRED_COLS - set(df.columns)
+        if missing:
+            return jsonify({
+                "error": f"Missing required columns: {sorted(missing)}",
+                "required_columns": sorted(_ESS_REQUIRED_COLS),
+                "found_columns": sorted(df.columns.tolist()),
+            }), 422
+
+        _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+        file_id = str(_uuid.uuid4())
+        out_path = _UPLOADS_DIR / f"{file_id}.parquet"
+        try:
+            df.to_parquet(out_path, index=False)
+        except Exception as exc:
+            logger.error("ESS upload write failed: %s", exc)
+            return jsonify({"error": "Failed to save uploaded file"}), 500
+
+        logger.info("ESS data uploaded: file_id=%s rows=%d cols=%d", file_id, len(df), len(df.columns))
+        return jsonify({
+            "file_id": file_id,
+            "rows": len(df),
+            "columns": df.columns.tolist(),
+        }), 200
+
     # ── No-code wizard simulate ──────────────────────────────────────────
 
     @app.post("/simulate-wizard")
@@ -976,13 +1057,17 @@ def create_app(
         Launch a simulation from wizard parameters (no YAML knowledge needed).
 
         Body (JSON):
-          policy           str   "mock"|"random"|"rule_based"|"template"|"llm"  (default: rule_based)
-          agents           int   Population size 5-500                           (default: 20)
-          rounds           int   Simulation rounds 5-100                        (default: 10)
-          network_type     str   "random"|"small_world"                         (default: random)
-          population_source str  "synthetic"|"empirical"                        (default: synthetic)
-          seed             int   Random seed                                    (default: 42)
-          bad_apple_frac   float Fraction of adversarial agents 0.0-0.3        (default: 0.0)
+          policy            str   "mock"|"random"|"rule_based"|"template"|"llm"  (default: rule_based)
+          agents            int   Population size 5-500                           (default: 20)
+          rounds            int   Simulation rounds 5-100                        (default: 10)
+          network_type      str   "random"|"small_world"                         (default: random)
+          population_source str   "synthetic"|"empirical"                        (default: synthetic)
+          seed              int   Random seed                                    (default: 42)
+          bad_apple_frac    float Fraction of adversarial agents 0.0-0.3        (default: 0.0)
+          ess_data_file_id  str   UUID returned by POST /upload-ess-data        (optional)
+                                  When set with population_source=empirical,
+                                  uses the uploaded file instead of the default
+                                  ESS Round 11 dataset.
         """
         ok, err = _check_auth()
         if not ok:
@@ -1019,6 +1104,22 @@ def create_app(
         pop_source = str(body.get("population_source", "synthetic"))
         if pop_source not in _VALID_SOURCES:
             return jsonify({"error": f"Invalid population_source. Choose from: {sorted(_VALID_SOURCES)}"}), 400
+
+        # Optional custom ESS data file (only meaningful when pop_source == "empirical")
+        ess_data_path: str | None = None
+        raw_file_id = str(body.get("ess_data_file_id", "")).strip()
+        if raw_file_id:
+            if not _FILE_ID_RE.match(raw_file_id):
+                return jsonify({"error": "Invalid ess_data_file_id format"}), 400
+            candidate = (_UPLOADS_DIR / f"{raw_file_id}.parquet").resolve()
+            uploads_root = _UPLOADS_DIR.resolve()
+            try:
+                candidate.relative_to(uploads_root)
+            except ValueError:
+                return jsonify({"error": "Invalid ess_data_file_id"}), 400
+            if not candidate.exists():
+                return jsonify({"error": "Uploaded ESS data file not found — please re-upload"}), 404
+            ess_data_path = str(candidate)
 
         try:
             bad_apple_frac = float(body.get("bad_apple_frac", 0.0))
@@ -1060,6 +1161,8 @@ def create_app(
             "population": {"source": pop_source},
             "network": {"type": network_type},
         }
+        if ess_data_path:
+            cfg_dict["data"] = {"ess_clean_path": ess_data_path}
         if bad_apple_frac > 0:
             cfg_dict["bad_apple"] = {"fraction": bad_apple_frac}
         if policy in ("llm", "generative_agents"):
@@ -1089,6 +1192,8 @@ def create_app(
             f"population.source={pop_source}",
             f"network.type={network_type}",
         ]
+        if ess_data_path:
+            cmd.append(f"data.ess_clean_path={ess_data_path}")
 
         # Append LLM-specific overrides for GPU/API policies
         run_env = None
@@ -1121,6 +1226,8 @@ def create_app(
             "seed": seed,
             "bad_apple_frac": bad_apple_frac,
         }
+        if raw_file_id:
+            resp_params["ess_data_file_id"] = raw_file_id
         if policy in ("llm", "generative_agents"):
             resp_params["llm_backend"] = llm_backend
             resp_params["llm_model_id"] = llm_model_id

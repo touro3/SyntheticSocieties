@@ -177,6 +177,40 @@
               <span class="o-desc">{{ s.desc }}</span>
             </button>
           </div>
+
+          <!-- Custom data file upload (empirical only) -->
+          <div v-if="form.population_source === 'empirical'" class="ess-upload">
+            <div class="ess-upload-head">
+              Custom Data File
+              <span class="optional-tag">optional</span>
+            </div>
+            <div class="ess-upload-desc">
+              Upload your own <code>.csv</code> or <code>.parquet</code> file to replace the built-in
+              ESS Round 11 dataset. Leave empty to use the default.
+            </div>
+
+            <label class="upload-label" :class="{ uploading: uploadStatus === 'uploading' }">
+              <input type="file" accept=".csv,.parquet" class="upload-input" @change="uploadEssFile" />
+              <span class="upload-btn">
+                <span v-if="uploadStatus === 'uploading'" class="spin">⟳</span>
+                <span v-else>↑</span>
+                {{ uploadStatus === 'uploading' ? 'Uploading…' : 'Choose file (.csv / .parquet)' }}
+              </span>
+            </label>
+
+            <div v-if="uploadStatus === 'done' && uploadInfo" class="upload-success">
+              ✓ {{ uploadInfo.rows.toLocaleString() }} rows · {{ uploadInfo.columns.length }} columns loaded
+            </div>
+            <div v-if="uploadStatus === 'error'" class="upload-error-msg">
+              ✗ {{ uploadError }}
+            </div>
+
+            <div class="ess-cols-note">
+              Required columns:
+              <code>trust_institutions</code> <code>trust_parliament</code>
+              <code>trust_legal</code> <code>trust_police</code>
+            </div>
+          </div>
         </div>
 
         <!-- Step 5: Adversarial agents -->
@@ -307,12 +341,16 @@ const form = ref({
   llm_backend: 'ollama',
   llm_model_id: 'llama3.2',
   llm_api_key: '',
+  ess_data_file_id: '',
 })
 
-const launching   = ref(false)
-const error       = ref('')
-const launched    = ref(false)
-const launchedId  = ref('')
+const launching      = ref(false)
+const error          = ref('')
+const launched       = ref(false)
+const launchedId     = ref('')
+const uploadStatus   = ref('')   // '' | 'uploading' | 'done' | 'error'
+const uploadInfo     = ref(null) // { rows, columns } on success
+const uploadError    = ref('')
 
 const policies = [
   { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
@@ -419,6 +457,26 @@ const estimatedTime = computed(() => {
   return 'GPU required — minutes to hours'
 })
 
+async function uploadEssFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  uploadStatus.value = 'uploading'
+  uploadError.value = ''
+  uploadInfo.value = null
+  form.value.ess_data_file_id = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const r = await api.uploadEssData(fd)
+    form.value.ess_data_file_id = r.data.file_id
+    uploadInfo.value = { rows: r.data.rows, columns: r.data.columns }
+    uploadStatus.value = 'done'
+  } catch(e) {
+    uploadStatus.value = 'error'
+    uploadError.value = e.response?.data?.error || 'Upload failed — check server logs.'
+  }
+}
+
 async function launch() {
   error.value = ''; launching.value = true
   try {
@@ -429,6 +487,7 @@ async function launch() {
       delete body.llm_api_key
     }
     if (!body.llm_api_key) delete body.llm_api_key
+    if (!body.ess_data_file_id) delete body.ess_data_file_id
     const r = await api.simulateWizard(body)
     launchedId.value = r.data.experiment_id
     launched.value = true
@@ -442,6 +501,8 @@ async function launch() {
 
 function resetForm() {
   launched.value = false; launchedId.value = ''; error.value = ''
+  uploadStatus.value = ''; uploadInfo.value = null; uploadError.value = ''
+  form.value.ess_data_file_id = ''
 }
 </script>
 
@@ -695,6 +756,56 @@ function resetForm() {
 .hint { font-size: .72rem; color: var(--text3); }
 .key-link { color: var(--blue2); margin-left: 6px; font-size: .72rem; }
 .key-link:hover { color: #fff; }
+
+/* ── ESS custom data upload ─────────────────────────────────────── */
+.ess-upload {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; border-radius: 10px;
+  background: rgba(99,102,241,.06); border: 1px solid rgba(99,102,241,.18);
+}
+.ess-upload-head {
+  font-size: .78rem; font-weight: 700; color: var(--text2);
+  display: flex; align-items: center; gap: 8px;
+}
+.optional-tag {
+  font-size: .65rem; font-weight: 600; color: var(--text3);
+  background: var(--bg4); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 1px 6px; letter-spacing: .03em;
+}
+.ess-upload-desc { font-size: .75rem; color: var(--text3); line-height: 1.5; }
+.ess-upload-desc code { color: var(--blue2); background: rgba(99,102,241,.12); border-radius: 3px; padding: 0 4px; }
+
+.upload-label { display: inline-block; cursor: pointer; }
+.upload-label.uploading { opacity: .6; pointer-events: none; }
+.upload-input { display: none; }
+.upload-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 8px;
+  background: var(--bg4); border: 1px solid var(--border2);
+  color: var(--text2); font-size: .78rem; font-weight: 600;
+  transition: border-color .2s, background .2s;
+}
+.upload-label:hover .upload-btn {
+  border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.1); color: #fff;
+}
+
+.upload-success {
+  font-size: .76rem; color: var(--green);
+  background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2);
+  border-radius: 6px; padding: 6px 12px;
+}
+.upload-error-msg {
+  font-size: .75rem; color: var(--rose);
+  background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.2);
+  border-radius: 6px; padding: 6px 12px;
+}
+.ess-cols-note {
+  font-size: .72rem; color: var(--text3); line-height: 1.6;
+}
+.ess-cols-note code {
+  color: var(--teal); background: rgba(20,184,166,.1);
+  border-radius: 3px; padding: 0 4px; margin-right: 4px;
+}
 
 /* ── Launched card ──────────────────────────────────────────────── */
 .launched-card {

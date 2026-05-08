@@ -15,7 +15,18 @@ services:
         value: "3.12.3"
       - key: NODE_VERSION
         value: "20.20.2"
-      - key: BGF_API_TOKEN
-        sync: false   # set manually in Render dashboard for auth
+
+      # ── AI design + simulation agent keys (set in Render dashboard) ──────────
+      - key: GROQ_API_KEY
+        sync: false   # free, fast — powers AI Simulation Design and agent LLM
       - key: OPENAI_API_KEY
-        sync: false   # optional — needed only for /report endpoint
+        sync: false   # optional — GPT-4o design + /report endpoint
+
+      # ── Auth token (leave unset for open/demo mode) ───────────────────────
+      - key: BGF_API_TOKEN
+        sync: false
+
+      # NOTE: Ollama is NOT available on Render free tier (512 MB RAM limit).
+      # The /api/capabilities endpoint will return ollama:false automatically.
+      # To enable Ollama on Render, upgrade to Standard plan (2 GB RAM) and
+      # add a background worker that runs: ollama serve

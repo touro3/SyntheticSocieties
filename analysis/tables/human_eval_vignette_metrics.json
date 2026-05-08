@@ -1,0 +1,41 @@
+{
+  "overall": {
+    "n_ratings": 120,
+    "n_participants": 40,
+    "mean_realism_a": 3.308,
+    "mean_realism_b": 5.325,
+    "b_preferred_pct": 62.5
+  },
+  "vignettes": {
+    "v1": {
+      "n": 40,
+      "mean_a": 3.375,
+      "mean_b": 5.325,
+      "std_a": 1.125,
+      "std_b": 1.228,
+      "prefer_a_pct": 15.0,
+      "prefer_b_pct": 67.5,
+      "prefer_tie_pct": 17.5
+    },
+    "v2": {
+      "n": 40,
+      "mean_a": 3.375,
+      "mean_b": 5.175,
+      "std_a": 1.234,
+      "std_b": 1.01,
+      "prefer_a_pct": 30.0,
+      "prefer_b_pct": 57.5,
+      "prefer_tie_pct": 12.5
+    },
+    "v3": {
+      "n": 40,
+      "mean_a": 3.175,
+      "mean_b": 5.475,
+      "std_a": 1.107,
+      "std_b": 0.905,
+      "prefer_a_pct": 17.5,
+      "prefer_b_pct": 62.5,
+      "prefer_tie_pct": 20.0
+    }
+  }
+}

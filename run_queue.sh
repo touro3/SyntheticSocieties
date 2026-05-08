@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV="$PROJECT_DIR/venv/bin/activate"
 LOGS_DIR="$PROJECT_DIR/logs"
 

@@ -47,6 +47,13 @@ import threading
 from pathlib import Path
 from typing import Any
 
+# Load .env from repo root before anything else reads os.environ
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _load_dotenv(Path(__file__).parent.parent / ".env", override=False)
+except ImportError:
+    pass
+
 logger = logging.getLogger(__name__)
 
 # ── Flask dependency check ─────────────────────────────────────────────────────
@@ -165,21 +172,37 @@ Guidelines:
 Return ONLY valid JSON, no markdown fences."""
 
 
-def _call_design_llm(provider: str, api_key: str, user_msg: str) -> dict:
-    """Call OpenAI or Groq to generate a simulation design from a prompt."""
+def _ollama_available() -> bool:
+    """Return True if a local Ollama server is reachable."""
+    try:
+        import urllib.request as _ur
+        with _ur.urlopen("http://localhost:11434/api/tags", timeout=1) as _r:
+            return _r.status == 200
+    except Exception:
+        return False
+
+
+def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2") -> dict:
+    """Call OpenAI, Groq, or Ollama to generate a simulation design from a prompt."""
     try:
         import openai
     except ImportError as exc:
         raise RuntimeError("openai package not installed — pip install openai") from exc
 
+    use_json_format = True
     if provider == "groq":
         client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
         model = "llama-3.3-70b-versatile"
+    elif provider == "ollama":
+        client = openai.OpenAI(api_key="ollama", base_url="http://localhost:11434/v1")
+        model = ollama_model
+        # Older Ollama builds don't support response_format — skip it
+        use_json_format = False
     else:
         client = openai.OpenAI(api_key=api_key)
         model = "gpt-4o-mini"
 
-    resp = client.chat.completions.create(
+    kwargs: dict = dict(
         model=model,
         messages=[
             {"role": "system", "content": _DESIGN_SYSTEM_PROMPT},
@@ -187,9 +210,18 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str) -> dict:
         ],
         temperature=0.4,
         max_tokens=1000,
-        response_format={"type": "json_object"},
     )
-    return json.loads(resp.choices[0].message.content)
+    if use_json_format:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    resp = client.chat.completions.create(**kwargs)
+    content = resp.choices[0].message.content
+    # Strip markdown fences Ollama sometimes adds
+    if content.startswith("```"):
+        content = content.split("```")[1]
+        if content.startswith("json"):
+            content = content[4:]
+    return json.loads(content.strip())
 
 
 def _generate_population_parquet(design: dict, n_agents: int) -> str | None:
@@ -401,6 +433,45 @@ def create_app(
     @app.get("/health")
     def health():
         return jsonify({"status": "ok", "service": "bgf-api"})
+
+    # ── Capabilities (what's available server-side, no secrets exposed) ───────
+
+    @app.get("/api/capabilities")
+    def api_capabilities():
+        groq_key   = bool(os.environ.get("GROQ_API_KEY",   "").strip())
+        openai_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+
+        ollama_ok = False
+        try:
+            import urllib.request as _ur
+            with _ur.urlopen("http://localhost:11434/api/tags", timeout=1) as _r:
+                ollama_ok = _r.status == 200
+        except Exception:
+            pass
+
+        if ollama_ok:
+            preferred = "ollama"
+        elif groq_key:
+            preferred = "groq"
+        elif openai_key:
+            preferred = "openai"
+        else:
+            preferred = None
+
+        return jsonify({
+            "design": {
+                "groq":             groq_key,
+                "openai":           openai_key,
+                "ollama":           ollama_ok,
+                "preferred":        preferred,
+                "server_configured": preferred is not None,
+            },
+            "simulation": {
+                "groq":   groq_key,
+                "openai": openai_key,
+                "ollama": ollama_ok,
+            },
+        })
 
     # ── Simulate ──────────────────────────────────────────────────────────────
 
@@ -1467,28 +1538,43 @@ def create_app(
         if not prompt:
             return jsonify({"error": "prompt is required"}), 400
 
-        provider = str(body.get("provider", "openai")).strip()
-        if provider not in {"openai", "groq"}:
-            provider = "openai"
+        provider = str(body.get("provider", "")).strip()
 
-        # API key: body > server env
-        api_key = (
-            str(body.get("api_key", "")).strip()
-            or (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "")
-            or os.environ.get("OPENAI_API_KEY", "")
-        )
-        if not api_key:
-            return (
-                jsonify(
-                    {
-                        "error": (
-                            "No API key available. Pass api_key in the request body "
-                            "or set OPENAI_API_KEY / GROQ_API_KEY on the server."
-                        )
-                    }
-                ),
-                400,
+        # Auto-select best available provider when client doesn't specify one
+        if provider not in {"openai", "groq", "ollama"}:
+            if _ollama_available():
+                provider = "ollama"
+            elif os.environ.get("GROQ_API_KEY", "").strip():
+                provider = "groq"
+            elif os.environ.get("OPENAI_API_KEY", "").strip():
+                provider = "openai"
+            else:
+                provider = "openai"  # will fail at key check below
+
+        ollama_model = str(body.get("ollama_model", "llama3.2")).strip() or "llama3.2"
+
+        # Ollama is local — no key needed
+        if provider == "ollama":
+            api_key = ""
+        else:
+            # API key: body > server env
+            api_key = (
+                str(body.get("api_key", "")).strip()
+                or (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "")
+                or os.environ.get("OPENAI_API_KEY", "")
             )
+            if not api_key:
+                return (
+                    jsonify(
+                        {
+                            "error": (
+                                "No API key available. Pass api_key in the request body "
+                                "or set OPENAI_API_KEY / GROQ_API_KEY on the server."
+                            )
+                        }
+                    ),
+                    400,
+                )
 
         # Optionally enrich with attached data file narrative
         file_id_raw = str(body.get("file_id", "")).strip()
@@ -1504,7 +1590,7 @@ def create_app(
 
         # Call LLM
         try:
-            design = _call_design_llm(provider, api_key, f"{prompt}{data_context}")
+            design = _call_design_llm(provider, api_key, f"{prompt}{data_context}", ollama_model=ollama_model)
         except Exception as exc:
             logger.error("design_simulation LLM call failed: %s", exc)
             return jsonify({"error": f"AI design failed: {exc}"}), 500

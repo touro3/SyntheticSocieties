@@ -41,38 +41,48 @@
             rows="3"
           />
 
-          <div class="design-controls">
-            <select v-model="designProvider" class="design-select">
-              <option value="openai">OpenAI</option>
-              <option value="groq">Groq (free tier)</option>
-            </select>
-            <div class="design-key-wrap">
-              <input
-                v-model="designApiKey"
-                type="password"
-                class="design-key-input"
-                :placeholder="designProvider === 'groq' ? 'gsk_…' : 'sk-…'"
-              />
-              <a v-if="designProvider === 'openai'"
-                href="https://platform.openai.com/api-keys"
-                target="_blank" rel="noopener" class="key-link key-link-sm">
-                Get key →
-              </a>
-              <a v-else
-                href="https://console.groq.com/keys"
-                target="_blank" rel="noopener" class="key-link key-link-sm">
-                Get key (free) →
-              </a>
+          <!-- AI provider picker for design -->
+          <div class="design-provider-row">
+            <button v-for="dp in designProviders" :key="dp.value"
+              class="dprov-btn"
+              :class="{
+                selected: designProvider === dp.value,
+                unavailable: serverCaps !== null && !dp.available(serverCaps)
+              }"
+              @click="designProvider = dp.value"
+              :title="dp.tooltip(serverCaps)"
+            >
+              <span class="dprov-glyph">{{ dp.glyph }}</span>
+              <span class="dprov-name">{{ dp.name }}</span>
+              <span class="dprov-tag" :class="dp.tagClass(serverCaps)">{{ dp.tag(serverCaps) }}</span>
+            </button>
+          </div>
+
+          <!-- Ollama model selector when Ollama is chosen -->
+          <div v-if="designProvider === 'ollama' && serverCaps?.design?.ollama" class="design-model-row">
+            <label class="dm-label">Model</label>
+            <div class="dm-chips">
+              <button v-for="m in ollamaDesignModels" :key="m.id"
+                class="dm-chip" :class="{ selected: designOllamaModel === m.id }"
+                @click="designOllamaModel = m.id">
+                {{ m.name }} <span class="dm-note">{{ m.note }}</span>
+              </button>
             </div>
+          </div>
+
+          <div class="design-controls">
             <button
               class="btn btn-primary design-btn"
               @click="runDesign"
-              :disabled="!designPrompt.trim() || designStatus === 'loading'"
+              :disabled="!designPrompt.trim() || designStatus === 'loading' || !canDesign"
             >
               <span v-if="designStatus === 'loading'" class="spin">⟳</span>
               <span v-else>✦</span>
-              {{ designStatus === 'loading' ? 'Designing…' : 'Design' }}
+              {{ designStatus === 'loading' ? 'Designing…' : 'Design with AI' }}
             </button>
+            <div v-if="!canDesign && serverCaps" class="design-unavail-hint">
+              {{ designUnavailReason }}
+            </div>
           </div>
 
           <div v-if="designStatus === 'error'" class="upload-error-msg">✗ {{ designError }}</div>
@@ -134,10 +144,14 @@
 
           <!-- LLM provider selector -->
           <div v-if="selectedPolicy?.gpu" class="llm-config">
-            <div class="llm-config-head">Provider</div>
+            <div class="llm-config-head">AI Provider for Agents</div>
             <div class="provider-grid">
               <button v-for="p in providers" :key="p.value"
-                class="provider-btn" :class="{ selected: form.llm_backend === p.value }"
+                class="provider-btn"
+                :class="{
+                  selected: form.llm_backend === p.value,
+                  unavailable: serverCaps !== null && !providerAvailable(p, serverCaps)
+                }"
                 @click="selectProvider(p)">
                 <div class="prov-top">
                   <span class="prov-glyph">{{ p.glyph }}</span>
@@ -145,6 +159,9 @@
                 </div>
                 <span class="prov-name">{{ p.name }}</span>
                 <span class="prov-desc">{{ p.desc }}</span>
+                <span class="prov-status" v-if="serverCaps">
+                  {{ providerAvailable(p, serverCaps) ? '✓ Ready' : '✗ Not configured' }}
+                </span>
               </button>
             </div>
 
@@ -161,32 +178,9 @@
               </div>
             </div>
 
-            <!-- API key field -->
-            <div class="field" v-if="selectedProvider?.needsKey">
-              <label>{{ selectedProvider.keyLabel }}</label>
-              <input v-model="form.llm_api_key" type="password"
-                :placeholder="selectedProvider.keyPlaceholder" />
-              <span class="hint">
-                Key is sent to this server only — never logged.
-                <a v-if="selectedProvider.keyLink" :href="selectedProvider.keyLink"
-                  target="_blank" rel="noopener" class="key-link">
-                  Get a key →
-                </a>
-              </span>
-            </div>
-
-            <!-- Ollama info -->
-            <div v-if="form.llm_backend === 'ollama'" class="info-box">
-              Ollama must be running locally on the server (<code>ollama serve</code>).
-              No API key or GPU required — models run on CPU.
-              <a href="https://ollama.com/download" target="_blank" rel="noopener" class="key-link">
-                Download Ollama →
-              </a>
-            </div>
-
-            <!-- Local GPU warning -->
+            <!-- No key input — all keys are server-side -->
             <div v-if="form.llm_backend === 'huggingface'" class="warn-box">
-              Requires a CUDA-capable GPU on the server. Cloud (Render free tier) supports CPU policies only.
+              Requires a CUDA-capable GPU on the server.
             </div>
           </div>
         </div>
@@ -468,7 +462,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/index.js'
 
@@ -498,14 +492,101 @@ const uploadInfo     = ref(null)
 const uploadError    = ref('')
 const uploadFilename = ref('')
 
+// Server capabilities (populated on mount)
+const serverCaps = ref(null)  // null = loading, then the /api/capabilities payload
+
+onMounted(async () => {
+  try {
+    const r = await api.capabilities()
+    serverCaps.value = r.data
+  } catch {
+    serverCaps.value = { design: { server_configured: false, preferred: null }, simulation: {} }
+  }
+})
+
+// True when server already has a provider configured — hide all key/provider UI
+const serverDesignReady = computed(() => serverCaps.value?.design?.server_configured === true)
+const serverDesignLabel = computed(() => {
+  const p = serverCaps.value?.design?.preferred
+  if (p === 'ollama') return 'Ollama (local AI · free)'
+  if (p === 'groq')   return 'Groq (free cloud AI)'
+  if (p === 'openai') return 'OpenAI'
+  return 'AI'
+})
+
+const ollamaDesignModels = [
+  { id: 'llama3.2', name: 'Llama 3.2', note: '3B · fastest' },
+  { id: 'llama3.1', name: 'Llama 3.1', note: '8B · balanced' },
+  { id: 'mistral',  name: 'Mistral',   note: '7B' },
+  { id: 'gemma2',   name: 'Gemma 2',   note: '9B' },
+  { id: 'qwen2.5',  name: 'Qwen 2.5',  note: '7B' },
+]
+
+const designProviders = [
+  {
+    value: 'ollama',
+    glyph: '◈', name: 'Ollama',
+    available: (caps) => caps?.design?.ollama === true,
+    tag:     (caps) => caps === null ? '…' : caps?.design?.ollama ? '✓ Local · free' : '✗ Not running',
+    tagClass:(caps) => caps?.design?.ollama ? 'dprov-ok' : 'dprov-off',
+    tooltip: (caps) => caps?.design?.ollama
+      ? 'Ollama is running on this server — no key needed'
+      : 'Ollama is not running on this server',
+  },
+  {
+    value: 'groq',
+    glyph: '▲', name: 'Groq',
+    available: (caps) => caps?.design?.groq === true,
+    tag:     (caps) => caps === null ? '…' : caps?.design?.groq ? '✓ Ready · free' : '✗ No key',
+    tagClass:(caps) => caps?.design?.groq ? 'dprov-ok' : 'dprov-off',
+    tooltip: (caps) => caps?.design?.groq
+      ? 'Groq API key is configured — fast, free cloud AI'
+      : 'No Groq key configured on this server',
+  },
+  {
+    value: 'openai',
+    glyph: '◆', name: 'GPT-4o',
+    available: (caps) => caps?.design?.openai === true,
+    tag:     (caps) => caps === null ? '…' : caps?.design?.openai ? '✓ Ready' : '✗ No key',
+    tagClass:(caps) => caps?.design?.openai ? 'dprov-ok' : 'dprov-off',
+    tooltip: (caps) => caps?.design?.openai
+      ? 'OpenAI key is configured'
+      : 'No OpenAI key configured on this server',
+  },
+]
+
+function providerAvailable(p, caps) {
+  if (!caps) return true  // optimistic before load
+  if (p.value === 'ollama')      return caps.simulation?.ollama === true
+  if (p.value === 'groq')        return caps.simulation?.groq   === true
+  if (p.value === 'openai')      return caps.simulation?.openai === true
+  if (p.value === 'huggingface') return true  // always listed; GPU requirement shown separately
+  return true
+}
+
+const canDesign = computed(() => {
+  const caps = serverCaps.value
+  if (caps === null) return false  // still loading
+  const dp = designProviders.find(d => d.value === designProvider.value)
+  return dp ? dp.available(caps) : false
+})
+
+const designUnavailReason = computed(() => {
+  const p = designProvider.value
+  if (p === 'ollama') return 'Ollama is not running on this server. Ask the admin to run: ollama serve'
+  if (p === 'groq')   return 'No Groq key is configured on this server.'
+  if (p === 'openai') return 'No OpenAI key is configured on this server.'
+  return 'This provider is not available.'
+})
+
 // AI design state
-const designPrompt   = ref('')
-const designApiKey   = ref('')
-const designProvider = ref('openai')
-const designStatus   = ref('')   // '' | 'loading' | 'done' | 'error'
-const designError    = ref('')
-const designResult   = ref(null)
-const designApplied  = ref(false)
+const designPrompt      = ref('')
+const designProvider    = ref('groq')
+const designOllamaModel = ref('llama3.2')
+const designStatus      = ref('')   // '' | 'loading' | 'done' | 'error'
+const designError       = ref('')
+const designResult      = ref(null)
+const designApplied     = ref(false)
 
 const policies = [
   { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
@@ -597,7 +678,7 @@ const currentStep = computed(() => {
 function selectProvider(p) {
   form.value.llm_backend  = p.value
   form.value.llm_model_id = p.models?.[0]?.id ?? ''
-  form.value.llm_api_key  = ''
+  form.value.llm_api_key  = ''  // kept in form shape but never sent
 }
 
 const estimatedTime = computed(() => {
@@ -640,12 +721,16 @@ async function runDesign() {
   designResult.value = null
   designApplied.value = false
   try {
-    const r = await api.designSimulation({
-      prompt: designPrompt.value,
-      provider: designProvider.value,
-      api_key: designApiKey.value || form.value.llm_api_key || undefined,
-      file_id: form.value.ess_data_file_id || undefined,
-    })
+    const body = {
+      prompt:      designPrompt.value,
+      provider:    designProvider.value,
+      file_id:     form.value.ess_data_file_id || undefined,
+    }
+    if (designProvider.value === 'ollama') {
+      body.ollama_model = designOllamaModel.value
+    }
+    // Keys are always server-side — never sent from the client
+    const r = await api.designSimulation(body)
     designResult.value = r.data
     designStatus.value = 'done'
   } catch(e) {
@@ -684,12 +769,11 @@ async function launch() {
   error.value = ''; launching.value = true
   try {
     const body = { ...form.value }
+    delete body.llm_api_key  // keys are always server-side
     if (!selectedPolicy.value?.gpu) {
       delete body.llm_backend
       delete body.llm_model_id
-      delete body.llm_api_key
     }
-    if (!body.llm_api_key)      delete body.llm_api_key
     if (!body.ess_data_file_id) delete body.ess_data_file_id
     if (!body.design_id)        delete body.design_id
     const r = await api.simulateWizard(body)
@@ -844,6 +928,10 @@ function resetForm() {
   line-height: 1.6;
 }
 .info-box code { background: rgba(20,184,166,.12); padding: 1px 5px; border-radius: 4px; font-size: .76rem; }
+.info-box-ok {
+  background: rgba(16,185,129,.07); border-color: rgba(16,185,129,.25);
+  color: #6ee7b7;
+}
 
 .model-row { display: flex; gap: 8px; }
 .model-btn {
@@ -1124,6 +1212,61 @@ function resetForm() {
 }
 .key-link-sm:hover { opacity: 1; text-decoration: underline; }
 .design-btn { white-space: nowrap; }
+.design-no-key-note {
+  font-size: .75rem; align-self: center;
+  padding: 4px 10px; border-radius: 6px;
+  background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.2);
+  color: #6ee7b7; white-space: nowrap;
+}
+.design-server-badge {
+  font-size: .78rem; align-self: center;
+  padding: 5px 12px; border-radius: 20px;
+  background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.3);
+  color: var(--blue2); white-space: nowrap; flex-shrink: 0;
+}
+
+/* Design provider picker */
+.design-provider-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.dprov-btn {
+  flex: 1; min-width: 90px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  background: var(--card2); border: 1.5px solid rgba(255,255,255,.08);
+  transition: border-color .15s, background .15s, opacity .15s;
+}
+.dprov-btn:hover        { border-color: rgba(99,102,241,.4); }
+.dprov-btn.selected     { border-color: var(--blue); background: rgba(99,102,241,.12); }
+.dprov-btn.unavailable  { opacity: .45; cursor: default; }
+.dprov-glyph { font-size: 1.2rem; }
+.dprov-name  { font-size: .82rem; font-weight: 700; color: #fff; }
+.dprov-tag   { font-size: .68rem; border-radius: 10px; padding: 1px 7px; }
+.dprov-ok    { background: rgba(16,185,129,.15); color: #6ee7b7; }
+.dprov-off   { background: rgba(239,68,68,.1); color: #f87171; }
+
+/* Ollama model chips inside design section */
+.design-model-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dm-label { font-size: .78rem; color: var(--text2); white-space: nowrap; }
+.dm-chips  { display: flex; gap: 6px; flex-wrap: wrap; }
+.dm-chip {
+  padding: 3px 10px; border-radius: 20px; font-size: .73rem; cursor: pointer;
+  background: var(--card2); border: 1.5px solid rgba(255,255,255,.08);
+  color: var(--text2); transition: border-color .15s, color .15s;
+}
+.dm-chip:hover    { border-color: rgba(99,102,241,.4); color: #fff; }
+.dm-chip.selected { border-color: var(--blue); color: #fff; background: rgba(99,102,241,.12); }
+.dm-note { color: var(--text3); font-size: .65rem; margin-left: 3px; }
+
+.design-unavail-hint {
+  font-size: .76rem; color: #f87171; align-self: center;
+  padding: 4px 0; max-width: 300px; line-height: 1.4;
+}
+.prov-status {
+  font-size: .65rem; margin-top: 2px; color: var(--text3);
+}
+.provider-btn.unavailable { opacity: .45; }
+.provider-btn.unavailable.selected { opacity: 1; }
 .design-result {
   display: flex; flex-direction: column; gap: 10px;
   animation: fade-in-up .3s var(--ease-spring) both;

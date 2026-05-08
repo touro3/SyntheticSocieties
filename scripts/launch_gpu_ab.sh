@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 10-seed A/B LLM comparison (GPU, pinned to device 0)
 set -euo pipefail
-cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_DIR"
 source venv/bin/activate
 mkdir -p logs
 

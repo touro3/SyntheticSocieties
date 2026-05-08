@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Condition D: Rule-based ESS (CPU only, no GPU needed)
 set -euo pipefail
-cd /mnt/sdb1/workspace/lucastourinho/SyntheticSocieties
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_DIR"
 source venv/bin/activate
 mkdir -p logs
 

@@ -6,16 +6,16 @@ pyarrow==17.0.0
 duckdb==1.1.0
 orjson==3.11.6
 
-torch>=2.2.2
-torchvision>=0.17.2
+torch==2.2.2
+torchvision==0.17.2
 transformers==4.53.0
-accelerate>=0.34.0
-bitsandbytes>=0.43.0
+accelerate==1.13.0
+bitsandbytes==0.47.0
 datasets==2.20.0
 safetensors==0.4.5
 sentencepiece==0.2.1
-huggingface-hub>=0.30.0,<1.0
-tokenizers>=0.21,<0.22
+huggingface-hub==0.36.2
+tokenizers==0.21.4
 
 pydantic==2.8.2
 networkx==3.3
@@ -34,7 +34,8 @@ jupyter_client==8.6.2
 ipykernel==6.29.5
 
 scikit-learn==1.5.2
-openai==1.51.0
+openai==2.35.1
+python-dotenv==1.2.2
 
 pyparsing==3.1
 flask==3.1.3

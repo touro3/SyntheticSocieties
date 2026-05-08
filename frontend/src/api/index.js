@@ -7,6 +7,7 @@ const http = axios.create({
 
 export const api = {
   health:         ()                          => http.get('/health'),
+  capabilities:   ()                          => http.get('/api/capabilities'),
   configs:        ()                          => http.get('/configs'),
   experiments:    (policy)                    => http.get('/experiments', { params: policy ? { policy } : {} }),
   simulate:       (body)                      => http.post('/simulate', body),

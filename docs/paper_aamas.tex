@@ -1,0 +1,181 @@
+%% AAMAS 2027 — ACM SigConf format (8 pages + references)
+%% Compile: pdflatex paper_aamas && bibtex paper_aamas && pdflatex paper_aamas (×2)
+
+\documentclass[sigconf,review]{acmart}
+
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{microtype}
+\usepackage{hyperref}
+
+%% ── Metadata ──────────────────────────────────────────────────────────────────
+\title{Behavioral Grounding Framework: Empirically Anchored LLM-Based
+       Agent Simulations of Synthetic Societies}
+
+\author{Lucas Tourinho}
+\email{tourinholucas123@gmail.com}
+\affiliation{%
+  \institution{TODO: institution}
+  \city{TODO: city}
+  \country{TODO: country}
+}
+
+\begin{document}
+
+\begin{abstract}
+Deploying instruction-tuned large language models (LLMs) as agents in
+multi-agent economic simulations produces a systematic anomaly: agents
+cooperate at rates exceeding 90\%, generating behavioral patterns that
+bear no resemblance to observed human populations.  We formalize this
+as the \textbf{RLHF Cooperative Bias} and introduce the
+\textbf{Behavioral Grounding Framework (BGF)}, a formally specified
+agent simulation platform grounded in European Social Survey (ESS Round
+11) microdata, to mitigate it.  In a pilot-scale LLM A/B contrast
+(single seed, $N{=}50$ agents, $T{=}30$ rounds, Mistral-7B), grounding
+reduces cooperation from 96\,\% (Cond.\,A) to 58\,\%, reduces the RLHF
+Bias Index ($B_\text{RLHF}$) from 0.71 to 0.25, and reduces the Gini
+coefficient from 0.63 to 0.26.  A full-scale $N{=}500$ LLM extension is
+pre-registered and launcher-ready.  Cross-cultural validation across six
+ESS clusters recovers the cooperation-vs-trust rank ordering perfectly
+(Spearman $\rho = +1.000$, $p \approx 0.003$, $n{=}6$).  We release
+the complete framework (1,203 automated tests, one-command reproduction)
+to enable reproducible research in LLM-driven computational social
+science and alignment evaluation.
+\end{abstract}
+
+\keywords{LLM agents, agent-based modeling, behavioral grounding,
+          RLHF bias, synthetic societies, ESS, multi-agent simulation}
+
+\maketitle
+
+%% ── 1. Introduction ───────────────────────────────────────────────────────────
+\section{Introduction}
+
+Agent-based models (ABMs) have long served as tools for studying
+emergent social phenomena --- cooperation, inequality, institutional
+evolution --- through bottom-up simulation of individual decision-making
+\cite{epstein1996,axelrod1984}.  Traditional ABMs rely on hand-crafted
+utility functions that are analytically tractable but cannot capture
+the linguistic, cultural, and psychological complexity of real human
+decision-making.
+
+Recent advances in LLMs offer a compelling alternative: using LLMs as
+decision engines for simulated agents (\emph{silicon sampling}
+\cite{argyle2023}).  However, LLMs fine-tuned via Reinforcement
+Learning from Human Feedback (RLHF) \cite{ouyang2022} produce utopian
+societies characterized by frictionless cooperation --- a systematic
+distortion we formalize as the \textbf{RLHF Bias Index}
+($B_\text{RLHF} = \mathrm{TV}(\pi, \pi_\text{uniform})$).
+
+The \textbf{Behavioral Grounding Framework (BGF)} addresses this
+limitation by anchoring LLM agent behavior to empirical microdata from
+ESS Round~11.  BGF is formally specified as a tuple
+$\mathrm{BGF} = (\mathcal{A}, E, G, P, \Phi, T)$, where
+$\Phi: D_\text{ESS} \to \mathit{Profile}$ is an empirical grounding
+function that maps survey records to agent profiles, preserving joint
+distributions of 15+ sociodemographic attributes.
+
+\paragraph{Research Questions}
+\textbf{RQ1}: Does empirical grounding significantly mitigate the RLHF
+cooperative bias?
+\textbf{RQ2}: How does grounding alter emergent network topology?
+\textbf{RQ3}: Can grounded LLM agents reproduce realistic macroeconomic
+phenomena?
+\textbf{RQ4}: How resilient are grounded societies to adversarial
+perturbations and economic shocks?
+
+%% ── 2. Related Work ───────────────────────────────────────────────────────────
+\section{Related Work}
+
+% TODO: expand from docs/paper.md §2
+
+\paragraph{Silicon sampling}
+Argyle et al.\ \cite{argyle2023} demonstrate that LLMs can simulate
+human survey responses with reasonable fidelity, but do not address
+multi-agent dynamics or RLHF-induced biases.
+
+\paragraph{Generative Agents}
+Park et al.\ \cite{park2023} introduce fictional-persona LLM agents
+with episodic memory.  BGF extends this by anchoring personas to
+empirical survey distributions and adding dual RAG pipelines for
+population-level context injection.
+
+\paragraph{RLHF alignment in social simulation}
+% TODO
+
+%% ── 3. Framework ──────────────────────────────────────────────────────────────
+\section{Behavioral Grounding Framework}
+
+\subsection{Formal Specification}
+
+$\mathrm{BGF} = (\mathcal{A}, E, G, P, \Phi, T)$ where:
+\begin{itemize}
+  \item $\mathcal{A}$ — set of agents with profiles $\Phi(d_i)$
+        ($d_i \in D_\text{ESS}$)
+  \item $E$ — economic environment with action space
+        $\{\texttt{work}, \texttt{save}, \texttt{cooperate},
+           \texttt{steal}\}$
+  \item $G$ — social network (Watts-Strogatz or Erd\H{o}s-R\'enyi)
+  \item $P$ — pluggable policy (random / rule-based / LLM / generative)
+  \item $\Phi$ — empirical grounding function
+        ($D_\text{ESS} \to \mathit{Profile}$)
+  \item $T$ — simulation horizon (rounds)
+\end{itemize}
+
+\subsection{Behavioral Realism Metric}
+
+% TODO: formal definition from docs/paper.md §3.2
+
+\subsection{RLHF Bias Index}
+
+$B_\text{RLHF} = \mathrm{TV}(\pi_\theta, \pi_\text{uniform})
+               = \frac{1}{2}\sum_a |\pi_\theta(a) - \pi_\text{uniform}(a)|$
+
+%% ── 4. Experimental Setup ─────────────────────────────────────────────────────
+\section{Experimental Setup}
+
+% TODO: fill from docs/paper.md §4
+
+%% ── 5. Results ────────────────────────────────────────────────────────────────
+\section{Results}
+
+\subsection{Pilot A/B Contrast (N=50, T=30, 1 seed)}
+
+% TODO: Table 1 — cooperation rate, B_RLHF, Gini (Cond A vs B)
+
+\subsection{Cross-Cultural Validation}
+
+Spearman $\rho = +1.000$ ($p \approx 0.003$, $n{=}6$, exact permutation
+test) across Eastern / Southern / Western / Anglo / Northern / Nordic
+ESS clusters.  WVS Wave~7 out-of-sample replication: Pearson $r = +0.977$.
+
+%% ── 6. Discussion ─────────────────────────────────────────────────────────────
+\section{Discussion}
+
+% TODO
+
+%% ── 7. Conclusion ─────────────────────────────────────────────────────────────
+\section{Conclusion}
+
+We introduced BGF, a formally specified simulation framework that
+mitigates the RLHF cooperative bias in multi-agent economic simulations
+through empirical grounding in ESS Round~11 microdata.  Pilot results
+confirm the central claim: grounding reduces $B_\text{RLHF}$ from 0.71
+to 0.25 and cooperation from 96\,\% to 58\,\%.  Cross-cultural
+validation independently confirms that BGF recovers real-world trust
+rank orderings (Spearman $\rho = 1.0$).  Full-scale GPU runs and Prolific
+human evaluation are pre-registered and launcher-ready.
+
+%% ── References ────────────────────────────────────────────────────────────────
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{paper_aamas}
+
+%% paper_aamas.bib entries (TODO: move to separate .bib file)
+%% @article{argyle2023, ...}
+%% @article{park2023, ...}
+%% @book{epstein1996, ...}
+%% @book{axelrod1984, ...}
+%% @article{ouyang2022, ...}
+
+\end{document}

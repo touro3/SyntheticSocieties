@@ -792,7 +792,7 @@ function resetForm() {
   uploadStatus.value = ''; uploadInfo.value = null; uploadError.value = ''; uploadFilename.value = ''
   form.value.ess_data_file_id = ''
   clearDesign()
-  designPrompt.value = ''; designApiKey.value = ''
+  designPrompt.value = ''
 }
 </script>
 

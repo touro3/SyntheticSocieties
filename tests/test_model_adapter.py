@@ -165,6 +165,7 @@ def test_openai_backend_raises_value_error_no_api_key(monkeypatch):
     from decision.openai_backend import OpenAIBackend
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)  # also clear Groq fallback
     backend = OpenAIBackend(model_id="gpt-4o-mini", api_key=None)
     # Can't import openai in test env, but ValueError is checked first if key absent
     # We can't test the ValueError path without installing openai.

@@ -1593,7 +1593,7 @@ def create_app(
             design = _call_design_llm(provider, api_key, f"{prompt}{data_context}", ollama_model=ollama_model)
         except Exception as exc:
             logger.error("design_simulation LLM call failed: %s", exc)
-            return jsonify({"error": f"AI design failed: {exc}"}), 500
+            return jsonify({"error": "AI design failed — check provider settings or try again"}), 500
 
         # Validate top-level structure — tolerate partial responses
         for key in ("scenario_title", "config", "population_traits", "population_narrative"):
@@ -1753,7 +1753,9 @@ def create_app(
         if llm_backend not in _VALID_BACKENDS:
             llm_backend = "openai"
 
-        llm_model_id = str(body.get("llm_model_id", "gpt-4o-mini"))
+        llm_model_id = str(body.get("llm_model_id", "gpt-4o-mini")).strip()
+        if not _MODEL_RE.match(llm_model_id):
+            return jsonify({"error": "Invalid llm_model_id"}), 400
 
         # Accept key under either name
         llm_api_key = str(body.get("openai_api_key", "")).strip() or str(body.get("llm_api_key", "")).strip() or None
@@ -1816,7 +1818,9 @@ def create_app(
         if ess_data_path:
             cmd.append(f"data.ess_clean_path={ess_data_path}")
             if ess_population_context:
-                cmd.append(f"data.population_context={ess_population_context}")
+                # Strip Hydra-special chars to prevent config injection
+                safe_ctx = re.sub(r"[^A-Za-z0-9 .,;:!?'()\-]", " ", ess_population_context)[:500]
+                cmd.append(f"data.population_context={safe_ctx}")
 
         # Append LLM-specific overrides for GPU/API policies
         run_env = None
@@ -2100,9 +2104,20 @@ def create_app(
             return jsonify({"error": f"Missing fields: {sorted(missing)}"}), 400
 
         vid = str(body["vignette_id"])[:16]
+        # Validate vignette_id against the known list to prevent garbage data
+        _known_ids = {v["id"] for v in _VIGNETTES}
+        if vid not in _known_ids:
+            return jsonify({"error": f"Unknown vignette_id '{vid}'"}), 400
+
         pid = re.sub(r"[^A-Za-z0-9_\-]", "", str(body["prolific_pid"]))[:64]
-        realism_a = body["realism_a"]
-        realism_b = body["realism_b"]
+
+        # Coerce scores to int, reject non-numeric values
+        try:
+            realism_a = int(body["realism_a"])
+            realism_b = int(body["realism_b"])
+        except (TypeError, ValueError):
+            return jsonify({"error": "realism_a and realism_b must be integers 1–7"}), 400
+
         preferred = str(body.get("preferred", ""))[:4]
         comment = str(body.get("comment", ""))[:500]
 
@@ -2130,8 +2145,9 @@ def create_app(
         return jsonify({"status": "saved", "record": record}), 201
 
     @app.get("/human-eval/results")
+    @_human_eval_limit
     def human_eval_results():
-        """Aggregate ratings — admin view (no rate limit, but requires auth if token set)."""
+        """Aggregate ratings — admin view."""
         ok, err = _check_auth()
         if not ok:
             return err
@@ -2203,7 +2219,7 @@ def create_app(
 
     @app.errorhandler(413)
     def request_entity_too_large(e):
-        return jsonify({"error": "Request body too large (max 1 MB)"}), 413
+        return jsonify({"error": "Request body too large (max 52 MB)"}), 413
 
     return app
 

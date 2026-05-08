@@ -50,6 +50,7 @@ from typing import Any
 # Load .env from repo root before anything else reads os.environ
 try:
     from dotenv import load_dotenv as _load_dotenv
+
     _load_dotenv(Path(__file__).parent.parent / ".env", override=False)
 except ImportError:
     pass
@@ -176,6 +177,7 @@ def _ollama_available() -> bool:
     """Return True if a local Ollama server is reachable."""
     try:
         import urllib.request as _ur
+
         with _ur.urlopen("http://localhost:11434/api/tags", timeout=1) as _r:
             return _r.status == 200
     except Exception:
@@ -438,12 +440,13 @@ def create_app(
 
     @app.get("/api/capabilities")
     def api_capabilities():
-        groq_key   = bool(os.environ.get("GROQ_API_KEY",   "").strip())
+        groq_key = bool(os.environ.get("GROQ_API_KEY", "").strip())
         openai_key = bool(os.environ.get("OPENAI_API_KEY", "").strip())
 
         ollama_ok = False
         try:
             import urllib.request as _ur
+
             with _ur.urlopen("http://localhost:11434/api/tags", timeout=1) as _r:
                 ollama_ok = _r.status == 200
         except Exception:
@@ -458,20 +461,22 @@ def create_app(
         else:
             preferred = None
 
-        return jsonify({
-            "design": {
-                "groq":             groq_key,
-                "openai":           openai_key,
-                "ollama":           ollama_ok,
-                "preferred":        preferred,
-                "server_configured": preferred is not None,
-            },
-            "simulation": {
-                "groq":   groq_key,
-                "openai": openai_key,
-                "ollama": ollama_ok,
-            },
-        })
+        return jsonify(
+            {
+                "design": {
+                    "groq": groq_key,
+                    "openai": openai_key,
+                    "ollama": ollama_ok,
+                    "preferred": preferred,
+                    "server_configured": preferred is not None,
+                },
+                "simulation": {
+                    "groq": groq_key,
+                    "openai": openai_key,
+                    "ollama": ollama_ok,
+                },
+            }
+        )
 
     # ── Simulate ──────────────────────────────────────────────────────────────
 

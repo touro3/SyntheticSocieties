@@ -5,6 +5,20 @@ const http = axios.create({
   timeout: 30000,
 })
 
+// Retry on 502/503/504 (server cold-start or deploy bounce) with exponential backoff.
+http.interceptors.response.use(null, async (error) => {
+  const config = error.config
+  if (!config) return Promise.reject(error)
+  const status = error.response?.status
+  const retryable = status === 502 || status === 503 || status === 504
+  if (!retryable) return Promise.reject(error)
+  config._retryCount = (config._retryCount || 0) + 1
+  if (config._retryCount > 3) return Promise.reject(error)
+  const delay = 500 * 2 ** (config._retryCount - 1)
+  await new Promise(r => setTimeout(r, delay))
+  return http(config)
+})
+
 export const api = {
   health:         ()                          => http.get('/health'),
   capabilities:   ()                          => http.get('/api/capabilities'),

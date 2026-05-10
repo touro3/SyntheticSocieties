@@ -351,11 +351,23 @@ class SimulationKernel:
         if self.heartbeat_path is None:
             return
         try:
-            payload = {
+            payload: dict = {
                 "round_id": self.world.state.round_id,
                 "ts": time.time(),
                 "n_agents": len(self.agents),
             }
+            # Enrich with last round's metrics (available since _log_round_metrics
+            # always runs before _write_heartbeat in the main loop).
+            if self.round_metrics:
+                last = self.round_metrics[-1]
+                payload["mean_wealth"] = last.get("mean_wealth")
+                payload["gini"] = last.get("gini")
+                payload["action_distribution"] = last.get("action_distribution", {})
+                payload["last_action"] = max(
+                    last.get("action_distribution", {}),
+                    key=last.get("action_distribution", {}).get,
+                    default=None,
+                )
             self.heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
             self.heartbeat_path.write_text(json.dumps(payload))
         except Exception as exc:  # never let heartbeat I/O crash the sim

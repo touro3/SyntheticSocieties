@@ -9,7 +9,7 @@ services:
       pip install -r requirements-api.txt && pip install -e . --no-deps &&
       npm --prefix frontend install &&
       npm --prefix frontend run build
-    startCommand: gunicorn 'api.app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --timeout 300
+    startCommand: gunicorn 'api.app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 300
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"
@@ -24,6 +24,10 @@ services:
 
       # ── Auth token (leave unset for open/demo mode) ───────────────────────
       - key: BGF_API_TOKEN
+        sync: false
+
+      # ── CORS (comma-separated origins; leave unset for open/demo mode) ───────
+      - key: BGF_CORS_ORIGINS
         sync: false
 
       # NOTE: Ollama is NOT available on Render free tier (512 MB RAM limit).

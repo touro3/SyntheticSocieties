@@ -184,13 +184,22 @@ def _ollama_available() -> bool:
         return False
 
 
-def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2") -> dict:
-    """Call OpenAI, Groq, or Ollama to generate a simulation design from a prompt."""
+def _call_design_llm(
+    provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2"
+) -> tuple[dict, dict]:
+    """Call OpenAI, Groq, or Ollama to generate a simulation design from a prompt.
+
+    Returns:
+        (design_dict, meta) where meta contains usage, resolved_model, prompt_hash, temperature.
+    """
+    import hashlib
+
     try:
         import openai
     except ImportError as exc:
         raise RuntimeError("openai package not installed — pip install openai") from exc
 
+    _TEMPERATURE = 0.4
     use_json_format = True
     if provider == "groq":
         client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
@@ -210,7 +219,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
             {"role": "system", "content": _DESIGN_SYSTEM_PROMPT},
             {"role": "user", "content": user_msg},
         ],
-        temperature=0.4,
+        temperature=_TEMPERATURE,
         max_tokens=1000,
     )
     if use_json_format:
@@ -223,7 +232,29 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         content = content.split("```")[1]
         if content.startswith("json"):
             content = content[4:]
-    return json.loads(content.strip())
+
+    usage: dict = {}
+    if resp.usage:
+        usage = {
+            "prompt_tokens": resp.usage.prompt_tokens,
+            "completion_tokens": resp.usage.completion_tokens,
+            "total_tokens": resp.usage.total_tokens,
+        }
+
+    meta = {
+        "provider": provider,
+        "resolved_model": resp.model,
+        "temperature": _TEMPERATURE,
+        "prompt_hash": hashlib.sha256(_DESIGN_SYSTEM_PROMPT.encode()).hexdigest()[:8],
+        "usage": usage,
+    }
+    logger.info(
+        "design LLM call: provider=%s model=%s tokens=%s",
+        provider,
+        resp.model,
+        usage.get("total_tokens", "?"),
+    )
+    return json.loads(content.strip()), meta
 
 
 def _generate_population_parquet(design: dict, n_agents: int) -> str | None:
@@ -368,8 +399,14 @@ def create_app(
     # its own 50 MB cap after reading.
     app.config["MAX_CONTENT_LENGTH"] = 52 * 1024 * 1024  # 52 MB
 
-    # CORS — restrict to caller-specified origins (default: open for research).
-    CORS(app, origins=allowed_origins or "*")
+    # CORS — prefer explicit origins for production; fall back to env var, then open.
+    _env_origins = os.environ.get("BGF_CORS_ORIGINS", "").strip()
+    _resolved_origins = (
+        allowed_origins
+        or (_env_origins.split(",") if _env_origins else None)
+        or "*"
+    )
+    CORS(app, origins=_resolved_origins)
 
     # ── Rate limiting (optional — requires flask-limiter) ────────────────────
     if _LIMITER_AVAILABLE:
@@ -452,7 +489,15 @@ def create_app(
 
     @app.get("/health")
     def health():
-        return jsonify({"status": "ok", "service": "bgf-api"})
+        checks = {
+            "experiments_dir": _EXPERIMENTS_ROOT.exists(),
+            "tracker_index": _TRACKER_INDEX.exists(),
+            "ollama": _ollama_available(),
+            "groq_key": bool(os.environ.get("GROQ_API_KEY", "").strip()),
+            "openai_key": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
+        }
+        status = "ok" if checks["experiments_dir"] else "degraded"
+        return jsonify({"status": status, "service": "bgf-api", "checks": checks})
 
     # ── Capabilities (what's available server-side, no secrets exposed) ───────
 
@@ -514,7 +559,10 @@ def create_app(
         if not ok:
             return err
 
-        body = request.get_json(silent=True) or {}
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
         config_path_raw = body.get("config_path")
         resume = body.get("resume")
 
@@ -772,7 +820,10 @@ def create_app(
         if not exp_dir.exists():
             return jsonify({"error": "Experiment not found"}), 404
 
-        body = request.get_json(silent=True) or {}
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
         question = str(body.get("question", "Describe your recent decisions."))[:1000]
 
         # ── Try live IPC first (simulation must be running) ───────────────────
@@ -1195,7 +1246,10 @@ def create_app(
         if not exp_dir.exists():
             return jsonify({"error": "Experiment not found"}), 404
 
-        body = request.get_json(silent=True) or {}
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
         event_type = str(body.get("event_type", "")).strip()
         payload = body.get("payload", {})
 
@@ -1556,7 +1610,10 @@ def create_app(
 
         import uuid as _uuid
 
-        body = request.get_json(silent=True) or {}
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
         prompt = str(body.get("prompt", "")).strip()[:2000]
         if not prompt:
             return jsonify({"error": "prompt is required"}), 400
@@ -1613,7 +1670,7 @@ def create_app(
 
         # Call LLM
         try:
-            design = _call_design_llm(provider, api_key, f"{prompt}{data_context}", ollama_model=ollama_model)
+            design, llm_meta = _call_design_llm(provider, api_key, f"{prompt}{data_context}", ollama_model=ollama_model)
         except Exception as exc:
             logger.error("design_simulation LLM call failed: %s", exc)
             return jsonify({"error": "AI design failed — check provider settings or try again"}), 500
@@ -1641,6 +1698,7 @@ def create_app(
         design["design_id"] = design_id
         design["generated_file_id"] = gen_file_id
         design["source_prompt"] = prompt
+        design["_llm_meta"] = llm_meta
 
         # Persist so simulate_wizard can retrieve it by design_id
         _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1684,7 +1742,10 @@ def create_app(
 
         import yaml as _yaml
 
-        body = request.get_json(silent=True) or {}
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
 
         # ── Validate and clamp wizard params ─────────────────────────────
         _VALID_POLICIES = {"mock", "random", "rule_based", "template", "llm", "generative_agents"}
@@ -2120,7 +2181,10 @@ def create_app(
     @_human_eval_limit
     def human_eval_rating():
         """Save a participant's rating for a vignette pair."""
-        body: dict = request.get_json(force=True, silent=True) or {}
+        try:
+            body: dict = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
         required = {"vignette_id", "prolific_pid", "realism_a", "realism_b", "preferred"}
         missing = required - body.keys()
         if missing:

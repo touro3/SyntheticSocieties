@@ -39,4 +39,8 @@ app.directive('tilt', {
   unmounted: el => el._tiltClean?.(),
 })
 
+app.config.errorHandler = (err, _instance, info) => {
+  console.error('[BGF]', info, err)
+}
+
 app.use(router).mount('#app')

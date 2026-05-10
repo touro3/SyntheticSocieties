@@ -98,6 +98,10 @@
           <div class="mkpi-val" style="color:var(--blue2)">{{ pct.toFixed(0) }}%</div>
           <div class="mkpi-label">Complete</div>
         </div>
+        <div class="mkpi" v-if="brlhf !== null" :title="`B_RLHF = TV(π, uniform) = ${brlhf.toFixed(3)}\nHigher = more cooperative bias vs uniform policy`">
+          <div class="mkpi-val" :style="{ color: brlhfColor }">{{ brlhf.toFixed(3) }}</div>
+          <div class="mkpi-label">B_RLHF</div>
+        </div>
       </div>
 
       <!-- Progress bar -->
@@ -162,9 +166,22 @@
             <dd class="mono">{{ heartbeat.n_agents ?? '—' }}</dd>
             <dt>Avg wealth</dt>
             <dd class="mono">{{ heartbeat.mean_wealth != null ? Number(heartbeat.mean_wealth).toFixed(2) : '—' }}</dd>
-            <dt>Last action</dt>
+            <dt>Gini</dt>
+            <dd class="mono">{{ heartbeat.gini != null ? Number(heartbeat.gini).toFixed(3) : '—' }}</dd>
+            <dt>Dominant action</dt>
             <dd class="mono">{{ heartbeat.last_action ?? '—' }}</dd>
+            <dt v-if="brlhf !== null">B_RLHF</dt>
+            <dd v-if="brlhf !== null" class="mono" :style="{ color: brlhfColor }">{{ brlhf.toFixed(3) }}</dd>
           </dl>
+          <div v-if="heartbeat.action_distribution && Object.keys(heartbeat.action_distribution).length" class="action-dist">
+            <div v-for="(pct, act) in heartbeat.action_distribution" :key="act" class="adist-row">
+              <span class="adist-label">{{ act }}</span>
+              <div class="adist-bar-track">
+                <div class="adist-bar" :style="{ width: (pct * 100).toFixed(0) + '%' }"></div>
+              </div>
+              <span class="adist-pct">{{ (pct * 100).toFixed(0) }}%</span>
+            </div>
+          </div>
         </div>
 
         <!-- GPU wait placeholder when no heartbeat yet -->
@@ -447,6 +464,25 @@ const pct = computed(() =>
     : 0
 )
 
+// B_RLHF = TV(π, π_uniform) = 0.5 * Σ|π(a) - 1/|A|| over known actions
+// Uses the action_distribution from the latest heartbeat (enriched by kernel).
+const ACTIONS = ['work', 'save', 'cooperate', 'steal']
+const brlhf = computed(() => {
+  const dist = heartbeat.value?.action_distribution
+  if (!dist || !Object.keys(dist).length) return null
+  const uniform = 1 / ACTIONS.length
+  let tv = 0
+  for (const a of ACTIONS) tv += Math.abs((dist[a] ?? 0) - uniform)
+  return 0.5 * tv
+})
+const brlhfColor = computed(() => {
+  const v = brlhf.value
+  if (v === null) return 'var(--text3)'
+  if (v < 0.1) return 'var(--teal)'
+  if (v < 0.25) return 'var(--amber)'
+  return 'var(--rose, #f87171)'
+})
+
 const relTime = computed(() => {
   const ts = state.value.updated_at
   if (!ts) return '—'
@@ -635,6 +671,14 @@ dt { font-size: .76rem; color: var(--text3); font-weight: 500; align-self: cente
 dd { font-size: .83rem; color: var(--text); }
 
 .action-btns { display: flex; flex-direction: column; gap: 9px; }
+
+/* ── Action distribution mini-bars ─────────────────────────────── */
+.action-dist { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.adist-row { display: grid; grid-template-columns: 68px 1fr 36px; align-items: center; gap: 8px; }
+.adist-label { font-size: .72rem; color: var(--text3); font-family: monospace; }
+.adist-bar-track { height: 6px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+.adist-bar { height: 100%; background: var(--blue2); border-radius: 4px; transition: width .4s ease; }
+.adist-pct { font-size: .7rem; color: var(--text2); text-align: right; font-family: monospace; }
 
 /* ── GPU shimmer placeholders ───────────────────────────────────── */
 .gpu-loading-rows { display: flex; flex-direction: column; gap: 12px; }

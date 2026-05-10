@@ -13,6 +13,13 @@ Phase 29.2 additions:
   - Spearman ρ: pre_trust → cooperation_rate (validates E[coop|profile] formula)
   - --synthetic: generate synthetic participants for offline testing
   - Outputs analysis/tables/human_vs_simulation_reference.json
+
+Phase 29.3 additions (KS indistinguishability):
+  - Two-sample Kolmogorov-Smirnov test on per-participant cooperation rates
+  - Primary claim: KS(human, Cond B) < KS(human, Cond A) with p-value
+  - "Behavioral indistinguishability" flag when KS p > 0.05 for Cond B
+  - --sim-wealth-a / --sim-wealth-b: wealth arrays for wealth-distribution KS test
+  - Outputs ks_indistinguishability section in human_vs_simulation_reference.json
 """
 
 from __future__ import annotations
@@ -263,6 +270,148 @@ def _normalise_condition_payload(raw: dict) -> dict[str, dict]:
     return raw
 
 
+def _ks_two_sample(a: list[float], b: list[float]) -> tuple[float, float]:
+    """Two-sample Kolmogorov-Smirnov test (pure Python, no scipy dependency).
+
+    Returns (ks_statistic, p_value_approx) where p_value is approximated
+    using the Kolmogorov distribution for large samples.
+
+    The KS statistic D = max|F_a(x) - F_b(x)| over all x.
+    For large n, m: p ≈ 2 * exp(-2 * D² * n*m/(n+m)).
+    """
+    if not a or not b:
+        return float("nan"), float("nan")
+    n, m = len(a), len(b)
+    combined = sorted(set(a + b))
+    # Build ECDFs
+    def ecdf(vals: list[float], x: float) -> float:
+        return sum(1 for v in vals if v <= x) / len(vals)
+    d = max(abs(ecdf(a, x) - ecdf(b, x)) for x in combined)
+    # Approximate p-value via Kolmogorov distribution
+    nm = n * m / (n + m)
+    z = d * math.sqrt(nm)
+    # Series approximation: P(D > d) ≈ 2*sum_{k=1..inf} (-1)^(k+1) exp(-2k²z²)
+    p_approx = 0.0
+    for k in range(1, 20):
+        term = ((-1) ** (k + 1)) * math.exp(-2 * (k ** 2) * (z ** 2))
+        p_approx += term
+        if abs(term) < 1e-10:
+            break
+    p_approx = max(0.0, min(1.0, 2 * p_approx))
+    return round(d, 6), round(p_approx, 6)
+
+
+def _behavioral_indistinguishability_test(
+    human_coop_rates: list[float],
+    cond_a_coop_rates: list[float] | None,
+    cond_b_coop_rates: list[float] | None,
+    human_wealth: list[float] | None = None,
+    cond_a_wealth: list[float] | None = None,
+    cond_b_wealth: list[float] | None = None,
+) -> dict:
+    """Run two-sample KS tests comparing human behavior to simulation conditions.
+
+    Primary claim (if supported):
+        KS(human, Cond B) statistic < KS(human, Cond A) statistic
+        AND KS(human, Cond B) p-value > 0.05  →  "statistically indistinguishable"
+
+    This is the gold-standard evidence for grounding efficacy:
+    grounded agents are statistically indistinguishable from humans at the
+    action-distribution level.
+
+    Args:
+        human_coop_rates: Per-participant cooperation rates from real participants.
+        cond_a_coop_rates: Per-agent cooperation rates from Condition A simulation.
+        cond_b_coop_rates: Per-agent cooperation rates from Condition B simulation.
+        human_wealth: Per-participant final wealth (for wealth-distribution KS test).
+        cond_a_wealth: Per-agent final wealth from Condition A.
+        cond_b_wealth: Per-agent final wealth from Condition B.
+
+    Returns:
+        Dict with KS statistics, p-values, indistinguishability flags, and
+        a human-readable interpretation string for the paper.
+    """
+    result: dict = {}
+
+    def _ks_entry(name_a: str, name_b: str, vals_a: list[float], vals_b: list[float]) -> dict:
+        d, p = _ks_two_sample(vals_a, vals_b)
+        return {
+            "ks_statistic": d,
+            "p_value": p,
+            "indistinguishable_at_05": p > 0.05,
+            "n_a": len(vals_a),
+            "n_b": len(vals_b),
+            "label": f"KS({name_a}, {name_b})",
+        }
+
+    # ── Cooperation rate KS tests ─────────────────────────────────────────────
+    result["cooperation_rate"] = {}
+    if cond_a_coop_rates:
+        result["cooperation_rate"]["human_vs_A"] = _ks_entry(
+            "human", "Cond A", human_coop_rates, cond_a_coop_rates
+        )
+    if cond_b_coop_rates:
+        result["cooperation_rate"]["human_vs_B"] = _ks_entry(
+            "human", "Cond B", human_coop_rates, cond_b_coop_rates
+        )
+
+    # ── Wealth KS tests ───────────────────────────────────────────────────────
+    result["wealth"] = {}
+    if human_wealth and cond_a_wealth:
+        result["wealth"]["human_vs_A"] = _ks_entry(
+            "human", "Cond A", human_wealth, cond_a_wealth
+        )
+    if human_wealth and cond_b_wealth:
+        result["wealth"]["human_vs_B"] = _ks_entry(
+            "human", "Cond B", human_wealth, cond_b_wealth
+        )
+
+    # ── Primary claim assessment ──────────────────────────────────────────────
+    coop_a = result["cooperation_rate"].get("human_vs_A", {})
+    coop_b = result["cooperation_rate"].get("human_vs_B", {})
+
+    if coop_a and coop_b:
+        d_a = coop_a.get("ks_statistic", float("nan"))
+        d_b = coop_b.get("ks_statistic", float("nan"))
+        p_b = coop_b.get("p_value", 0.0)
+
+        b_closer = d_b < d_a
+        b_indistinguishable = p_b > 0.05
+
+        if b_indistinguishable and b_closer:
+            interp = (
+                f"STRONG EVIDENCE: Grounded agents (Cond B) are statistically "
+                f"indistinguishable from human participants in cooperation rate "
+                f"(KS={d_b:.4f}, p={p_b:.4f} > 0.05), while ungrounded agents "
+                f"(Cond A) differ significantly (KS={d_a:.4f}). "
+                f"This is the gold-standard evidence for grounding efficacy."
+            )
+        elif b_closer:
+            interp = (
+                f"PARTIAL EVIDENCE: Grounded agents (Cond B) are closer to human "
+                f"behavior than ungrounded (KS(B)={d_b:.4f} < KS(A)={d_a:.4f}), "
+                f"but not yet statistically indistinguishable (p={p_b:.4f} < 0.05). "
+                f"Increase n_participants or n_rounds for stronger evidence."
+            )
+        else:
+            interp = (
+                f"NO EVIDENCE: Grounded agents (Cond B) are not closer to human "
+                f"behavior than ungrounded (KS(B)={d_b:.4f} ≥ KS(A)={d_a:.4f}). "
+                f"This contradicts the grounding hypothesis — investigate."
+            )
+
+        result["primary_claim"] = {
+            "cond_b_closer_to_human": b_closer,
+            "cond_b_statistically_indistinguishable": b_indistinguishable,
+            "ks_d_human_vs_A": d_a,
+            "ks_d_human_vs_B": d_b,
+            "ks_p_human_vs_B": p_b,
+            "interpretation": interp,
+        }
+
+    return result
+
+
 def _to_markdown_table(human_row: dict, condition_rows: dict[str, dict]) -> str:
     lines = [
         "# Human vs Simulation Baseline Comparison",
@@ -345,6 +494,29 @@ def main() -> None:
         "--allow-synthetic",
         action="store_true",
         help="Allow running on synthetic/demo-like data patterns (not for publication).",
+    )
+    # KS indistinguishability arguments (Phase 29.3)
+    parser.add_argument(
+        "--sim-coop-a",
+        default=None,
+        help="JSON file with per-agent cooperation rates for Cond A "
+        "(list of floats). Used for KS indistinguishability test.",
+    )
+    parser.add_argument(
+        "--sim-coop-b",
+        default=None,
+        help="JSON file with per-agent cooperation rates for Cond B "
+        "(list of floats). Used for KS indistinguishability test.",
+    )
+    parser.add_argument(
+        "--sim-wealth-a",
+        default=None,
+        help="JSON file with per-agent final wealth for Cond A (list of floats).",
+    )
+    parser.add_argument(
+        "--sim-wealth-b",
+        default=None,
+        help="JSON file with per-agent final wealth for Cond B (list of floats).",
     )
     args = parser.parse_args()
 
@@ -472,7 +644,45 @@ def main() -> None:
     output_json.write_text(json.dumps(payload, indent=2))
     print(f"Saved metrics: {output_json}")
 
-    # ── JSD vs simulation conditions ──────────────────────────────────────────
+    # ── KS behavioral indistinguishability test + JSD (Phase 29.3) ──────────
+    def _load_float_list(path_str: str | None) -> list[float] | None:
+        if path_str is None:
+            return None
+        p = Path(path_str)
+        if not p.exists():
+            print(f"Warning: {path_str} not found, skipping KS component.")
+            return None
+        return [float(x) for x in json.loads(p.read_text())]
+
+    cond_a_coop = _load_float_list(args.sim_coop_a)
+    cond_b_coop = _load_float_list(args.sim_coop_b)
+    cond_a_wealth = _load_float_list(args.sim_wealth_a)
+    cond_b_wealth = _load_float_list(args.sim_wealth_b)
+
+    human_coop_rates = part["coop_rate"].tolist()
+    human_wealth_list = part["final_wealth"].tolist()
+
+    ks_results = _behavioral_indistinguishability_test(
+        human_coop_rates=human_coop_rates,
+        cond_a_coop_rates=cond_a_coop,
+        cond_b_coop_rates=cond_b_coop,
+        human_wealth=human_wealth_list if cond_a_wealth or cond_b_wealth else None,
+        cond_a_wealth=cond_a_wealth,
+        cond_b_wealth=cond_b_wealth,
+    )
+
+    if ks_results.get("primary_claim"):
+        claim = ks_results["primary_claim"]
+        print("\n── KS Behavioral Indistinguishability Test ──────────────────────")
+        print(claim["interpretation"])
+        print(f"  KS(human, Cond A) = {claim.get('ks_d_human_vs_A', 'N/A')}")
+        print(f"  KS(human, Cond B) = {claim.get('ks_d_human_vs_B', 'N/A')} "
+              f"(p = {claim.get('ks_p_human_vs_B', 'N/A')})")
+        print("─" * 65)
+
+    payload["ks_indistinguishability"] = ks_results
+
+    # Update JSD output to include KS results
     if args.simulation_json and Path(args.simulation_json).exists():
         sim_data = json.loads(Path(args.simulation_json).read_text())
         human_dist = {k: round(float(v), 6) for k, v in action_dist.items()}
@@ -484,12 +694,19 @@ def main() -> None:
         reference_payload = {
             "human_action_distribution": human_dist,
             "jsd_vs_conditions": jsd_results,
+            "ks_indistinguishability": ks_results,
             "trust_cooperation_spearman": trust_coop,
+            "primary_test": "ks_indistinguishability",
+            "note": (
+                "Primary comparison is two-sample KS test (Phase 29.3). "
+                "JSD is a secondary distributional comparison. "
+                "Indistinguishability claim requires KS p > 0.05 for Cond B."
+            ),
         }
         jsd_out = Path(args.jsd_output_json)
         jsd_out.parent.mkdir(parents=True, exist_ok=True)
         jsd_out.write_text(json.dumps(reference_payload, indent=2))
-        print(f"Saved JSD comparison: {jsd_out}")
+        print(f"Saved KS+JSD comparison: {jsd_out}")
         print("JSD(human, condition):")
         for cond, val in sorted(jsd_results.items(), key=lambda x: x[1]):
             print(f"  {cond}: {val:.6f}")

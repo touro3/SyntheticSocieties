@@ -4,6 +4,10 @@ import numpy as np
 
 
 def fit_affine(real: np.ndarray, synthetic: np.ndarray) -> dict:
+    """Fit an affine (linear) recalibration from synthetic to real distributions.
+
+    Returns slope and intercept such that ``slope * synthetic + intercept ≈ real``.
+    """
     real = np.asarray(real, dtype=float)
     synthetic = np.asarray(synthetic, dtype=float)
 
@@ -21,11 +25,13 @@ def fit_affine(real: np.ndarray, synthetic: np.ndarray) -> dict:
 
 
 def apply_affine(values: np.ndarray, slope: float, intercept: float) -> np.ndarray:
+    """Apply a previously fitted affine transform: ``slope * values + intercept``."""
     values = np.asarray(values, dtype=float)
     return slope * values + intercept
 
 
 def fit_variance_scaling(real: np.ndarray, synthetic: np.ndarray) -> dict:
+    """Fit a variance-scaling transform so the synthetic spread matches the real spread."""
     real = np.asarray(real, dtype=float)
     synthetic = np.asarray(synthetic, dtype=float)
 
@@ -43,6 +49,7 @@ def fit_variance_scaling(real: np.ndarray, synthetic: np.ndarray) -> dict:
 
 
 def apply_variance_scaling(values: np.ndarray, scale: float, synthetic_mean: float, real_mean: float) -> np.ndarray:
+    """Apply a previously fitted variance-scaling transform."""
     values = np.asarray(values, dtype=float)
     centered = values - synthetic_mean
     return centered * scale + real_mean

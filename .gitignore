@@ -182,6 +182,11 @@ temp/
 local_exp/
 scratch/
 debug/
+notes/
+
+# Debug / session log files that may appear in root
+debug_log.txt
+CEST.log
 
 # =========================
 # Paper

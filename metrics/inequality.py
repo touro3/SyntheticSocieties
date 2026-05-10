@@ -6,6 +6,17 @@ import numpy as np
 
 
 def gini_coefficient(values: Iterable[float]) -> float:
+    """Compute the Gini coefficient of a wealth distribution.
+
+    Uses the sorted-index formula: G = (2 * Σ(i * x_i) / (n * Σx_i)) - (n+1)/n.
+    Returns 0.0 for a perfectly equal distribution and approaches 1.0 for maximum inequality.
+
+    Args:
+        values: Non-negative wealth values for each agent.
+
+    Returns:
+        Gini coefficient in [0, 1].
+    """
     x = np.array(list(values), dtype=float)
 
     if x.size == 0:
@@ -26,6 +37,15 @@ def gini_coefficient(values: Iterable[float]) -> float:
 
 
 def lorenz_curve(values: Iterable[float]) -> dict[str, list[float]]:
+    """Compute the Lorenz curve for a wealth distribution.
+
+    Args:
+        values: Non-negative wealth values for each agent.
+
+    Returns:
+        Dict with keys ``"population"`` and ``"wealth"``, each a list of
+        cumulative share values from 0.0 to 1.0 (suitable for plotting).
+    """
     x = np.array(list(values), dtype=float)
 
     if x.size == 0:

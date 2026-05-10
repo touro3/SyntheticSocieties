@@ -104,6 +104,8 @@ ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel 
 
 ## Quick Start
 
+> **Dependencies**: `requirements.txt` — full install with GPU support. `requirements-ci.txt` — CPU-only for CI/testing. `requirements-api.txt` — API/web service only.
+
 ```bash
 # Install
 python -m venv venv && source venv/bin/activate

@@ -16,6 +16,16 @@ from metrics.recalibration import (
 
 
 def composite_score(frame: pd.DataFrame, target_items: list[dict[str, Any]], prefix: str = "") -> pd.Series:
+    """Compute a 0–100 composite fidelity score by averaging item columns.
+
+    Args:
+        frame: DataFrame containing the item columns.
+        target_items: List of item specs with keys ``name`` and optional ``inverse``.
+        prefix: Column name prefix (e.g. ``"real_"`` for real profiles).
+
+    Returns:
+        Series of composite scores in [0, 100].
+    """
     cols = []
     for item in target_items:
         name = f"{prefix}{item['name']}"
@@ -30,6 +40,7 @@ def summarize_synthetic_runs(
     synthetic_runs_df: pd.DataFrame,
     target_items: list[dict[str, Any]],
 ) -> pd.DataFrame:
+    """Aggregate per-replication synthetic runs to per-profile means and composite score."""
     agg = {"replication_seed": "count"}
     for item in target_items:
         agg[item["name"]] = "mean"
@@ -46,6 +57,11 @@ def summarize_synthetic_runs(
 def compute_pca_projection(
     real_profiles: pd.DataFrame, synthetic_profiles: pd.DataFrame, target_items: list[dict[str, Any]]
 ) -> dict:
+    """Project real and synthetic profiles onto the first principal component of the real data.
+
+    Returns Pearson/Spearman correlation between the real and synthetic PC1 scores,
+    plus explained variance and mean bias — used to assess distributional alignment.
+    """
     target_names = [f"real_{item['name']}" for item in target_items]
     synth_names = [item["name"] for item in target_items]
 

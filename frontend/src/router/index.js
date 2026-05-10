@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import HomeView        from '../views/HomeView.vue'
 import RunView         from '../views/RunView.vue'
 import MonitorView     from '../views/MonitorView.vue'
@@ -8,7 +8,7 @@ import InteractView    from '../views/InteractView.vue'
 import HumanEvalView   from '../views/HumanEvalView.vue'
 
 export default createRouter({
-  history: createWebHashHistory(),
+  history: createWebHistory(),
   routes: [
     { path: '/',                    component: HomeView },
     { path: '/run',                 component: RunView },

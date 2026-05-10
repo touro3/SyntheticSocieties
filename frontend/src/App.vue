@@ -3,19 +3,27 @@
     <!-- Sidebar -->
     <aside class="sidebar" :class="{ open: mobileOpen }">
       <div class="sidebar-top">
-        <div class="brand" @click="collapsed = !collapsed" title="Toggle sidebar">
-          <div class="brand-icon-wrap">
-            <span class="brand-gem">◆</span>
-          </div>
-          <span class="brand-text">
-            <span class="brand-name">Synthetic<span class="brand-name-accent">Societies</span></span>
-            <span class="brand-sub">BGF · v2</span>
-          </span>
+        <div class="brand-row">
+          <router-link to="/" class="brand">
+            <div class="brand-icon-wrap">
+              <span class="brand-gem">◆</span>
+            </div>
+            <span class="brand-text">
+              <span class="brand-name">Synthetic<span class="brand-name-accent">Societies</span></span>
+              <span class="brand-sub">BGF · v2</span>
+            </span>
+          </router-link>
+          <button class="collapse-btn" @click="collapsed = !collapsed"
+            :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+            :aria-label="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+            {{ collapsed ? '›' : '‹' }}
+          </button>
         </div>
 
         <nav class="nav">
           <router-link v-for="l in links" :key="l.to" :to="l.to"
             class="nav-item" active-class="active" exact-active-class="exact-active"
+            :title="l.title || l.label"
             @click="mobileOpen = false">
             <span class="nav-icon">{{ l.icon }}</span>
             <span class="nav-label">{{ l.label }}</span>
@@ -48,25 +56,27 @@
     <div v-if="mobileOpen" class="mobile-overlay" @click="mobileOpen = false" />
 
     <!-- Mobile menu toggle -->
-    <button class="mobile-toggle" @click="mobileOpen = !mobileOpen" aria-label="Menu">
+    <button class="mobile-toggle" @click="mobileOpen = !mobileOpen" aria-label="Open navigation menu">
       <span>☰</span>
     </button>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { api } from './api/index.js'
 
 const online     = ref(false)
-const collapsed  = ref(false)
+const collapsed  = ref(localStorage.getItem('sidebar-collapsed') === '1')
 const mobileOpen = ref(false)
+
+watch(collapsed, v => localStorage.setItem('sidebar-collapsed', v ? '1' : '0'))
 
 const links = [
   { to: '/',            icon: '⬡', label: 'Dashboard' },
   { to: '/run',         icon: '▶', label: 'Run Simulation' },
   { to: '/experiments', icon: '◫', label: 'Experiments' },
-  { to: '/human-eval',  icon: '◈', label: 'Human Eval' },
+  { to: '/human-eval',  icon: '◈', label: 'Human Eval', title: 'Vignette study — rate LLM vs human behavioral realism' },
 ]
 
 onMounted(async () => {
@@ -142,6 +152,7 @@ body {
 a { color: var(--blue); text-decoration: none; }
 a:hover { color: var(--blue2); text-decoration: underline; }
 button { font-family: inherit; cursor: pointer; border: none; outline: none; }
+button:focus-visible { outline: 2px solid var(--blue2); outline-offset: 2px; border-radius: 6px; }
 input, select, textarea {
   font-family: inherit;
   background: var(--bg3);
@@ -405,12 +416,31 @@ body::after {
   overflow-y: auto; padding: 20px 12px 12px;
 }
 
+/* ── Brand row ──────────────────────────────────────────────────── */
+.brand-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 0 18px;
+}
+
 /* ── Brand ──────────────────────────────────────────────────────── */
 .brand {
   display: flex; align-items: center; gap: 11px;
-  padding: 8px 8px 22px;
-  cursor: pointer; user-select: none;
+  padding: 8px 8px 0;
+  text-decoration: none; color: inherit; flex: 1; min-width: 0;
 }
+.brand:hover { text-decoration: none; }
+
+/* ── Sidebar collapse button ────────────────────────────────────── */
+.collapse-btn {
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+  background: rgba(255,255,255,.04); border: 1px solid var(--border2);
+  color: var(--text3); font-size: .8rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s, border-color .15s;
+  cursor: pointer; padding: 0; margin-right: 4px; margin-top: 4px;
+  align-self: flex-start;
+}
+.collapse-btn:hover { background: rgba(99,102,241,.12); color: var(--blue2); border-color: rgba(99,102,241,.3); }
 .brand-icon-wrap {
   width: 32px; height: 32px; border-radius: 9px;
   background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(139,92,246,.2));
@@ -507,20 +537,24 @@ body::after {
 .sidebar-collapsed .brand-text,
 .sidebar-collapsed .nav-label,
 .sidebar-collapsed .nav-badge,
-.sidebar-collapsed .status-text { display: none; }
+.sidebar-collapsed .status-text,
+.sidebar-collapsed .collapse-btn { display: none; }
 .sidebar-collapsed .main-area { margin-left: 58px; }
 .sidebar-collapsed .nav-item { justify-content: center; padding: 10px; }
 .sidebar-collapsed .nav-item::before { display: none; }
-.sidebar-collapsed .brand { justify-content: center; padding-bottom: 22px; }
+.sidebar-collapsed .brand-row { justify-content: center; padding-bottom: 18px; }
+.sidebar-collapsed .brand { justify-content: center; padding: 8px 0 0; flex: none; }
 .sidebar-collapsed .brand-icon-wrap { margin: 0; }
 
 /* ── Mobile ─────────────────────────────────────────────────────── */
 .mobile-toggle {
-  display: none; position: fixed; bottom: 22px; right: 22px;
-  width: 50px; height: 50px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--indigo), var(--blue));
-  color: #fff; font-size: 1.1rem; z-index: 300;
-  box-shadow: 0 4px 20px rgba(99,102,241,.5);
+  display: none; position: fixed; top: 14px; left: 14px;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(13,21,40,.92);
+  border: 1px solid var(--border2);
+  color: var(--text2); font-size: 1rem; z-index: 300;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+  backdrop-filter: blur(12px);
 }
 .mobile-overlay {
   display: none; position: fixed; inset: 0;
@@ -538,6 +572,6 @@ body::after {
   .sidebar-collapsed .sidebar { transform: translateX(-100%); }
   .main-area, .sidebar-collapsed .main-area { margin-left: 0; }
   .mobile-toggle, .mobile-overlay { display: flex; align-items: center; justify-content: center; }
-  .page-content { padding: 24px 18px 100px; }
+  .page-content { padding: 68px 18px 100px; } /* top offset clears the mobile toggle */
 }
 </style>

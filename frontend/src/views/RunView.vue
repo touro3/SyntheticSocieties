@@ -10,7 +10,7 @@
     <!-- Step progress indicator -->
     <div class="step-progress">
       <div v-for="(s, i) in stepLabels" :key="i" class="sp-item">
-        <div class="sp-dot" :class="{ done: i < currentStep }">{{ i + 1 }}</div>
+        <div class="sp-dot" :class="{ done: isStepDone(i) }">{{ i + 1 }}</div>
         <span class="sp-label">{{ s }}</span>
         <div v-if="i < stepLabels.length - 1" class="sp-line"></div>
       </div>
@@ -42,6 +42,7 @@
           />
 
           <!-- AI provider picker for design -->
+          <div class="scope-label">Provider for scenario generation</div>
           <div class="design-provider-row">
             <button v-for="dp in designProviders" :key="dp.value"
               class="dprov-btn"
@@ -75,6 +76,7 @@
               class="btn btn-primary design-btn"
               @click="runDesign"
               :disabled="!designPrompt.trim() || designStatus === 'loading' || !canDesign"
+              :title="!canDesign ? designUnavailReason : (designStatus === 'loading' ? 'Designing…' : 'Generate a simulation scenario with AI')"
             >
               <span v-if="designStatus === 'loading'" class="spin">⟳</span>
               <span v-else>✦</span>
@@ -113,7 +115,7 @@
             </div>
 
             <div class="design-action-row">
-              <button v-if="!designApplied" class="btn btn-primary" @click="applyDesign">
+              <button v-if="!designApplied" class="btn btn-primary" @click="applyDesignAndMarkSteps">
                 Apply to Wizard →
               </button>
               <div v-else class="design-applied-badge">✓ Applied — wizard configured below</div>
@@ -144,7 +146,7 @@
 
           <!-- LLM provider selector -->
           <div v-if="selectedPolicy?.gpu" class="llm-config">
-            <div class="llm-config-head">AI Provider for Agents</div>
+            <div class="llm-config-head">Provider for agent decisions (simulation)</div>
             <div class="provider-grid">
               <button v-for="p in providers" :key="p.value"
                 class="provider-btn"
@@ -357,7 +359,7 @@
             <span class="step-num">5</span>
             <div>
               <div class="step-title">Bad Apple Injection</div>
-              <div class="step-sub">Adversarial agents that steal from the public pool</div>
+              <div class="step-sub">Adversarial agents that steal from the public pool — model corruption, free-riding, or defection. Even 5% can destabilize cooperation.</div>
             </div>
           </div>
           <div class="slider-row">
@@ -462,9 +464,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/index.js'
+import { POLICIES } from '../data/policies.js'
 
 const router = useRouter()
 
@@ -588,14 +591,7 @@ const designError       = ref('')
 const designResult      = ref(null)
 const designApplied     = ref(false)
 
-const policies = [
-  { value: 'mock',              glyph: '◻', name: 'Mock',        desc: 'Fixed action every round — fastest',        gpu: false },
-  { value: 'random',            glyph: '◈', name: 'Random',      desc: 'Uniform random action each round',          gpu: false },
-  { value: 'rule_based',        glyph: '◆', name: 'Rule-Based',  desc: 'Heuristic rules on wealth + stress',        gpu: false },
-  { value: 'template',          glyph: '▣', name: 'Template',    desc: 'Template prompt, no LLM — deterministic',   gpu: false },
-  { value: 'llm',               glyph: '▲', name: 'LLM',         desc: 'Mistral-7B or GPT — grounded reasoning',    gpu: true  },
-  { value: 'generative_agents', glyph: '⬡', name: 'Generative',  desc: 'Park et al. 2023 fictional persona',        gpu: true  },
-]
+const policies = POLICIES
 
 const providers = [
   {
@@ -667,13 +663,25 @@ const selectedPolicy   = computed(() => policies.find(p => p.value === form.valu
 const selectedProvider = computed(() => providers.find(p => p.value === form.value.llm_backend))
 
 const stepLabels = ['Policy', 'Scale', 'Network', 'Population', 'Adversarial']
-const currentStep = computed(() => {
-  if (launched.value) return 5
-  if (form.value.bad_apple_frac > 0) return 4
-  if (form.value.population_source !== 'synthetic') return 3
-  if (form.value.network_type !== 'random') return 2
-  return 1
-})
+const visitedSteps = ref([])
+
+function markStep(i) {
+  if (!visitedSteps.value.includes(i)) visitedSteps.value.push(i)
+}
+
+// Mark steps visited when their fields are explicitly changed
+watch(() => form.value.policy, () => markStep(0))
+watch(() => [form.value.agents, form.value.rounds, form.value.seed], () => markStep(1), { deep: true })
+watch(() => form.value.network_type, () => markStep(2))
+watch(() => form.value.population_source, () => markStep(3))
+watch(() => form.value.bad_apple_frac, () => markStep(4))
+// Mark all steps done when AI design is applied
+function applyDesignAndMarkSteps() {
+  applyDesign()
+  visitedSteps.value = [0, 1, 2, 3, 4]
+}
+
+const isStepDone = (i) => launched.value || visitedSteps.value.includes(i)
 
 function selectProvider(p) {
   form.value.llm_backend  = p.value
@@ -886,6 +894,13 @@ function resetForm() {
 }
 .p-tag.cpu { background: rgba(16,185,129,.15); color: var(--green); }
 .p-tag.gpu { background: rgba(139,92,246,.15); color: var(--purple); }
+
+/* ── Scope label (clarifies which picker controls what) ─────────── */
+.scope-label {
+  font-size: .7rem; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: 2px 0;
+}
 
 /* ── LLM config ─────────────────────────────────────────────────── */
 .llm-config { display: flex; flex-direction: column; gap: 12px; }
@@ -1263,7 +1278,7 @@ function resetForm() {
   padding: 4px 0; max-width: 300px; line-height: 1.4;
 }
 .prov-status {
-  font-size: .65rem; margin-top: 2px; color: var(--text3);
+  font-size: .78rem; font-weight: 600; margin-top: 3px; color: var(--text2);
 }
 .provider-btn.unavailable { opacity: .45; }
 .provider-btn.unavailable.selected { opacity: 1; }

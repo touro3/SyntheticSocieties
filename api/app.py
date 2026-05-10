@@ -418,6 +418,24 @@ def create_app(
         base_url = request.host_url.rstrip("/")
         return render_template("index.html", base_url=base_url)
 
+    # ── SPA fallback — serve index.html for all non-API routes (web history mode) ──
+
+    @app.get("/<path:path>")
+    def spa_fallback(path: str):
+        from flask import send_from_directory
+
+        _api_prefixes = (
+            "health", "simulate", "status", "results", "experiments",
+            "interview", "inject", "report", "incomplete", "human-eval",
+            "configs", "assets", "upload-ess-data", "design-simulation", "api",
+        )
+        if any(path.startswith(p) for p in _api_prefixes):
+            return jsonify({"error": "Not found"}), 404
+        idx = _STATIC_DIR / "index.html"
+        if idx.exists():
+            return send_from_directory(str(_STATIC_DIR), "index.html")
+        return jsonify({"error": "Not found"}), 404
+
     # ── List available config files ───────────────────────────────────────────
 
     @app.get("/configs")

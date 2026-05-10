@@ -38,7 +38,8 @@
 
         <div v-if="loading" class="empty"><span class="spin">⟳</span></div>
         <div v-else-if="!experiments.length" class="empty">
-          No runs yet. <router-link to="/run">Launch one →</router-link>
+          <span v-if="apiError">Could not reach server — check that the API is online.</span>
+          <span v-else>No runs yet. <router-link to="/run">Launch one →</router-link></span>
         </div>
         <div v-else class="exp-list">
           <div v-for="e in experiments.slice(0,8)" :key="e.experiment_id"
@@ -66,15 +67,16 @@
           </p>
           <div class="quick-list">
             <button v-for="q in quickLaunches" :key="q.label"
-              class="quick-btn" :class="{ loading: q.loading, done: q.launched }"
+              class="quick-btn" :class="{ loading: q.loading, done: q.launched, timedout: q.timedOut }"
               @click="quickRun(q)">
               <span class="q-icon" :style="{ color: q.color }">{{ q.icon }}</span>
               <span class="q-text">
                 <span class="q-label">{{ q.label }}</span>
-                <span class="q-desc">{{ q.desc }}</span>
+                <span class="q-desc">{{ q.timedOut ? 'Timed out — click to retry' : q.desc }}</span>
               </span>
               <span v-if="q.loading" class="spin q-spin">⟳</span>
               <span v-else-if="q.launched" class="q-check">✓</span>
+              <span v-else-if="q.timedOut" class="q-retry">↺</span>
               <span v-else class="q-arrow">→</span>
             </button>
           </div>
@@ -105,6 +107,10 @@
           <span class="method" :class="ep.method.toLowerCase()">{{ ep.method }}</span>
           <code class="mono api-path">{{ ep.path }}</code>
           <span class="api-desc">{{ ep.desc }}</span>
+          <button class="copy-path-btn" @click.stop="copyPath(ep.path)"
+            :title="copiedPath === ep.path ? 'Copied!' : 'Copy path'">
+            {{ copiedPath === ep.path ? '✓' : '⊕' }}
+          </button>
         </div>
       </div>
     </div>
@@ -116,6 +122,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/index.js'
 import { useReveal } from '../composables/useReveal.js'
+import { POLICY_COUNT } from '../data/policies.js'
 import StatusBadge from '../components/StatusBadge.vue'
 
 const router  = useRouter()
@@ -129,12 +136,14 @@ useReveal(apiRef)
 const loading     = ref(true)
 const experiments = ref([])
 const online      = ref(false)
+const apiError    = ref(false)
 const launchErr   = ref('')
+const copiedPath  = ref('')
 
 const kpis = computed(() => [
   { icon: '●', label: 'API',          val: online.value ? 'Online' : 'Offline',  color: online.value ? 'var(--green)' : 'var(--rose)', iconBg: online.value ? 'rgba(16,185,129,.12)' : 'rgba(244,63,94,.1)' },
   { icon: '◫', label: 'Experiments',  val: experiments.value.length || '—',       color: 'var(--blue2)',  iconBg: 'rgba(99,102,241,.12)' },
-  { icon: '⬡', label: 'Policy Types', val: 6,                                      color: 'var(--violet)', iconBg: 'rgba(139,92,246,.12)' },
+  { icon: '⬡', label: 'Policy Types', val: POLICY_COUNT,                             color: 'var(--violet)', iconBg: 'rgba(139,92,246,.12)' },
   { icon: '◉', label: 'Data Source',  val: 'ESS R11',                              color: 'var(--cyan)',   iconBg: 'rgba(34,211,238,.1)'  },
 ])
 
@@ -167,22 +176,41 @@ const giniColor = g => {
 }
 
 async function quickRun(q) {
-  q.loading = true; q.launched = false; launchErr.value = ''
+  q.loading = true; q.launched = false; q.timedOut = false; launchErr.value = ''
+
+  const timeoutHandle = setTimeout(() => {
+    if (q.loading) {
+      q.loading = false
+      q.timedOut = true
+      launchErr.value = 'Request timed out (15 s) — server may be busy. Click to retry.'
+    }
+  }, 15000)
+
   try {
     const r = await api.simulateWizard({ policy: q.policy, agents: q.agents, rounds: q.rounds, seed: 42 })
+    clearTimeout(timeoutHandle)
     q.launched = true
     setTimeout(() => router.push(`/monitor/${r.data.experiment_id}`), 800)
   } catch(e) {
+    clearTimeout(timeoutHandle)
     launchErr.value = e.response?.data?.error || 'Launch failed — check server logs.'
   } finally { q.loading = false }
 }
 
+async function copyPath(path) {
+  try {
+    await navigator.clipboard.writeText(path)
+    copiedPath.value = path
+    setTimeout(() => { if (copiedPath.value === path) copiedPath.value = '' }, 1500)
+  } catch {}
+}
+
 onMounted(async () => {
-  try { await api.health(); online.value = true } catch {}
+  try { await api.health(); online.value = true } catch { apiError.value = true }
   try {
     const r = await api.experiments()
     experiments.value = r.data.experiments || []
-  } catch {}
+  } catch { apiError.value = true }
   loading.value = false
 })
 </script>
@@ -312,7 +340,7 @@ onMounted(async () => {
 .api-ref { padding: 22px; }
 .api-grid { display: grid; gap: 6px; }
 .api-item {
-  display: grid; grid-template-columns: 64px 220px 1fr;
+  display: grid; grid-template-columns: 64px 220px 1fr auto;
   align-items: center; gap: 14px;
   padding: 9px 14px; border-radius: 10px;
   transition: background .15s, transform .25s var(--ease-spring);
@@ -327,8 +355,23 @@ onMounted(async () => {
 .api-path    { font-size: .79rem; color: var(--text); }
 .api-desc    { font-size: .77rem; color: var(--text2); }
 
+.copy-path-btn {
+  width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text3); font-size: .78rem;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s, background .15s, color .15s, border-color .15s;
+  cursor: pointer;
+}
+.api-item:hover .copy-path-btn,
+.api-item.revealed:hover .copy-path-btn { opacity: 1; }
+.copy-path-btn:hover { background: rgba(99,102,241,.12); color: var(--blue2); border-color: rgba(99,102,241,.2); }
+
+.quick-btn.timedout { border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.04); }
+.q-retry { font-size: .9rem; color: var(--amber); flex-shrink: 0; }
+
 @media (max-width: 640px) {
-  .api-item { grid-template-columns: 64px 1fr; }
+  .api-item { grid-template-columns: 64px 1fr auto; }
   .api-desc { display: none; }
   .hero { padding: 22px 20px; }
 }

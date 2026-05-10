@@ -283,9 +283,11 @@ def _ks_two_sample(a: list[float], b: list[float]) -> tuple[float, float]:
         return float("nan"), float("nan")
     n, m = len(a), len(b)
     combined = sorted(set(a + b))
+
     # Build ECDFs
     def ecdf(vals: list[float], x: float) -> float:
         return sum(1 for v in vals if v <= x) / len(vals)
+
     d = max(abs(ecdf(a, x) - ecdf(b, x)) for x in combined)
     # Approximate p-value via Kolmogorov distribution
     nm = n * m / (n + m)
@@ -293,7 +295,7 @@ def _ks_two_sample(a: list[float], b: list[float]) -> tuple[float, float]:
     # Series approximation: P(D > d) ≈ 2*sum_{k=1..inf} (-1)^(k+1) exp(-2k²z²)
     p_approx = 0.0
     for k in range(1, 20):
-        term = ((-1) ** (k + 1)) * math.exp(-2 * (k ** 2) * (z ** 2))
+        term = ((-1) ** (k + 1)) * math.exp(-2 * (k**2) * (z**2))
         p_approx += term
         if abs(term) < 1e-10:
             break
@@ -347,24 +349,16 @@ def _behavioral_indistinguishability_test(
     # ── Cooperation rate KS tests ─────────────────────────────────────────────
     result["cooperation_rate"] = {}
     if cond_a_coop_rates:
-        result["cooperation_rate"]["human_vs_A"] = _ks_entry(
-            "human", "Cond A", human_coop_rates, cond_a_coop_rates
-        )
+        result["cooperation_rate"]["human_vs_A"] = _ks_entry("human", "Cond A", human_coop_rates, cond_a_coop_rates)
     if cond_b_coop_rates:
-        result["cooperation_rate"]["human_vs_B"] = _ks_entry(
-            "human", "Cond B", human_coop_rates, cond_b_coop_rates
-        )
+        result["cooperation_rate"]["human_vs_B"] = _ks_entry("human", "Cond B", human_coop_rates, cond_b_coop_rates)
 
     # ── Wealth KS tests ───────────────────────────────────────────────────────
     result["wealth"] = {}
     if human_wealth and cond_a_wealth:
-        result["wealth"]["human_vs_A"] = _ks_entry(
-            "human", "Cond A", human_wealth, cond_a_wealth
-        )
+        result["wealth"]["human_vs_A"] = _ks_entry("human", "Cond A", human_wealth, cond_a_wealth)
     if human_wealth and cond_b_wealth:
-        result["wealth"]["human_vs_B"] = _ks_entry(
-            "human", "Cond B", human_wealth, cond_b_wealth
-        )
+        result["wealth"]["human_vs_B"] = _ks_entry("human", "Cond B", human_wealth, cond_b_wealth)
 
     # ── Primary claim assessment ──────────────────────────────────────────────
     coop_a = result["cooperation_rate"].get("human_vs_A", {})
@@ -676,8 +670,9 @@ def main() -> None:
         print("\n── KS Behavioral Indistinguishability Test ──────────────────────")
         print(claim["interpretation"])
         print(f"  KS(human, Cond A) = {claim.get('ks_d_human_vs_A', 'N/A')}")
-        print(f"  KS(human, Cond B) = {claim.get('ks_d_human_vs_B', 'N/A')} "
-              f"(p = {claim.get('ks_p_human_vs_B', 'N/A')})")
+        print(
+            f"  KS(human, Cond B) = {claim.get('ks_d_human_vs_B', 'N/A')} (p = {claim.get('ks_p_human_vs_B', 'N/A')})"
+        )
         print("─" * 65)
 
     payload["ks_indistinguishability"] = ks_results

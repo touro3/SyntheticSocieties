@@ -165,9 +165,15 @@ def run_simulate_mode(seeds: list[int], rlhf_strength: float) -> dict:
     aggregated = {}
     for game in GAMES:
         values_a = [s[game]["brlhf_a_vs_uniform"] for s in per_seed_results]
-        values_b = [s[game]["brlhf_b_vs_uniform"] for s in per_seed_results if s[game]["brlhf_b_vs_uniform"] is not None]
-        reductions = [s[game]["brlhf_reduction_pct"] for s in per_seed_results if s[game]["brlhf_reduction_pct"] is not None]
-        directions = [s[game]["direction_confirmed"] for s in per_seed_results if s[game]["direction_confirmed"] is not None]
+        values_b = [
+            s[game]["brlhf_b_vs_uniform"] for s in per_seed_results if s[game]["brlhf_b_vs_uniform"] is not None
+        ]
+        reductions = [
+            s[game]["brlhf_reduction_pct"] for s in per_seed_results if s[game]["brlhf_reduction_pct"] is not None
+        ]
+        directions = [
+            s[game]["direction_confirmed"] for s in per_seed_results if s[game]["direction_confirmed"] is not None
+        ]
 
         mean_a = sum(values_a) / len(values_a)
         mean_b = sum(values_b) / len(values_b) if values_b else None
@@ -184,10 +190,7 @@ def run_simulate_mode(seeds: list[int], rlhf_strength: float) -> dict:
         }
 
     # Thesis validation
-    observed_a_per_game = {
-        game: _synthetic_llm_distribution(game, "A", seeds[0], rlhf_strength)
-        for game in GAMES
-    }
+    observed_a_per_game = {game: _synthetic_llm_distribution(game, "A", seeds[0], rlhf_strength) for game in GAMES}
     game_results = run_brlhf_across_games(observed_a_per_game)
     thesis = thesis_validation_summary(game_results)
 
@@ -223,14 +226,14 @@ def print_table(results: dict) -> None:
     print(f"\n{thesis['interpretation']}")
     n_bias = thesis["n_bias_confirmed_brlhf_gt_005"]
     n_total = thesis["n_games_tested"]
-    print(f"Thesis {'SUPPORTED' if thesis['thesis_fully_supported'] else 'PARTIALLY SUPPORTED'}: "
-          f"B_RLHF > 0.05 in {n_bias}/{n_total} games\n")
+    print(
+        f"Thesis {'SUPPORTED' if thesis['thesis_fully_supported'] else 'PARTIALLY SUPPORTED'}: "
+        f"B_RLHF > 0.05 in {n_bias}/{n_total} games\n"
+    )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Cross-game B_RLHF validation for Universal Misalignment Thesis"
-    )
+    parser = argparse.ArgumentParser(description="Cross-game B_RLHF validation for Universal Misalignment Thesis")
     parser.add_argument(
         "--mode",
         choices=["simulate", "load"],

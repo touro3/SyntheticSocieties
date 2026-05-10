@@ -134,22 +134,16 @@ class BRLHFMetric:
             )
         return {a: distribution.get(a, 0.0) / total for a in self.actions}
 
-    def _resolve_reference(
-        self, reference: ReferenceSpec
-    ) -> tuple[dict[str, float], str]:
+    def _resolve_reference(self, reference: ReferenceSpec) -> tuple[dict[str, float], str]:
         """Resolve a reference specification to a normalized distribution and name."""
         if isinstance(reference, dict):
             return self._normalize(reference), "custom"
         if reference == "uniform":
             n = len(self.actions)
             return {a: 1.0 / n for a in self.actions}, "uniform"
-        raise ValueError(
-            f"Unknown reference '{reference}'. Pass a dict or 'uniform'."
-        )
+        raise ValueError(f"Unknown reference '{reference}'. Pass a dict or 'uniform'.")
 
-    def _total_variation(
-        self, p: dict[str, float], q: dict[str, float]
-    ) -> float:
+    def _total_variation(self, p: dict[str, float], q: dict[str, float]) -> float:
         """TV(p, q) = 0.5 * Σ |p(a) - q(a)|"""
         return 0.5 * sum(abs(p.get(a, 0.0) - q.get(a, 0.0)) for a in self.actions)
 
@@ -216,11 +210,7 @@ class BRLHFMetric:
         result_a = self.compute(condition_a, reference)
         result_b = self.compute(condition_b, reference)
         absolute_reduction = result_a.brlhf - result_b.brlhf
-        relative_reduction = (
-            (absolute_reduction / result_a.brlhf * 100)
-            if result_a.brlhf > 0
-            else 0.0
-        )
+        relative_reduction = (absolute_reduction / result_a.brlhf * 100) if result_a.brlhf > 0 else 0.0
         direction_confirmed = result_b.brlhf < result_a.brlhf
 
         interp = (
@@ -262,20 +252,14 @@ class BRLHFMetric:
             "model": model_name,
             "game": ", ".join(self.actions),
             "brlhf_vs_uniform": self.compute(observed_ungrounded, "uniform").brlhf,
-            "coop_rate_ungrounded": self._cooperation_rate(
-                self._normalize(observed_ungrounded)
-            ),
+            "coop_rate_ungrounded": self._cooperation_rate(self._normalize(observed_ungrounded)),
         }
 
         if human_baseline is not None:
-            result["brlhf_vs_human"] = self.compute(
-                observed_ungrounded, human_baseline
-            ).brlhf
+            result["brlhf_vs_human"] = self.compute(observed_ungrounded, human_baseline).brlhf
 
         if observed_grounded is not None:
-            effect = self.grounding_effect(
-                observed_ungrounded, observed_grounded
-            )
+            effect = self.grounding_effect(observed_ungrounded, observed_grounded)
             result["brlhf_grounded"] = effect.brlhf_b
             result["brlhf_reduction_pct"] = effect.relative_reduction_pct
             result["grounding_direction_confirmed"] = effect.direction_confirmed

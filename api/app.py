@@ -184,9 +184,7 @@ def _ollama_available() -> bool:
         return False
 
 
-def _call_design_llm(
-    provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2"
-) -> tuple[dict, dict]:
+def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2") -> tuple[dict, dict]:
     """Call OpenAI, Groq, or Ollama to generate a simulation design from a prompt.
 
     Returns:
@@ -401,11 +399,7 @@ def create_app(
 
     # CORS — prefer explicit origins for production; fall back to env var, then open.
     _env_origins = os.environ.get("BGF_CORS_ORIGINS", "").strip()
-    _resolved_origins = (
-        allowed_origins
-        or (_env_origins.split(",") if _env_origins else None)
-        or "*"
-    )
+    _resolved_origins = allowed_origins or (_env_origins.split(",") if _env_origins else None) or "*"
     CORS(app, origins=_resolved_origins)
 
     # ── Rate limiting (optional — requires flask-limiter) ────────────────────
@@ -462,9 +456,21 @@ def create_app(
         from flask import send_from_directory
 
         _api_prefixes = (
-            "health", "simulate", "status", "results", "experiments",
-            "interview", "inject", "report", "incomplete", "human-eval",
-            "configs", "assets", "upload-ess-data", "design-simulation", "api",
+            "health",
+            "simulate",
+            "status",
+            "results",
+            "experiments",
+            "interview",
+            "inject",
+            "report",
+            "incomplete",
+            "human-eval",
+            "configs",
+            "assets",
+            "upload-ess-data",
+            "design-simulation",
+            "api",
         )
         if any(path.startswith(p) for p in _api_prefixes):
             return jsonify({"error": "Not found"}), 404

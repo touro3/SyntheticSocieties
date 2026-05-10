@@ -105,8 +105,7 @@ class SocialDilemma(ABC):
         ref_dist = self._get_reference(reference)
         if ref_dist is None:
             raise ValueError(
-                f"Reference '{reference}' not available for {self.name}. "
-                "Use 'uniform', 'nash', or 'social_optimum'."
+                f"Reference '{reference}' not available for {self.name}. Use 'uniform', 'nash', or 'social_optimum'."
             )
         # Normalise observed
         total = sum(observed.get(a, 0.0) for a in self.actions)
@@ -392,9 +391,7 @@ _GAME_REGISTRY: dict[str, SocialDilemma] = {
 def get_game(name: str) -> SocialDilemma:
     """Return a game by registry name."""
     if name not in _GAME_REGISTRY:
-        raise ValueError(
-            f"Unknown game '{name}'. Available: {list(_GAME_REGISTRY.keys())}"
-        )
+        raise ValueError(f"Unknown game '{name}'. Available: {list(_GAME_REGISTRY.keys())}")
     return _GAME_REGISTRY[name]
 
 
@@ -437,9 +434,7 @@ def thesis_validation_summary(results: dict[str, GameResult]) -> dict[str, Any]:
     """
     n_games = len(results)
     n_bias_confirmed = sum(1 for r in results.values() if r.brlhf_vs_uniform > 0.05)
-    n_over_coop = sum(
-        1 for r in results.values() if r.cooperation_direction == "over"
-    )
+    n_over_coop = sum(1 for r in results.values() if r.cooperation_direction == "over")
 
     thesis_supported = n_bias_confirmed == n_games and n_over_coop == n_games
     partial = n_bias_confirmed >= n_games // 2
@@ -463,8 +458,6 @@ def thesis_validation_summary(results: dict[str, GameResult]) -> dict[str, Any]:
             f"B_RLHF > 0.05 in {n_bias_confirmed}/{n_games} games, "
             f"over-cooperation in {n_over_coop}/{n_games} games."
             if thesis_supported
-            else (
-                f"Thesis PARTIALLY supported: {n_bias_confirmed}/{n_games} games show bias."
-            )
+            else (f"Thesis PARTIALLY supported: {n_bias_confirmed}/{n_games} games show bias.")
         ),
     }

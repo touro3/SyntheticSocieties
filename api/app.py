@@ -1456,16 +1456,21 @@ def create_app(
         q_low = question.lower()
         coop_pct_str = f"{coop_rate:.1%}" if coop_rate is not None else "N/A (no steal actions recorded)"
 
-        # ── Scenario-opinion path: fires when question contains terms from the
-        #    scenario description that appear in agent reasoning texts ──────────
+        # ── Scenario-opinion path ─────────────────────────────────────────────
+        # Detects when the question contains terms from the scenario that are NOT
+        # economic action words.  Tries to tally mentions in reasoning texts; if
+        # reasoning contains only LLM-fallback placeholders (no real content) it
+        # returns a clear redirect rather than falling through to the economic handler.
         q_options = _find_question_options(question)
         _econ_actions = {"work", "save", "cooperate", "steal", "cooperation", "defect"}
         scenario_options = [o for o in q_options if o not in _econ_actions]
 
-        if scenario_options and all_reasoning_texts:
-            tally = _tally_keywords(scenario_options)
+        if scenario_options:
+            tally = _tally_keywords(scenario_options) if all_reasoning_texts else {}
             tally = {k: v for k, v in tally.items() if v > 0}
+
             if tally:
+                # Real mentions found — report the majority opinion from reasoning
                 top_option = max(tally, key=tally.get)
                 top_count = tally[top_option]
                 others = {k: v for k, v in tally.items() if k != top_option}
@@ -1477,7 +1482,6 @@ def create_app(
                     if runner_up
                     else []
                 )
-
                 runnerup_note = (
                     f" {len(agents_for_runner)} agent(s) leaned toward '{runner_up}' "
                     f"(mentioned {others[runner_up]}× in reasoning)."
@@ -1490,6 +1494,25 @@ def create_app(
                     f"'{top_option}' — mentioned in {top_count} reasoning entries "
                     f"by agents including {', '.join(agents_for_top[:4])}{'…' if len(agents_for_top) > 4 else ''}."
                     f"{runnerup_note}"
+                )
+                return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+
+            else:
+                # Scenario terms detected but not in event reasoning
+                # (agents log economic reasoning, not scenario-debate opinions)
+                options_str = " vs ".join(f"'{o}'" for o in scenario_options)
+                scenario_note = f" for '{scenario_title}'" if scenario_title else ""
+                coop_note = (
+                    f" What I can tell you: {n_agents} agents across {n_rounds} rounds showed "
+                    f"a cooperation rate of {coop_pct_str} with a {coop_trend} trend — "
+                    f"a high-cooperation group tends to converge on shared decisions."
+                )
+                answer = (
+                    f"My event log records economic actions (work, cooperate, save, steal), "
+                    f"not narrative debate opinions{scenario_note}. "
+                    f"The specific preference between {options_str} lives inside each agent's mind — "
+                    f"interview individual agents above to collect their views and build your own tally."
+                    f"{coop_note}"
                 )
                 return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
 

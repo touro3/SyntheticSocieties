@@ -134,6 +134,25 @@ _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 _ipc_clients: dict[str, Any] = {}
 _ipc_lock = threading.Lock()
 
+
+def _append_interview_response(exp_dir: Path, agent_id: str, question: str, response: str) -> None:
+    """Append a Q&A pair to interview_responses.jsonl so the anchor can tally opinions."""
+    import json as _json
+    import time as _time
+
+    record = {
+        "agent_id": agent_id,
+        "question": question,
+        "response": response,
+        "ts": _time.time(),
+    }
+    try:
+        with (exp_dir / "interview_responses.jsonl").open("a") as fh:
+            fh.write(_json.dumps(record) + "\n")
+    except OSError:
+        pass  # non-critical; anchor works without it
+
+
 # ── AI simulation design ──────────────────────────────────────────────────────
 
 _DESIGN_SYSTEM_PROMPT = """You are a population designer for BGF (Behavioral Grounding Framework), \
@@ -1001,6 +1020,7 @@ def create_app(
                     temperature=0.7,
                 )
                 answer = resp.choices[0].message.content.strip()
+                _append_interview_response(exp_dir, agent_id, question, answer)
                 return jsonify({"response": answer, "source": "replay_llm"})
             except Exception as exc:
                 logger.warning("Replay LLM failed, using rule-based fallback: %s", exc)
@@ -1228,6 +1248,7 @@ def create_app(
                 f"feeling {_wealth_feel(final_wealth)} overall."
             )
 
+        _append_interview_response(exp_dir, agent_id, question, answer)
         return jsonify({"response": answer, "source": "replay_data"})
 
     # ── Anchor (macro broadcast view) ────────────────────────────────────────
@@ -1452,69 +1473,107 @@ def create_app(
 
         action_breakdown = ", ".join(f"{k} {v}×" for k, v in sorted(action_counts.items(), key=lambda x: -x[1]))
 
+        # ── Load collected interview responses (built up by /interview calls) ──
+        interview_log: list[dict] = []
+        interview_log_path = exp_dir / "interview_responses.jsonl"
+        if interview_log_path.exists():
+            try:
+                with interview_log_path.open() as _f:
+                    for _line in _f:
+                        _line = _line.strip()
+                        if _line:
+                            try:
+                                interview_log.append(_json.loads(_line))
+                            except _json.JSONDecodeError:
+                                pass
+            except OSError:
+                pass
+
+        # agent_id → their latest response text (for opinion tally)
+        per_agent_interview: dict[str, str] = {}
+        for rec in interview_log:
+            per_agent_interview[rec.get("agent_id", "")] = rec.get("response", "")
+
         # ── Rule-based anchor (no paid API required) ─────────────────────────
         q_low = question.lower()
         coop_pct_str = f"{coop_rate:.1%}" if coop_rate is not None else "N/A (no steal actions recorded)"
 
         # ── Scenario-opinion path ─────────────────────────────────────────────
-        # Detects when the question contains terms from the scenario that are NOT
-        # economic action words.  Tries to tally mentions in reasoning texts; if
-        # reasoning contains only LLM-fallback placeholders (no real content) it
-        # returns a clear redirect rather than falling through to the economic handler.
+        # Priority: (1) tallied interview responses, (2) event reasoning text,
+        # (3) redirect asking user to interview more agents.
         q_options = _find_question_options(question)
         _econ_actions = {"work", "save", "cooperate", "steal", "cooperation", "defect"}
         scenario_options = [o for o in q_options if o not in _econ_actions]
 
         if scenario_options:
-            tally = _tally_keywords(scenario_options) if all_reasoning_texts else {}
-            tally = {k: v for k, v in tally.items() if v > 0}
 
-            if tally:
-                # Real mentions found — report the majority opinion from reasoning
-                top_option = max(tally, key=tally.get)
-                top_count = tally[top_option]
-                others = {k: v for k, v in tally.items() if k != top_option}
-                runner_up = max(others, key=others.get) if others else None
+            def _tally_from_texts(texts_by_agent: dict) -> tuple:
+                counts: dict = {}
+                by_agent: dict = {}
+                for ag, txt in texts_by_agent.items():
+                    txt_low = txt.lower()
+                    for opt in scenario_options:
+                        if opt in txt_low:
+                            counts[opt] = counts.get(opt, 0) + 1
+                            by_agent.setdefault(opt, []).append(ag)
+                return counts, by_agent
 
-                agents_for_top = [ag for ag, rsn in per_agent_last_reasoning.items() if top_option in rsn.lower()]
-                agents_for_runner = (
-                    [ag for ag, rsn in per_agent_last_reasoning.items() if runner_up in rsn.lower()]
-                    if runner_up
-                    else []
-                )
-                runnerup_note = (
-                    f" {len(agents_for_runner)} agent(s) leaned toward '{runner_up}' "
-                    f"(mentioned {others[runner_up]}× in reasoning)."
-                    if runner_up and agents_for_runner
-                    else ""
-                )
+            def _format_opinion_answer(counts, by_agent, n_interviewed, source_label):
+                top = max(counts, key=counts.get)
+                others = {k: v for k, v in counts.items() if k != top}
+                runner = max(others, key=others.get) if others else None
+                agents_top = by_agent.get(top, [])
                 scenario_note = f" (Scenario: {scenario_title})" if scenario_title else ""
-                answer = (
-                    f"Across {n_agents} agents{scenario_note}, the majority leaned toward "
-                    f"'{top_option}' — mentioned in {top_count} reasoning entries "
-                    f"by agents including {', '.join(agents_for_top[:4])}{'…' if len(agents_for_top) > 4 else ''}."
-                    f"{runnerup_note}"
+                coverage = (
+                    f"{n_interviewed} of {n_agents} agents interviewed"
+                    if n_interviewed < n_agents
+                    else f"all {n_agents} agents"
                 )
-                return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+                runner_note = f" {len(by_agent.get(runner, []))} agent(s) preferred '{runner}'." if runner else ""
+                return (
+                    f"Based on {coverage}{scenario_note}: the majority preferred '{top}' "
+                    f"({counts[top]} agent(s) — "
+                    f"{', '.join(agents_top[:5])}{'…' if len(agents_top) > 5 else ''})."
+                    f"{runner_note} [{source_label}]"
+                )
 
-            else:
-                # Scenario terms detected but not in event reasoning
-                # (agents log economic reasoning, not scenario-debate opinions)
-                options_str = " vs ".join(f"'{o}'" for o in scenario_options)
-                scenario_note = f" for '{scenario_title}'" if scenario_title else ""
-                coop_note = (
-                    f" What I can tell you: {n_agents} agents across {n_rounds} rounds showed "
-                    f"a cooperation rate of {coop_pct_str} with a {coop_trend} trend — "
-                    f"a high-cooperation group tends to converge on shared decisions."
-                )
-                answer = (
-                    f"My event log records economic actions (work, cooperate, save, steal), "
-                    f"not narrative debate opinions{scenario_note}. "
-                    f"The specific preference between {options_str} lives inside each agent's mind — "
-                    f"interview individual agents above to collect their views and build your own tally."
-                    f"{coop_note}"
-                )
-                return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+            # 1. Collected interview responses (built automatically by /interview calls)
+            if per_agent_interview:
+                counts, by_agent = _tally_from_texts(per_agent_interview)
+                counts = {k: v for k, v in counts.items() if v > 0}
+                if counts:
+                    answer = _format_opinion_answer(counts, by_agent, len(per_agent_interview), "from agent interviews")
+                    stats["interviewed_agents"] = len(per_agent_interview)
+                    stats["opinion_tally"] = counts
+                    return jsonify({"response": answer, "source": "anchor_interviews", "stats": stats})
+
+            # 2. Event reasoning summaries (works when real LLM content exists)
+            if all_reasoning_texts:
+                counts, by_agent = _tally_from_texts(per_agent_last_reasoning)
+                counts = {k: v for k, v in counts.items() if v > 0}
+                if counts:
+                    answer = _format_opinion_answer(
+                        counts, by_agent, len(per_agent_last_reasoning), "from event reasoning"
+                    )
+                    stats["opinion_tally"] = counts
+                    return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+
+            # 3. No opinion data yet — tell the user what to do
+            options_str = " vs ".join(f"'{o}'" for o in scenario_options)
+            scenario_note = f" for '{scenario_title}'" if scenario_title else ""
+            n_interviewed = len(per_agent_interview)
+            progress_note = (
+                f" You've interviewed {n_interviewed} of {n_agents} agents so far — keep going."
+                if n_interviewed
+                else " Interview agents in the panel above — I'll collect and tally their answers automatically."
+            )
+            answer = (
+                f"I track economic actions (work, cooperate, save, steal), "
+                f"not narrative opinions{scenario_note}. "
+                f"To report the majority on {options_str}, I need to hear from each agent — "
+                f"every interview answer is added to my knowledge base.{progress_note}"
+            )
+            return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
 
         # ── Economic / structural question handlers ───────────────────────────
         if any(w in q_low for w in ("majority", "most", "common", "dominant", "popular", "did they")):

@@ -1307,6 +1307,9 @@ def create_app(
         per_round_actions: dict = {}  # round_id → {action_type → count}
         cooperation_pairs: dict = {}  # (agent_id, target_id) → count
         steal_pairs: dict = {}
+        # per-agent last reasoning summary (for scenario-specific opinion mining)
+        per_agent_last_reasoning: dict = {}  # agent_id → latest reasoning_summary text
+        all_reasoning_texts: list = []  # flat list of all non-empty reasoning strings
 
         for ev in all_events:
             agent_id = ev.get("agent_id", "unknown")
@@ -1343,6 +1346,12 @@ def create_app(
             if act_type == "steal" and target:
                 k = (agent_id, target)
                 steal_pairs[k] = steal_pairs.get(k, 0) + 1
+
+            rsn = act.get("reasoning_summary", "").strip()
+            rsn = rsn.replace("[LLM fallback: ", "").rstrip("]")
+            if rsn:
+                per_agent_last_reasoning[agent_id] = rsn  # keeps latest round's reasoning
+                all_reasoning_texts.append(rsn)
 
         total_events = len(all_events)
         n_agents = len(agents_seen)
@@ -1381,6 +1390,46 @@ def create_app(
             else ("decreasing" if last_round_coop < first_round_coop else "stable")
         )
 
+        # ── Load scenario context ─────────────────────────────────────────────
+        scenario_ctx = _safe_json_file(exp_dir / "scenario.json") or {}
+        scenario_title = scenario_ctx.get("scenario_title", "")
+        scenario_description = scenario_ctx.get("scenario_description", "")
+        # Tokens from the scenario description that agents might discuss
+        _stop = {"a", "an", "the", "and", "or", "in", "of", "for", "to", "is", "are", "be", "their", "its"}
+        scenario_tokens = {
+            w.lower().strip(".,;:!?\"'")
+            for w in (scenario_title + " " + scenario_description).split()
+            if len(w) > 3 and w.lower() not in _stop
+        }
+
+        # ── Opinion mining: tally keyword mentions across all reasoning texts ──
+        combined_reasoning = " ".join(all_reasoning_texts).lower()
+
+        def _tally_keywords(candidates: list[str]) -> dict[str, int]:
+            """Count how many reasoning texts mention each candidate keyword."""
+            tally: dict[str, int] = {}
+            for kw in candidates:
+                kw_low = kw.lower()
+                tally[kw] = sum(1 for t in all_reasoning_texts if kw_low in t.lower())
+            return tally
+
+        def _find_question_options(q: str) -> list[str]:
+            """
+            Extract candidate options from a question like 'paper or monograph?'
+            Returns tokens that appear both in the question and in reasoning texts
+            (or scenario context), filtered to likely content words.
+            """
+            import re as _re
+
+            # Extract words from question, drop short/stop words
+            q_words = [
+                w.lower().strip(".,;:!?\"'")
+                for w in _re.split(r"[\s/]+", q)
+                if len(w) > 3 and w.lower().strip(".,;:!?\"'") not in _stop
+            ]
+            # Keep words that either appear in scenario tokens or in reasoning corpus
+            return [w for w in q_words if w in scenario_tokens or w in combined_reasoning]
+
         # Build stats payload returned to caller regardless of LLM path
         stats = {
             "n_agents": n_agents,
@@ -1407,6 +1456,44 @@ def create_app(
         q_low = question.lower()
         coop_pct_str = f"{coop_rate:.1%}" if coop_rate is not None else "N/A (no steal actions recorded)"
 
+        # ── Scenario-opinion path: fires when question contains terms from the
+        #    scenario description that appear in agent reasoning texts ──────────
+        q_options = _find_question_options(question)
+        _econ_actions = {"work", "save", "cooperate", "steal", "cooperation", "defect"}
+        scenario_options = [o for o in q_options if o not in _econ_actions]
+
+        if scenario_options and all_reasoning_texts:
+            tally = _tally_keywords(scenario_options)
+            tally = {k: v for k, v in tally.items() if v > 0}
+            if tally:
+                top_option = max(tally, key=tally.get)
+                top_count = tally[top_option]
+                others = {k: v for k, v in tally.items() if k != top_option}
+                runner_up = max(others, key=others.get) if others else None
+
+                agents_for_top = [ag for ag, rsn in per_agent_last_reasoning.items() if top_option in rsn.lower()]
+                agents_for_runner = (
+                    [ag for ag, rsn in per_agent_last_reasoning.items() if runner_up in rsn.lower()]
+                    if runner_up
+                    else []
+                )
+
+                runnerup_note = (
+                    f" {len(agents_for_runner)} agent(s) leaned toward '{runner_up}' "
+                    f"(mentioned {others[runner_up]}× in reasoning)."
+                    if runner_up and agents_for_runner
+                    else ""
+                )
+                scenario_note = f" (Scenario: {scenario_title})" if scenario_title else ""
+                answer = (
+                    f"Across {n_agents} agents{scenario_note}, the majority leaned toward "
+                    f"'{top_option}' — mentioned in {top_count} reasoning entries "
+                    f"by agents including {', '.join(agents_for_top[:4])}{'…' if len(agents_for_top) > 4 else ''}."
+                    f"{runnerup_note}"
+                )
+                return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+
+        # ── Economic / structural question handlers ───────────────────────────
         if any(w in q_low for w in ("majority", "most", "common", "dominant", "popular", "did they")):
             answer = (
                 f"Across all {n_rounds} rounds and {n_agents} agents, the most common action was "

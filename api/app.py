@@ -1830,6 +1830,16 @@ def create_app(
                 except Exception:
                     pass
 
+        # Guard: if empirical source requested but no data file is available
+        # (e.g. ephemeral FS after deploy, or cleared design), fall back silently.
+        if pop_source == "empirical" and not ess_data_path:
+            default_ess = Path("data/ess_clean.parquet")
+            if not default_ess.exists():
+                logger.warning(
+                    "population_source=empirical requested but no data file found — falling back to synthetic"
+                )
+                pop_source = "synthetic"
+
         try:
             bad_apple_frac = float(body.get("bad_apple_frac", 0.0))
             bad_apple_frac = max(0.0, min(0.3, bad_apple_frac))

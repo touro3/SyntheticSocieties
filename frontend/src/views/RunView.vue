@@ -770,7 +770,9 @@ function clearDesign() {
   designStatus.value  = ''
   designError.value   = ''
   designApplied.value = false
-  form.value.design_id = ''
+  form.value.design_id         = ''
+  form.value.ess_data_file_id  = ''
+  form.value.population_source = 'synthetic'
 }
 
 async function launch() {

@@ -167,6 +167,87 @@
       </div>
 
     </div>
+
+    <!-- ── Anchor panel (full-width macro broadcast view) ──────────── -->
+    <div class="card panel anchor-panel" style="margin-top:20px">
+      <div class="anchor-header">
+        <div>
+          <h2 class="section-title" style="margin:0">Anchor Broadcast</h2>
+          <p class="anchor-sub">Omniscient macro view — knows every decision from every agent across all rounds.</p>
+        </div>
+        <span class="anchor-badge">◉ LIVE BRIEF</span>
+      </div>
+
+      <div class="anchor-body">
+        <!-- Chat window -->
+        <div class="chat-window anchor-chat" ref="anchorChatRef">
+          <div v-if="!anchorMessages.length" class="chat-empty anchor-empty">
+            Ask the anchor for a population-wide summary, majority decision, wealth report, or cooperation trend.
+          </div>
+          <template v-for="(m, i) in anchorMessages" :key="i">
+            <div class="msg" :class="m.role">
+              <div class="msg-label">{{ m.sender }}</div>
+              <div class="msg-body">{{ m.text }}</div>
+            </div>
+          </template>
+          <div v-if="anchorThinking" class="msg agent">
+            <div class="msg-label">Anchor</div>
+            <div class="msg-body thinking">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="anchor-right">
+          <!-- Quick questions -->
+          <div class="quick-qs">
+            <span class="qq-label">Quick:</span>
+            <button v-for="q in anchorQuickQs" :key="q" class="qq-btn anchor-qq" @click="setAnchorQ(q)">{{ q }}</button>
+          </div>
+
+          <!-- Stats chips (populated after first response) -->
+          <div v-if="anchorStats" class="anchor-stats">
+            <div class="stat-chip">
+              <span class="sc-label">Agents</span>
+              <span class="sc-val">{{ anchorStats.n_agents }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="sc-label">Rounds</span>
+              <span class="sc-val">{{ anchorStats.n_rounds }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="sc-label">Majority</span>
+              <span class="sc-val">{{ anchorStats.majority_agent_action }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="sc-label">Coop Rate</span>
+              <span class="sc-val">{{ anchorStats.cooperation_rate != null ? (anchorStats.cooperation_rate * 100).toFixed(1) + '%' : 'N/A' }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="sc-label">Wealth Avg</span>
+              <span class="sc-val">{{ anchorStats.wealth_mean?.toFixed(1) }}</span>
+            </div>
+            <div class="stat-chip">
+              <span class="sc-label">Trend</span>
+              <span class="sc-val">{{ anchorStats.cooperation_trend }}</span>
+            </div>
+          </div>
+
+          <!-- Input bar -->
+          <div class="chat-bar">
+            <input v-model="anchorQuestion" placeholder="Ask the anchor…"
+              @keydown.enter="askAnchor" :disabled="anchorThinking" />
+            <button class="btn btn-primary anchor-send" @click="askAnchor"
+              :disabled="anchorThinking || !anchorQuestion.trim()">
+              <span v-if="anchorThinking" class="spin">⟳</span>
+              <span v-else>Broadcast</span>
+            </button>
+          </div>
+          <div v-if="anchorErr" class="error-box">{{ anchorErr }}</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -211,6 +292,52 @@ const quickQs = [
   'Do you trust your neighbors?',
   'What would change your strategy?',
 ]
+
+// ── Anchor state ───────────────────────────────────────────────────
+const anchorQuestion  = ref('')
+const anchorMessages  = ref([])
+const anchorThinking  = ref(false)
+const anchorErr       = ref('')
+const anchorStats     = ref(null)
+const anchorChatRef   = ref(null)
+
+const anchorQuickQs = [
+  'What was the majority decision?',
+  'Give me a full simulation overview.',
+  'How did cooperation evolve over time?',
+  'Who ended up richest and poorest?',
+  'Was there any defection or stealing?',
+]
+
+function setAnchorQ(q) { anchorQuestion.value = q }
+
+async function scrollAnchor() {
+  await nextTick()
+  if (anchorChatRef.value) anchorChatRef.value.scrollTop = anchorChatRef.value.scrollHeight
+}
+
+async function askAnchor() {
+  if (!anchorQuestion.value.trim()) return
+  const q = anchorQuestion.value.trim()
+  anchorMessages.value.push({ role: 'user', sender: 'You', text: q })
+  anchorQuestion.value = ''
+  anchorThinking.value = true
+  anchorErr.value = ''
+  await scrollAnchor()
+
+  try {
+    const r = await api.anchor(expId, q)
+    const reply = r.data?.response ?? (typeof r.data === 'string' ? r.data : JSON.stringify(r.data, null, 2))
+    if (r.data?.stats) anchorStats.value = r.data.stats
+    anchorMessages.value.push({ role: 'agent', sender: 'Anchor', text: reply })
+  } catch(e) {
+    anchorErr.value = e.response?.data?.error || e.message || 'Unknown error'
+    anchorMessages.value.push({ role: 'agent', sender: 'Anchor', text: '(no response)' })
+  } finally {
+    anchorThinking.value = false
+    await scrollAnchor()
+  }
+}
 
 const eventTypes = [
   {
@@ -523,4 +650,61 @@ onMounted(async () => {
   background: rgba(20,184,166,.07); padding: 4px 8px; border-radius: 6px;
   white-space: pre-wrap;
 }
+
+/* ── Anchor panel ───────────────────────────────────────────────── */
+.anchor-panel { gap: 16px; }
+
+.anchor-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+}
+.anchor-sub {
+  font-size: .78rem; color: var(--text3); margin: 4px 0 0; line-height: 1.5;
+}
+.anchor-badge {
+  font-size: .62rem; font-weight: 700; letter-spacing: .1em;
+  padding: 3px 10px; border-radius: 99px; flex-shrink: 0;
+  background: rgba(239,68,68,.08); color: #f87171;
+  border: 1px solid rgba(239,68,68,.2);
+  animation: anchor-pulse 3s ease-in-out infinite;
+}
+@keyframes anchor-pulse { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+
+.anchor-body {
+  display: grid; grid-template-columns: 1fr 340px; gap: 16px; align-items: start;
+}
+@media (max-width: 860px) { .anchor-body { grid-template-columns: 1fr; } }
+
+.anchor-chat { max-height: 320px; }
+.anchor-empty { padding: 48px 20px; }
+
+.anchor-right { display: flex; flex-direction: column; gap: 12px; }
+
+.anchor-qq {
+  border-color: rgba(248,113,113,.2) !important;
+}
+.anchor-qq:hover {
+  border-color: rgba(248,113,113,.4) !important;
+  color: #f87171 !important;
+  background: rgba(248,113,113,.05) !important;
+}
+
+.anchor-stats {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.stat-chip {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 6px 12px; border-radius: 10px;
+  background: var(--bg3); border: 1px solid var(--border);
+  min-width: 68px;
+}
+.sc-label {
+  font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text3); margin-bottom: 2px;
+}
+.sc-val {
+  font-size: .82rem; font-weight: 700; color: #f87171;
+  font-variant-numeric: tabular-nums;
+}
+
+.anchor-send { white-space: nowrap; }
 </style>

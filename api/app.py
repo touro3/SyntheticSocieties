@@ -25,6 +25,7 @@ Endpoints
   GET    /results/<exp_id>         Return summary.json + key metrics
   GET    /experiments              List all experiments in tracker
   POST   /interview/<exp_id>/<agent_id>  Interview a live agent via IPC
+  POST   /anchor/<exp_id>          Query the omniscient anchor agent (macro view)
   POST   /inject/<exp_id>          Inject a live exogenous event via IPC
   GET    /report                   Run ReACT agent on a query (sync, slow)
   GET    /health                   Liveness probe
@@ -466,6 +467,7 @@ def create_app(
             "report",
             "incomplete",
             "human-eval",
+            "human-game",
             "configs",
             "assets",
             "upload-ess-data",
@@ -1227,6 +1229,255 @@ def create_app(
             )
 
         return jsonify({"response": answer, "source": "replay_data"})
+
+    # ── Anchor (macro broadcast view) ────────────────────────────────────────
+
+    @app.post("/anchor/<exp_id>")
+    @_read_limit
+    def anchor(exp_id: str):
+        """
+        Query a simulation-wide "anchor" agent that knows every decision from
+        every agent.  Unlike /interview (first-person, single agent), the anchor
+        has an omniscient macro view and answers in the style of a TV news anchor
+        summarising what happened across the whole population.
+
+        Body (JSON):
+          question   str   The question to ask the anchor (required)
+
+        Returns:
+          response   str   Anchor's natural-language answer
+          source     str   "anchor_llm" | "anchor_data"
+          stats      dict  Raw aggregate statistics used to build the answer
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        try:
+            exp_dir = _resolve_exp_dir(exp_id)
+        except ValueError:
+            return jsonify({"error": "Invalid experiment ID"}), 400
+
+        if not exp_dir.exists():
+            return jsonify({"error": "Experiment not found"}), 404
+
+        try:
+            body = request.get_json(force=True, silent=False) or {}
+        except Exception:
+            return jsonify({"error": "Request body must be valid JSON"}), 400
+
+        question = str(body.get("question", "")).strip()
+        if not question:
+            return jsonify({"error": "Missing 'question' in request body"}), 400
+        if len(question) > 1000:
+            return jsonify({"error": "Question too long (max 1000 chars)"}), 400
+
+        events_path = exp_dir / "events.jsonl"
+        if not events_path.exists():
+            return jsonify({"error": "No events log found — anchor requires a completed run with saved events"}), 404
+
+        import json as _json
+
+        # ── Load ALL events from all agents ───────────────────────────────────
+        all_events: list[dict] = []
+        try:
+            with events_path.open() as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        all_events.append(_json.loads(line))
+                    except _json.JSONDecodeError:
+                        continue
+        except OSError as exc:
+            return jsonify({"error": f"Could not read events: {exc}"}), 500
+
+        if not all_events:
+            return jsonify({"error": "No events found in this experiment"}), 404
+
+        # ── Aggregate statistics across all agents and rounds ─────────────────
+        agents_seen: set = set()
+        rounds_seen: set = set()
+        action_counts: dict = {}  # action_type → total count
+        per_agent_actions: dict = {}  # agent_id → {action_type → count}
+        per_agent_wealth_start: dict = {}
+        per_agent_wealth_end: dict = {}
+        per_agent_stress_end: dict = {}
+        per_round_actions: dict = {}  # round_id → {action_type → count}
+        cooperation_pairs: dict = {}  # (agent_id, target_id) → count
+        steal_pairs: dict = {}
+
+        for ev in all_events:
+            agent_id = ev.get("agent_id", "unknown")
+            round_id = ev.get("round_id", 0)
+            act = ev.get("action", {})
+            act_type = act.get("action_type", "unknown")
+            target = act.get("target_agent_id")
+            state_after = ev.get("state_after", {})
+
+            agents_seen.add(agent_id)
+            rounds_seen.add(round_id)
+            action_counts[act_type] = action_counts.get(act_type, 0) + 1
+
+            if agent_id not in per_agent_actions:
+                per_agent_actions[agent_id] = {}
+            per_agent_actions[agent_id][act_type] = per_agent_actions[agent_id].get(act_type, 0) + 1
+
+            wealth = state_after.get("wealth")
+            stress = state_after.get("stress")
+            if wealth is not None:
+                per_agent_wealth_end[agent_id] = wealth
+                if agent_id not in per_agent_wealth_start:
+                    per_agent_wealth_start[agent_id] = wealth
+            if stress is not None:
+                per_agent_stress_end[agent_id] = stress
+
+            if round_id not in per_round_actions:
+                per_round_actions[round_id] = {}
+            per_round_actions[round_id][act_type] = per_round_actions[round_id].get(act_type, 0) + 1
+
+            if act_type == "cooperate" and target:
+                k = (agent_id, target)
+                cooperation_pairs[k] = cooperation_pairs.get(k, 0) + 1
+            if act_type == "steal" and target:
+                k = (agent_id, target)
+                steal_pairs[k] = steal_pairs.get(k, 0) + 1
+
+        total_events = len(all_events)
+        n_agents = len(agents_seen)
+        n_rounds = len(rounds_seen)
+        total_coop = action_counts.get("cooperate", 0)
+        total_steal = action_counts.get("steal", 0)
+        coop_rate = total_coop / (total_coop + total_steal) if (total_coop + total_steal) > 0 else None
+        dominant_action = max(action_counts, key=action_counts.get) if action_counts else "unknown"
+
+        # Per-agent dominant action (majority vote)
+        agent_dominant = {ag: max(acts, key=acts.get) for ag, acts in per_agent_actions.items()}
+        majority_action = (
+            max(set(agent_dominant.values()), key=list(agent_dominant.values()).count) if agent_dominant else "unknown"
+        )
+        majority_count = list(agent_dominant.values()).count(majority_action)
+
+        # Wealth stats
+        wealth_values = list(per_agent_wealth_end.values())
+        wealth_mean = sum(wealth_values) / len(wealth_values) if wealth_values else 0
+        wealth_max = max(wealth_values) if wealth_values else 0
+        wealth_min = min(wealth_values) if wealth_values else 0
+        richest = max(per_agent_wealth_end, key=per_agent_wealth_end.get) if per_agent_wealth_end else None
+        poorest = min(per_agent_wealth_end, key=per_agent_wealth_end.get) if per_agent_wealth_end else None
+
+        # Cooperation network highlights
+        most_coop_pair = max(cooperation_pairs, key=cooperation_pairs.get) if cooperation_pairs else None
+        most_steal_pair = max(steal_pairs, key=steal_pairs.get) if steal_pairs else None
+
+        # Round-by-round cooperation trend (first vs last round)
+        round_ids_sorted = sorted(per_round_actions.keys())
+        first_round_coop = per_round_actions[round_ids_sorted[0]].get("cooperate", 0) if round_ids_sorted else 0
+        last_round_coop = per_round_actions[round_ids_sorted[-1]].get("cooperate", 0) if round_ids_sorted else 0
+        coop_trend = (
+            "increasing"
+            if last_round_coop > first_round_coop
+            else ("decreasing" if last_round_coop < first_round_coop else "stable")
+        )
+
+        # Build stats payload returned to caller regardless of LLM path
+        stats = {
+            "n_agents": n_agents,
+            "n_rounds": n_rounds,
+            "total_events": total_events,
+            "action_counts": action_counts,
+            "dominant_action_overall": dominant_action,
+            "majority_agent_action": majority_action,
+            "majority_agent_count": majority_count,
+            "cooperation_rate": round(coop_rate, 4) if coop_rate is not None else None,
+            "wealth_mean": round(wealth_mean, 2),
+            "wealth_max": round(wealth_max, 2),
+            "wealth_min": round(wealth_min, 2),
+            "richest_agent": richest,
+            "poorest_agent": poorest,
+            "cooperation_trend": coop_trend,
+            "most_cooperative_pair": list(most_coop_pair) if most_coop_pair else None,
+            "most_stealing_pair": list(most_steal_pair) if most_steal_pair else None,
+        }
+
+        action_breakdown = ", ".join(f"{k} {v}×" for k, v in sorted(action_counts.items(), key=lambda x: -x[1]))
+
+        # ── Rule-based anchor (no paid API required) ─────────────────────────
+        q_low = question.lower()
+        coop_pct_str = f"{coop_rate:.1%}" if coop_rate is not None else "N/A (no steal actions recorded)"
+
+        if any(w in q_low for w in ("majority", "most", "common", "dominant", "popular", "did they")):
+            answer = (
+                f"Across all {n_rounds} rounds and {n_agents} agents, the most common action was "
+                f"'{dominant_action}' with {action_counts[dominant_action]} occurrences. "
+                f"{majority_count} out of {n_agents} agents had '{majority_action}' as their personal dominant strategy. "
+                f"The cooperation rate stood at {coop_pct_str}, with a {coop_trend} trend over time."
+            )
+        elif any(w in q_low for w in ("cooperat", "social", "pool", "shared", "together")):
+            pair_note = (
+                f" The most active cooperative pair was {most_coop_pair[0]} and {most_coop_pair[1]} "
+                f"({cooperation_pairs[most_coop_pair]}× together)."
+                if most_coop_pair
+                else ""
+            )
+            answer = (
+                f"Cooperation was {coop_trend} across the simulation. "
+                f"Agents cooperated {total_coop}× in total out of {total_events} decisions "
+                f"— a rate of {coop_pct_str} against defection.{pair_note}"
+            )
+        elif any(w in q_low for w in ("wealth", "rich", "poor", "money", "economic")):
+            answer = (
+                f"At the end of the simulation, average agent wealth was {wealth_mean:.1f}. "
+                f"The wealthiest agent was {richest} at {wealth_max:.1f}; "
+                f"the poorest was {poorest} at {wealth_min:.1f}. "
+                f"This spread reflects the cumulative effect of {action_breakdown} across {n_rounds} rounds."
+            )
+        elif any(w in q_low for w in ("steal", "defect", "cheat", "bad")):
+            if total_steal:
+                steal_note = (
+                    f" The most active stealing pair was {most_steal_pair[0]} → {most_steal_pair[1]} "
+                    f"({steal_pairs[most_steal_pair]}×)."
+                    if most_steal_pair
+                    else ""
+                )
+                answer = (
+                    f"Defection (steal) occurred {total_steal}× across the simulation — "
+                    f"{total_steal / total_events:.1%} of all decisions.{steal_note} "
+                    f"Despite this, cooperation still accounted for {total_coop} decisions."
+                )
+            else:
+                answer = (
+                    f"No stealing or defection was recorded in this simulation across all {n_agents} agents "
+                    f"and {n_rounds} rounds. The population maintained full cooperative compliance."
+                )
+        elif any(w in q_low for w in ("round", "trend", "over time", "evolv", "chang")):
+            answer = (
+                f"Cooperation was {coop_trend} over the {n_rounds} rounds — "
+                f"starting at {first_round_coop} cooperative actions in round {round_ids_sorted[0]} "
+                f"and ending at {last_round_coop} in round {round_ids_sorted[-1]}. "
+                f"Overall the population made {total_events} decisions: {action_breakdown}."
+            )
+        elif any(w in q_low for w in ("summary", "overview", "what happened", "tell me", "describe", "report")):
+            answer = (
+                f"In this simulation, {n_agents} agents played {n_rounds} rounds making {total_events} decisions. "
+                f"The dominant strategy was '{dominant_action}' ({action_breakdown}). "
+                f"Cooperation rate was {coop_pct_str} with a {coop_trend} trend. "
+                f"Final wealth ranged from {wealth_min:.1f} to {wealth_max:.1f} (mean {wealth_mean:.1f}). "
+                + (
+                    f"The most cooperative pair was {most_coop_pair[0]} ↔ {most_coop_pair[1]}."
+                    if most_coop_pair
+                    else ""
+                )
+            )
+        else:
+            answer = (
+                f"Population of {n_agents} agents over {n_rounds} rounds: {action_breakdown}. "
+                f"Cooperation rate {coop_pct_str}, trend {coop_trend}. "
+                f"Mean wealth {wealth_mean:.1f} (range {wealth_min:.1f}–{wealth_max:.1f})."
+            )
+
+        return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
 
     # ── Live exogenous injection ─────────────────────────────────────────────
 
@@ -2317,6 +2568,222 @@ def create_app(
         except Exception as exc:
             logger.error("incomplete scan error: %s", exc, exc_info=True)
             return jsonify({"error": "Failed to scan incomplete runs"}), 500
+
+    # ── Human Baseline Game (Phase 28.4 / Prolific study) ────────────────────
+    # Serves the standalone human experiment game and its Flask session API
+    # at /human-game/*, keeping it isolated from the main simulation API.
+
+    _HUMAN_GAME_DIR = Path(__file__).resolve().parent.parent / "human_experiment" / "app"
+    _HUMAN_RESPONSES_CSV = Path("data/human/responses.csv")
+
+    import threading as _threading
+    import uuid as _uuid
+
+    _hg_sessions: dict[str, dict] = {}
+    _hg_lock = _threading.Lock()
+
+    _HG_NUM_ROUNDS = 10
+    _HG_INITIAL_WEALTH = 50.0
+    _HG_INITIAL_STRESS = 0.3
+    _HG_COOPERATE_AMOUNT = 5.0
+    _HG_NEIGHBOR_POOL = [f"neighbor_{chr(65 + i)}" for i in range(6)]
+
+    def _hg_new_session(pre_trust: float, pre_risk: float) -> dict:
+        import random
+
+        neighbors = random.sample(_HG_NEIGHBOR_POOL, 3)
+        return {
+            "session_id": str(_uuid.uuid4()),
+            "pre_trust": float(pre_trust),
+            "pre_risk": float(pre_risk),
+            "wealth": _HG_INITIAL_WEALTH,
+            "stress": _HG_INITIAL_STRESS,
+            "round_id": 0,
+            "neighbors": neighbors,
+            "actions": [],
+            "cooperation_count": 0,
+            "complete": False,
+        }
+
+    def _hg_apply_action(session: dict, action: str, target: str | None) -> dict:
+        try:
+            from environment.payoffs import DEFAULT_PAYOFFS
+
+            p = DEFAULT_PAYOFFS
+            work_income = p.work_income
+            work_stress = p.work_stress_increase
+            save_delta = p.save_wealth_delta
+            save_stress = p.save_stress_relief
+            coop_stress = p.cooperate_stress_relief
+        except Exception:
+            work_income, work_stress = 10.0, 0.10
+            save_delta, save_stress = 0.0, -0.15
+            coop_stress = -0.05
+
+        wealth, stress = session["wealth"], session["stress"]
+        wealth_delta = stress_delta = 0.0
+        target_used = None
+
+        if action == "work":
+            wealth_delta, stress_delta = work_income, work_stress
+        elif action == "save":
+            wealth_delta, stress_delta = save_delta, save_stress
+        elif action == "cooperate":
+            if target not in session["neighbors"]:
+                action = "work"
+                wealth_delta, stress_delta = work_income, work_stress
+            else:
+                wealth_delta, stress_delta = -_HG_COOPERATE_AMOUNT, coop_stress
+                target_used = target
+                session["cooperation_count"] += 1
+
+        session["wealth"] = round(max(0.0, wealth + wealth_delta), 2)
+        session["stress"] = round(max(0.0, min(1.0, stress + stress_delta)), 3)
+        session["round_id"] += 1
+        session["actions"].append({"round_id": session["round_id"], "action": action, "target": target_used})
+
+        return {
+            "round_id": session["round_id"],
+            "wealth": session["wealth"],
+            "stress": session["stress"],
+            "action": action,
+            "wealth_delta": round(wealth_delta, 2),
+            "done": session["round_id"] >= _HG_NUM_ROUNDS,
+        }
+
+    def _hg_append_csv(session: dict) -> None:
+        import csv
+
+        _HUMAN_RESPONSES_CSV.parent.mkdir(parents=True, exist_ok=True)
+        file_exists = _HUMAN_RESPONSES_CSV.exists()
+        headers = [
+            "participant_id",
+            "round_id",
+            "action",
+            "target",
+            "wealth_after",
+            "stress_after",
+            "pre_trust",
+            "pre_risk",
+            "cooperation_count",
+            "total_rounds",
+        ]
+        with open(_HUMAN_RESPONSES_CSV, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=headers)
+            if not file_exists:
+                writer.writeheader()
+            for act in session["actions"]:
+                writer.writerow(
+                    {
+                        "participant_id": session["session_id"],
+                        "round_id": act["round_id"],
+                        "action": act["action"],
+                        "target": act.get("target", ""),
+                        "wealth_after": session["wealth"],
+                        "stress_after": session["stress"],
+                        "pre_trust": session["pre_trust"],
+                        "pre_risk": session["pre_risk"],
+                        "cooperation_count": session["cooperation_count"],
+                        "total_rounds": _HG_NUM_ROUNDS,
+                    }
+                )
+
+    @app.get("/human-game/")
+    @app.get("/human-game")
+    def human_game_index():
+        from flask import send_from_directory
+
+        if not _HUMAN_GAME_DIR.exists():
+            return jsonify({"error": "Human experiment app not found"}), 404
+        return send_from_directory(str(_HUMAN_GAME_DIR), "index.html")
+
+    @app.get("/human-game/static/<path:filename>")
+    def human_game_static(filename: str):
+        from flask import send_from_directory
+
+        static_dir = _HUMAN_GAME_DIR / "static"
+        if not static_dir.exists():
+            return ("", 404)
+        return send_from_directory(str(static_dir), filename)
+
+    @app.post("/human-game/session")
+    def human_game_session():
+        body = request.get_json(silent=True) or {}
+        try:
+            pre_trust = max(1.0, min(10.0, float(body.get("pre_trust", 5))))
+            pre_risk = max(1.0, min(10.0, float(body.get("pre_risk", 5))))
+        except (TypeError, ValueError):
+            return jsonify({"error": "pre_trust and pre_risk must be numbers"}), 400
+        session = _hg_new_session((pre_trust - 1) / 9.0, (pre_risk - 1) / 9.0)
+        with _hg_lock:
+            _hg_sessions[session["session_id"]] = session
+        return jsonify(
+            {
+                "session_id": session["session_id"],
+                "neighbors": session["neighbors"],
+                "initial_wealth": session["wealth"],
+                "initial_stress": session["stress"],
+                "total_rounds": _HG_NUM_ROUNDS,
+            }
+        ), 201
+
+    @app.post("/human-game/action")
+    def human_game_action():
+        body = request.get_json(silent=True) or {}
+        sid = body.get("session_id")
+        action = body.get("action", "work").lower()
+        target = body.get("target")
+        with _hg_lock:
+            session = _hg_sessions.get(sid)
+        if session is None:
+            return jsonify({"error": "Session not found"}), 404
+        if session["complete"]:
+            return jsonify({"error": "Session already complete"}), 400
+        if session["round_id"] >= _HG_NUM_ROUNDS:
+            return jsonify({"error": "All rounds completed"}), 400
+        if action not in {"work", "save", "cooperate"}:
+            return jsonify({"error": f"Invalid action: {action}"}), 400
+        return jsonify(_hg_apply_action(session, action, target))
+
+    @app.get("/human-game/status/<session_id>")
+    def human_game_status(session_id: str):
+        with _hg_lock:
+            session = _hg_sessions.get(session_id)
+        if session is None:
+            return jsonify({"error": "Session not found"}), 404
+        return jsonify(
+            {
+                "session_id": session_id,
+                "round_id": session["round_id"],
+                "wealth": session["wealth"],
+                "stress": session["stress"],
+                "cooperation_count": session["cooperation_count"],
+                "complete": session["complete"],
+            }
+        )
+
+    @app.post("/human-game/complete")
+    def human_game_complete():
+        body = request.get_json(silent=True) or {}
+        sid = body.get("session_id")
+        with _hg_lock:
+            session = _hg_sessions.get(sid)
+        if session is None:
+            return jsonify({"error": "Session not found"}), 404
+        session["complete"] = True
+        try:
+            _hg_append_csv(session)
+        except Exception as exc:
+            return jsonify({"error": f"Failed to save data: {exc}"}), 500
+        coop_rate = session["cooperation_count"] / max(session["round_id"], 1)
+        return jsonify(
+            {
+                "completion_code": f"BGF-{session['session_id'][:8].upper()}",
+                "final_wealth": session["wealth"],
+                "final_stress": session["stress"],
+                "cooperation_rate": round(coop_rate, 3),
+            }
+        )
 
     # ── 413 handler — body too large ─────────────────────────────────────────
 

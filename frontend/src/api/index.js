@@ -34,6 +34,7 @@ export const api = {
   status:         (expId)                     => http.get(`/status/${expId}`),
   results:        (expId)                     => http.get(`/results/${expId}`),
   interview:      (expId, agentId, question)  => http.post(`/interview/${expId}/${agentId}`, { question }),
+  anchor:         (expId, question)           => http.post(`/anchor/${expId}`, { question }),
   inject:         (expId, eventType, payload) => http.post(`/inject/${expId}`, { event_type: eventType, payload }),
   incomplete:     ()                          => http.get('/incomplete'),
   humanEvalScenarios: (pid)                   => http.get('/human-eval/scenarios', { params: pid ? { PROLIFIC_PID: pid } : {} }),

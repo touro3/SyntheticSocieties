@@ -3,10 +3,13 @@ import HomeView        from '../views/HomeView.vue'
 import RunView         from '../views/RunView.vue'
 import MonitorView     from '../views/MonitorView.vue'
 import ExperimentsView from '../views/ExperimentsView.vue'
-import ResultsView     from '../views/ResultsView.vue'
 import InteractView    from '../views/InteractView.vue'
 import HumanEvalView   from '../views/HumanEvalView.vue'
 import NotFoundView    from '../views/NotFoundView.vue'
+
+// ResultsView imports Chart.js (~200 KB). Lazy-load it so the initial JS bundle
+// stays small — the chart code is only downloaded when the user visits /results.
+const ResultsView = () => import('../views/ResultsView.vue')
 
 export default createRouter({
   history: createWebHistory(),

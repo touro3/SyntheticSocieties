@@ -95,6 +95,7 @@ _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 # description) return the cached design without burning an API credit.
 _DESIGN_CACHE: dict[str, tuple] = {}
 _DESIGN_CACHE_MAX = 128  # ~128 scenario designs in RAM before FIFO eviction
+_DESIGN_CACHE_LOCK = threading.Lock()  # guards the check-evict-insert sequence
 
 # ── OpenAI client singleton ───────────────────────────────────────────────
 # Re-using one client per api-key prefix avoids TCP handshake overhead on
@@ -145,6 +146,17 @@ _MAX_QUERY_LEN = 2000  # characters — cap for /report ?q= parameter
 _ipc_clients: dict[str, Any] = {}
 _ipc_lock = threading.Lock()
 
+# ── events.jsonl byte-offset cache ────────────────────────────────────────────
+# Avoids O(n) full-file scans on every /interview and /anchor request.
+# Each entry: (byte_offset, events_list). On the next read for the same exp_id,
+# we seek to byte_offset and only parse new lines appended since last read.
+# Capped at 32 experiments; FIFO eviction prevents unbounded growth.
+# A threading.Lock serializes concurrent reads on the same exp_id so two
+# simultaneous requests don't both parse the same new lines.
+_EVENTS_CACHE: dict[str, tuple[int, list[dict]]] = {}
+_EVENTS_CACHE_MAX = 32
+_EVENTS_CACHE_LOCK = threading.Lock()
+
 
 def _append_interview_response(exp_dir: Path, agent_id: str, question: str, response: str) -> None:
     """Append a Q&A pair to interview_responses.jsonl so the anchor can tally opinions."""
@@ -162,6 +174,46 @@ def _append_interview_response(exp_dir: Path, agent_id: str, question: str, resp
             fh.write(_json.dumps(record) + "\n")
     except OSError:
         pass  # non-critical; anchor works without it
+
+
+def _read_events_cached(events_path: Path) -> list[dict]:
+    """Return all parsed events from events_path using a byte-offset cache.
+
+    On first call: reads the whole file, caches (offset, events).
+    On subsequent calls: seeks to the cached offset, parses only new lines,
+    appends to the cached list. O(new_lines) instead of O(total_lines).
+
+    Thread-safe: a single lock serializes all readers so two concurrent
+    requests don't parse the same new lines twice.
+    """
+    import json as _json
+
+    cache_key = str(events_path)
+    with _EVENTS_CACHE_LOCK:
+        offset, cached_events = _EVENTS_CACHE.get(cache_key, (0, []))
+        try:
+            new_events: list[dict] = []
+            with events_path.open("rb") as fh:
+                fh.seek(offset)
+                for raw in fh:
+                    line = raw.strip()
+                    if not line:
+                        continue
+                    try:
+                        new_events.append(_json.loads(line))
+                    except _json.JSONDecodeError:
+                        continue
+                new_offset = fh.tell()
+        except OSError:
+            return list(cached_events)
+
+        all_events = cached_events + new_events
+
+        # Evict oldest entry when cache is full
+        if cache_key not in _EVENTS_CACHE and len(_EVENTS_CACHE) >= _EVENTS_CACHE_MAX:
+            _EVENTS_CACHE.pop(next(iter(_EVENTS_CACHE)))
+        _EVENTS_CACHE[cache_key] = (new_offset, all_events)
+        return all_events
 
 
 # ── AI simulation design ──────────────────────────────────────────────────────
@@ -231,10 +283,11 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
 
     # Cache check — skip API call for identical prompts (same scenario wording)
     cache_key = hashlib.sha256(f"{provider}:{user_msg}".encode()).hexdigest()[:16]
-    if cache_key in _DESIGN_CACHE:
-        logger.info("design LLM: cache hit %s", cache_key)
-        cached_design, cached_meta = _DESIGN_CACHE[cache_key]
-        return cached_design, {**cached_meta, "cache_hit": True}
+    with _DESIGN_CACHE_LOCK:
+        if cache_key in _DESIGN_CACHE:
+            logger.info("design LLM: cache hit %s", cache_key)
+            cached_design, cached_meta = _DESIGN_CACHE[cache_key]
+            return cached_design, {**cached_meta, "cache_hit": True}
 
     _TEMPERATURE = 0.4
     use_json_format = True
@@ -312,9 +365,10 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
     result = json.loads(content.strip())
 
     # Store in cache; FIFO eviction when full
-    if len(_DESIGN_CACHE) >= _DESIGN_CACHE_MAX:
-        _DESIGN_CACHE.pop(next(iter(_DESIGN_CACHE)))
-    _DESIGN_CACHE[cache_key] = (result, meta)
+    with _DESIGN_CACHE_LOCK:
+        if len(_DESIGN_CACHE) >= _DESIGN_CACHE_MAX:
+            _DESIGN_CACHE.pop(next(iter(_DESIGN_CACHE)))
+        _DESIGN_CACHE[cache_key] = (result, meta)
 
     return result, meta
 
@@ -939,24 +993,8 @@ def create_app(
         if not events_path.exists():
             return jsonify({"error": "No events log found — interview requires a completed run with saved events"}), 404
 
-        import json as _json
-
-        # Load all events for this agent
-        agent_events = []
-        try:
-            with events_path.open() as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        ev = _json.loads(line)
-                        if ev.get("agent_id") == agent_id:
-                            agent_events.append(ev)
-                    except _json.JSONDecodeError:
-                        continue
-        except OSError as exc:
-            return jsonify({"error": f"Could not read events: {exc}"}), 500
+        all_events = _read_events_cached(events_path)
+        agent_events = [ev for ev in all_events if ev.get("agent_id") == agent_id]
 
         if not agent_events:
             return jsonify({"error": f"No events found for {agent_id} in this experiment"}), 404
@@ -1384,22 +1422,8 @@ def create_app(
         if not events_path.exists():
             return jsonify({"error": "No events log found — anchor requires a completed run with saved events"}), 404
 
-        import json as _json
-
         # ── Load ALL events from all agents ───────────────────────────────────
-        all_events: list[dict] = []
-        try:
-            with events_path.open() as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        all_events.append(_json.loads(line))
-                    except _json.JSONDecodeError:
-                        continue
-        except OSError as exc:
-            return jsonify({"error": f"Could not read events: {exc}"}), 500
+        all_events = _read_events_cached(events_path)
 
         if not all_events:
             return jsonify({"error": "No events found in this experiment"}), 404
@@ -1572,8 +1596,8 @@ def create_app(
                         _line = _line.strip()
                         if _line:
                             try:
-                                interview_log.append(_json.loads(_line))
-                            except _json.JSONDecodeError:
+                                interview_log.append(json.loads(_line))
+                            except json.JSONDecodeError:
                                 pass
             except OSError:
                 pass

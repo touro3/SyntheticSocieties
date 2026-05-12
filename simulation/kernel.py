@@ -10,6 +10,7 @@ from __future__ import annotations
 import gc
 import json
 import logging
+import os
 import time
 import warnings
 from collections import Counter
@@ -22,6 +23,19 @@ from metrics.inequality import gini_coefficient as _gini_canonical
 from simulation.round_processor import RoundProcessor
 
 logger = logging.getLogger(__name__)
+
+
+def _atomic_write_json(path: Path, data: dict) -> None:
+    """Write JSON to *path* atomically via a sibling .tmp file + os.rename().
+
+    os.rename() is atomic on POSIX (Linux/macOS). A concurrent reader can
+    never observe a partial write — it either sees the old file or the new
+    one, never a half-written buffer.
+    """
+    tmp = path.with_suffix(".tmp")
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    tmp.write_text(json.dumps(data))
+    os.replace(tmp, path)  # os.replace is POSIX-atomic
 
 # Flush in-memory round_metrics to disk every N rounds to keep RAM bounded.
 # At ~1 KB per dict and 100 agents per round, 50 rounds = ~50 KB in memory max.
@@ -278,7 +292,7 @@ class SimulationKernel:
         }
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2))
+        _atomic_write_json(path, data)
 
     def load_checkpoint(self, path: Path) -> int:
         """Restore agent states from a checkpoint. Returns the saved round_id."""
@@ -368,8 +382,7 @@ class SimulationKernel:
                     key=last.get("action_distribution", {}).get,
                     default=None,
                 )
-            self.heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
-            self.heartbeat_path.write_text(json.dumps(payload))
+            _atomic_write_json(self.heartbeat_path, payload)
         except Exception as exc:  # never let heartbeat I/O crash the sim
             logger.warning("Heartbeat write failed: %s", exc)
 

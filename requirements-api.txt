@@ -6,6 +6,12 @@
 #   scipy       94 MB  — calibration/distribution metrics only
 #   scikit-learn 56 MB  — never imported by any API route
 #   polars      102 MB  — metrics scripts only; pandas covers API parquet needs
+#
+# NOTE on networkx: the Flask process itself never imports networkx. It is
+# required here because simulation subprocesses use sys.executable (same venv)
+# and environment/network.py imports it. If simulations are ever moved to a
+# dedicated worker process with its own requirements, networkx can be removed
+# from this file, saving ~1.5 MB from the API image.
 
 pyyaml==6.0.2
 numpy==1.26.4

@@ -996,17 +996,29 @@ def create_app(
                 else:
                     scenario_block = ""
 
+                # Derive a personality fingerprint unique to this agent's stats
+                _wealth_pct = "high" if final_wealth > 100 else ("low" if final_wealth < 50 else "moderate")
+                _coop_tend = "collaborative" if coop_count > total_rounds // 3 else "independent"
+                _stress_tend = "risk-averse" if final_stress > 0.3 else ("bold" if final_stress < 0.1 else "cautious")
+                agent_fingerprint = (
+                    f"Your personal disposition: {_coop_tend} ({coop_count}/{total_rounds} cooperative rounds), "
+                    f"{_stress_tend} (stress {final_stress:.2f}), "
+                    f"wealth trajectory {wealth_delta:+.0f} → final {final_wealth:.0f} ({_wealth_pct} relative to peers). "
+                    f"Let these traits make your answer genuinely distinct from other agents in this simulation."
+                )
                 system_prompt = (
                     f"You are {agent_id}, a synthetic agent in a completed BGF simulation ({exp_id})."
                     f"{scenario_block}\n"
+                    f"{agent_fingerprint}\n"
                     f"You played {total_rounds} rounds. Your dominant strategy was '{dominant}' "
                     f"({', '.join(f'{v}× {k}' for k, v in sorted(action_counts.items(), key=lambda x: -x[1]))}). "
                     f"Final wealth: {final_wealth:.1f} (started at {first_wealth:.1f}, delta {wealth_delta:+.1f}). "
                     f"Final stress: {final_stress:.2f}. Cooperation rounds: {coop_count}.\n\n"
                     f"Recent round history:\n{history_text}\n\n"
                     "Answer the user's question in first-person as this agent, "
-                    "drawing from the scenario context and behavioral data above. "
+                    "drawing from your personal disposition and behavioral history above. "
                     "Be natural and concise (2-4 sentences). "
+                    "Do not repeat phrasing used by 'typical' agents — express your individual perspective. "
                     "Do not mention 'LLM fallback', simulation internals, or action names like 'cooperate/work/save' "
                     "unless directly asked about strategy."
                 )
@@ -1437,19 +1449,21 @@ def create_app(
         def _find_question_options(q: str) -> list[str]:
             """
             Extract candidate options from a question like 'paper or monograph?'
-            Returns tokens that appear both in the question and in reasoning texts
-            (or scenario context), filtered to likely content words.
+            Only activates on explicit 'X or Y' / 'X vs Y' patterns — prevents
+            generic nouns in the question (e.g. 'decision', 'majority') from being
+            mistaken for option keywords.
             """
             import re as _re
 
-            # Extract words from question, drop short/stop words
-            q_words = [
-                w.lower().strip(".,;:!?\"'")
-                for w in _re.split(r"[\s/]+", q)
-                if len(w) > 3 and w.lower().strip(".,;:!?\"'") not in _stop
+            or_match = _re.search(r"\b(\w{4,})\s+(?:or|vs\.?|versus)\s+(\w{4,})\b", q, _re.I)
+            if not or_match:
+                return []
+            opts = [
+                or_match.group(1).lower().strip(".,;:!?\"'"),
+                or_match.group(2).lower().strip(".,;:!?\"'"),
             ]
-            # Keep words that either appear in scenario tokens or in reasoning corpus
-            return [w for w in q_words if w in scenario_tokens or w in combined_reasoning]
+            # Ground each option in the scenario or reasoning corpus
+            return [o for o in opts if o in scenario_tokens or o in combined_reasoning]
 
         # Build stats payload returned to caller regardless of LLM path
         stats = {

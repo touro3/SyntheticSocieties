@@ -1,18 +1,20 @@
 # Lightweight requirements for the API-only deployment (Render.com free tier).
 # No torch, no transformers — keeps the image under 512 MB RAM.
 # Simulation runs use CPU-only policies (random, rule_based, mock, template).
+#
+# NOT included (only needed for offline metrics scripts, not the web worker):
+#   scipy       94 MB  — calibration/distribution metrics only
+#   scikit-learn 56 MB  — never imported by any API route
+#   polars      102 MB  — metrics scripts only; pandas covers API parquet needs
 
 pyyaml==6.0.2
 numpy==1.26.4
-scipy==1.11.4
 pandas==2.2.2
 pyarrow==17.0.0
 duckdb==1.1.0
 pydantic==2.8.2
 networkx==3.3
-scikit-learn==1.5.2
 orjson==3.11.6
-polars==1.8.2
 openai==2.35.1
 python-dotenv==1.2.2
 

@@ -90,6 +90,17 @@ _AUTH_TOKEN: str | None = os.environ.get("BGF_API_TOKEN")
 # Blocks path-traversal sequences like "../", "%2e%2e", etc.
 _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 
+# ── Design-LLM response cache ─────────────────────────────────────────────
+# Keyed by sha256(provider + user_msg)[:16].  Identical prompts (same scenario
+# description) return the cached design without burning an API credit.
+_DESIGN_CACHE: dict[str, tuple] = {}
+_DESIGN_CACHE_MAX = 128  # ~128 scenario designs in RAM before FIFO eviction
+
+# ── OpenAI client singleton ───────────────────────────────────────────────
+# Re-using one client per api-key prefix avoids TCP handshake overhead on
+# every /interview call (Render's free tier has limited open-file descriptors).
+_OAI_CLIENTS: dict[str, Any] = {}
+
 # Valid LLM model name: HF model IDs (org/name) and OpenAI slugs.
 # Allows letters, digits, dots, hyphens, forward-slashes, colons — nothing else.
 _MODEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/:-]{0,100}$")
@@ -211,11 +222,19 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         (design_dict, meta) where meta contains usage, resolved_model, prompt_hash, temperature.
     """
     import hashlib
+    import time as _time
 
     try:
         import openai
     except ImportError as exc:
         raise RuntimeError("openai package not installed — pip install openai") from exc
+
+    # Cache check — skip API call for identical prompts (same scenario wording)
+    cache_key = hashlib.sha256(f"{provider}:{user_msg}".encode()).hexdigest()[:16]
+    if cache_key in _DESIGN_CACHE:
+        logger.info("design LLM: cache hit %s", cache_key)
+        cached_design, cached_meta = _DESIGN_CACHE[cache_key]
+        return cached_design, {**cached_meta, "cache_hit": True}
 
     _TEMPERATURE = 0.4
     use_json_format = True
@@ -228,7 +247,11 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         # Older Ollama builds don't support response_format — skip it
         use_json_format = False
     else:
-        client = openai.OpenAI(api_key=api_key)
+        # Reuse singleton to avoid TCP reconnect on every call
+        key_prefix = api_key[:8]
+        if key_prefix not in _OAI_CLIENTS:
+            _OAI_CLIENTS[key_prefix] = openai.OpenAI(api_key=api_key)
+        client = _OAI_CLIENTS[key_prefix]
         model = "gpt-4o-mini"
 
     kwargs: dict = dict(
@@ -243,7 +266,20 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
     if use_json_format:
         kwargs["response_format"] = {"type": "json_object"}
 
-    resp = client.chat.completions.create(**kwargs)
+    # Retry on 429 rate-limit with exponential backoff (max 3 attempts)
+    _last_exc: Exception | None = None
+    for _attempt in range(3):
+        try:
+            resp = client.chat.completions.create(**kwargs)
+            break
+        except openai.RateLimitError as exc:
+            _last_exc = exc
+            _wait = 2 ** _attempt
+            logger.warning("design LLM 429 (attempt %d) — retrying in %ds", _attempt + 1, _wait)
+            _time.sleep(_wait)
+    else:
+        raise _last_exc  # type: ignore[misc]
+
     content = resp.choices[0].message.content
     # Strip markdown fences Ollama sometimes adds
     if content.startswith("```"):
@@ -265,6 +301,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         "temperature": _TEMPERATURE,
         "prompt_hash": hashlib.sha256(_DESIGN_SYSTEM_PROMPT.encode()).hexdigest()[:8],
         "usage": usage,
+        "cache_hit": False,
     }
     logger.info(
         "design LLM call: provider=%s model=%s tokens=%s",
@@ -272,7 +309,14 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         resp.model,
         usage.get("total_tokens", "?"),
     )
-    return json.loads(content.strip()), meta
+    result = json.loads(content.strip())
+
+    # Store in cache; FIFO eviction when full
+    if len(_DESIGN_CACHE) >= _DESIGN_CACHE_MAX:
+        _DESIGN_CACHE.pop(next(iter(_DESIGN_CACHE)))
+    _DESIGN_CACHE[cache_key] = (result, meta)
+
+    return result, meta
 
 
 def _generate_population_parquet(design: dict, n_agents: int) -> str | None:
@@ -513,6 +557,14 @@ def create_app(
         return jsonify({"configs": configs})
 
     # ── Health ────────────────────────────────────────────────────────────────
+
+    @app.get("/ping")
+    def ping():
+        """Ultra-cheap keep-alive target for UptimeRobot / cron-job.org pingers.
+        No auth, no filesystem I/O, no imports — returns instantly.
+        Configure your external pinger to hit GET /ping every 10-14 minutes to
+        prevent Render's free tier from spinning down the dyno."""
+        return ("pong", 200, {"Content-Type": "text/plain", "Cache-Control": "no-store"})
 
     @app.get("/health")
     def health():
@@ -974,9 +1026,16 @@ def create_app(
         oai_key = os.environ.get("OPENAI_API_KEY", "")
         if oai_key:
             try:
-                from openai import OpenAI as _OAI
+                import time as _time
 
-                oai = _OAI(api_key=oai_key)
+                from openai import OpenAI as _OAI
+                from openai import RateLimitError as _RLE
+
+                # Reuse singleton — avoids TCP reconnect on every interview call
+                _oai_prefix = oai_key[:8]
+                if _oai_prefix not in _OAI_CLIENTS:
+                    _OAI_CLIENTS[_oai_prefix] = _OAI(api_key=oai_key)
+                oai = _OAI_CLIENTS[_oai_prefix]
 
                 # Build scenario persona block (empty string if no design context)
                 if scenario_title:
@@ -1022,7 +1081,7 @@ def create_app(
                     "Do not mention 'LLM fallback', simulation internals, or action names like 'cooperate/work/save' "
                     "unless directly asked about strategy."
                 )
-                resp = oai.chat.completions.create(
+                _call_kwargs = dict(
                     model="gpt-4o-mini",
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -1031,7 +1090,16 @@ def create_app(
                     max_tokens=220,
                     temperature=0.7,
                 )
-                answer = resp.choices[0].message.content.strip()
+                _resp = None
+                for _att in range(3):
+                    try:
+                        _resp = oai.chat.completions.create(**_call_kwargs)
+                        break
+                    except _RLE:
+                        _time.sleep(2 ** _att)
+                if _resp is None:
+                    raise RuntimeError("OpenAI rate limit — all retries exhausted")
+                answer = _resp.choices[0].message.content.strip()
                 _append_interview_response(exp_dir, agent_id, question, answer)
                 return jsonify({"response": answer, "source": "replay_llm"})
             except Exception as exc:

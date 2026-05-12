@@ -38,6 +38,8 @@ DEFAULT_INDEX = "tracker/experiment_index.parquet"
 MAX_ITERATIONS = 8  # guard against infinite loops
 TOOL_CALL_PAUSE = 0.2  # seconds between tool calls
 _MAX_CONFLICTS = 2  # max consecutive tool+FinalAnswer conflicts before downgrade
+_MAX_LOOP_TOKENS = 800  # max completion tokens per ReACT iteration (cost guard)
+_MAX_HISTORY_TURNS = 12  # keep only the N most-recent turns to cap context growth
 
 
 class _TrackerTools:
@@ -592,11 +594,16 @@ class ReportAgent:
         conflict_retries = 0  # consecutive conflict counter (MiroFish pattern)
 
         for iteration in range(self.max_iterations):
+            # Trim history: always keep system + user (first 2), then last N turns.
+            # Prevents unbounded context growth that multiplies cost each iteration.
+            if len(messages) > 2 + _MAX_HISTORY_TURNS:
+                messages = messages[:2] + messages[-(  _MAX_HISTORY_TURNS):]
             try:
                 response = self._client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
+                    max_tokens=_MAX_LOOP_TOKENS,
                     stop=["Observation:"],
                 )
                 assistant_text = (response.choices[0].message.content if response and response.choices else "") or ""
@@ -692,6 +699,7 @@ class ReportAgent:
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
+                max_tokens=1200,
             )
             final_text = (response.choices[0].message.content if response and response.choices else "") or ""
         except Exception as exc:

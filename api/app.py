@@ -1591,13 +1591,25 @@ def create_app(
         # responses exist, infer options from the questions stored in those logs.
         # This lets "What was the majority decision?" resolve to "monograph or paper"
         # when agents were interviewed with "which do you prefer monograph or paper?".
+        #
+        # NOTE: we bypass _find_question_options (which requires options to appear in
+        # the scenario corpus or reasoning texts) because interview questions are
+        # self-evidencing — if an agent was explicitly asked "X or Y", those ARE
+        # the valid options regardless of whether they appear anywhere in events.
         if not scenario_options and per_agent_interview:
+            import re as _re2
             for rec in interview_log:
-                inferred = _find_question_options(rec.get("question", ""))
-                inferred_non_econ = [o for o in inferred if o not in _econ_actions]
-                if inferred_non_econ:
-                    scenario_options = inferred_non_econ
-                    break
+                q_stored = rec.get("question", "")
+                _or_m = _re2.search(r"\b(\w{4,})\s+(?:or|vs\.?|versus)\s+(\w{4,})\b", q_stored, _re2.I)
+                if _or_m:
+                    opts = [
+                        _or_m.group(1).lower().strip(".,;:!?\"'"),
+                        _or_m.group(2).lower().strip(".,;:!?\"'"),
+                    ]
+                    inferred_non_econ = [o for o in opts if o not in _econ_actions]
+                    if inferred_non_econ:
+                        scenario_options = inferred_non_econ
+                        break
 
         if scenario_options:
 

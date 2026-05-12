@@ -215,8 +215,20 @@ class TestAnchorScenarioTally:
 
     def test_vague_majority_question_infers_options_from_interview_log(self, client, root):
         """'What was the majority decision?' must resolve to scenario options inferred
-        from stored interview questions when agents were asked 'monograph or paper?'."""
-        exp = self._setup_exp(root, "exp_infer")
+        from stored interview questions when agents were asked 'monograph or paper?'.
+
+        Crucially: 'monograph' and 'paper' deliberately do NOT appear in the scenario
+        title/description or in any event reasoning text — this validates that the
+        inference bypasses the corpus filter and works purely from the interview question.
+        """
+        exp = root / "exp_infer"
+        exp.mkdir()
+        # Events with NO mention of monograph/paper in reasoning
+        events = [_make_event(f"agent_{i}", 1, "work", 80 + i, "focused on productivity") for i in range(5)]
+        _write_events(exp, events)
+        # Scenario title/description also has no 'monograph' or 'paper'
+        _write_scenario(exp, "Academic Career Simulation", "Researchers make career choices.")
+
         responses = [
             {"agent_id": "agent_0", "question": "monograph or paper?", "response": "I chose to write a paper."},
             {"agent_id": "agent_1", "question": "monograph or paper?", "response": "I decided on a monograph."},

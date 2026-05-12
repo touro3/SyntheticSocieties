@@ -30,6 +30,8 @@ class SQLRAG:
         # Don't raise on missing file — degrade gracefully to static_context.
         # The default ESS parquet is gitignored and absent on cloud deployments;
         # raising here kills LLM policy builds on Render/CI.
+        # Per-agent demographic context is static across rounds — cache it once.
+        self._peer_cache: dict[tuple, str] = {}
 
     def _connect(self) -> None:
         """Lazily open a DuckDB connection and register the population view.
@@ -90,6 +92,10 @@ class SQLRAG:
     ) -> str:
         """Grounded query: How do peers (age/gender/country/income) usually behave?
 
+        Results are cached per demographic tuple — agent attributes never change
+        between rounds so the DuckDB queries only run once per unique agent profile.
+        In a 100-agent × 100-round run this reduces ~40,000 queries to ~100.
+
         Adaptive: if the data file lacks ESS demographic columns, returns the
         static population narrative from the analysis sidecar (if available),
         or a generic fallback.  This ensures LLM agents always receive some
@@ -108,6 +114,10 @@ class SQLRAG:
         This ensures high-income and low-income agents receive meaningfully
         different peer norms rather than collapsing to the same demographic bucket.
         """
+        _cache_key = (age, gender, country, round(income_decile or 0, 1))
+        if _cache_key in self._peer_cache:
+            return self._peer_cache[_cache_key]
+
         try:
             self._connect()
         except Exception as e:
@@ -258,9 +268,12 @@ class SQLRAG:
         ]:
             result = _run_query(window, use_country, use_income)
             if result:
+                self._peer_cache[_cache_key] = result
                 return result
 
-        return self.static_context or "No peer group data found for this demographic."
+        _fallback = self.static_context or "No peer group data found for this demographic."
+        self._peer_cache[_cache_key] = _fallback
+        return _fallback
 
     def close(self):
         """Release DuckDB resources."""

@@ -2190,7 +2190,9 @@ def create_app(
                     400,
                 )
 
-        # Optionally enrich with attached data file narrative
+        # Optionally enrich with attached data file narrative.
+        # Cap at 1500 chars (~450 tokens) — large ESS sidecars can exceed 10k chars
+        # and would dominate the design prompt, crowding out the user's scenario text.
         file_id_raw = str(body.get("file_id", "")).strip()
         data_context = ""
         if file_id_raw and _FILE_ID_RE.match(file_id_raw):
@@ -2198,7 +2200,8 @@ def create_app(
             if sidecar.exists():
                 try:
                     attached = json.loads(sidecar.read_text())
-                    data_context = f"\n\nAttached dataset: {attached.get('narrative', '')}"
+                    narrative = attached.get("narrative", "")[:1500]
+                    data_context = f"\n\nAttached dataset: {narrative}"
                 except Exception:
                     pass
 

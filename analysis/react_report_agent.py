@@ -307,6 +307,7 @@ class _TrackerTools:
                 model=model,
                 messages=[{"role": "user", "content": decompose_prompt}],
                 temperature=temperature,
+                max_tokens=150,  # expects a JSON array of 3-5 short strings (~40-80 tokens)
             )
             raw = resp.choices[0].message.content or "[]"
             # Extract JSON array robustly
@@ -334,6 +335,14 @@ class _TrackerTools:
             partial_answers.append(f"Sub-question: {sq}\nData:\n{obs}")
 
         # ── Stage C: synthesise partial answers ───────────────────────────────
+        # Truncate each observation before injecting — DataFrame dumps can be
+        # thousands of chars each; 5 × 800 chars keeps the synthesis prompt
+        # under ~1,500 tokens regardless of experiment count.
+        _MAX_OBS_CHARS = 800
+        truncated_answers = [
+            pa[:_MAX_OBS_CHARS] + ("…" if len(pa) > _MAX_OBS_CHARS else "")
+            for pa in partial_answers
+        ]
         synthesis_prompt = textwrap.dedent(f"""
             You are a research analyst for the BGF simulation project.
             Synthesise the following data observations into a concise, precise insight.
@@ -342,7 +351,7 @@ class _TrackerTools:
             Original question: {question}
 
             Observations:
-            {chr(10).join(f"--- {i + 1} ---{chr(10)}{pa}" for i, pa in enumerate(partial_answers))}
+            {chr(10).join(f"--- {i + 1} ---{chr(10)}{pa}" for i, pa in enumerate(truncated_answers))}
         """).strip()
 
         try:
@@ -350,6 +359,7 @@ class _TrackerTools:
                 model=model,
                 messages=[{"role": "user", "content": synthesis_prompt}],
                 temperature=temperature,
+                max_tokens=350,  # 200 words ≈ 270 tokens + headroom
             )
             return resp.choices[0].message.content or "(synthesis failed)"
         except Exception as exc:
@@ -608,7 +618,17 @@ class ReportAgent:
                 )
                 assistant_text = (response.choices[0].message.content if response and response.choices else "") or ""
             except Exception as exc:
-                logger.warning("ReACT iteration %d: LLM call failed (%s).", iteration + 1, exc)
+                err_str = str(exc)
+                if "429" in err_str or "rate_limit" in err_str.lower() or "rate limit" in err_str.lower():
+                    _wait = 2 ** min(iteration, 4)  # 1, 2, 4, 8, 16s — caps at 16s
+                    logger.warning(
+                        "ReACT iteration %d: 429 rate limit — sleeping %ds before continuing.",
+                        iteration + 1,
+                        _wait,
+                    )
+                    time.sleep(_wait)
+                else:
+                    logger.warning("ReACT iteration %d: LLM call failed (%s).", iteration + 1, exc)
                 assistant_text = ""
 
             # Handle empty / None response (MiroFish None-guard pattern)
@@ -674,11 +694,18 @@ class ReportAgent:
             if verbose:
                 print(f"Observation ({tool_name}): {observation[:500]}...")
 
+            # Truncate large DataFrame observations before adding to history —
+            # panorama_search/trend_analysis can return thousands of chars which
+            # are re-sent on every subsequent iteration, inflating costs linearly.
+            _MAX_OBS_CHARS = 2000
+            obs_trimmed = observation[:_MAX_OBS_CHARS] + (
+                "\n…[truncated]" if len(observation) > _MAX_OBS_CHARS else ""
+            )
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append(
                 {
                     "role": "user",
-                    "content": f"Observation:\n{observation}\n\nContinue.",
+                    "content": f"Observation:\n{obs_trimmed}\n\nContinue.",
                 }
             )
 

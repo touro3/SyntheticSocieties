@@ -199,8 +199,9 @@ class TestAnchorScenarioTally:
     def test_no_or_pattern_does_not_tally(self, client, root):
         """A plain question without 'X or Y' must not trigger the scenario tally."""
         exp = self._setup_exp(root, "exp_no_or")
+        # Stored question also has no 'X or Y' pattern — no inference possible
         responses = [
-            {"agent_id": "agent_0", "question": "q", "response": "I wrote a paper."},
+            {"agent_id": "agent_0", "question": "what did you decide", "response": "I wrote a paper."},
         ]
         with (exp / "interview_responses.jsonl").open("w") as f:
             for r in responses:
@@ -211,6 +212,27 @@ class TestAnchorScenarioTally:
         data = resp.get_json()
         # No tally source — should be regular anchor_data
         assert data["source"] != "anchor_interviews"
+
+    def test_vague_majority_question_infers_options_from_interview_log(self, client, root):
+        """'What was the majority decision?' must resolve to scenario options inferred
+        from stored interview questions when agents were asked 'monograph or paper?'."""
+        exp = self._setup_exp(root, "exp_infer")
+        responses = [
+            {"agent_id": "agent_0", "question": "monograph or paper?", "response": "I chose to write a paper."},
+            {"agent_id": "agent_1", "question": "monograph or paper?", "response": "I decided on a monograph."},
+            {"agent_id": "agent_2", "question": "monograph or paper?", "response": "Writing a paper made more sense."},
+        ]
+        with (exp / "interview_responses.jsonl").open("w") as f:
+            for r in responses:
+                f.write(json.dumps(r) + "\n")
+
+        resp = client.post("/anchor/exp_infer", json={"question": "What was the majority decision?"})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        # Anchor must infer 'paper' as majority from interview log, not return economic actions
+        assert "preferred 'decision'" not in data["response"]
+        assert "paper" in data["response"].lower()
+        assert data["source"] == "anchor_interviews"
 
 
 # ---------------------------------------------------------------------------

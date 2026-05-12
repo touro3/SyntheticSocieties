@@ -1519,6 +1519,18 @@ def create_app(
         _econ_actions = {"work", "save", "cooperate", "steal", "cooperation", "defect"}
         scenario_options = [o for o in q_options if o not in _econ_actions]
 
+        # If the anchor question has no explicit "X or Y" options but interview
+        # responses exist, infer options from the questions stored in those logs.
+        # This lets "What was the majority decision?" resolve to "monograph or paper"
+        # when agents were interviewed with "which do you prefer monograph or paper?".
+        if not scenario_options and per_agent_interview:
+            for rec in interview_log:
+                inferred = _find_question_options(rec.get("question", ""))
+                inferred_non_econ = [o for o in inferred if o not in _econ_actions]
+                if inferred_non_econ:
+                    scenario_options = inferred_non_econ
+                    break
+
         if scenario_options:
 
             def _tally_from_texts(texts_by_agent: dict) -> tuple:

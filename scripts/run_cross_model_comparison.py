@@ -384,6 +384,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # Guard canonical data: dry-run synthetic values must never overwrite the
+    # real Table 3 results.  Redirect to a separate file unless the caller
+    # explicitly supplied --out themselves.
+    if args.dry_run and args.out == _RESULTS_PATH:
+        args.out = _RESULTS_PATH.with_name("cross_model_results_dryrun.json")
+        print(f"[dry-run] Redirecting output to {args.out} (protecting canonical data)")
+
     print("=" * 60)
     print("  Phase 16 — Cross-Model Generalizability Study")
     print(f"  Models: {', '.join(args.models)}")

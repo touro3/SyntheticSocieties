@@ -1,177 +1,57 @@
 {
   "level0_grounded": {
     "cooperation_rate": {
-      "mean": 0.33,
-      "std": 0.0106,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.3532,
-      "std": 0.0069,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 48.7733,
-      "std": 0.723,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.6087,
-      "std": 0.0204,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level0_ungrounded": {
     "cooperation_rate": {
-      "mean": 0.2362,
-      "std": 0.0297,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.4027,
-      "std": 0.0011,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 53.993,
-      "std": 1.7423,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.5134,
-      "std": 0.028,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level1_grounded": {
     "cooperation_rate": {
-      "mean": 0.3619,
-      "std": 0.0202,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.34,
-      "std": 0.022,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 48.8875,
-      "std": 7.2245,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.6682,
-      "std": 0.0209,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level1_ungrounded": {
     "cooperation_rate": {
-      "mean": 0.2805,
-      "std": 0.0073,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.357,
-      "std": 0.0259,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 48.5577,
-      "std": 6.6102,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.5905,
-      "std": 0.0093,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level2_grounded": {
     "cooperation_rate": {
-      "mean": 0.4074,
-      "std": 0.0201,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.3057,
-      "std": 0.0262,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 53.9163,
-      "std": 2.5181,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.7167,
-      "std": 0.0257,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level2_ungrounded": {
     "cooperation_rate": {
-      "mean": 0.3462,
-      "std": 0.0401,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.3755,
-      "std": 0.0168,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 49.7745,
-      "std": 3.538,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.642,
-      "std": 0.0321,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level3_grounded": {
     "cooperation_rate": {
-      "mean": 0.4786,
-      "std": 0.0262,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.2992,
-      "std": 0.0193,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 51.3559,
-      "std": 3.6804,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.7415,
-      "std": 0.0549,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   },
   "level3_ungrounded": {
     "cooperation_rate": {
-      "mean": 0.4074,
-      "std": 0.017,
-      "n": 3
-    },
-    "wealth_gini": {
-      "mean": 0.3333,
-      "std": 0.012,
-      "n": 3
-    },
-    "wealth_mean": {
-      "mean": 48.2063,
-      "std": 5.5658,
-      "n": 3
-    },
-    "persona_fidelity": {
-      "mean": 0.7121,
-      "std": 0.0407,
+      "mean": 0.0,
+      "std": 0.0,
       "n": 3
     }
   }

@@ -174,8 +174,7 @@ class TestAnchorScenarioTally:
 
         # First batch: 3 agents interviewed
         batch1 = [
-            {"agent_id": f"agent_{i}", "question": "q", "response": "I chose to write a paper."}
-            for i in range(3)
+            {"agent_id": f"agent_{i}", "question": "q", "response": "I chose to write a paper."} for i in range(3)
         ]
         with (exp / "interview_responses.jsonl").open("w") as f:
             for r in batch1:
@@ -187,8 +186,7 @@ class TestAnchorScenarioTally:
 
         # Second batch: 2 more agents interviewed (append)
         batch2 = [
-            {"agent_id": f"agent_{i}", "question": "q", "response": "I chose to write a paper."}
-            for i in range(3, 5)
+            {"agent_id": f"agent_{i}", "question": "q", "response": "I chose to write a paper."} for i in range(3, 5)
         ]
         with (exp / "interview_responses.jsonl").open("a") as f:
             for r in batch2:

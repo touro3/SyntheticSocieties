@@ -9,7 +9,7 @@ services:
       pip install -r requirements-api.txt && pip install -e . --no-deps &&
       npm --prefix frontend install &&
       npm --prefix frontend run build
-    startCommand: gunicorn 'api.app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 300
+    startCommand: mkdir -p experiments tracker data/human && gunicorn 'api.app:create_app()' --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 300
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"

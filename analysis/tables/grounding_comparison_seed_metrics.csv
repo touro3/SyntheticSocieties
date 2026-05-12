@@ -1,6 +1,6 @@
 experiment_id,condition_key,seed,is_primary,policy_family,persona_source,use_population_context,use_social_context,use_memory_context,wealth_mean,wealth_gini,stress_mean,work_rate,save_rate,cooperation_rate,rejected_action_rate,run_dir
-auditable_random_ess_persona_s42,auditable_random_ess_persona,42,True,auditable_random,ess,True,False,False,85.15,0.13837345860246608,0.62,0.24,0.4,0.36,0.0,experiments/auditable_random_ess_persona_s42
-pure_llm_ess_persona_s42,pure_llm_ess_persona,42,True,llm,ess,False,False,False,89.25,0.0765546218487394,0.9249999999999998,0.32,0.67,0.01,0.0,experiments/pure_llm_ess_persona_s42
+auditable_random_ess_persona_s42,auditable_random_ess_persona,42,True,auditable_random,ess,True,False,False,119.55,0.1560401505646174,-0.4750000000000001,0.324,0.294,0.382,0.0,experiments/auditable_random_ess_persona_s42
+pure_llm_ess_persona_s42,pure_llm_ess_persona,42,True,llm,ess,False,False,False,158.72,0.16577872983870967,0.4060000000000001,0.634,0.06,0.306,0.0,experiments/pure_llm_ess_persona_s42
 grounded_llm_ess_persona_s42,grounded_llm_ess_persona,42,True,llm,ess,True,True,True,88.5,0.16581920903954805,1.1600000000000004,0.32,0.2,0.48,0.0,experiments/grounded_llm_ess_persona_s42
 pure_llm_synth_persona_s42,pure_llm_synth_persona,42,False,llm,synthetic,False,False,False,94.5,0.07301587301587298,1.1599999999999997,0.36,0.64,0.0,0.0,experiments/pure_llm_synth_persona_s42
 grounded_llm_synth_persona_s42,grounded_llm_synth_persona,42,False,llm,synthetic,True,True,True,89.5,0.15139664804469266,0.9500000000000002,0.28,0.18,0.54,0.0,experiments/grounded_llm_synth_persona_s42

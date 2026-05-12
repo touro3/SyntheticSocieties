@@ -3,7 +3,7 @@
  * Communicates with human_experiment/server/server.py via fetch().
  */
 
-const API = "http://localhost:5100";
+const API = "/human-game";
 
 let state = {
   sessionId:   null,

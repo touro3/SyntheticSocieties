@@ -453,6 +453,8 @@ def create_app(
     global _EXPERIMENTS_ROOT, _CONFIGS_ROOT
     _EXPERIMENTS_ROOT = Path(experiments_root)
     _CONFIGS_ROOT = Path(configs_root)
+    _EXPERIMENTS_ROOT.mkdir(parents=True, exist_ok=True)
+    Path("tracker").mkdir(parents=True, exist_ok=True)
 
     app = Flask(__name__, template_folder=Path(__file__).parent / "templates", static_folder=None)
 

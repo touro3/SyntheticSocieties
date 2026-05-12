@@ -25,7 +25,7 @@ export const api = {
   configs:        ()                          => http.get('/configs'),
   experiments:    (policy)                    => http.get('/experiments', { params: policy ? { policy } : {} }),
   simulate:       (body)                      => http.post('/simulate', body),
-  simulateWizard: (body)                      => http.post('/simulate-wizard', body),
+  simulateWizard: (body)                      => http.post('/simulate-wizard', body, { timeout: 90000 }),
   uploadEssData:  (formData)                  => http.post('/upload-ess-data', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000,

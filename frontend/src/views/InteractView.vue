@@ -48,7 +48,7 @@
             class="agent-tab" :class="{ active: agentId === a }"
             @click="agentId = a">
             {{ a }}
-            <span class="atab-count">{{ (chatsByAgent[a] ?? []).length / 2 | 0 }}</span>
+            <span class="atab-count">{{ Math.floor((chatsByAgent[a] ?? []).length / 2) }}</span>
           </button>
         </div>
 

@@ -380,10 +380,7 @@ class _TrackerTools:
         # thousands of chars each; 5 × 800 chars keeps the synthesis prompt
         # under ~1,500 tokens regardless of experiment count.
         _MAX_OBS_CHARS = 800
-        truncated_answers = [
-            pa[:_MAX_OBS_CHARS] + ("…" if len(pa) > _MAX_OBS_CHARS else "")
-            for pa in partial_answers
-        ]
+        truncated_answers = [pa[:_MAX_OBS_CHARS] + ("…" if len(pa) > _MAX_OBS_CHARS else "") for pa in partial_answers]
         synthesis_prompt = textwrap.dedent(f"""
             You are a research analyst for the BGF simulation project.
             Synthesise the following data observations into a concise, precise insight.
@@ -648,7 +645,7 @@ class ReportAgent:
             # Trim history: always keep system + user (first 2), then last N turns.
             # Prevents unbounded context growth that multiplies cost each iteration.
             if len(messages) > 2 + _MAX_HISTORY_TURNS:
-                messages = messages[:2] + messages[-(  _MAX_HISTORY_TURNS):]
+                messages = messages[:2] + messages[-(_MAX_HISTORY_TURNS):]
             try:
                 response = self._client.chat.completions.create(
                     model=self.model,
@@ -739,9 +736,7 @@ class ReportAgent:
             # panorama_search/trend_analysis can return thousands of chars which
             # are re-sent on every subsequent iteration, inflating costs linearly.
             _MAX_OBS_CHARS = 2000
-            obs_trimmed = observation[:_MAX_OBS_CHARS] + (
-                "\n…[truncated]" if len(observation) > _MAX_OBS_CHARS else ""
-            )
+            obs_trimmed = observation[:_MAX_OBS_CHARS] + ("\n…[truncated]" if len(observation) > _MAX_OBS_CHARS else "")
             messages.append({"role": "assistant", "content": assistant_text})
             messages.append(
                 {

@@ -327,7 +327,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
             break
         except openai.RateLimitError as exc:
             _last_exc = exc
-            _wait = 2 ** _attempt
+            _wait = 2**_attempt
             logger.warning("design LLM 429 (attempt %d) — retrying in %ds", _attempt + 1, _wait)
             _time.sleep(_wait)
     else:
@@ -1141,7 +1141,7 @@ def create_app(
                         _resp = oai.chat.completions.create(**_call_kwargs)
                         break
                     except _RLE:
-                        _time.sleep(2 ** _att)
+                        _time.sleep(2**_att)
                 if _resp is None:
                     raise RuntimeError("OpenAI rate limit — all retries exhausted")
                 answer = _resp.choices[0].message.content.strip()
@@ -1629,6 +1629,7 @@ def create_app(
         # the valid options regardless of whether they appear anywhere in events.
         if not scenario_options and per_agent_interview:
             import re as _re2
+
             for rec in interview_log:
                 q_stored = rec.get("question", "")
                 _or_m = _re2.search(r"\b(\w{4,})\s+(?:or|vs\.?|versus)\s+(\w{4,})\b", q_stored, _re2.I)

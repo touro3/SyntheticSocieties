@@ -37,6 +37,7 @@ def _atomic_write_json(path: Path, data: dict) -> None:
     tmp.write_text(json.dumps(data))
     os.replace(tmp, path)  # os.replace is POSIX-atomic
 
+
 # Flush in-memory round_metrics to disk every N rounds to keep RAM bounded.
 # At ~1 KB per dict and 100 agents per round, 50 rounds = ~50 KB in memory max.
 _METRICS_FLUSH_INTERVAL = 50

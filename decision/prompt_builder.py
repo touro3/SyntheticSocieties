@@ -115,7 +115,7 @@ def build_persona_block(profile: AgentProfile) -> str:
             pol_str = "center-right"
         else:
             pol_str = "right-leaning"
-        lines.append(f"Politically, you are {pol_str}.")
+        lines.append(f"Politically, you are {pol_str} ({pol:.2f}/1.0).")
 
     if profile.life_satisfaction is not None:
         level = _level_word(profile.life_satisfaction)

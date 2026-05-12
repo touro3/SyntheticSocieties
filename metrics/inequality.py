@@ -5,7 +5,7 @@ from collections.abc import Iterable
 import numpy as np
 
 
-def gini_coefficient(values: Iterable[float]) -> float:
+def gini_coefficient(values: Iterable[float], correct_bias: bool = False) -> float:
     """Compute the Gini coefficient of a wealth distribution.
 
     Uses the sorted-index formula: G = (2 * Σ(i * x_i) / (n * Σx_i)) - (n+1)/n.
@@ -13,6 +13,11 @@ def gini_coefficient(values: Iterable[float]) -> float:
 
     Args:
         values: Non-negative wealth values for each agent.
+        correct_bias: If True, apply the finite-sample correction G * n/(n-1).
+            The raw formula has a maximum of (n-1)/n rather than 1.0, so small
+            populations (n<30) appear less unequal than they are when comparing
+            across different population sizes. Enable this for cross-condition
+            comparisons where N differs (e.g. n=10 ablation vs n=100 main run).
 
     Returns:
         Gini coefficient in [0, 1].
@@ -33,7 +38,11 @@ def gini_coefficient(values: Iterable[float]) -> float:
     index = np.arange(1, n + 1)
 
     gini = (2 * np.sum(index * x_sorted) / (n * np.sum(x_sorted))) - (n + 1) / n
-    return float(gini)
+
+    if correct_bias and n > 1:
+        gini = gini * n / (n - 1)
+
+    return float(np.clip(gini, 0.0, 1.0))
 
 
 def lorenz_curve(values: Iterable[float]) -> dict[str, list[float]]:

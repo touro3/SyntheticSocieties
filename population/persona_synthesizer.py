@@ -100,7 +100,11 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
 
         income_decile = _safe_int(row.get("income_decile"), 5)
         age = _safe_int(row.get("age"), 40) or 40
-        wealth = 50.0 + (income_decile / 10.0) * 50.0
+        # Wealth formula matches generate_empirical_population:
+        # base=50 + (decile/10) * wealth_step(10) * 10 → range 50-150.
+        # The old formula (50 + decile/10 * 50 → 55-100) underestimated
+        # wealth dispersion and created a hidden confound across generators.
+        wealth = 50.0 + (income_decile / 10.0) * 100.0
 
         records.append(
             PersonaRecord(

@@ -151,6 +151,10 @@ Rules:
 - Respond with ONLY the JSON, no extra text."""
 
 
+# WARNING: This prompt removes all action mechanics and says "do anything you want."
+# It is an ablation probe for unconstrained LLM-default behavior — NOT a valid
+# experimental condition and NOT safe for production use via the API. Any experiment
+# using this prompt must be explicitly labeled as unconstrained in results tables.
 SYSTEM_PROMPT_NO_INSTITUTIONS = """You are a person living in a simulated society. You must decide what action to take this round based on your situation.
 
 You MUST respond with ONLY a JSON object in the following format:

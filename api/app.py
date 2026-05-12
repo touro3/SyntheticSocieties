@@ -835,36 +835,39 @@ def create_app(
             conn = duckdb.connect()
             # _TRACKER_INDEX is server-controlled (not user input), safe to format.
             parquet_path = str(_TRACKER_INDEX).replace("'", "''")
-            conn.execute(
-                f"CREATE VIEW exp AS SELECT * FROM read_parquet('{parquet_path}')",
-            )
+            try:
+                conn.execute(
+                    f"CREATE VIEW exp AS SELECT * FROM read_parquet('{parquet_path}')",
+                )
 
-            # Use parameterized queries to prevent SQL injection.
-            if policy:
-                df = conn.execute(
-                    """
-                    SELECT experiment_id, policy_type, seed,
-                           ROUND(wealth_mean, 3) AS wealth_mean,
-                           ROUND(wealth_gini, 3) AS gini
-                    FROM exp
-                    WHERE policy_type = ?
-                    ORDER BY experiment_id DESC
-                    LIMIT ?
-                    """,
-                    [policy, limit],
-                ).fetchdf()
-            else:
-                df = conn.execute(
-                    """
-                    SELECT experiment_id, policy_type, seed,
-                           ROUND(wealth_mean, 3) AS wealth_mean,
-                           ROUND(wealth_gini, 3) AS gini
-                    FROM exp
-                    ORDER BY experiment_id DESC
-                    LIMIT ?
-                    """,
-                    [limit],
-                ).fetchdf()
+                # Use parameterized queries to prevent SQL injection.
+                if policy:
+                    df = conn.execute(
+                        """
+                        SELECT experiment_id, policy_type, seed,
+                               ROUND(wealth_mean, 3) AS wealth_mean,
+                               ROUND(wealth_gini, 3) AS gini
+                        FROM exp
+                        WHERE policy_type = ?
+                        ORDER BY experiment_id DESC
+                        LIMIT ?
+                        """,
+                        [policy, limit],
+                    ).fetchdf()
+                else:
+                    df = conn.execute(
+                        """
+                        SELECT experiment_id, policy_type, seed,
+                               ROUND(wealth_mean, 3) AS wealth_mean,
+                               ROUND(wealth_gini, 3) AS gini
+                        FROM exp
+                        ORDER BY experiment_id DESC
+                        LIMIT ?
+                        """,
+                        [limit],
+                    ).fetchdf()
+            finally:
+                conn.close()
 
             return jsonify({"experiments": df.to_dict(orient="records")})
 
@@ -917,6 +920,8 @@ def create_app(
 
                 with _ipc_lock:
                     if exp_id not in _ipc_clients:
+                        if len(_ipc_clients) >= 20:
+                            _ipc_clients.pop(next(iter(_ipc_clients)))
                         _ipc_clients[exp_id] = SimulationIPCClient(base_dir=str(exp_dir), timeout=15.0)
                     client = _ipc_clients[exp_id]
 
@@ -1816,6 +1821,8 @@ def create_app(
 
             with _ipc_lock:
                 if exp_id not in _ipc_clients:
+                    if len(_ipc_clients) >= 20:
+                        _ipc_clients.pop(next(iter(_ipc_clients)))
                     _ipc_clients[exp_id] = SimulationIPCClient(base_dir=str(exp_dir), timeout=8.0)
                 client = _ipc_clients[exp_id]
 

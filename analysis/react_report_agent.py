@@ -25,6 +25,7 @@ import logging
 import re
 import textwrap
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
 
@@ -59,10 +60,19 @@ class _TrackerTools:
         conn.execute(f"CREATE VIEW experiments AS SELECT * FROM read_parquet('{safe_path}')")
         return conn
 
+    @contextmanager
+    def _db(self):
+        conn = self._conn()
+        try:
+            yield conn
+        finally:
+            conn.close()
+
     # ── Individual tools ──────────────────────────────────────────────────────
 
     def policy_comparison(self) -> str:
         """Aggregate mean wealth, Gini, and stress by policy type."""
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute("""
@@ -80,9 +90,13 @@ class _TrackerTools:
             return df.to_string(index=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def seed_variance(self, policy: str = "llm") -> str:
         """Show per-seed wealth variance for a given policy."""
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute(
@@ -99,9 +113,13 @@ class _TrackerTools:
             return df.to_string(index=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def ablation_comparison(self) -> str:
         """Compare ablation levels (experiment IDs starting with 'ablation_')."""
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute("""
@@ -122,9 +140,13 @@ class _TrackerTools:
             return df.to_string(index=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def experiment_detail(self, experiment_id: str) -> str:
         """Return all columns for a specific experiment by ID."""
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute("SELECT * FROM experiments WHERE experiment_id = ?", [experiment_id]).fetchdf()
@@ -133,6 +155,9 @@ class _TrackerTools:
             return df.T.to_string(header=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def run_sql(self, sql: str) -> str:
         """Execute an arbitrary read-only SQL query against the experiment index.
@@ -142,6 +167,7 @@ class _TrackerTools:
         stripped = sql.strip().upper()
         if not stripped.startswith("SELECT"):
             return "ERROR: Only SELECT statements are permitted."
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute(sql).fetchdf()
@@ -150,9 +176,13 @@ class _TrackerTools:
             return df.to_string(index=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def list_experiments(self, limit: int = 20) -> str:
         """List recent experiments with key metadata."""
+        conn = None
         try:
             conn = self._conn()
             df = conn.execute(f"""
@@ -166,6 +196,9 @@ class _TrackerTools:
             return df.to_string(index=False)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def panorama_search(self, metric: str = "wealth_mean", top_n: int = 10) -> str:
         """Comprehensive historical search across all experiments (MiroFish panorama pattern).
@@ -180,6 +213,7 @@ class _TrackerTools:
             top_n:  How many top/bottom experiments to surface.
         """
         safe_metric = re.sub(r"[^\w]", "", metric)  # prevent SQL injection
+        conn = None
         try:
             conn = self._conn()
             # Check the column exists
@@ -227,6 +261,9 @@ class _TrackerTools:
             )
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def trend_analysis(self, metric: str = "wealth_mean", window: int = 3) -> str:
         """Analyse how a metric evolves across experiments ordered by experiment_id.
@@ -240,6 +277,7 @@ class _TrackerTools:
             window: Rolling average window size.
         """
         safe_metric = re.sub(r"[^\w]", "", metric)
+        conn = None
         try:
             conn = self._conn()
             cols = [r[0] for r in conn.execute("DESCRIBE experiments").fetchall()]
@@ -274,6 +312,9 @@ class _TrackerTools:
             return f"=== TREND ANALYSIS: {safe_metric} (window={window}) ===\n\n" + "\n\n".join(parts)
         except Exception as exc:
             return f"ERROR: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
 
     def insight_forge(self, question: str, client: Any, model: str, temperature: float = 0.3) -> str:
         """Deep analysis via sub-question decomposition (MiroFish insight_forge pattern).

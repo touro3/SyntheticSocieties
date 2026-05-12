@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { api } from './api/index.js'
 
 const online     = ref(false)
@@ -79,8 +79,16 @@ const links = [
   { to: '/human-eval',  icon: '◈', label: 'Human Eval', title: 'Vignette study — rate LLM vs human behavioral realism' },
 ]
 
+let _keepAlive = null
+
 onMounted(async () => {
   try { await api.health(); online.value = true } catch {}
+
+  // Ping every 4.5 minutes to prevent Render free-tier spin-down (15-min idle timeout).
+  // Uses /ping (zero I/O) so it doesn't count as real traffic for rate limits.
+  _keepAlive = setInterval(async () => {
+    try { await api.ping() } catch {}
+  }, 4.5 * 60 * 1000)
 
   const supportsScroll = typeof CSS !== 'undefined' && CSS.supports?.('animation-timeline','scroll()')
   if (!supportsScroll) {
@@ -94,6 +102,10 @@ onMounted(async () => {
   window.addEventListener('scroll', () => {
     document.documentElement.style.setProperty('--scroll-y', `${window.scrollY}px`)
   }, { passive: true })
+})
+
+onUnmounted(() => {
+  if (_keepAlive) clearInterval(_keepAlive)
 })
 </script>
 

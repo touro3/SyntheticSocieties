@@ -21,6 +21,7 @@ http.interceptors.response.use(null, async (error) => {
 
 export const api = {
   health:         ()                          => http.get('/health'),
+  ping:           ()                          => http.get('/ping'),
   capabilities:   ()                          => http.get('/api/capabilities'),
   configs:        ()                          => http.get('/configs'),
   experiments:    (policy)                    => http.get('/experiments', { params: policy ? { policy } : {} }),

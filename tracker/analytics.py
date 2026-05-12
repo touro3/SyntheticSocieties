@@ -99,18 +99,21 @@ def query_by_policy(
         policy_types=policy_types,
         require_cmp_only=require_cmp_only,
     )
-    return conn.execute("""
-        SELECT
-            policy_type,
-            COUNT(*) as n_experiments,
-            AVG(wealth_mean) as avg_wealth_mean,
-            STDDEV(wealth_mean) as std_wealth_mean,
-            AVG(wealth_gini) as avg_gini,
-            AVG(stress_mean) as avg_stress_mean
-        FROM experiments
-        GROUP BY policy_type
-        ORDER BY avg_wealth_mean DESC
-    """).fetchdf()
+    try:
+        return conn.execute("""
+            SELECT
+                policy_type,
+                COUNT(*) as n_experiments,
+                AVG(wealth_mean) as avg_wealth_mean,
+                STDDEV(wealth_mean) as std_wealth_mean,
+                AVG(wealth_gini) as avg_gini,
+                AVG(stress_mean) as avg_stress_mean
+            FROM experiments
+            GROUP BY policy_type
+            ORDER BY avg_wealth_mean DESC
+        """).fetchdf()
+    finally:
+        conn.close()
 
 
 def query_by_seed(
@@ -129,20 +132,23 @@ def query_by_seed(
         policy_types=policy_types,
         require_cmp_only=require_cmp_only,
     )
-    return conn.execute(
-        """
-        SELECT
-            experiment_id,
-            seed,
-            wealth_mean,
-            wealth_gini,
-            stress_mean
-        FROM experiments
-        WHERE policy_type = ?
-        ORDER BY seed
-    """,
-        [policy],
-    ).fetchdf()
+    try:
+        return conn.execute(
+            """
+            SELECT
+                experiment_id,
+                seed,
+                wealth_mean,
+                wealth_gini,
+                stress_mean
+            FROM experiments
+            WHERE policy_type = ?
+            ORDER BY seed
+        """,
+            [policy],
+        ).fetchdf()
+    finally:
+        conn.close()
 
 
 def query_by_ablation(
@@ -159,19 +165,22 @@ def query_by_ablation(
         policy_types=policy_types,
         require_cmp_only=False,
     )
-    return conn.execute("""
-        SELECT
-            REGEXP_EXTRACT(experiment_id, 'ablation_([^_]+(?:_[^_]+)?)', 1) as ablation_mode,
-            COUNT(*) as n_runs,
-            AVG(wealth_mean) as avg_wealth_mean,
-            STDDEV(wealth_mean) as std_wealth_mean,
-            AVG(wealth_gini) as avg_gini,
-            AVG(stress_mean) as avg_stress_mean
-        FROM experiments
-        WHERE experiment_id LIKE 'ablation_%'
-        GROUP BY ablation_mode
-        ORDER BY avg_wealth_mean DESC
-    """).fetchdf()
+    try:
+        return conn.execute("""
+            SELECT
+                REGEXP_EXTRACT(experiment_id, 'ablation_([^_]+(?:_[^_]+)?)', 1) as ablation_mode,
+                COUNT(*) as n_runs,
+                AVG(wealth_mean) as avg_wealth_mean,
+                STDDEV(wealth_mean) as std_wealth_mean,
+                AVG(wealth_gini) as avg_gini,
+                AVG(stress_mean) as avg_stress_mean
+            FROM experiments
+            WHERE experiment_id LIKE 'ablation_%'
+            GROUP BY ablation_mode
+            ORDER BY avg_wealth_mean DESC
+        """).fetchdf()
+    finally:
+        conn.close()
 
 
 def compare_llm_vs_baselines(
@@ -189,29 +198,32 @@ def compare_llm_vs_baselines(
         policy_types=policy_types,
         require_cmp_only=require_cmp_only,
     )
-    return conn.execute("""
-        SELECT
-            policy_type,
-            COUNT(*) as n_runs,
-            AVG(wealth_mean) as avg_wealth_mean,
-            STDDEV(wealth_mean) as std_wealth_mean,
-            AVG(wealth_gini) as avg_gini,
-            MIN(wealth_mean) as min_wealth_mean,
-            MAX(wealth_mean) as max_wealth_mean
-        FROM experiments
-        GROUP BY policy_type
-        ORDER BY
-            CASE policy_type
-                WHEN 'llm' THEN 1
-                WHEN 'ablated_llm' THEN 2
-                WHEN 'template' THEN 3
-                WHEN 'data_driven' THEN 4
-                WHEN 'rule_based' THEN 5
-                WHEN 'random' THEN 6
-                WHEN 'mock' THEN 7
-                ELSE 8
-            END
-    """).fetchdf()
+    try:
+        return conn.execute("""
+            SELECT
+                policy_type,
+                COUNT(*) as n_runs,
+                AVG(wealth_mean) as avg_wealth_mean,
+                STDDEV(wealth_mean) as std_wealth_mean,
+                AVG(wealth_gini) as avg_gini,
+                MIN(wealth_mean) as min_wealth_mean,
+                MAX(wealth_mean) as max_wealth_mean
+            FROM experiments
+            GROUP BY policy_type
+            ORDER BY
+                CASE policy_type
+                    WHEN 'llm' THEN 1
+                    WHEN 'ablated_llm' THEN 2
+                    WHEN 'template' THEN 3
+                    WHEN 'data_driven' THEN 4
+                    WHEN 'rule_based' THEN 5
+                    WHEN 'random' THEN 6
+                    WHEN 'mock' THEN 7
+                    ELSE 8
+                END
+        """).fetchdf()
+    finally:
+        conn.close()
 
 
 def robustness_summary(
@@ -265,11 +277,13 @@ def robustness_summary(
         GROUP BY policy_type
     """).fetchdf()
 
-    return {
+    result = {
         "temperature_sensitivity": temp,
         "horizon_sweep": horizon,
         "seed_variance": seed_var,
     }
+    conn.close()
+    return result
 
 
 # ── Statistical Significance ─────────────────────────────────────────────────

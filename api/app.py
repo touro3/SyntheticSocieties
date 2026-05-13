@@ -2550,6 +2550,27 @@ def create_app(
                 logger.error("Wizard _run thread error (exp=%s): %s", exp_id, exc)
                 _persist_scenario(exp_out)
 
+        # Write a minimal run_state.json before spawning the thread so that
+        # /status never returns 404 immediately after wizard launch.
+        try:
+            import time as _t
+            _rs_dir = _EXPERIMENTS_ROOT / exp_id
+            _rs_dir.mkdir(parents=True, exist_ok=True)
+            _rs_path = _rs_dir / "run_state.json"
+            if not _rs_path.exists():
+                _rs_path.write_text(json.dumps({
+                    "experiment_id": exp_id,
+                    "status": "running",
+                    "total_rounds": rounds,
+                    "completed_rounds": 0,
+                    "started_at": _t.time(),
+                    "updated_at": _t.time(),
+                    "finished_at": None,
+                    "error_message": None,
+                }, indent=2))
+        except Exception as _e:
+            logger.warning("Could not pre-write run_state.json for %s: %s", exp_id, _e)
+
         thread = threading.Thread(target=_run, name=f"wiz-{exp_id}", daemon=True)
         thread.start()
 

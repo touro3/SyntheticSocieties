@@ -320,11 +320,10 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     from simulation.crash_recovery import RunStateManager as _EarlyRSM
 
     _early_run_mgr = _EarlyRSM(run_dir)
-    if not (run_dir / "run_state.json").exists():
-        _early_run_mgr.start(
-            total_rounds=config["simulation"]["rounds"],
-            experiment_id=experiment_id,
-        )
+    _early_run_mgr.start(
+        total_rounds=config["simulation"]["rounds"],
+        experiment_id=experiment_id,
+    )
 
     try:
         policy = build_policy(config)

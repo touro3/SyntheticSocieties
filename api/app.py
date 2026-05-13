@@ -2522,6 +2522,22 @@ def create_app(
                 except Exception as _e:
                     logger.warning("Could not write scenario.json for %s: %s", exp_id, _e)
 
+        def _mark_run_failed(exp_dir: Path, error: str) -> None:
+            """Flip run_state.json to failed if the subprocess didn't do it itself."""
+            import time as _t2
+            rs = exp_dir / "run_state.json"
+            if not rs.exists():
+                return
+            try:
+                st = json.loads(rs.read_text())
+                if st.get("status") == "running":
+                    st["status"] = "failed"
+                    st["error_message"] = error[:500]
+                    st["updated_at"] = _t2.time()
+                    rs.write_text(json.dumps(st, indent=2))
+            except Exception:
+                pass
+
         def _run():
             exp_out = _EXPERIMENTS_ROOT / exp_id
             try:
@@ -2545,10 +2561,12 @@ def create_app(
                     stdout_tail,
                     stderr_tail,
                 )
-                _persist_scenario(exp_out)  # Save context even on failure
+                _persist_scenario(exp_out)
+                _mark_run_failed(exp_out, stderr_tail or stdout_tail or f"exit code {exc.returncode}")
             except Exception as exc:
                 logger.error("Wizard _run thread error (exp=%s): %s", exp_id, exc)
                 _persist_scenario(exp_out)
+                _mark_run_failed(exp_out, str(exc))
 
         # Write a minimal run_state.json before spawning the thread so that
         # /status never returns 404 immediately after wizard launch.
@@ -2564,6 +2582,7 @@ def create_app(
                         {
                             "experiment_id": exp_id,
                             "status": "running",
+                            "policy_type": policy,
                             "total_rounds": rounds,
                             "completed_rounds": 0,
                             "started_at": _t.time(),

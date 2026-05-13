@@ -1647,10 +1647,29 @@ def create_app(
         # when scenario_options are present — otherwise "Was there stealing?" would
         # return the monograph/paper tally instead of the steal count.
         _econ_q_kw = {
-            "steal", "defect", "cheat", "bad", "cooperat", "social", "pool",
-            "wealth", "rich", "poor", "money", "economic", "round", "trend",
-            "over time", "evolv", "chang", "summary", "overview", "what happened",
-            "tell me", "describe", "report",
+            "steal",
+            "defect",
+            "cheat",
+            "bad",
+            "cooperat",
+            "social",
+            "pool",
+            "wealth",
+            "rich",
+            "poor",
+            "money",
+            "economic",
+            "round",
+            "trend",
+            "over time",
+            "evolv",
+            "chang",
+            "summary",
+            "overview",
+            "what happened",
+            "tell me",
+            "describe",
+            "report",
         }
         _is_econ_q = any(kw in q_low for kw in _econ_q_kw)
 

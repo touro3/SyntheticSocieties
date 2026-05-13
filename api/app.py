@@ -1643,17 +1643,47 @@ def create_app(
                         scenario_options = inferred_non_econ
                         break
 
-        if scenario_options:
+        # Economic questions should always use the economic handlers below, even
+        # when scenario_options are present — otherwise "Was there stealing?" would
+        # return the monograph/paper tally instead of the steal count.
+        _econ_q_kw = {
+            "steal", "defect", "cheat", "bad", "cooperat", "social", "pool",
+            "wealth", "rich", "poor", "money", "economic", "round", "trend",
+            "over time", "evolv", "chang", "summary", "overview", "what happened",
+            "tell me", "describe", "report",
+        }
+        _is_econ_q = any(kw in q_low for kw in _econ_q_kw)
+
+        if scenario_options and not _is_econ_q:
 
             def _tally_from_texts(texts_by_agent: dict) -> tuple:
+                """Assign each agent to exactly ONE option — the one they mention most.
+
+                Keyword-presence counting (old approach) double-counts agents whose
+                response mentions both option words (e.g. "I prefer monograph over
+                paper"), inflating both tallies equally.  Instead, pick the option
+                with the highest occurrence count per agent; ties are broken by first
+                position in the text (earlier = more likely the subject, not the
+                comparison target).
+                """
                 counts: dict = {}
                 by_agent: dict = {}
                 for ag, txt in texts_by_agent.items():
                     txt_low = txt.lower()
-                    for opt in scenario_options:
-                        if opt in txt_low:
-                            counts[opt] = counts.get(opt, 0) + 1
-                            by_agent.setdefault(opt, []).append(ag)
+                    occ = {opt: txt_low.count(opt.lower()) for opt in scenario_options}
+                    if not any(occ.values()):
+                        continue  # agent response doesn't mention either option
+
+                    def _sort_key(opt: str):
+                        n = occ[opt]
+                        pos = txt_low.find(opt.lower())
+                        # primary: more mentions wins; secondary: earlier position wins
+                        return (n, -(pos if pos >= 0 else len(txt_low)))
+
+                    best = max(scenario_options, key=_sort_key)
+                    if occ[best] > 0:
+                        counts[best] = counts.get(best, 0) + 1
+                        by_agent.setdefault(best, []).append(ag)
                 return counts, by_agent
 
             def _format_opinion_answer(counts, by_agent, n_interviewed, source_label):

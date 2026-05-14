@@ -392,3 +392,179 @@ def format_cross_cultural_table(result: CrossCulturalResult) -> str:
         f"Gradient recovered: {'YES ✓' if result.gradient_recovered else 'NO ✗'}",
     ]
     return "\n".join(lines)
+
+
+# ── H9: behavioural cross-cultural validation (audit row D.3) ───────────
+#
+# Pre-registered in docs/construct_validity.md §3 and
+# docs/hypothesis_preregistration.md (added 2026-05-13).
+#
+# H9 tests whether BGF Condition-B country-cluster cooperation rates correlate
+# with *behavioural* public-goods-game contribution rates published in:
+#
+#   Herrmann, Thöni & Gächter (2008). "Antisocial Punishment Across Societies."
+#       Science 319(5868), 1362-1367.  Table 1: mean PGG contribution per city.
+#   Henrich, Ensminger, McElreath et al. (2010). "Markets, Religion, Community
+#       Size, and the Evolution of Fairness and Punishment." Science 327(5972),
+#       1480-1484.  Supplementary Table S5: mean DG/UG/TPP offer per site.
+#
+# Implementation status: skeleton (no GPU). The country-level benchmark
+# constants below are *placeholders* derived from the published anchors and
+# must be filled by hand-transcription before the H9 paper run. See the
+# `H9_TODO` block.
+
+# Hand-transcribed country-mean PGG contribution rates (fraction of endowment
+# contributed, round 1; Herrmann 2008 Table 1). Cities aggregated to country
+# means where Herrmann reports multiple cities per country.
+HERRMANN_PGG_CONTRIBUTION: dict[str, float] = {
+    # Western Europe
+    "CH": 0.65,  # Zurich / St. Gallen — high
+    "DE": 0.64,  # Bonn
+    "GB": 0.58,  # Nottingham
+    "DK": 0.61,  # Copenhagen
+    # Mediterranean
+    "GR": 0.34,  # Athens — lowest
+    # Eastern Europe
+    "RU": 0.50,  # Samara
+    "BY": 0.46,  # Minsk
+    "UA": 0.40,  # Dnipropetrovsk
+    # East Asia (anchor)
+    "CN": 0.50,  # Chengdu
+    "KR": 0.55,  # Seoul
+    # Middle East
+    "OM": 0.49,  # Muscat
+    "TR": 0.50,  # Istanbul
+    # Americas
+    "US": 0.55,  # Boston
+    # Australia / Oceania
+    "AU": 0.55,  # Melbourne
+}
+
+# Henrich 2010 dictator-game offers (fraction; Table S5 means, where
+# available). Used as the secondary cross-cultural benchmark.
+HENRICH_DG_OFFER: dict[str, float] = {
+    # WEIRD anchors
+    "US": 0.48,
+    "GB": 0.43,
+    # Small-scale societies (illustrative subset)
+    "PE_S": 0.26,  # Sanquianga, Colombia (Henrich Table S5)
+    "PG_A": 0.38,  # Au, Papua New Guinea
+    "TZ_H": 0.27,  # Hadza, Tanzania
+}
+
+# Countries jointly covered by both Herrmann 2008 and an ESS-11 sample.
+# Used to size H9's effective n.
+H9_JOINT_COUNTRIES = sorted(
+    set(HERRMANN_PGG_CONTRIBUTION).intersection(
+        {"CH", "DE", "GB", "DK", "GR", "RU", "BY", "UA"}  # ESS-11 sample subset
+    )
+)
+
+
+@dataclass
+class H9BehavioralResult:
+    """Result of correlating BGF cluster cooperation against an external
+    behavioural PGG benchmark (Herrmann 2008 or Henrich 2010).
+
+    Attributes:
+        benchmark: "herrmann_pgg" or "henrich_dg".
+        n_countries: Number of country-level pairs entered into the test.
+        spearman_rho: Spearman rank correlation.
+        spearman_p: Two-sided p-value (asymptotic; for n < 10 the *exact*
+            permutation p-value should also be reported and is computed in
+            the runner script).
+        pearson_r: Pearson r (sensitivity / descriptive only).
+        pearson_p: Two-sided p-value for Pearson r.
+        passed: True iff spearman_rho > 0 and spearman_p < 0.05 (H9
+            pre-registered threshold).
+        per_country: List of (country_code, benchmark_value,
+            simulated_cooperation_rate) triples.
+    """
+
+    benchmark: str
+    n_countries: int
+    spearman_rho: float
+    spearman_p: float
+    pearson_r: float
+    pearson_p: float
+    passed: bool
+    per_country: list[tuple[str, float, float]]
+
+
+def compute_h9_behavioral_correlation(
+    sim_coop_per_country: dict[str, float],
+    benchmark: str = "herrmann_pgg",
+) -> H9BehavioralResult:
+    """H9 cross-cultural behavioural validation (audit D.3).
+
+    Args:
+        sim_coop_per_country: ISO country code → BGF Condition-B cooperation
+            rate. Caller is responsible for matching country codes to the
+            cluster sims (Phase 27 outputs).
+        benchmark: One of "herrmann_pgg" (default) or "henrich_dg".
+
+    Returns:
+        H9BehavioralResult with Spearman ρ, Pearson r, and a pre-registered
+        pass/fail flag.
+
+    Raises:
+        ValueError: If the joint country set has fewer than 3 entries
+            (Spearman is undefined / has no statistical headroom).
+    """
+    if benchmark == "herrmann_pgg":
+        bench = HERRMANN_PGG_CONTRIBUTION
+    elif benchmark == "henrich_dg":
+        bench = HENRICH_DG_OFFER
+    else:
+        raise ValueError(f"Unknown benchmark: {benchmark!r}")
+
+    joint = sorted(set(bench).intersection(sim_coop_per_country))
+    if len(joint) < 3:
+        raise ValueError(
+            f"Need ≥3 joint countries for H9; got {len(joint)} "
+            f"(benchmark={benchmark}, sim countries={list(sim_coop_per_country)})."
+        )
+
+    bench_vals = np.array([bench[c] for c in joint])
+    sim_vals = np.array([sim_coop_per_country[c] for c in joint])
+
+    # Degenerate-cooperation guard mirrors compute_cross_cultural_correlation.
+    if np.all(sim_vals == sim_vals[0]) or np.all(bench_vals == bench_vals[0]):
+        return H9BehavioralResult(
+            benchmark=benchmark,
+            n_countries=len(joint),
+            spearman_rho=0.0,
+            spearman_p=1.0,
+            pearson_r=0.0,
+            pearson_p=1.0,
+            passed=False,
+            per_country=[(c, float(bench[c]), float(sim_coop_per_country[c])) for c in joint],
+        )
+
+    sr, sp = spearmanr(bench_vals, sim_vals)
+    pr, pp = pearsonr(bench_vals, sim_vals)
+
+    return H9BehavioralResult(
+        benchmark=benchmark,
+        n_countries=len(joint),
+        spearman_rho=float(sr),
+        spearman_p=float(sp),
+        pearson_r=float(pr),
+        pearson_p=float(pp),
+        passed=(float(sr) > 0 and float(sp) < 0.05),
+        per_country=[(c, float(bench[c]), float(sim_coop_per_country[c])) for c in joint],
+    )
+
+
+# ── H9_TODO ───────────────────────────────────────────────────────────────
+# Before treating H9 results as the official paper number:
+#   1. Replace the placeholder constants above with values transcribed
+#      directly from Herrmann 2008 Table 1 and Henrich 2010 Table S5; cite
+#      page numbers in commit messages.
+#   2. Run the LLM-scale Condition-B simulation for each country in
+#      H9_JOINT_COUNTRIES via scripts/run_cross_cultural.py (already
+#      Phase 27 infrastructure); emit per-country cooperation rates.
+#   3. Persist H9BehavioralResult to analysis/tables/h9_cross_cultural_behavioral.json
+#      so analysis/forest_plot.py can pick the row up automatically.
+# Until (1)-(3) land, H9 is reported as ⏳ pending in evidence_audit.md row D.3
+# and rendered as a pending row in the forest plot.

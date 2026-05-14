@@ -1,58 +1,55 @@
 {
+  "_metadata": {
+    "audit_row": "A.9 / F.5",
+    "status": "UNVERIFIED — mock-policy data",
+    "policy_used": "mock",
+    "n_seeds_per_cell": 3,
+    "seeds": [42, 123, 7],
+    "memory_levels": ["M0_no_memory", "M1_window", "M2_archive", "M3_full"],
+    "conditions": ["grounded", "ungrounded"],
+    "generated_by": "scripts/analyze_memory_ablation.py",
+    "generated_on": "2026-05-13",
+    "caveat": "The 24 ablation runs in this table were executed with policy=mock, which produces a deterministic action distribution independent of memory state. As a result, all 8 cells return identical statistics (cooperation_rate=0.1169 ± 0.0169; wealth_gini=0.2149 ± 0.0217). This is the *honest* M0-M3 result for the existing experiments — it shows that under a memory-blind policy, memory has no effect, exactly as expected. The pre-registered prediction (persona_fidelity rising monotonically M0=0.609 → M3=0.742) requires re-running the ablation under an LLM policy that actually consumes the memory channel. That experiment is queued as `scripts/run_memory_ablation_llm.sh` (≈6-8 GPU-h) and is the critical-path submission blocker recorded in docs/evidence_audit.md §H.1.",
+    "persona_fidelity_note": "Not emitted by mock policy; values for persona_fidelity will appear once the LLM-policy re-run completes."
+  },
   "level0_grounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level0_ungrounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level1_grounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level1_ungrounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level2_grounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level2_ungrounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level3_grounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   },
   "level3_ungrounded": {
-    "cooperation_rate": {
-      "mean": 0.0,
-      "std": 0.0,
-      "n": 3
-    }
+    "cooperation_rate": {"mean": 0.1169, "std": 0.0169, "n": 3},
+    "wealth_gini":      {"mean": 0.2149, "std": 0.0217, "n": 3},
+    "wealth_mean":      {"mean": 109.0,  "std": 1.7658, "n": 3}
   }
 }

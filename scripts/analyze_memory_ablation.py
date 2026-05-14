@@ -59,12 +59,29 @@ def load_run_metrics(exp_dir: Path, exp_id: str) -> dict | None:
     if summary_path.exists():
         try:
             summary = json.loads(summary_path.read_text())
-            # Extract cooperation rate from action distribution
-            action_dist = summary.get("action_distribution", {})
-            total_actions = sum(action_dist.values()) or 1
-            metrics["cooperation_rate"] = action_dist.get("cooperate", 0) / total_actions
-            metrics["wealth_mean"] = summary.get("wealth_mean", metrics.get("wealth_mean"))
-            metrics["wealth_gini"] = summary.get("wealth_gini", metrics.get("wealth_gini"))
+            # Prefer event_behavior.cooperation_rate (per-event aggregate from kernel)
+            event_behavior = summary.get("event_behavior") or {}
+            if "cooperation_rate" in event_behavior:
+                metrics["cooperation_rate"] = event_behavior["cooperation_rate"]
+            else:
+                action_dist = summary.get("action_distribution") or summary.get("event_action_counts") or {}
+                total_actions = sum(action_dist.values()) or 1
+                metrics["cooperation_rate"] = action_dist.get("cooperate", 0) / total_actions
+
+            wealth = summary.get("wealth")
+            if isinstance(wealth, dict):
+                metrics.setdefault("wealth_mean", wealth.get("mean"))
+                # gini may be top-level or under "wealth"
+                metrics.setdefault("wealth_gini", wealth.get("gini"))
+            metrics.setdefault("wealth_mean", summary.get("wealth_mean"))
+            metrics.setdefault("wealth_gini", summary.get("wealth_gini"))
+
+            pf = summary.get("persona_fidelity")
+            if pf is None:
+                vs = summary.get("validation_summary") or {}
+                pf = vs.get("persona_fidelity") or vs.get("fidelity")
+            if pf is not None:
+                metrics["persona_fidelity"] = pf
         except Exception:
             pass
 

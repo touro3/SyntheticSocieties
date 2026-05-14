@@ -255,6 +255,53 @@ def build_policy(config: dict):
             target_token_count=padded_cfg.get("target_token_count"),
         )
 
+    if policy_type in ("scrambled_rag", "fabricated_rag"):
+        from decision.llm_policy import LLMPolicy
+
+        llm_cfg = config.get("llm", {})
+        experiment_id = config["project"]["experiment_id"]
+
+        backend = _build_llm_backend(llm_cfg)
+        prompt_logger = _build_prompt_logger(experiment_id)
+
+        from decision.graph_rag import GraphRAG
+
+        graph_rag = GraphRAG()
+        static_ctx = config.get("data", {}).get("population_context")
+        ess_path = _get_ess_clean_path(config)
+
+        if policy_type == "scrambled_rag":
+            from decision.scrambled_rag_policy import ScrambledSQLRAG
+
+            scramble_seed = config.get("negative_control", {}).get("scramble_seed", 42)
+
+            sql_rag = ScrambledSQLRAG(
+                data_path=ess_path,
+                static_context=static_ctx,
+                scramble_seed=scramble_seed,
+            )
+        else:
+            from decision.fabricated_rag_policy import FabricatedSQLRAG
+
+            fabricate_seed = config.get("negative_control", {}).get("fabricate_seed", 42)
+
+            sql_rag = FabricatedSQLRAG(
+                data_path=ess_path,
+                static_context=static_ctx,
+                fabricate_seed=fabricate_seed,
+            )
+
+        return LLMPolicy(
+            backend=backend,
+            memory_window=llm_cfg.get("memory_window", 5),
+            temperature=llm_cfg.get("temperature", 0.7),
+            max_retries=llm_cfg.get("max_retries", 2),
+            prompt_logger=prompt_logger,
+            perturbation_mode=config.get("perturbation", {}).get("mode"),
+            graph_rag=graph_rag,
+            sql_rag=sql_rag,
+        )
+
     if policy_type == "ablated_llm":
         from decision.ablated_llm_policy import AblatedLLMPolicy
 

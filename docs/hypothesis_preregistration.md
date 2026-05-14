@@ -119,6 +119,31 @@ boundary case whose direction is pre-registered as uncertain.
 
 ---
 
+### H9 — Cross-Cultural Behavioral Validation (added 2026-05-13)
+
+**Statement:** BGF Condition-B cooperation rates correlate positively with
+published country-level *behavioral* Public Goods Game contribution rates
+(Herrmann, Thöni & Gächter 2008, *Science*; Henrich et al. 2010, *Science*).
+
+**Operationalization:**
+- Cross-country Spearman ρ between BGF Condition-B cooperation rate (per
+  country cluster, T=30 final round, computed via `metrics/cross_cultural.py`)
+  and published PGG contribution rate
+- Tested at α = 0.05 with exact permutation p-value (n ≈ 15 countries
+  intersecting Herrmann/Henrich data with ESS-11 sample)
+- Results stored in `analysis/tables/h9_cross_cultural_behavioral.json`
+
+**Expected direction:** Spearman ρ > 0
+
+**Falsification:** Spearman ρ ≤ 0, or p ≥ 0.10
+
+**Rationale for late addition:** H9 closes the within-instrument circularity
+flagged in paper §9 Limitation 11 by using a behavioral (not attitudinal)
+out-of-sample benchmark. It is *added* to, not *replacing*, H1–H8. See
+`docs/construct_validity.md` §3 for full motivation.
+
+---
+
 ### H8 — Persona Stability Under Grounding
 
 **Statement:** Grounded agents (Condition B) exhibit slower persona fidelity
@@ -174,5 +199,6 @@ as such in Section 6 and the Supplementary Appendix. These include:
 | 2026-05-05 | H3 (human validation) | Perceptual realism study (human_subjects_protocol.md, paper §8.4) not executed | Prolific participant study (n=30–50) requires ethics review and budget (~USD 150) not available before submission. Protocol is fully specified; study is deferred to the extended journal version. |
 | 2026-05-05 | H1/H2 (padded control) | Length-controlled ablation (`decision/padded_ablation_policy.py`) implemented and dry-run tested but not executed at full scale (N=500, T=30, n=3 seeds) | GPU time constraint. This means causal attribution of cooperation improvements to ESS *content* (vs. token bulk) remains a stated limitation rather than an empirically closed claim (see paper §9, Limitation 8). |
 | 2026-05-05 | Effect size reporting | Hedges' g added alongside Cohen's d for all small-sample (n<10 seeds) comparisons | Hedges' g is the bias-corrected estimator appropriate for n<50; Cohen's d systematically overestimates effect size in small samples. Change improves reporting accuracy; direction of all effects unchanged. |
+| 2026-05-13 | H9 added | New hypothesis: cross-cultural *behavioral* validation against Herrmann et al. (2008) and Henrich et al. (2010) PGG contribution rates | Closes within-instrument circularity (paper §9 Limitation 11). H9 is added *before* the Herrmann/Henrich correlation is computed and is reported under the same Benjamini–Hochberg FDR correction as H1–H8. See `docs/construct_validity.md` §3. |
 
 *Deviations are recorded before results are interpreted, following the pre-registration protocol. All analyses not listed here follow the original pre-registered plan.*

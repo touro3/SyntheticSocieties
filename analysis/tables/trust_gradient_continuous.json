@@ -1,0 +1,28 @@
+{
+  "n_observations": 20,
+  "design": "seed-level continuous correlation (5 seeds \u00d7 4 ESS trust bands)",
+  "spearman": {
+    "rho": 0.7809138333352404,
+    "p_value": 4.830366873937404e-05,
+    "ci95_bootstrap": [
+      0.5260298196861536,
+      0.89909659366292
+    ]
+  },
+  "pearson": {
+    "r": 0.6761726776414734,
+    "p_value": 0.0010639290269318761
+  },
+  "kendall": {
+    "tau_b": 0.636318238698924,
+    "p_value": 0.00035088899523714724
+  },
+  "comparison_to_group_level": {
+    "group_n": 4,
+    "group_rho": 0.7999999999999999,
+    "group_p": 0.20000000000000007,
+    "min_achievable_p_at_n4": 0.08333333333333333,
+    "note": "Seed-level continuous design uses n=20 observations (5 seeds \u00d7 4 bands), bypassing the structural floor of 2/4!=0.083 imposed by the group-rank design."
+  },
+  "audit_row": "A.5 (extended)"
+}

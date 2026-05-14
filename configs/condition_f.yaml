@@ -1,0 +1,78 @@
+# Condition F — Fabricated Demographics Negative Control
+#
+# Phase 29.1 / docs/causal_model.md §8.1 / audit row C.7.
+#
+# Condition F preserves token count, vocabulary, and structural slots of
+# Condition B, but the peer-group statistics are *fabricated* from a
+# deterministic per-agent RNG with ESS-plausible priors. No row in the
+# returned context corresponds to any real ESS observation.
+#
+# Causal logic:
+#   BRM(F) ≈ BRM(A)  → empirical ESS data is load-bearing (BGF column wins)
+#   BRM(F) ≈ BRM(B)  → any plausible-looking demographic prompt suffices
+#                       (H_form / H_Hawthorne columns)
+#
+# Run with:
+#   python scripts/run_fabricated_control.py --seeds 42,123,7 --agents 500 --rounds 30
+
+defaults:
+  - base_config
+
+project:
+  name: bgf_condition_f
+  experiment_id: fabricated_control_001
+  seed: 42
+
+simulation:
+  rounds: 30
+  population_size: 500
+
+policy:
+  type: fabricated_rag
+
+negative_control:
+  scramble_seed: 42        # deterministic fabrication RNG seed
+
+population:
+  source: empirical
+
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  cache_dir: null
+  quantization: 4bit
+  dtype: float16
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+  inference_timeout: 120
+
+network:
+  type: random
+  edge_prob: 0.5
+  k: 2
+  rewiring_prob: 0.3
+
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10

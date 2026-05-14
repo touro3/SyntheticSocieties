@@ -1,0 +1,98 @@
+{
+  "hypothesis": "H9: simulated cooperation rate Spearman \u03c1 with Herrmann 2008 PGG contributions",
+  "n_clusters": 6,
+  "benchmark_source": "Herrmann, Th\u00f6ni & G\u00e4chter 2008, Science (PGG period-1 contributions)",
+  "cluster_mapping": {
+    "nordic": [
+      "copenhagen"
+    ],
+    "northern": [
+      "zurich",
+      "st_gallen"
+    ],
+    "anglo": [
+      "nottingham",
+      "boston"
+    ],
+    "western": [
+      "bonn"
+    ],
+    "southern": [
+      "athens"
+    ],
+    "eastern": [
+      "minsk",
+      "samara",
+      "dnipro"
+    ]
+  },
+  "per_cluster": [
+    {
+      "cluster": "eastern",
+      "simulated_coop_rate": 0.1116,
+      "herrmann_pgg_contrib_MU": 7.843333333333334,
+      "cities_used": [
+        "minsk",
+        "samara",
+        "dnipro"
+      ]
+    },
+    {
+      "cluster": "southern",
+      "simulated_coop_rate": 0.125,
+      "herrmann_pgg_contrib_MU": 5.69,
+      "cities_used": [
+        "athens"
+      ]
+    },
+    {
+      "cluster": "western",
+      "simulated_coop_rate": 0.1801,
+      "herrmann_pgg_contrib_MU": 9.79,
+      "cities_used": [
+        "bonn"
+      ]
+    },
+    {
+      "cluster": "anglo",
+      "simulated_coop_rate": 0.1932,
+      "herrmann_pgg_contrib_MU": 11.57,
+      "cities_used": [
+        "nottingham",
+        "boston"
+      ]
+    },
+    {
+      "cluster": "northern",
+      "simulated_coop_rate": 0.2232,
+      "herrmann_pgg_contrib_MU": 11.445,
+      "cities_used": [
+        "zurich",
+        "st_gallen"
+      ]
+    },
+    {
+      "cluster": "nordic",
+      "simulated_coop_rate": 0.2558,
+      "herrmann_pgg_contrib_MU": 12.16,
+      "cities_used": [
+        "copenhagen"
+      ]
+    }
+  ],
+  "spearman": {
+    "rho": 0.8857142857142858,
+    "asymptotic_p": 0.01884548104956266,
+    "exact_permutation_p_two_tailed": 0.03333333333333333
+  },
+  "pearson": {
+    "r": 0.8988025303837595,
+    "p_value": 0.01484321379228312
+  },
+  "kendall": {
+    "tau_b": 0.7333333333333333,
+    "p_value": 0.05555555555555555
+  },
+  "interpretation_note": "This tests against an *independent behavioural* benchmark (PGG laboratory contributions) rather than a trust-attitude survey. Significance directly addresses Limitation 11 (circularity) \u2014 the BGF grounding uses ESS trust attitudes, never PGG contributions, so any correlation here is genuinely out-of-sample.",
+  "audit_row": "D.3 / Limitation 11 partial resolution"
+}

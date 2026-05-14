@@ -1,0 +1,4 @@
+policy_type: "fabricated_rag"
+negative_control:
+  fabricate_seed: 42
+  condition: "F"

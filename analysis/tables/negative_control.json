@@ -1,37 +1,37 @@
 {
-  "n_agents": 150,
+  "n_agents": 200,
   "n_rounds": 30,
-  "n_seeds": 10,
+  "n_seeds": 5,
   "summary": {
     "matched": {
       "profile_label": "nordic_profiles",
       "benchmark_label": "nordic",
-      "brm_mean": 0.7141,
-      "brm_std": 0.0027,
-      "b_rlhf_mean": 0.1685,
-      "actual_coop_mean": 0.5019,
+      "brm_mean": 0.7138,
+      "brm_std": 0.0017,
+      "b_rlhf_mean": 0.1662,
+      "actual_coop_mean": 0.4996,
       "emp_coop_rate": 0.5,
-      "n_seeds": 10
+      "n_seeds": 5
     },
     "mismatched": {
       "profile_label": "nordic_profiles",
       "benchmark_label": "eastern",
-      "brm_mean": 0.6749,
-      "brm_std": 0.0025,
-      "b_rlhf_mean": 0.1685,
-      "actual_coop_mean": 0.5019,
+      "brm_mean": 0.6748,
+      "brm_std": 0.0015,
+      "b_rlhf_mean": 0.1662,
+      "actual_coop_mean": 0.4996,
       "emp_coop_rate": 0.35,
-      "n_seeds": 10
+      "n_seeds": 5
     },
     "ungrounded": {
       "profile_label": "flat_profiles",
       "benchmark_label": "eastern",
-      "brm_mean": 0.6227,
-      "brm_std": 0.0004,
-      "b_rlhf_mean": 0.3569,
-      "actual_coop_mean": 0.6902,
+      "brm_mean": 0.622,
+      "brm_std": 0.001,
+      "b_rlhf_mean": 0.3607,
+      "actual_coop_mean": 0.694,
       "emp_coop_rate": 0.35,
-      "n_seeds": 10
+      "n_seeds": 5
     }
   },
   "directionality_pass": true,

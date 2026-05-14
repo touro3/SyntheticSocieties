@@ -1,0 +1,77 @@
+# Condition S — Scrambled-ESS Negative Control
+#
+# Phase 29.1 / docs/causal_model.md §8.1 / audit row C.6.
+#
+# Condition S preserves token count, vocabulary, and surface form of
+# Condition B's RAG output, but permutes the demographic-key → cohort
+# mapping (Φ). Each agent receives a *real* ESS peer-group summary, but for
+# a demographic tuple drawn at random rather than their own.
+#
+# Causal logic:
+#   BRM(S) ≈ BRM(A)  → empirical Φ mapping is load-bearing (BGF column wins)
+#   BRM(S) ≈ BRM(B)  → only surface form / vocabulary matters (H_form column)
+#
+# Run with:
+#   python scripts/run_scrambled_control.py --seeds 42,123,7 --agents 500 --rounds 30
+
+defaults:
+  - base_config
+
+project:
+  name: bgf_condition_s
+  experiment_id: scrambled_control_001
+  seed: 42
+
+simulation:
+  rounds: 30
+  population_size: 500
+
+policy:
+  type: scrambled_rag
+
+negative_control:
+  scramble_seed: 42        # deterministic permutation across the run
+
+population:
+  source: empirical        # ESS agents (their own profiles are intact)
+
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  cache_dir: null
+  quantization: 4bit
+  dtype: float16
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+  inference_timeout: 120
+
+network:
+  type: random
+  edge_prob: 0.5
+  k: 2
+  rewiring_prob: 0.3
+
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10

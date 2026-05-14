@@ -51,10 +51,11 @@ for level_idx in "${!MEMORY_LEVELS[@]}"; do
     name="${MEMORY_NAMES[$level_idx]}"
 
     for condition in grounded ungrounded; do
+        # Map condition to the new A/B/C/D pipeline flags
         if [[ "$condition" == "grounded" ]]; then
-            pop_source="empirical"
+            condition_flag="B"  # Condition B is Empirical/Grounded
         else
-            pop_source="synthetic"
+            condition_flag="A"  # Condition A is Synthetic/Ungrounded
         fi
 
         for seed in "${SEEDS[@]}"; do
@@ -69,14 +70,14 @@ for level_idx in "${!MEMORY_LEVELS[@]}"; do
                 continue
             fi
 
+            # CORRECTED COMMAND BLOCK:
             cmd=(
                 python scripts/run_full_pipeline.py
-                --config "$cfg"
-                --seed "$seed"
+                --condition "$condition_flag"
+                --llm-ablation-level "$level"
+                --seeds "$seed"
                 --agents "$N_AGENTS"
                 --rounds "$N_ROUNDS"
-                --population.source "$pop_source"
-                --exp-id "$exp_id"
                 --include-llm
             )
 

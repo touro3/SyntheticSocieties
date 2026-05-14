@@ -1,0 +1,106 @@
+{
+  "rows": [
+    {
+      "hypothesis": "H1: BRM_composite (B \u2212 A)",
+      "metric_name": "\u0394 BRM composite",
+      "effect": 0.23515483485015154,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "verified",
+      "source": "analysis/tables/brm_sensitivity.json",
+      "audit_row": "E.5 / A.10-A.11",
+      "note": ""
+    },
+    {
+      "hypothesis": "H2: B_RLHF reduction (A\u2192B)",
+      "metric_name": "relative \u0394B_RLHF",
+      "effect": 0.8472877358490566,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "verified",
+      "source": "analysis/cross_model_results.json (Mistral-7B)",
+      "audit_row": "A.4",
+      "note": ""
+    },
+    {
+      "hypothesis": "H3: Gini in empirical range [0.25, 0.40]",
+      "metric_name": "fraction of seeds",
+      "effect": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "pending",
+      "source": "analysis/tables/grounding_comparison_seed_metrics.csv",
+      "audit_row": "A.8",
+      "note": "needs canonical key in paper_numbers.json"
+    },
+    {
+      "hypothesis": "H4: modularity Q (grounded \u2212 A)",
+      "metric_name": "\u0394 modularity",
+      "effect": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "pending",
+      "source": "analysis/paper_numbers.json",
+      "audit_row": "F.7",
+      "note": "topology ablation lands modularity into paper_numbers"
+    },
+    {
+      "hypothesis": "H5: trust gradient (Spearman \u03c1)",
+      "metric_name": "\u03c1 (4 trust bands)",
+      "effect": 0.7999999999999999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "verified",
+      "source": "analysis/tables/trust_gradient.json",
+      "audit_row": "A.5",
+      "note": "p = 0.20000000000000007"
+    },
+    {
+      "hypothesis": "H6: bad-apple localisation",
+      "metric_name": "localisation ratio (proxy)",
+      "effect": NaN,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "partial",
+      "source": "analysis/bad_apple_sweep.json",
+      "audit_row": "F.7",
+      "note": "schema heterogeneous; needs consolidation"
+    },
+    {
+      "hypothesis": "H7: cross-model B_RLHF generality",
+      "metric_name": "mean rel. \u0394B_RLHF",
+      "effect": 0.8472877358490566,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "verified",
+      "source": "analysis/cross_model_results.json",
+      "audit_row": "A.4",
+      "note": "per-model: {'mistral-7b': 0.8472877358490566}"
+    },
+    {
+      "hypothesis": "H8: persona-fidelity slope (T=30)",
+      "metric_name": "slope",
+      "effect": NaN,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "partial",
+      "source": "analysis/tables/long_horizon_persona_drift.json",
+      "audit_row": "F.5",
+      "note": "memory ablation under mock policy (A.9 \u274c)"
+    },
+    {
+      "hypothesis": "H9: cross-cultural behavioural Spearman \u03c1",
+      "metric_name": "\u03c1 vs Herrmann/Henrich",
+      "effect": 0.8857142857142858,
+      "ci_lo": null,
+      "ci_hi": null,
+      "status": "verified",
+      "source": "analysis/tables/h9_cross_cultural_behavioral.json",
+      "audit_row": "D.3",
+      "note": "exact two-tailed p = 0.03333333333333333"
+    }
+  ],
+  "descriptive_pooled_effect": 0.72308891845251,
+  "audit_row": "E.6",
+  "note": "Effect sizes are heterogeneous (g, \u03c1, \u0394B_RLHF, etc.); pooled value is presentational."
+}

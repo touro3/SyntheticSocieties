@@ -4,9 +4,13 @@ A full BGF prompt (persona + ESS context + memory + social context + world
 state) can approach or exceed the model's context window. Silent tokenizer
 truncation cuts the persona block first — exactly the grounding we need most.
 
-This module provides a lightweight, dependency-free character-based estimator
-(4 chars ≈ 1 token for English text) and helpers to trim context sections in
-priority order when the budget is tight.
+Counting strategy (in priority order):
+  1. Registered tokenizer (e.g. Mistral SentencePiece) — exact counts.
+     Set via `set_tokenizer()` after `AutoModelForCausalLM.from_pretrained`,
+     or lazily auto-loaded on first use via `_try_autoload_tokenizer()`
+     which calls `AutoTokenizer.from_pretrained` (no model weights, CPU-only).
+  2. Character heuristic (~3.3 chars/token, validated against Mistral) —
+     used only if (1) is unavailable or the autoloader fails offline.
 
 Priority order (highest → lowest, i.e. last to drop):
   1. System prompt        — never trimmed
@@ -53,6 +57,8 @@ _MODEL_BUDGETS: dict[str, int] = {
 
 # Optional: actual tokenizer for exact counting (set via set_tokenizer).
 _tokenizer = None
+_autoload_attempted = False
+_AUTOLOAD_MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 
 
 def set_tokenizer(tokenizer) -> None:
@@ -62,9 +68,31 @@ def set_tokenizer(tokenizer) -> None:
     estimation to exact tokenizer-based counting.  Clears the static-section
     LRU cache so the new tokenizer is used on the next estimate.
     """
-    global _tokenizer
+    global _tokenizer, _autoload_attempted
     _tokenizer = tokenizer
+    _autoload_attempted = True  # suppress redundant autoload
     _estimate_tokens_static.cache_clear()
+
+
+def _try_autoload_tokenizer() -> None:
+    """Lazily load the Mistral tokenizer (no model weights, CPU-only, ~5MB).
+
+    Idempotent: only attempts once per process. If `transformers` is missing
+    or the tokenizer isn't cached and there's no network, falls back silently
+    to the character heuristic.
+    """
+    global _tokenizer, _autoload_attempted
+    if _autoload_attempted or _tokenizer is not None:
+        return
+    _autoload_attempted = True
+    try:
+        from transformers import AutoTokenizer  # type: ignore
+
+        _tokenizer = AutoTokenizer.from_pretrained(_AUTOLOAD_MODEL_ID)
+        _estimate_tokens_static.cache_clear()
+    except Exception:
+        # Offline / no transformers / no cached tokenizer — heuristic remains.
+        _tokenizer = None
 
 
 def budget_for_model(model_id: str) -> int:
@@ -89,6 +117,8 @@ def _estimate_tokens_static(text: str) -> int:
     always used after model load.  LRU size of 4096 comfortably covers
     N_agents × unique_sections without unbounded growth.
     """
+    if _tokenizer is None:
+        _try_autoload_tokenizer()
     if _tokenizer is not None:
         try:
             return len(_tokenizer.encode(text, add_special_tokens=False))
@@ -99,6 +129,8 @@ def _estimate_tokens_static(text: str) -> int:
 
 def estimate_tokens(text: str) -> int:
     """Estimate token count — uses tokenizer if available, else char heuristic."""
+    if _tokenizer is None:
+        _try_autoload_tokenizer()
     if _tokenizer is not None:
         try:
             return len(_tokenizer.encode(text, add_special_tokens=False))

@@ -1,0 +1,72 @@
+{
+  "model": "one-way ANOVA on condition (A vs B); seed acts as replication within condition",
+  "data_source": "analysis/tables/grounding_comparison_seed_metrics.csv",
+  "decomposition": {
+    "cooperation_rate": {
+      "metric": "cooperation_rate",
+      "k_conditions": 2,
+      "N_observations": 6,
+      "grand_mean": 0.30933333333333335,
+      "ss_between": 0.23364266666666675,
+      "ss_within": 0.06117066666666657,
+      "ss_total": 0.2948133333333333,
+      "eta_squared": 0.792510515128217,
+      "F": 15.278085356815932,
+      "p_anova": 0.017412659443819867,
+      "condition_means": {
+        "A_ungrounded": 0.11199999999999999,
+        "B_grounded": 0.5066666666666667
+      }
+    },
+    "wealth_gini": {
+      "metric": "wealth_gini",
+      "k_conditions": 2,
+      "N_observations": 6,
+      "grand_mean": 0.12883078136828433,
+      "ss_between": 0.002076311494071441,
+      "ss_within": 0.005844773772951993,
+      "ss_total": 0.007921085267023434,
+      "eta_squared": 0.2621246235936142,
+      "F": 1.4209696215651937,
+      "p_anova": 0.2991298075297435,
+      "condition_means": {
+        "A_ungrounded": 0.11022831068080376,
+        "B_grounded": 0.14743325205576488
+      }
+    },
+    "work_rate": {
+      "metric": "work_rate",
+      "k_conditions": 2,
+      "N_observations": 6,
+      "grand_mean": 0.36233333333333334,
+      "ss_between": 0.02331266666666668,
+      "ss_within": 0.07033066666666665,
+      "ss_total": 0.09364333333333333,
+      "eta_squared": 0.2489516961520665,
+      "F": 1.3258891332372802,
+      "p_anova": 0.3136814060968368,
+      "condition_means": {
+        "A_ungrounded": 0.4246666666666667,
+        "B_grounded": 0.3
+      }
+    },
+    "save_rate": {
+      "metric": "save_rate",
+      "k_conditions": 2,
+      "N_observations": 6,
+      "grand_mean": 0.32833333333333337,
+      "ss_between": 0.10935,
+      "ss_within": 0.24413333333333337,
+      "ss_total": 0.35348333333333337,
+      "eta_squared": 0.30934980432835113,
+      "F": 1.791643910431458,
+      "p_anova": 0.25174062454891044,
+      "condition_means": {
+        "A_ungrounded": 0.4633333333333334,
+        "B_grounded": 0.19333333333333336
+      }
+    }
+  },
+  "audit_row": "B.variance (new)",
+  "interpretation": "\u03b7\u00b2 is the fraction of total variance in the metric attributable to the A-vs-B condition contrast. Values above 0.7 indicate that the grounding effect dwarfs seed-level replication noise."
+}

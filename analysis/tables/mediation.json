@@ -1,0 +1,31 @@
+{
+  "_status": "cells_missing",
+  "_note": "The 2\u00d72 factorial mediation cells required by paper \u00a77.3 are not all present on disk. Run the missing experiments below, then re-execute `python analysis/mediation_summary.py`.",
+  "missing_cells": [
+    "persona_only_s43",
+    "persona_only_s44",
+    "rag_only_s42",
+    "rag_only_s43",
+    "rag_only_s44"
+  ],
+  "candidate_prefixes": {
+    "baseline": [
+      "pure_llm_ess_persona_s"
+    ],
+    "persona_only": [
+      "ablation_persona_only_s",
+      "ablation_rich_persona_s"
+    ],
+    "rag_only": [
+      "ablation_rag_only_s"
+    ],
+    "full_grounded": [
+      "grounded_llm_ess_persona_s"
+    ]
+  },
+  "expected_seeds": [
+    42,
+    43,
+    44
+  ]
+}

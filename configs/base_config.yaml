@@ -61,3 +61,5 @@ agent_defaults:
   initial_wealth: 50.0
   wealth_step: 10.0
   memory_size: 10
+  memory_persistent: false  # opt-in disk-persistent semantic memory (ruflo AgentDB pattern)
+  embedding_model: all-MiniLM-L6-v2

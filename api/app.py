@@ -676,6 +676,82 @@ def create_app(
             }
         )
 
+    # ── B_RLHF Benchmark (spec, leaderboard, submissions) ────────────────────
+
+    _BENCHMARK_DIR = Path(__file__).resolve().parent.parent / "benchmark"
+    _BENCHMARK_SUBMISSIONS_DIR = _BENCHMARK_DIR / "submissions"
+
+    @app.get("/benchmark/spec")
+    def benchmark_spec():
+        """Return SPECIFICATION.md as plain markdown for the web UI."""
+        spec_path = _BENCHMARK_DIR / "SPECIFICATION.md"
+        if not spec_path.exists():
+            return jsonify({"error": "SPECIFICATION.md not found"}), 404
+        return spec_path.read_text(), 200, {"Content-Type": "text/markdown"}
+
+    @app.get("/benchmark/leaderboard")
+    def benchmark_leaderboard():
+        """Return LEADERBOARD.md (auto-generated) as markdown."""
+        lb_path = _BENCHMARK_DIR / "LEADERBOARD.md"
+        if not lb_path.exists():
+            return (
+                "# B_RLHF Benchmark Leaderboard\n\n_No submissions yet — run "
+                "`python benchmark/build_leaderboard.py`._\n",
+                200,
+                {"Content-Type": "text/markdown"},
+            )
+        return lb_path.read_text(), 200, {"Content-Type": "text/markdown"}
+
+    @app.get("/benchmark/submissions")
+    def benchmark_submissions():
+        """List every score card under benchmark/submissions/.
+
+        Returns a JSON array of compact summaries (omits the heavy
+        per-seed audit blocks). Use /benchmark/submissions/<name> to
+        fetch a full card.
+        """
+        if not _BENCHMARK_SUBMISSIONS_DIR.exists():
+            return jsonify([])
+        out: list[dict] = []
+        for path in sorted(_BENCHMARK_SUBMISSIONS_DIR.glob("*.json")):
+            try:
+                card = json.loads(path.read_text())
+            except json.JSONDecodeError:
+                continue
+            sub = card.get("submission", {})
+            scores = card.get("scores", {})
+            out.append(
+                {
+                    "id": path.stem,
+                    "name": sub.get("name"),
+                    "team": sub.get("team"),
+                    "tier": sub.get("tier"),
+                    "date": sub.get("date"),
+                    "model": (sub.get("llm") or {}).get("model_id"),
+                    "memory": (sub.get("grounding_config") or {}).get("memory"),
+                    "rag": (sub.get("grounding_config") or {}).get("rag"),
+                    "schema_version": card.get("schema_version"),
+                    "scores": {
+                        "condition_A": scores.get("condition_A"),
+                        "condition_B": scores.get("condition_B"),
+                        "delta_B_RLHF_relative": scores.get("delta_B_RLHF_relative"),
+                        "delta_BRM_composite": scores.get("delta_BRM_composite"),
+                    },
+                }
+            )
+        return jsonify(out)
+
+    @app.get("/benchmark/submissions/<name>")
+    def benchmark_submission_detail(name: str):
+        """Return the full score-card JSON for a single submission."""
+        # Sanitize: alphanumerics, dash, underscore only.
+        if not re.fullmatch(r"[A-Za-z0-9_\-]+", name):
+            return jsonify({"error": "invalid submission name"}), 400
+        path = _BENCHMARK_SUBMISSIONS_DIR / f"{name}.json"
+        if not path.exists():
+            return jsonify({"error": "submission not found"}), 404
+        return jsonify(json.loads(path.read_text()))
+
     # ── Simulate ──────────────────────────────────────────────────────────────
 
     @app.post("/simulate")
@@ -928,6 +1004,38 @@ def create_app(
         except Exception as exc:
             logger.error("experiments_list error: %s", exc, exc_info=True)
             return jsonify({"error": "Failed to query experiments"}), 500
+
+    # ── Metric regression detection ───────────────────────────────────────────
+
+    @app.get("/regression")
+    @_experiments_limit
+    def regression_list():
+        """Flag runs whose metric deviates from recent same-policy history.
+
+        Query params: ?metric=wealth_mean&window=5&n_mad=3.0
+        Read-only; mirrors ruflo's rolling-window perf-regression check.
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+        if not _TRACKER_INDEX.exists():
+            return jsonify({"regressions": [], "note": "Tracker index not available"})
+        try:
+            from tracker.analytics import detect_regression
+
+            metric = request.args.get("metric", "wealth_mean")
+            window = int(request.args.get("window", 5))
+            n_mad = float(request.args.get("n_mad", 3.0))
+            flagged = detect_regression(
+                metric=metric,
+                index_path=str(_TRACKER_INDEX),
+                window=window,
+                n_mad=n_mad,
+            )
+            return jsonify({"metric": metric, "count": len(flagged), "regressions": flagged})
+        except Exception as exc:
+            logger.error("regression_list error: %s", exc, exc_info=True)
+            return jsonify({"error": "Failed to compute regressions"}), 500
 
     # ── Agent interview ───────────────────────────────────────────────────────
 

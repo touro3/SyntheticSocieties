@@ -52,6 +52,7 @@ class SimulationKernel:
         heartbeat_path: Optional[Path] = None,
         collective_memory=None,
         social_env=None,
+        trajectory_bank=None,
     ) -> None:
         self.agents = agents
         self.world = world
@@ -68,6 +69,7 @@ class SimulationKernel:
             world=world,
             agent_lookup=self.agent_lookup,
             logger=logger,
+            trajectory_bank=trajectory_bank,
         )
         self.round_metrics: list[dict] = []
 

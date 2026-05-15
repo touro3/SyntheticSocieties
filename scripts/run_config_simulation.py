@@ -18,7 +18,11 @@ from environment.world import World
 from environment.world_state import WorldState
 from metrics.event_metrics import behavior_summary_from_events, load_events
 from metrics.summary import merge_behavior_summary, summarize_agents
-from population.generator import generate_empirical_population, generate_population
+from population.generator import (
+    generate_empirical_population,
+    generate_placebo_population,
+    generate_population,
+)
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
@@ -382,10 +386,15 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
 
     try:
         if pop_source == "empirical":
-            agents = generate_empirical_population(config, policy)
+            agents = generate_empirical_population(config, policy, persistent_dir=str(run_dir))
             print(f"Generated empirical population: {len(agents)} agents from ESS data")
+        elif pop_source == "placebo":
+            agents = generate_placebo_population(config, policy)
+            print(
+                f"Generated placebo population: {len(agents)} scrambled-but-valid agents (semantic-isolation control)"
+            )
         else:
-            agents = generate_population(config, policy)
+            agents = generate_population(config, policy, persistent_dir=str(run_dir))
             print(f"Generated synthetic population: {len(agents)} agents")
     except Exception as exc:
         _early_run_mgr.fail(str(exc))
@@ -504,6 +513,16 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         }
 
     save_json(summary, run_dir / "summary.json")
+
+    # Reproducibility witness: content-hash the exact inputs that produced
+    # this run (config + events + code rev).  Non-fatal on failure.
+    try:
+        from bgf_logging.witness import write_witness
+
+        data_path = config.get("data", {}).get("ess_clean_path")
+        write_witness(run_dir, extra_inputs=[data_path] if data_path else None)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Witness generation skipped: {exc}")
 
     print(f"Experiment completed: {experiment_id}")
     print(f"Artifacts saved in: {run_dir}")

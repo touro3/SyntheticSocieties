@@ -39,7 +39,25 @@ from population.sampling import sample_age, sample_empirical_rows, sample_income
 from population.schemas import PopulationSpec
 
 
-def generate_population(config: dict, policy) -> list[Agent]:
+def _build_memory(defaults: dict, agent_id: str, persistent_dir: str | None) -> HierarchicalMemory:
+    """Construct an agent memory, opting into the disk-persistent semantic
+    store only when ``agent_defaults.memory_persistent`` is set AND a target
+    directory is supplied.  Otherwise behavior is byte-identical to before.
+    """
+    max_recent = defaults.get("memory_size", 10)
+    if persistent_dir and defaults.get("memory_persistent", False):
+        from pathlib import Path
+
+        db_path = str(Path(persistent_dir) / "memory" / f"{agent_id}.db")
+        return HierarchicalMemory(
+            max_recent=max_recent,
+            persistent_db_path=db_path,
+            embedding_model=defaults.get("embedding_model", "all-MiniLM-L6-v2"),
+        )
+    return HierarchicalMemory(max_recent=max_recent)
+
+
+def generate_population(config: dict, policy, persistent_dir: str | None = None) -> list[Agent]:
     """Generate a synthetic population from config defaults (v0.1 — backward compatible).
 
     When ``agent_defaults.shuffle_traits`` is True, psychological traits
@@ -78,7 +96,7 @@ def generate_population(config: dict, policy) -> list[Agent]:
 
         state = AgentState(wealth=spec.initial_wealth + i * spec.wealth_step)
 
-        memory = HierarchicalMemory(max_recent=defaults["memory_size"])
+        memory = _build_memory(defaults, f"agent_{i}", persistent_dir)
 
         agents.append(
             Agent(
@@ -100,6 +118,7 @@ def generate_empirical_population(
     config: dict,
     policy,
     data_source: Optional[str] = None,
+    persistent_dir: str | None = None,
 ) -> list[Agent]:
     """
     Generate a population grounded in ESS empirical data.
@@ -203,7 +222,7 @@ def generate_empirical_population(
         )
 
         state = AgentState(wealth=wealth)
-        memory = HierarchicalMemory(max_recent=defaults.get("memory_size", 10))
+        memory = _build_memory(defaults, f"agent_{i}", persistent_dir)
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 
@@ -211,6 +230,53 @@ def generate_empirical_population(
     if defaults.get("shuffle_traits", False):
         _shuffle_traits(agents)
 
+    return agents
+
+
+def generate_placebo_population(
+    config: dict,
+    policy,
+    data_source: Optional[str] = None,
+) -> list[Agent]:
+    """Generate a placebo population — the semantic-isolation control.
+
+    Demographics are drawn from real ESS respondents (so prompt heterogeneity
+    matches the grounded arm exactly), but the sociological trait vector is
+    independently permuted across the population: marginals preserved, joint
+    structure destroyed. See :mod:`population.placebo_demographics` for the
+    full research rationale.
+
+    Mirrors :func:`generate_empirical_population` for config/seed handling so
+    the three arms (empirical / placebo / synthetic) differ only in grounding.
+
+    Args:
+        config: Simulation config dict.
+        policy: Decision policy to assign to agents.
+        data_source: Path to cleaned ESS Parquet. If None, reads from
+                     ``config["data"]["ess_clean_path"]``.
+    """
+    import pandas as _pd
+
+    from population.persona_synthesizer import persona_records_to_agents
+    from population.placebo_demographics import synthesize_placebo_personas
+
+    simulation_cfg = config["simulation"]
+    defaults = config["agent_defaults"]
+    data_cfg = config.get("data", {})
+
+    n = simulation_cfg["population_size"]
+    seed = config.get("project", {}).get("seed", 42)
+
+    if data_source is None:
+        data_source = data_cfg.get("ess_clean_path", "data/ess_clean.parquet")
+
+    df = _pd.read_parquet(data_source)
+    records = synthesize_placebo_personas(df, n=n, seed=seed)
+    agents = persona_records_to_agents(
+        records,
+        policy=policy,
+        memory_size=defaults.get("memory_size", 10),
+    )
     return agents
 
 

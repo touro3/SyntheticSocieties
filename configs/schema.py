@@ -39,7 +39,9 @@ class PolicyConfig(BaseModel):
 
 
 class PopulationConfig(BaseModel):
-    source: Literal["empirical", "synthetic"] = "empirical"
+    # "empirical" = ESS-coherent grounding; "placebo" = scrambled-but-valid
+    # semantic-isolation control; "synthetic" = config-default unconditioned.
+    source: Literal["empirical", "synthetic", "placebo"] = "empirical"
 
 
 class DataConfig(BaseModel):
@@ -48,6 +50,11 @@ class DataConfig(BaseModel):
     ess_clean_path: str = "data/ess_clean.parquet"
     distributions_path: str = "data/empirical_distributions.json"
     sample_mode: Literal["resample", "subsample"] = "resample"
+    # OOD country-holdout splits (Phase 2). Each is a dict like
+    # {"clusters": ["nordic", "southern"]} or {"countries": ["AT"]}.
+    # None (default) = no split → fully backward compatible.
+    train_split: Optional[dict] = None
+    eval_split: Optional[dict] = None
 
 
 class LLMConfig(BaseModel):
@@ -99,6 +106,13 @@ class AgentDefaultsConfig(BaseModel):
     initial_wealth: float = Field(default=50.0, ge=0.0)
     wealth_step: float = Field(default=10.0, ge=0.0)
     memory_size: int = Field(default=10, ge=1)
+    memory_persistent: bool = Field(
+        default=False,
+        description="Opt-in: mirror agent memory to a disk-persistent semantic "
+        "store (experiments/<exp_id>/memory/<agent>.db). Default off — "
+        "preserves byte-identical behavior for the M0–M3 ablation.",
+    )
+    embedding_model: str = Field(default="all-MiniLM-L6-v2")
 
 
 class BGFConfig(BaseModel):

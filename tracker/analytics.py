@@ -498,3 +498,63 @@ def run_all_queries(
         print(f"  ✗ robustness: {e}")
 
     print("Done!")
+
+
+def detect_regression(
+    metric: str = "wealth_mean",
+    index_path: str = DEFAULT_INDEX,
+    policy_types: Optional[list[str]] = None,
+    window: int = 5,
+    n_mad: float = 3.0,
+) -> list[dict]:
+    """Flag runs whose ``metric`` deviates from recent same-policy history.
+
+    Adapts ruflo's witness/perf rolling-window regression check.  For each
+    policy, runs are ordered by row position in the index (chronological as
+    appended); each run is compared against the **preceding** ``window``
+    runs of the same policy using a robust median ± ``n_mad``·MAD band
+    (MAD = median absolute deviation, scaled to be σ-consistent).  Returns
+    one dict per flagged run with the observed value, expected band, and
+    Cohen's d of the run vs. its baseline window.
+
+    Robust statistics are used (not mean/σ) so a single prior regression
+    doesn't mask the next one.  Read-only — never mutates the index.
+    """
+    conn = _connect(index_path, policy_types=policy_types)
+    try:
+        df = conn.execute(
+            f"SELECT experiment_id, policy_type, seed, {metric} AS m FROM experiments WHERE m IS NOT NULL"
+        ).fetchdf()
+    finally:
+        conn.close()
+
+    flagged: list[dict] = []
+    for policy, grp in df.groupby("policy_type"):
+        vals = grp["m"].to_numpy(dtype=float)
+        ids = grp["experiment_id"].tolist()
+        for i in range(window, len(vals)):
+            baseline = vals[i - window : i]
+            median = float(np.median(baseline))
+            mad = float(np.median(np.abs(baseline - median)))
+            scaled_mad = 1.4826 * mad  # σ-consistent under normality
+            # When the baseline window has zero dispersion, MAD-based bands
+            # collapse to 0 and would never fire even on a large step change.
+            # Fall back to a relative floor (1% of |median|) so a sudden
+            # break in a perfectly stable series is still caught.
+            floor = 0.01 * abs(median)
+            band = max(n_mad * scaled_mad, floor)
+            observed = float(vals[i])
+            if band > 0 and abs(observed - median) > band:
+                flagged.append(
+                    {
+                        "experiment_id": ids[i],
+                        "policy_type": policy,
+                        "metric": metric,
+                        "observed": round(observed, 6),
+                        "expected_median": round(median, 6),
+                        "band": round(band, 6),
+                        "direction": "above" if observed > median else "below",
+                        "cohens_d": round(cohens_d(np.array([observed]), baseline), 4),
+                    }
+                )
+    return flagged

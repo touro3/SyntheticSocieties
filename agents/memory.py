@@ -107,10 +107,26 @@ class HierarchicalMemory:
         """
         return cls._DEFAULT_TTL.get(event_type, cls._DEFAULT_TTL_FALLBACK)
 
-    def __init__(self, max_recent: int = 20, archive_size: int = 100, level: MemoryLevel | int = MemoryLevel.M3):
+    def __init__(
+        self,
+        max_recent: int = 20,
+        archive_size: int = 100,
+        level: MemoryLevel | int = MemoryLevel.M3,
+        persistent_db_path: str | None = None,
+        embedding_model: str = "all-MiniLM-L6-v2",
+    ):
         self.max_recent = max_recent
         self.archive_size = archive_size
         self.level: MemoryLevel = MemoryLevel(int(level))
+
+        # Optional disk-persistent semantic store (ruflo AgentDB pattern).
+        # Stays None — and entirely inert — unless a path is supplied, so
+        # default experiments and the M0–M3 ablation are unaffected.
+        self.persistent_store = None
+        if persistent_db_path:
+            from agents.persistent_memory import PersistentMemoryStore
+
+            self.persistent_store = PersistentMemoryStore(persistent_db_path, embedding_model)
         self.recent: list[MemoryItem] = []
         self.archive: list[MemoryItem] = []
         self.reflections: list[str] = []
@@ -141,6 +157,8 @@ class HierarchicalMemory:
             item.importance = self._score_importance(item)
         self.recent.append(item)
         self._cache_dirty = True
+        if self.persistent_store is not None:
+            self.persistent_store.add(item)
 
         if len(self.recent) > self.max_recent:
             evicted = self.recent.pop(0)
@@ -181,6 +199,9 @@ class HierarchicalMemory:
         """
         if not self._pending_buffer:
             return
+
+        if self.persistent_store is not None:
+            self.persistent_store.add_batch(list(self._pending_buffer))
 
         for item in self._pending_buffer:
             self.recent.append(item)

@@ -13,10 +13,14 @@ from decision.schemas import ProposedAction
 
 
 class RoundProcessor:
-    def __init__(self, world, agent_lookup: dict[str, Agent], logger) -> None:
+    def __init__(self, world, agent_lookup: dict[str, Agent], logger, trajectory_bank=None) -> None:
         self.world = world
         self.agent_lookup = agent_lookup
         self.logger = logger
+        # Optional observational trajectory recorder (ruflo ReasoningBank
+        # pattern).  Inert unless explicitly supplied — never feeds back
+        # into decisions, so the controlled A/B design is unaffected.
+        self.trajectory_bank = trajectory_bank
 
     def process_agent_action(
         self,
@@ -37,6 +41,8 @@ class RoundProcessor:
             self._apply_target_delta(executed_event)
             self._record_memory(agent, proposed_action, executed_event, round_id)
             self._update_graph_rag(agent.policy, agent, proposed_action, round_id)
+            if self.trajectory_bank is not None:
+                self.trajectory_bank.record(agent, proposed_action.action_type, executed_event, round_id)
         else:
             executed_event = {
                 "agent_id": agent.profile.agent_id,

@@ -67,9 +67,34 @@ class ModelConfig:
     max_agents: int = 50
     max_rounds: int = 20
     prompt_budget: int = DEFAULT_MAX_TOKENS
+    # Alignment-bias provenance tag (Phase 4): "instruct" (default RLHF-tuned),
+    # "base" (pre-RLHF), or "uncensored". Recorded so results can attribute
+    # behavior to model alignment vs emergent grounding. Informational only —
+    # it does not itself change weights; pair it with the matching model_id.
+    model_variant: Literal["instruct", "base", "uncensored"] = "instruct"
 
     def __post_init__(self) -> None:
-        # Auto-derive budget from model_id when the caller used the default.
+        # ── Env-var overrides (Phase 4: model agnosticism) ────────────────
+        # Make base/instruct/uncensored and backend swappable WITHOUT code
+        # edits, so alignment bias can be isolated from emergent behavior.
+        # Unset env ⇒ caller-provided values are preserved exactly (backward
+        # compatible, including the .mistral_7b()/.gpt4o_mini() classmethods).
+        env_model = os.environ.get("BGF_MODEL_ID")
+        if env_model:
+            self.model_id = env_model
+        env_backend = os.environ.get("BGF_BACKEND_TYPE")
+        if env_backend:
+            if env_backend not in ("huggingface", "openai"):
+                raise ValueError(f"BGF_BACKEND_TYPE must be 'huggingface' or 'openai'; got {env_backend!r}")
+            self.backend_type = env_backend  # type: ignore[assignment]
+        env_variant = os.environ.get("BGF_MODEL_VARIANT")
+        if env_variant:
+            if env_variant not in ("instruct", "base", "uncensored"):
+                raise ValueError(f"BGF_MODEL_VARIANT must be 'instruct', 'base', or 'uncensored'; got {env_variant!r}")
+            self.model_variant = env_variant  # type: ignore[assignment]
+
+        # Auto-derive budget from model_id when the caller used the default
+        # (recomputed after any env override so it tracks the actual model).
         if self.prompt_budget == DEFAULT_MAX_TOKENS:
             self.prompt_budget = budget_for_model(self.model_id)
 

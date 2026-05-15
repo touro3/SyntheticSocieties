@@ -56,6 +56,27 @@ class World:
             if isinstance(signal, dict):
                 self.state.public_signal.update({str(k): str(v) for k, v in signal.items()})
 
+        if event_type == "scarcity":
+            # Causal-diagnostic shock (Phase 3): broadcast a resource-scarcity
+            # signal and scale the named resources down. Reuses the existing
+            # pending_injections pathway — no kernel changes.
+            self.state.public_signal["scarcity"] = "true"
+            severity = payload.get("severity", payload.get("magnitude", 0.5))
+            try:
+                severity = float(severity)
+            except (TypeError, ValueError):
+                severity = 0.5
+            message = payload.get("content") or payload.get("message") or f"resource scarcity (severity {severity})"
+            self.state.public_signal["scarcity_message"] = str(message)
+            targets = payload.get("resources")
+            keys = targets if isinstance(targets, list) else list(self.state.resources.keys())
+            for key in keys:
+                if key in self.state.resources:
+                    try:
+                        self.state.resources[key] = float(self.state.resources[key]) * max(0.0, 1.0 - severity)
+                    except (TypeError, ValueError):
+                        continue
+
         if event_type == "narrative":
             content = payload.get("content", payload.get("message", ""))
             if content:

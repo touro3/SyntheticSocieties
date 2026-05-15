@@ -10,6 +10,7 @@ import NotFoundView    from '../views/NotFoundView.vue'
 // ResultsView imports Chart.js (~200 KB). Lazy-load it so the initial JS bundle
 // stays small — the chart code is only downloaded when the user visits /results.
 const ResultsView = () => import('../views/ResultsView.vue')
+const LeaderboardView = () => import('../views/LeaderboardView.vue')
 
 export default createRouter({
   history: createWebHistory(),
@@ -21,6 +22,7 @@ export default createRouter({
     { path: '/results/:expId',      component: ResultsView },
     { path: '/interact/:expId',     component: InteractView },
     { path: '/human-eval',          component: HumanEvalView },
+    { path: '/leaderboard',         component: LeaderboardView },
     { path: '/:pathMatch(.*)*',     component: NotFoundView },
   ],
   scrollBehavior: () => ({ top: 0 }),

@@ -41,6 +41,10 @@ export const api = {
   humanEvalScenarios: (pid)                   => http.get('/human-eval/scenarios', { params: pid ? { PROLIFIC_PID: pid } : {} }),
   humanEvalRating: (body)                     => http.post('/human-eval/rating', body),
   humanEvalResults: ()                        => http.get('/human-eval/results'),
+  benchmarkSpec:        ()                    => http.get('/benchmark/spec', { responseType: 'text' }),
+  benchmarkLeaderboard: ()                    => http.get('/benchmark/leaderboard', { responseType: 'text' }),
+  benchmarkSubmissions: ()                    => http.get('/benchmark/submissions'),
+  benchmarkSubmission:  (name)                => http.get(`/benchmark/submissions/${encodeURIComponent(name)}`),
 }
 
 export function gini(values) {

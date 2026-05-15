@@ -10,6 +10,7 @@
       <div class="nav-links">
         <router-link to="/" class="nav-link" exact-active-class="active">Dashboard</router-link>
         <router-link to="/experiments" class="nav-link" active-class="active">Experiments</router-link>
+        <router-link to="/leaderboard" class="nav-link" active-class="active">Leaderboard</router-link>
         <router-link to="/run" class="nav-link run-btn btn btn-primary" active-class="">Run Sim</router-link>
       </div>
 

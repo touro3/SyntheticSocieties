@@ -1,0 +1,112 @@
+{
+  "prior": "Beta(1,1) uniform",
+  "likelihood": "Binomial(n_trials, p_coop)",
+  "per_seed_posteriors": {
+    "A_ungrounded": [
+      {
+        "n_trials": 500,
+        "k_successes": 153,
+        "alpha_post": 154,
+        "beta_post": 348,
+        "post_mean": 0.30677290836653387,
+        "post_sd": 0.020561854076405362,
+        "hdi95_lo": 0.26722346047764667,
+        "hdi95_hi": 0.3477806658740835,
+        "seed": 42,
+        "coop_rate_observed": 0.306
+      },
+      {
+        "n_trials": 100,
+        "k_successes": 3,
+        "alpha_post": 4,
+        "beta_post": 98,
+        "post_mean": 0.0392156862745098,
+        "post_sd": 0.019126004313887543,
+        "hdi95_lo": 0.010894483716810326,
+        "hdi95_hi": 0.08435689827612243,
+        "seed": 43,
+        "coop_rate_observed": 0.03
+      },
+      {
+        "n_trials": 100,
+        "k_successes": 0,
+        "alpha_post": 1,
+        "beta_post": 101,
+        "post_mean": 0.00980392156862745,
+        "post_sd": 0.009708271266078407,
+        "hdi95_lo": 0.0002506399507392151,
+        "hdi95_hi": 0.03586462039000372,
+        "seed": 44,
+        "coop_rate_observed": 0.0
+      }
+    ],
+    "B_grounded": [
+      {
+        "n_trials": 160,
+        "k_successes": 77,
+        "alpha_post": 78,
+        "beta_post": 84,
+        "post_mean": 0.48148148148148145,
+        "post_sd": 0.03913615249795025,
+        "hdi95_lo": 0.40509387176808714,
+        "hdi95_hi": 0.558302316266472,
+        "seed": 42,
+        "coop_rate_observed": 0.48
+      },
+      {
+        "n_trials": 100,
+        "k_successes": 56,
+        "alpha_post": 57,
+        "beta_post": 45,
+        "post_mean": 0.5588235294117647,
+        "post_sd": 0.04892433154734757,
+        "hdi95_lo": 0.4620473474227422,
+        "hdi95_hi": 0.6534138248219399,
+        "seed": 43,
+        "coop_rate_observed": 0.56
+      },
+      {
+        "n_trials": 100,
+        "k_successes": 48,
+        "alpha_post": 49,
+        "beta_post": 53,
+        "post_mean": 0.4803921568627451,
+        "post_sd": 0.049228566622676995,
+        "hdi95_lo": 0.38447417421617214,
+        "hdi95_hi": 0.5770387949083646,
+        "seed": 44,
+        "coop_rate_observed": 0.48
+      }
+    ]
+  },
+  "pooled_posteriors": {
+    "A_ungrounded": {
+      "n_trials": 700,
+      "k_successes": 156,
+      "alpha_post": 157,
+      "beta_post": 545,
+      "post_mean": 0.22364672364672364,
+      "post_sd": 0.015715684541564554,
+      "hdi95_lo": 0.1936062085009298,
+      "hdi95_hi": 0.255178536924569
+    },
+    "B_grounded": {
+      "n_trials": 360,
+      "k_successes": 181,
+      "alpha_post": 182,
+      "beta_post": 180,
+      "post_mean": 0.5027624309392266,
+      "post_sd": 0.026242793526093683,
+      "hdi95_lo": 0.4513431224288949,
+      "hdi95_hi": 0.554152823957525
+    }
+  },
+  "decision_quantities": {
+    "P(B_coop > A_coop)": 1.0,
+    "P(B_coop in empirical [0.35,0.65])": 1.0,
+    "P(A_coop in empirical [0.35,0.65])": 0.0,
+    "P(B closer to empirical band than A)": 1.0
+  },
+  "mc_samples": 200000,
+  "audit_row": "B.bayes (new)"
+}

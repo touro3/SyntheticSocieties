@@ -1,0 +1,82 @@
+{
+  "transition_matrices": {
+    "A_ungrounded": {
+      "matrix": [
+        [
+          0.6047297297297297,
+          0.19932432432432431,
+          0.19594594594594594
+        ],
+        [
+          0.37209302325581395,
+          0.37209302325581395,
+          0.2558139534883721
+        ],
+        [
+          0.24324324324324326,
+          0.0,
+          0.7567567567567568
+        ]
+      ],
+      "row_entropy_bits": [
+        1.363365994813643,
+        1.564549689464973,
+        0.8003922080424501
+      ],
+      "mean_row_entropy": 1.2427692974403552,
+      "off_diagonal_mass": 1.2664204902576994,
+      "stationary_dist": [
+        0.407025962561398,
+        0.12920731569297625,
+        0.4637667217456258
+      ],
+      "diag_dominance": 0.5778598365807669,
+      "n_events": 700,
+      "actions": [
+        "work",
+        "save",
+        "cooperate"
+      ]
+    },
+    "B_grounded": {
+      "matrix": [
+        [
+          0.6258992805755396,
+          0.10071942446043165,
+          0.2733812949640288
+        ],
+        [
+          0.6190476190476191,
+          0.2857142857142857,
+          0.09523809523809523
+        ],
+        [
+          0.35,
+          0.0,
+          0.65
+        ]
+      ],
+      "row_entropy_bits": [
+        1.268147557909812,
+        1.2677702161000923,
+        0.9340680553726057
+      ],
+      "mean_row_entropy": 1.1566619431275036,
+      "off_diagonal_mass": 1.4383864337101748,
+      "stationary_dist": [
+        0.5100828294831022,
+        0.07192534861776104,
+        0.4179918218991368
+      ],
+      "diag_dominance": 0.5205378554299417,
+      "n_events": 569,
+      "actions": [
+        "work",
+        "save",
+        "cooperate"
+      ]
+    }
+  },
+  "interpretation": "Off-diagonal mass measures behavioural diversity; row entropy measures unpredictability of the next action. Mode-collapsed Condition A is expected to have low off-diagonal mass and low row entropy on the cooperate row.",
+  "audit_row": "C.transitions (new)"
+}

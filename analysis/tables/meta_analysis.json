@@ -1,0 +1,112 @@
+{
+  "method": "Hedges' g + DerSimonian-Laird random-effects pooling",
+  "sign_convention": "Positive g means Condition A > Condition B on the named metric.",
+  "studies": [
+    {
+      "study": "Primary pilot \u2014 Coop rate (A \u2212 B)",
+      "source": "grounding_comparison_seed_metrics.csv",
+      "n_a": 3,
+      "n_b": 3,
+      "mean_a": 0.11199999999999999,
+      "mean_b": 0.5066666666666667,
+      "hedges_g": -2.553164654353779,
+      "var_g": 1.2098874793534542
+    },
+    {
+      "study": "Primary pilot \u2014 Gini (A \u2212 B)",
+      "source": "grounding_comparison_seed_metrics.csv",
+      "n_a": 3,
+      "n_b": 3,
+      "mean_a": 0.11022831068080376,
+      "mean_b": 0.14743325205576488,
+      "hedges_g": -0.778640078513697,
+      "var_g": 0.7171900309889847
+    },
+    {
+      "study": "Cross-model mistral-7b \u2014 Coop rate (A \u2212 B)",
+      "source": "cross_model_results.json",
+      "n_a": 2,
+      "n_b": 2,
+      "mean_a": 0.5877,
+      "mean_b": 0.35055000000000003,
+      "hedges_g": 14.265254405553128,
+      "var_g": 26.437185406894116
+    },
+    {
+      "study": "Cross-model mistral-7b \u2014 B_RLHF (A \u2212 B)",
+      "source": "cross_model_results.json",
+      "n_a": 2,
+      "n_b": 2,
+      "mean_a": 0.2544,
+      "mean_b": 0.038849999999999996,
+      "hedges_g": 13.557236409773838,
+      "var_g": 23.974832383812178
+    },
+    {
+      "study": "Cross-model mistral-7b \u2014 Gini (A \u2212 B)",
+      "source": "cross_model_results.json",
+      "n_a": 2,
+      "n_b": 2,
+      "mean_a": 0.12340000000000001,
+      "mean_b": 0.3133,
+      "hedges_g": -4.545322755498074,
+      "var_g": 3.582494868956076
+    }
+  ],
+  "pooled_by_outcome": {
+    "Coop rate": {
+      "k": 2,
+      "g_pooled": 5.106054705962401,
+      "se_pooled": 8.375698159801809,
+      "ci95_lo": -11.310313687249145,
+      "ci95_hi": 21.522423099173945,
+      "tau2": 127.6060733941961,
+      "I2_pct": 90.2258540774988,
+      "Q": 10.231072954393737,
+      "df": 1,
+      "z": 0.6096273538686384,
+      "p_two_tailed": 0.5421086873573153,
+      "g_fixed_effect": -1.8171592650374029,
+      "studies": [
+        "Primary pilot \u2014 Coop rate (A \u2212 B)",
+        "Cross-model mistral-7b \u2014 Coop rate (A \u2212 B)"
+      ]
+    },
+    "Gini": {
+      "k": 2,
+      "g_pooled": -2.2816328339575964,
+      "se_pooled": 1.8445350505335236,
+      "ci95_lo": -5.896921533003303,
+      "ci95_hi": 1.3336558650881098,
+      "tau2": 4.944106744574569,
+      "I2_pct": 69.69470190701325,
+      "Q": 3.2997530561542967,
+      "df": 1,
+      "z": -1.2369690851348387,
+      "p_two_tailed": 0.21609856003356986,
+      "g_fixed_effect": -1.406925017688336,
+      "studies": [
+        "Primary pilot \u2014 Gini (A \u2212 B)",
+        "Cross-model mistral-7b \u2014 Gini (A \u2212 B)"
+      ]
+    },
+    "B_RLHF": {
+      "k": 1,
+      "g_pooled": 13.557236409773838,
+      "se_pooled": 4.896410152735592,
+      "ci95_lo": 3.9602725104120786,
+      "ci95_hi": 23.154200309135597,
+      "tau2": 0.0,
+      "I2_pct": 0.0,
+      "Q": 0.0,
+      "df": 0,
+      "z": 2.768811432636929,
+      "p_two_tailed": NaN,
+      "g_fixed_effect": 13.557236409773838,
+      "studies": [
+        "Cross-model mistral-7b \u2014 B_RLHF (A \u2212 B)"
+      ]
+    }
+  },
+  "audit_row": "B.meta (new)"
+}

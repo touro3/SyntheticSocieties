@@ -1,0 +1,61 @@
+# OOD country-holdout (Phase 2, audit response — BRM circularity).
+#
+# Leave-one-cluster-out: condition + calibrate on train clusters, evaluate
+# realism on the held-out cluster whose published ESS-11 benchmark NEVER
+# entered the fit. Driven by scripts/run_ood_validation.py.
+#
+# NOTE: the local parquet is AT-only, so the split operates at the
+# cluster-benchmark level (see population/ood_split.py for the rationale).
+project:
+  name: bgf
+  experiment_id: ood_holdout
+  seed: 42
+
+simulation:
+  rounds: 8
+  population_size: 20
+
+policy:
+  type: mock   # use "llm" for the paper run (GPU)
+
+population:
+  source: empirical
+
+data:
+  ess_clean_path: data/ess_clean.parquet
+  distributions_path: data/empirical_distributions.json
+  sample_mode: resample
+  # Default LOCO partition: hold out Eastern, train on Nordic + Southern.
+  train_split:
+    clusters: [nordic, southern]
+  eval_split:
+    clusters: [eastern]
+
+network:
+  type: small_world
+  edge_prob: 0.5
+  k: 4
+  rewiring_prob: 0.1
+
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10

@@ -135,7 +135,7 @@ def test_validate_tier_flags_missing_action_support() -> None:
 @pytest.fixture(scope="module")
 def reference_card() -> dict:
     if not REFERENCE_PATH.exists():
-        pytest.skip(f"reference submission not built; run benchmark/build_bgf_reference.py")
+        pytest.skip("reference submission not built; run benchmark/build_bgf_reference.py")
     return json.loads(REFERENCE_PATH.read_text())
 
 

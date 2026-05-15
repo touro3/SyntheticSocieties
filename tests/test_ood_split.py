@@ -7,21 +7,28 @@ Guarantees the audit-response properties:
   - an AT-only filter empties the frame and is surfaced loudly (not silent),
   - LOCO holds out exactly the named cluster.
 
-CPU-only, no LLM. Uses the real benchmarks JSON + AT-only parquet.
+CPU-only, no LLM.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from population.country_clusters import load_clusters
 from population.ood_split import OODSplit, leave_one_cluster_out, resolve_split
 from population.sampling import sample_empirical_rows
 
-REPO = Path(__file__).resolve().parents[1]
-ESS_PARQUET = REPO / "data" / "ess_clean.parquet"
+
+@pytest.fixture()
+def at_parquet(tmp_path: Path) -> Path:
+    """Minimal AT-only parquet with required columns for sampling tests."""
+    df = pd.DataFrame({"country": ["AT"] * 20, "trust_people": [0.5] * 20})
+    p = tmp_path / "ess_clean.parquet"
+    df.to_parquet(p, index=False)
+    return p
 
 
 def test_resolve_split_disjoint_and_nonempty():
@@ -63,24 +70,24 @@ def test_leave_one_cluster_out_holds_out_named():
         assert isinstance(split, OODSplit)
 
 
-def test_sampling_no_filter_is_backward_compatible():
-    rows = sample_empirical_rows(str(ESS_PARQUET), n=10, seed=1)
+def test_sampling_no_filter_is_backward_compatible(at_parquet: Path):
+    rows = sample_empirical_rows(str(at_parquet), n=10, seed=1)
     assert len(rows) == 10
 
 
-def test_sampling_country_filter_kept():
-    rows = sample_empirical_rows(str(ESS_PARQUET), n=8, seed=1, country_filter=["AT"])
+def test_sampling_country_filter_kept(at_parquet: Path):
+    rows = sample_empirical_rows(str(at_parquet), n=8, seed=1, country_filter=["AT"])
     assert len(rows) == 8
     assert all(r["country"] == "AT" for r in rows)
 
 
-def test_sampling_filter_emptying_frame_raises_loudly():
+def test_sampling_filter_emptying_frame_raises_loudly(at_parquet: Path):
     # AT-only parquet → filtering to a non-AT country must error, not silently
     # resample the wrong cohort (the BRM-circularity trap this guards against).
     with pytest.raises(ValueError, match="eliminated all rows"):
-        sample_empirical_rows(str(ESS_PARQUET), n=5, seed=1, country_filter=["NO"])
+        sample_empirical_rows(str(at_parquet), n=5, seed=1, country_filter=["NO"])
 
 
-def test_sampling_exclude_countries():
+def test_sampling_exclude_countries(at_parquet: Path):
     with pytest.raises(ValueError, match="eliminated all rows"):
-        sample_empirical_rows(str(ESS_PARQUET), n=5, seed=1, exclude_countries=["AT"])
+        sample_empirical_rows(str(at_parquet), n=5, seed=1, exclude_countries=["AT"])

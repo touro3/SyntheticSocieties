@@ -113,6 +113,7 @@ transformers_cache/
 data/*.csv
 data/*.parquet
 data/*.json
+!data/cross_cultural_benchmarks.json
 data/behavior/
 data/raw/
 data/processed/

@@ -1,11 +1,13 @@
 {
-  "generated_at_utc": "2026-05-07T20:50:41.607115+00:00",
+  "generated_at_utc": "2026-05-16T22:50:43.767142+00:00",
   "args": {
     "seeds": [
-      42
+      42,
+      123,
+      7
     ],
-    "rounds": 5,
-    "agents": 10,
+    "rounds": 30,
+    "agents": 500,
     "include_llm": false,
     "include_perturbation": false,
     "plots_only": false,
@@ -15,10 +17,14 @@
     "skip_integrity_audit": false
   },
   "experiment_ids": [
-    "cmp_rbe_s42"
+    "cmp_rbe_s7",
+    "cmp_rbe_s42",
+    "cmp_rbe_s123"
   ],
   "summary_paths": [
-    "experiments/cmp_rbe_s42/summary.json"
+    "experiments/cmp_rbe_s7/summary.json",
+    "experiments/cmp_rbe_s42/summary.json",
+    "experiments/cmp_rbe_s123/summary.json"
   ],
   "analysis_outputs_modified_since_run_start": {
     "figures": [

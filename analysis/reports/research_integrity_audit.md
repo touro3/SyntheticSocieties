@@ -7,7 +7,7 @@
 - llm_vs_baselines.csv is empty.
 
 ## Warnings
-- None
+- Human baseline is flagged as synthetic/demo-like.
 
 ## Info
 - None

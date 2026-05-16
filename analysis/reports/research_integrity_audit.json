@@ -4,6 +4,8 @@
   "blockers": [
     "llm_vs_baselines.csv is empty."
   ],
-  "warnings": [],
+  "warnings": [
+    "Human baseline is flagged as synthetic/demo-like."
+  ],
   "info": []
 }

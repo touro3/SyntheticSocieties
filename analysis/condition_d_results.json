@@ -1,0 +1,70 @@
+{
+  "status": "complete",
+  "experiment": {
+    "condition": "D",
+    "policy": "rule_based_ess",
+    "population_size": 500,
+    "rounds": 30,
+    "seeds_requested": [
+      42,
+      123,
+      7
+    ],
+    "seeds_found": [
+      7,
+      42,
+      123
+    ],
+    "source_dirs": [
+      "cmp_rbe_s7",
+      "cmp_rbe_s42",
+      "cmp_rbe_s123"
+    ]
+  },
+  "per_metric": {
+    "coop_rate": {
+      "mean": 0.38553333333333334,
+      "sd": 0.0,
+      "n": 3,
+      "ci95": [
+        0.38553333333333334,
+        0.38553333333333334
+      ],
+      "per_seed": {
+        "7": 0.38553333333333334,
+        "42": 0.38553333333333334,
+        "123": 0.38553333333333334
+      }
+    },
+    "gini": {
+      "mean": 0.32509704065681405,
+      "sd": 0.0006794722411139559,
+      "n": 3,
+      "ci95": [
+        0.3243166855951123,
+        0.3255107105261365
+      ],
+      "per_seed": {
+        "7": 0.32555769520307964,
+        "42": 0.3243166855951123,
+        "123": 0.32541674117225017
+      }
+    },
+    "b_rlhf": {
+      "mean": 0.10566666666666667,
+      "sd": 0.0,
+      "n": 3,
+      "ci95": [
+        0.10566666666666667,
+        0.10566666666666667
+      ],
+      "per_seed": {
+        "7": 0.10566666666666667,
+        "42": 0.10566666666666667,
+        "123": 0.10566666666666667
+      }
+    }
+  },
+  "note": "Deterministic non-LLM ESS baseline (no GPU). Identical action counts across seeds collapse coop_rate/B_RLHF CIs to a point (expected for a deterministic policy); only Gini varies with the ESS population draw. Not directly comparable to the cross-model Table 3 (different N/T, no within-D A/B baseline).",
+  "markdown_row": "| Rule-Based ESS | D | 0.386 [0.386, 0.386] | 0.325 [0.324, 0.326] | 0.106 [0.106, 0.106] | \u2014 |"
+}

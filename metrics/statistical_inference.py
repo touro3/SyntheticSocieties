@@ -11,6 +11,7 @@ when reporting comparisons across seeds, conditions, or sub-populations.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Sequence
 
 import numpy as np
@@ -119,6 +120,113 @@ def bootstrap_ci(
     lower = float(np.percentile(bootstrap_stats, 100 * alpha / 2))
     upper = float(np.percentile(bootstrap_stats, 100 * (1 - alpha / 2)))
     return point, lower, upper
+
+
+# ── Bias-Corrected Accelerated (BCa) Bootstrap ───────────────────────────────
+
+
+def _norm_cdf(z: float) -> float:
+    return 0.5 * (1 + math.erf(z / math.sqrt(2)))
+
+
+def _norm_ppf(p: float) -> float:
+    # Acklam's rational approximation; adequate for CI endpoints.
+    a = [
+        -3.969683028665376e01,
+        2.209460984245205e02,
+        -2.759285104469687e02,
+        1.383577518672690e02,
+        -3.066479806614716e01,
+        2.506628277459239e00,
+    ]
+    b = [
+        -5.447609879822406e01,
+        1.615858368580409e02,
+        -1.556989798598866e02,
+        6.680131188771972e01,
+        -1.328068155288572e01,
+    ]
+    c = [
+        -7.784894002430293e-03,
+        -3.223964580411365e-01,
+        -2.400758277161838e00,
+        -2.549732539343734e00,
+        4.374664141464968e00,
+        2.938163982698783e00,
+    ]
+    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00, 3.754408661907416e00]
+    pl, ph = 0.02425, 1 - 0.02425
+    if p < pl:
+        q = math.sqrt(-2 * math.log(p))
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
+        )
+    if p > ph:
+        q = math.sqrt(-2 * math.log(1 - p))
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
+        )
+    q = p - 0.5
+    r = q * q
+    return (
+        (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5])
+        * q
+        / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+    )
+
+
+def bca_ci(
+    x,
+    alpha: float = 0.05,
+    n_boot: int = 10_000,
+    rng: np.random.Generator | int | None = None,
+) -> tuple[float, float]:
+    """Bias-corrected accelerated (BCa) bootstrap CI for the mean.
+
+    BCa adjusts the percentile bootstrap for bias (``z0``) and skew
+    (acceleration ``a`` via jackknife), so on skewed seed distributions the
+    interval is asymmetric about the point estimate — the correct behaviour
+    for headline metrics reported across a small number of seeds.
+
+    Args:
+        x: Observed values (e.g. one metric across seeds).
+        alpha: 1 - coverage (0.05 → 95% CI).
+        n_boot: Number of bootstrap resamples.
+        rng: ``None`` → a fresh ``np.random.default_rng(42)`` (paper seed
+            convention, deterministic per call); an ``int`` → seeded
+            generator; an existing ``np.random.Generator`` → used as-is and
+            advanced (lets a caller share one stream across many calls).
+
+    Returns:
+        ``(lower, upper)``. Returns ``(nan, nan)`` when ``len(x) < 2``
+        (a CI is undefined for fewer than two observations).
+    """
+    x = np.asarray(x, float)
+    n = len(x)
+    if n < 2:
+        return (float("nan"), float("nan"))
+    if rng is None:
+        rng = np.random.default_rng(42)
+    elif not isinstance(rng, np.random.Generator):
+        rng = np.random.default_rng(rng)
+    boot = rng.choice(x, size=(n_boot, n), replace=True).mean(axis=1)
+    theta = x.mean()
+    # bias-correction z0
+    prop = np.mean(boot < theta)
+    prop = min(max(prop, 1.0 / n_boot), 1 - 1.0 / n_boot)
+    z0 = _norm_ppf(prop)
+    # acceleration via jackknife
+    jack = np.array([np.delete(x, i).mean() for i in range(n)])
+    jbar = jack.mean()
+    num = np.sum((jbar - jack) ** 3)
+    den = 6.0 * (np.sum((jbar - jack) ** 2) ** 1.5)
+    a = num / den if den != 0 else 0.0
+    zl, zu = _norm_ppf(alpha / 2), _norm_ppf(1 - alpha / 2)
+    a1 = _norm_cdf(z0 + (z0 + zl) / (1 - a * (z0 + zl)))
+    a2 = _norm_cdf(z0 + (z0 + zu) / (1 - a * (z0 + zu)))
+    lo = np.quantile(boot, max(0.0, min(1.0, a1)))
+    hi = np.quantile(boot, max(0.0, min(1.0, a2)))
+    return float(lo), float(hi)
 
 
 # ── Metric Reporter ───────────────────────────────────────────────────────────

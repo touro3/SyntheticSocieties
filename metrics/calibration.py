@@ -175,5 +175,85 @@ def calibration_report(policies: list[str] = None) -> str:
     return report
 
 
+# ── Calibration JSD: simulated wealth vs ESS income reference ────────────────
+#
+# Phase 28.1. The legacy calibration_evaluation_split() above is a 3-seed
+# cal/eval design with explicitly zero uncertainty bounds. `calibration_jsd`
+# instead gives a *per-run* scalar that the ten-seed confirmatory pipeline
+# aggregates across seeds with a BCa 95% CI, so calibration becomes a headline
+# metric on equal footing with cooperation_rate / wealth_gini / b_rlhf.
+
+ESS_DISTRIBUTIONS = Path("data/empirical_distributions.json")
+
+
+def ess_wealth_reference(
+    path: str | Path = ESS_DISTRIBUTIONS,
+    n: int = 1000,
+) -> np.ndarray:
+    """Deterministic ESS income reference (household net income decile).
+
+    The raw per-respondent ESS parquet is not always importable (no pandas in
+    minimal envs), so the reference is reconstructed from the published
+    quantile summary of ``demographics.income_decile`` via piecewise-linear
+    inverse-CDF interpolation. No RNG — identical on every call.
+
+    Returns a length-``n`` float array on the 1–10 decile scale.
+    """
+    p_anchor = [0.0, 0.10, 0.25, 0.50, 0.75, 0.90, 1.0]
+    # ESS-9 fallback if the file/keys are missing (matches the committed
+    # data/empirical_distributions.json income_decile summary).
+    v_anchor = [1.0, 2.0, 3.0, 5.0, 7.0, 8.0, 10.0]
+    try:
+        with Path(path).open() as f:
+            inc = json.load(f)["demographics"]["income_decile"]
+        q = inc["quantiles"]
+        v_anchor = [
+            float(inc["min"]),
+            float(q["0.1"]),
+            float(q["0.25"]),
+            float(q["0.5"]),
+            float(q["0.75"]),
+            float(q["0.9"]),
+            float(inc["max"]),
+        ]
+    except (OSError, KeyError, ValueError, TypeError):
+        pass  # fall back to the committed-summary anchors above
+    # Enforce monotone non-decreasing support for a valid inverse CDF.
+    v_anchor = np.maximum.accumulate(v_anchor)
+    return np.interp(np.linspace(0.0, 1.0, n), p_anchor, v_anchor).astype(float)
+
+
+def _minmax01(values) -> np.ndarray:
+    """Min-max scale to [0, 1], dropping NaNs. A constant input maps to all
+    0.5 (a single occupied bin) so JSD stays well-defined."""
+    a = np.asarray(list(values), dtype=float)
+    a = a[~np.isnan(a)]
+    if a.size == 0:
+        raise ValueError("Expected at least one non-NaN value.")
+    span = float(a.max() - a.min())
+    if span <= 0.0:
+        return np.full(a.shape, 0.5)
+    return (a - a.min()) / span
+
+
+def calibration_jsd(sim_wealth, ess_ref=None) -> float:
+    """Jensen–Shannon divergence between the simulated end-state wealth
+    distribution and the ESS income reference.
+
+    Both arrays are min-max normalized to [0, 1] *independently* before
+    binning, so the metric is a scale-invariant distribution-*shape*
+    divergence: simulated wealth (~10–10⁴) and ESS income deciles (1–10)
+    would otherwise live in disjoint histogram bins and the raw JSD would
+    saturate near its maximum regardless of fit. Lower = better calibrated.
+    """
+    from metrics.distribution import jensen_shannon_divergence
+
+    if ess_ref is None:
+        ess_ref = ess_wealth_reference()
+    sim_n = _minmax01(sim_wealth)
+    ess_n = _minmax01(ess_ref)
+    return float(jensen_shannon_divergence(sim_n, ess_n))
+
+
 if __name__ == "__main__":
     calibration_report()

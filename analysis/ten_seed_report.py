@@ -43,6 +43,12 @@ from pathlib import Path
 
 import numpy as np
 
+from metrics.behavioral_realism import compute_composite_brm
+from metrics.calibration import calibration_jsd, ess_wealth_reference
+from metrics.event_metrics import load_events, temporal_stability
+from metrics.statistical_inference import _norm_cdf, _norm_ppf
+from metrics.statistical_inference import bca_ci as _bca_ci
+
 REPO = Path(__file__).resolve().parents[1]
 REGISTRY = REPO / "tracker" / "experiment_index.parquet"
 SQL_FILE = REPO / "analysis" / "ten_seed_aggregate.sql"
@@ -60,6 +66,22 @@ METRICS = {
     "wealth_gini": "Wealth Gini",
     "b_rlhf": "B_RLHF (TV vs uniform)",
 }
+
+# Headline metrics that are NOT registry-derivable and must be joined per-run
+# from metrics/ artifacts (summary.json + events.jsonl). Kept separate from
+# METRICS so the SQL row indexing in load_per_run() is unaffected.
+ARTIFACT_METRICS = {
+    "calibration_jsd": "Calibration JSD (sim wealth vs ESS income, shape)",
+    "brm_composite": "BRM_composite (empirical seed CI; complements Theorem 2)",
+}
+
+# Canonical empirical (ESS / Eurostat) BRM targets — single-sourced with
+# scripts/run_scale_sensitivity.py so the empirical BRM here is comparable to
+# the rest of the codebase.
+_EMP_GINI = 0.31  # Eurostat EU median
+_EMP_COOP_GROUNDED = 0.40  # ESS-grounded expected cooperation
+_EMP_COOP_UNGROUNDED = 0.33  # uniform baseline expected
+_EMP_WEALTH_MEAN = 110.0
 
 
 def load_per_run() -> dict[str, dict[str, np.ndarray]]:
@@ -98,80 +120,127 @@ def load_per_run() -> dict[str, dict[str, np.ndarray]]:
     return {c: {m: np.asarray(v, float) for m, v in md.items()} for c, md in out.items()}
 
 
+def _emp_wealth_reference(n: int) -> list[float]:
+    """Deterministic lognormal(mean≈110, σ=0.35) clipped to [10, 500] — the
+    project's canonical empirical wealth proxy (scripts/run_scale_sensitivity
+    builds the same distribution stochastically; this is its inverse-CDF so
+    the report is reproducible without an RNG)."""
+    n = max(int(n), 2)
+    ps = np.linspace(0.5 / n, 1 - 0.5 / n, n)
+    mu = math.log(_EMP_WEALTH_MEAN)
+    vals = np.exp(mu + 0.35 * np.array([_norm_ppf(float(p)) for p in ps]))
+    return list(np.clip(vals, 10.0, 500.0))
+
+
+def per_run_brm(summary: dict, events_path: str | None, condition: str) -> float | None:
+    """Compute BRM_composite for one run on the fly (no new persistence).
+
+    Inputs come from the run's summary.json (sim wealth / Gini / coop) and
+    events.jsonl (round-to-round temporal stability); empirical targets are
+    the canonical ESS/Eurostat constants. Returns ``None`` if the summary is
+    too sparse to score, so callers can skip gracefully.
+    """
+    try:
+        wealth = (summary.get("wealth") or {}).get("values")
+        gini = (summary.get("wealth") or {}).get("gini")
+        eac = summary.get("event_action_counts") or {}
+        tot = sum(int(eac.get(k, 0)) for k in ("work", "save", "cooperate"))
+        if not wealth or gini is None or tot <= 0:
+            return None
+        coop = eac.get("cooperate", 0) / tot
+        ts_jsd = 0.0
+        if events_path:
+            ep = Path(events_path)
+            if not ep.is_absolute():
+                ep = REPO / ep
+            if ep.exists():
+                ts_jsd = float(temporal_stability(load_events(ep)).get("mean_jsd", 0.0))
+        emp_coop = _EMP_COOP_GROUNDED if condition.startswith("B") else _EMP_COOP_UNGROUNDED
+        brm = compute_composite_brm(
+            sim_wealth=wealth,
+            emp_wealth=_emp_wealth_reference(len(wealth)),
+            sim_gini=float(gini),
+            emp_gini=_EMP_GINI,
+            sim_coop_rate=coop,
+            emp_coop_rate=emp_coop,
+            temporal_stability_jsd=ts_jsd,
+        )
+        return float(brm["composite"])
+    except Exception:
+        return None
+
+
+def load_per_run_artifacts() -> dict[str, dict[str, np.ndarray]]:
+    """Return {condition: {artifact_metric: array-over-seeds}} by joining each
+    confirmatory run's summary.json (registry ``summary_path``).
+
+    Uses the *exact same* population filter and condition encoding as
+    load_per_run() (same N/T, same mx_A_s%/mx_B_s% prefixes), so artifact
+    metrics align seed-for-seed with the registry metrics. Degrades to {} on
+    any failure (missing registry, missing duckdb, unreadable summaries) so
+    the press-play awaiting_runs path is never broken by this join.
+    """
+    if not REGISTRY.exists():
+        return {}
+    try:
+        import duckdb
+
+        con = duckdb.connect()
+        rows = con.execute(
+            """
+            SELECT experiment_id, seed,
+                   CASE WHEN experiment_id LIKE 'mx_A_s%' THEN 'A_ungrounded'
+                        WHEN experiment_id LIKE 'mx_B_s%' THEN 'B_grounded' END AS condition,
+                   summary_path, events_path
+            FROM read_parquet(?)
+            WHERE policy_type = 'llm'
+              AND population_size = ?
+              AND rounds = ?
+              AND (experiment_id LIKE 'mx_A_s%' OR experiment_id LIKE 'mx_B_s%')
+            ORDER BY condition, seed
+            """,
+            [REGISTRY.as_posix(), POP_SIZE, HORIZON],
+        ).fetchall()
+        con.close()
+        if not rows:
+            return {}
+
+        ess_ref = ess_wealth_reference()
+        out: dict[str, dict[str, list]] = {}
+        for _exp_id, _seed, cond, summary_path, events_path in rows:
+            if cond is None or not summary_path:
+                continue
+            sp = Path(summary_path)
+            if not sp.is_absolute():
+                sp = REPO / sp
+            if not sp.exists():
+                continue
+            summary = json.loads(sp.read_text())
+            wealth = (summary.get("wealth") or {}).get("values")
+            if not wealth:
+                continue
+            d = out.setdefault(cond, {m: [] for m in ARTIFACT_METRICS})
+            d["calibration_jsd"].append(calibration_jsd(wealth, ess_ref))
+            brm = per_run_brm(summary, events_path, cond)
+            if brm is not None:
+                d["brm_composite"].append(brm)
+        return {c: {m: np.asarray(v, float) for m, v in md.items() if v} for c, md in out.items()}
+    except Exception:
+        # Never let an artifact-join problem break the press-play report.
+        return {}
+
+
 def bca_ci(x: np.ndarray, alpha: float = 0.05) -> tuple[float, float]:
-    """Bias-corrected accelerated bootstrap CI for the mean."""
-    x = np.asarray(x, float)
-    n = len(x)
-    if n < 2:
-        return (float("nan"), float("nan"))
-    boot = RNG.choice(x, size=(N_BOOT, n), replace=True).mean(axis=1)
-    theta = x.mean()
-    # bias-correction z0
-    prop = np.mean(boot < theta)
-    prop = min(max(prop, 1.0 / N_BOOT), 1 - 1.0 / N_BOOT)
-    z0 = _norm_ppf(prop)
-    # acceleration via jackknife
-    jack = np.array([np.delete(x, i).mean() for i in range(n)])
-    jbar = jack.mean()
-    num = np.sum((jbar - jack) ** 3)
-    den = 6.0 * (np.sum((jbar - jack) ** 2) ** 1.5)
-    a = num / den if den != 0 else 0.0
-    zl, zu = _norm_ppf(alpha / 2), _norm_ppf(1 - alpha / 2)
-    a1 = _norm_cdf(z0 + (z0 + zl) / (1 - a * (z0 + zl)))
-    a2 = _norm_cdf(z0 + (z0 + zu) / (1 - a * (z0 + zu)))
-    lo = np.quantile(boot, max(0.0, min(1.0, a1)))
-    hi = np.quantile(boot, max(0.0, min(1.0, a2)))
-    return float(lo), float(hi)
+    """BCa CI for the mean — thin wrapper over the shared, unit-tested
+    implementation in metrics.statistical_inference, pinned to the ten-seed
+    ``N_BOOT`` and the module ``RNG`` stream so output is byte-identical to the
+    prior in-file version (the press-play confirmatory numbers do not move)."""
+    return _bca_ci(x, alpha, n_boot=N_BOOT, rng=RNG)
 
 
-def _norm_cdf(z: float) -> float:
-    return 0.5 * (1 + math.erf(z / math.sqrt(2)))
-
-
-def _norm_ppf(p: float) -> float:
-    # Acklam's rational approximation; adequate for CI endpoints.
-    a = [
-        -3.969683028665376e01,
-        2.209460984245205e02,
-        -2.759285104469687e02,
-        1.383577518672690e02,
-        -3.066479806614716e01,
-        2.506628277459239e00,
-    ]
-    b = [
-        -5.447609879822406e01,
-        1.615858368580409e02,
-        -1.556989798598866e02,
-        6.680131188771972e01,
-        -1.328068155288572e01,
-    ]
-    c = [
-        -7.784894002430293e-03,
-        -3.223964580411365e-01,
-        -2.400758277161838e00,
-        -2.549732539343734e00,
-        4.374664141464968e00,
-        2.938163982698783e00,
-    ]
-    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00, 3.754408661907416e00]
-    pl, ph = 0.02425, 1 - 0.02425
-    if p < pl:
-        q = math.sqrt(-2 * math.log(p))
-        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
-            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
-        )
-    if p > ph:
-        q = math.sqrt(-2 * math.log(1 - p))
-        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
-            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
-        )
-    q = p - 0.5
-    r = q * q
-    return (
-        (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5])
-        * q
-        / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
-    )
+# _norm_cdf / _norm_ppf are imported from metrics.statistical_inference
+# (single-sourced with bca_ci); mann_whitney_u / welch_t fallbacks below
+# resolve them via that import.
 
 
 def mann_whitney_u(a: np.ndarray, b: np.ndarray) -> float:
@@ -324,6 +393,23 @@ def main() -> int:
                 "ci95": [lo, hi],
             }
 
+    # Artifact-derived headline metrics (calibration_jsd): joined per-run
+    # from summary.json, same seeds/conditions, same BCa CI.
+    art = load_per_run_artifacts()
+    for cond, md in art.items():
+        if cond not in results["per_condition"]:
+            continue
+        for m, arr in md.items():
+            if arr.size == 0:
+                continue
+            lo, hi = bca_ci(arr)
+            results["per_condition"][cond][m] = {
+                "mean": float(arr.mean()),
+                "sd": float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+                "n": int(len(arr)),
+                "ci95": [lo, hi],
+            }
+
     pvals = {}
     for m in METRICS:
         a, b = data[a_key][m], data[b_key][m]
@@ -335,6 +421,20 @@ def main() -> int:
             "welch_p_sensitivity": welch_t(a, b),
             "cohens_d": cohens_d(a, b),
         }
+
+    for m in ARTIFACT_METRICS:
+        if m in art.get(a_key, {}) and m in art.get(b_key, {}):
+            a, b = art[a_key][m], art[b_key][m]
+            if a.size == 0 or b.size == 0:
+                continue
+            p_mw = mann_whitney_u(a, b)
+            pvals[m] = p_mw
+            results["contrasts"][m] = {
+                "delta_B_minus_A": float(b.mean() - a.mean()),
+                "mannwhitney_p": p_mw,
+                "welch_p_sensitivity": welch_t(a, b),
+                "cohens_d": cohens_d(a, b),
+            }
 
     bh = benjamini_hochberg(pvals, q=0.05)
     for m, info in bh.items():
@@ -348,6 +448,22 @@ def main() -> int:
         "(coop rate, Gini, B_RLHF) so the press-play path needs no run "
         "replay; absolute BRM per run, if needed, is joined separately "
         "from metrics/ artifacts."
+    )
+    results["brm_empirical_ci_note"] = (
+        "per_condition.brm_composite is an empirical seed-level BCa 95% CI "
+        "computed on the fly from each run's summary.json + events.jsonl "
+        "against the canonical ESS/Eurostat targets. It is a DESCRIPTIVE "
+        "COMPLEMENT to — not a replacement for — the deterministic Theorem 2 "
+        "weight-robustness certificate (analysis/brm_sensitivity.py), which "
+        "remains the formal robustness statement (min_j Δ_j > 0)."
+    )
+    results["calibration_note"] = (
+        "calibration_jsd = JSD(simulated end-state wealth, ESS income "
+        "reference), both min-max normalized before binning — a "
+        "scale-invariant distribution-SHAPE divergence (raw wealth ~10–10^4 "
+        "vs ESS deciles 1–10 would otherwise saturate JSD). Joined per-run "
+        "from summary.json and aggregated across seeds with the same BCa "
+        "95% CI as the registry metrics. Lower = better calibrated."
     )
     results["primary_test"] = "Mann-Whitney U (two-sided), BH-FDR q=0.05"
 

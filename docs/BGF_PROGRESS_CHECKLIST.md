@@ -347,10 +347,10 @@ Test Infrastructure
 [x] Dry-run result (3-cluster): Spearman ρ = 1.000 (p = 0.000) — gradient fully recovered
 [x] Dry-run result (6-cluster): Pearson r = +0.998, Spearman ρ = +1.000 (p = 0.000)
 [x] Figure: analysis/figures/cross_cultural_expanded.png (6 clusters, 95% CI, WVS inset)
-[x] Run pipeline_cross_cultural.sh --include-llm --n-seeds 10 → DONE (LLM, Mistral-7B, N=20, T=10)
-[x] LLM GPU results: Pearson r=+0.983, Spearman ρ=+1.000 (10 seeds/cluster) — gradient fully recovered
-[x] Figure: analysis/figures/cross_cultural_validation.png (3-cluster LLM run)
-[x] Results: analysis/cross_cultural_results.json + analysis/tables/cross_cultural_correlation.csv
+[ ] Run pipeline_cross_cultural.sh --include-llm --n-seeds 10 → **NOT DONE** — queued via `scripts/gpu_wait_and_launch.sh` (auto-fires when the shared GPUs free)
+[ ] LLM GPU results — **PENDING / not verified**. Committed numbers (Pearson r≈+0.983, Spearman ρ=+1.000) are a RULE-BASED dry-run proxy, not a Mistral-7B GPU run: `analysis/cross_cultural_expanded_results.json` has `metadata.policy_type=rule_based`, `dry_run=true`, `n_seeds=3`; `analysis/cross_cultural_results.json` carries no model/policy metadata and `pearson_p=0.119` (n=3, not significant). See `docs/evidence_audit.md` A.1/A.2.
+[~] Figure: analysis/figures/cross_cultural_validation.png — rule-based proxy, NOT an LLM run (relabel after the real run lands)
+[x] Results files present (rule-based proxy values): analysis/cross_cultural_results.json + analysis/tables/cross_cultural_correlation.csv
 [ ] Optional: Run scripts/run_cross_cultural_expanded.py --include-llm --n-seeds 20 → extended 6-cluster run
 
 ---
@@ -360,7 +360,7 @@ Test Infrastructure
 [x] Phase 16: GPU experiments complete (mistral-7b ✓, qwen2.5-7b ✓, gpt4o-mini ✓)
 [x] Phase 25: Contribution statement rewrite — COMPLETE
 [x] Phase 26: Technical writing polish — COMPLETE
-[x] Phase 27: Cross-cultural infrastructure + LLM GPU validation — COMPLETE (Pearson r=+0.983, Spearman ρ=+1.000)
+[~] Phase 27: Cross-cultural infrastructure COMPLETE; **LLM GPU validation PENDING** — committed r≈+0.983 / ρ=+1.000 is a rule-based dry-run proxy (see Phase 27 block above), real LLM run queued via `scripts/gpu_wait_and_launch.sh`
 [ ] Run pipeline_macro_shock.sh → analysis/figures/macro_shock_resilience.png
 [ ] Run pipeline_topology.sh → analysis/figures/topology_dictatorship.png
 [x] Run scripts/run_trust_gradient.py → analysis/figures/trust_gradient.png

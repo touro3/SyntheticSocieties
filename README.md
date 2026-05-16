@@ -1,3 +1,13 @@
+---
+title: Synthetic Societies
+emoji: 🧪
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 5050
+pinned: false
+---
+
 # SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
 [![BGF CI](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml/badge.svg)](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml)

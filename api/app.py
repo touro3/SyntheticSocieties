@@ -426,7 +426,15 @@ def _generate_population_parquet(design: dict, n_agents: int) -> str | None:
 def _check_auth() -> tuple[bool, Any]:
     """Verify bearer token.  Returns (ok, error_response_or_None)."""
     if not _AUTH_TOKEN:
-        return True, None  # Auth disabled — open mode
+        return True, None  # Auth disabled — open mode (no token configured)
+
+    # Public reads: when a token IS configured, safe/side-effect-free methods
+    # (GET/HEAD/OPTIONS) stay open so the Space works as a public demo. Only
+    # write/compute methods (POST/PUT/PATCH/DELETE) — /simulate, /inject,
+    # /upload-ess-data, /design-simulation, /interview, /anchor, etc. —
+    # require the bearer token, which is what closes the DoS/cost exposure.
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return True, None
 
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):

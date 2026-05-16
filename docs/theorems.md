@@ -90,75 +90,86 @@ trust-gradient and §8.3 cross-cultural results consistently support.
 
 ## Theorem 2 — Weight-Robust Ordering of BRM
 
-**Statement.** Let `BRM_composite(w; cond)` be the composite Behavioral
-Realism Metric on weight vector `w ∈ Δ³` (the 3-simplex of non-negative
-weights summing to 1), with `cond ∈ {A, B}` the BGF experimental
-condition. Then under the data on disk (`analysis/tables/brm_sensitivity.json`,
-500 samples, seed 42), the event
+**Statement (deterministic form).** Let
+`BRM_composite(w; cond) = Σ_{j=1..4} w_j · c_j(cond)` be the composite
+Behavioral Realism Metric, where `c_j(cond) ∈ [0,1]` are the four
+sub-component scores (wealth JSD, Gini gap, cooperation accuracy,
+temporal stability), `cond ∈ {A, B}`, and `w` ranges over the weight
+3-simplex `Δ³ = { w ∈ ℝ⁴ : w_j ≥ 0, Σ_j w_j = 1 }`. Define the
+component-wise advantage `Δ_j ≜ c_j(B) − c_j(A)`. Then
 
 ```
-E ≜ { w ∈ Δ³ : BRM_composite(w; B) > BRM_composite(w; A) }
+   BRM_composite(w; B) > BRM_composite(w; A)  for every w ∈ Δ³
+                         ⟺
+                   min_{j ∈ {1..4}} Δ_j > 0 .
 ```
 
-has empirical probability `Pr̂(E) = 1.000` with one-sided 95% Wilson
-confidence lower bound `Pr(E) ≥ 0.9926`. In particular, the
-pre-registered 90%-of-simplex threshold (§3.3 C3) is exceeded by a
-margin of at least 9.3 percentage points.
+That is, weight-robustness over the *entire* admissible weight space is
+exactly equivalent to a four-number sign check — a strict mathematical
+guarantee, not a sampled probability.
 
-**Proof.** Sample `w₁, …, w₅₀₀ ~ Dir(1, 1, 1, 1)` independently. For each
-sample, compute `BRM_composite(wᵢ; A)` and `BRM_composite(wᵢ; B)` from
-the canonical sub-component values (`analysis/paper_numbers.json`). The
-indicator `Iᵢ ≜ 1{BRM_composite(wᵢ; B) > BRM_composite(wᵢ; A)}` equals 1
-in all 500 samples (the empirical Bernoulli sample mean is `500/500 = 1`).
-The Wilson 95% one-sided lower bound on the underlying probability `Pr(E)`
-with 500 successes out of 500 trials is
+**Proof.** The difference functional
 
 ```
-Pr(E) ≥ ( 2·500 + z² − z·√(z² + 0) ) / ( 2·(500 + z²) ) = 0.9926
+f(w) ≜ BRM_composite(w; B) − BRM_composite(w; A) = Σ_{j=1..4} w_j · Δ_j
 ```
 
-with `z = 1.645` (one-sided 95%). The pre-registered threshold 0.90
-lies strictly below 0.9926, so the ordering is weight-robust at the
-pre-registered confidence level. ∎
-
-**Reference.** Implementation: `analysis/brm_sensitivity.py`. Artefact:
-`analysis/tables/brm_sensitivity.json` (audit row E.5). Companion
-figure: `analysis/figures/brm_weight_sensitivity.png`.
-
-**Analytic closure (deterministic geometric argument).** The Monte-Carlo
-certificate can be promoted to a deterministic statement on the entire
-simplex when one further fact holds: each of the four BRM sub-components
-individually favours B over A. Concretely, write
+is a *linear* function of `w` (the `Δ_j` are fixed constants once the
+two conditions' sub-components are evaluated). `Δ³` is a compact convex
+polytope whose vertices are the four standard basis vectors
+`e_1, …, e_4` (`e_j` places all weight on component `j`). A linear
+function on a compact convex polytope attains its minimum at a vertex
+(fundamental theorem of linear programming; Boyd & Vandenberghe 2004
+§4.2). Therefore
 
 ```
-BRM_composite(w; cond) = Σ_{j=1..4} w_j · c_j(cond),     w ∈ Δ³, w_j ≥ 0, Σ w_j = 1
+   min_{w ∈ Δ³} f(w) = min_{j} f(e_j) = min_{j} Δ_j ,
+   max_{w ∈ Δ³} f(w) = max_{j} f(e_j) = max_{j} Δ_j .
 ```
 
-with `c_j(cond) ∈ [0,1]` the four canonical sub-component values
-(wealth JSD, Gini gap, cooperation accuracy, temporal stability). Define
-`Δ_j ≜ c_j(B) − c_j(A)`. Then
+(⇐) If `min_j Δ_j > 0` then `min_{w ∈ Δ³} f(w) = min_j Δ_j > 0`, so
+`f(w) > 0`, i.e. `BRM_composite(w; B) > BRM_composite(w; A)`, for every
+`w ∈ Δ³`. (⇒) Conversely, if `min_j Δ_j = Δ_{j*} ≤ 0`, then evaluating
+at the vertex `w = e_{j*}` gives `f(e_{j*}) = Δ_{j*} ≤ 0`, a feasible
+weight at which the ordering fails. Hence the equivalence. ∎
+
+This supersedes the earlier Monte-Carlo certificate (500 Dirichlet
+draws, Wilson lower bound `≥ 0.9926`): sampling can only ever produce a
+high-confidence *estimate* of `Pr(f(w) > 0)`, whereas the linear-program
+argument settles the value of `min_{w} f(w)` exactly. The Dirichlet
+sweep's empirical fraction of `1.000` is now read as the numerical
+*witness* of the analytic inequality `min_j Δ_j > 0`, not as the
+evidentiary basis for it.
+
+**Corollary (constrained weight polytopes).** Expert priors may
+restrict weights to a sub-polytope `W ⊆ Δ³` (e.g. box constraints
+`w_j ∈ [ℓ_j, u_j]`, or "cooperation accuracy is at least as important
+as temporal stability", `w_3 ≥ w_4`). `W` is again a compact convex
+polytope, so by the same argument
 
 ```
-BRM_composite(w; B) − BRM_composite(w; A) = Σ_j w_j · Δ_j .
+   min_{w ∈ W} f(w) = min_{v ∈ V(W)} Σ_j v_j Δ_j ,
 ```
 
-If `Δ_j > 0` for every `j`, the right-hand side is a non-negative
-linear combination of strictly positive scalars with weights that sum
-to 1, hence strictly positive for every `w ∈ Δ³`. The per-seed sub-
-component table in `analysis/tables/brm_sensitivity.json` records `Δ_j > 0`
-on every seed for all four `j`, so the simplex-wide ordering
-`BRM_composite(B) > BRM_composite(A)` holds *deterministically* — not
-merely in 500 Dirichlet samples. The Monte-Carlo certificate of
-`Pr̂(E) = 1.000` is therefore the empirical witness of this analytic
-inequality, not a probabilistic substitute for it. ∎
+where `V(W)` is the finite vertex set of `W`. Weight-robustness over
+any such admissible region is therefore decided by enumerating the
+vertices of `W` and checking the sign of `f` at each — still a finite,
+exact computation with no sampling.
 
-**Robustness against a single negative `Δ_j`.** If some sub-component
-inverts (`Δ_j < 0` for one `j`), the inequality is preserved iff the
-positive `Δ_k` (k ≠ j) dominate at the relevant weight: the failure
-region is the half-space `{w : Σ w_j · Δ_j ≤ 0} ∩ Δ³`. Its Lebesgue
-measure on the simplex is `0` when all `Δ_j > 0` (recovering the
-analytic claim above) and is bounded by Markov's inequality otherwise;
-the present data falls in the former regime.
+**Verifiable certificate.** The check reduces to emitting the vector
+`(Δ_1, Δ_2, Δ_3, Δ_4)` and the scalar `min_j Δ_j`.
+`analysis/brm_sensitivity.py --emit-certificate` writes these four
+deltas and the verdict (`min_j Δ_j > 0 ⇒ ROBUST`) alongside the legacy
+sweep fields in `analysis/tables/brm_sensitivity.json` (audit row E.5);
+on the canonical sub-component values the certificate is satisfied
+(equal-weight Δ = 0.235 > 0, and the simplex infimum `min_j Δ_j` is
+itself positive). Companion figure:
+`analysis/figures/brm_weight_sensitivity.png`.
+
+**Reference.** Boyd, S. & Vandenberghe, L. (2004). *Convex
+Optimization*, §4.2 (LP optima at polytope vertices). Implementation:
+`analysis/brm_sensitivity.py`. Artefact:
+`analysis/tables/brm_sensitivity.json`.
 
 ---
 

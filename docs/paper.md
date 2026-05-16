@@ -241,15 +241,31 @@ Thomas 2006, Theorems 2.5.3 and 2.8.1). The bound is tight when ESS
 attitudes are an approximate sufficient statistic for the behavioural
 outcome — a hypothesis empirically supported by §6.5 and §8.3.
 
-**Theorem 2 (Weight-robust ordering of BRM).** Under the empirical
-data on disk (`analysis/tables/brm_sensitivity.json`, 500 Dirichlet
-samples), the event `BRM_composite(B) > BRM_composite(A)` over a
-uniform Dirichlet draw of composite weights `w ∈ Δ³` has empirical
-probability **1.000**, with one-sided 95% Wilson lower bound
-**Pr(ordering preserved) ≥ 0.9926**. The pre-registered 90%-of-simplex
-threshold is exceeded by ≥ 9 percentage points. The Monte-Carlo
-certificate is not yet a deterministic geometric proof; that
-refinement is identified as a future formal step in `docs/theorems.md`.
+**Theorem 2 (Weight-robust ordering of BRM — deterministic).** Write
+`BRM_composite(w; cond) = Σ_{j=1..4} w_j · c_j(cond)` with `c_j ∈ [0,1]`
+the four sub-component scores (wealth JSD, Gini gap, cooperation
+accuracy, temporal stability) and `w ∈ Δ³` any admissible weight
+vector. Let `Δ_j ≜ c_j(B) − c_j(A)`. Because the map
+`w ↦ BRM_composite(w; B) − BRM_composite(w; A) = Σ_j w_j Δ_j` is
+**linear** on the simplex, it attains its extrema at vertices, so
+
+```
+min_{w ∈ Δ³} [ BRM_composite(w; B) − BRM_composite(w; A) ] = min_j Δ_j .
+```
+
+Hence the ordering `BRM_composite(B) > BRM_composite(A)` holds for
+**every** `w ∈ Δ³` **if and only if** `min_j Δ_j > 0` — a closed-form,
+exactly checkable four-number certificate that replaces the 500-sample
+Monte-Carlo estimate with a strict guarantee over the entire convex
+hull of admissible weights (and, for any constrained weight polytope
+`W ⊆ Δ³`, over its finitely many vertices `V(W)` by the same linear-
+program argument). On the canonical sub-component values this certificate
+is satisfied (`min_j Δ_j > 0`; equal-weight Δ = 0.235, simplex-wide
+infimum bounded below by `min_j Δ_j`), so the Dirichlet sweep's
+empirical 1.000 is the *witness* of an analytic inequality, not a
+probabilistic substitute for it. Full proof: `docs/theorems.md`
+Theorem 2; certificate emitter: `analysis/brm_sensitivity.py`
+(`--emit-certificate`, audit row E.5).
 
 **Theorem 3 (Causal identification of the grounding effect).**
 Because the treatment `T` (grounding on/off) is researcher-assigned

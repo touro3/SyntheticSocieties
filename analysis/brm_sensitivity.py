@@ -16,6 +16,7 @@ CPU only; ~5 min for 5,000 Dirichlet samples.
 
 Usage:
     python -m analysis.brm_sensitivity --n-samples 5000
+    python -m analysis.brm_sensitivity --emit-certificate   # + Theorem 2 cert
 """
 
 from __future__ import annotations
@@ -161,6 +162,35 @@ def sweep(vals: dict, n_samples: int, seed: int) -> dict:
     )
 
 
+def certificate(vals: dict) -> dict:
+    """Exact LP-vertex certificate for Theorem 2 (docs/theorems.md).
+
+    f(w) = BRM_composite(w; B) − BRM_composite(w; A) is linear on the weight
+    simplex Δ³, so it attains its minimum at a vertex e_j (all weight on
+    component j). The certificate is the four vertex deltas Δ_j = f(e_j) and
+    the scalar min_j Δ_j; weight-robustness holds (ROBUST) iff min_j Δ_j > 0.
+    No sampling involved — this settles min_w f(w) exactly.
+    """
+    deltas = {}
+    for j, key in enumerate(_WEIGHT_KEYS):
+        w = {k: (1.0 if k == key else 0.0) for k in _WEIGHT_KEYS}
+        deltas[key] = _brm_for_weights(vals, w, "B") - _brm_for_weights(vals, w, "A")
+
+    min_key = min(deltas, key=deltas.get)
+    min_delta = deltas[min_key]
+    return {
+        "vertex_deltas": deltas,
+        "delta_vector": [deltas[k] for k in _WEIGHT_KEYS],
+        "min_delta": min_delta,
+        "argmin_vertex": min_key,
+        "verdict": "ROBUST" if min_delta > 0 else "NOT_ROBUST",
+        "rule": "min_j Δ_j > 0 ⇒ ROBUST",
+        "method": "exact LP-vertex enumeration (no sampling); Boyd & Vandenberghe 2004 §4.2",
+        "theorem": "docs/theorems.md Theorem 2",
+        "audit_row": "E.5",
+    }
+
+
 def _plot(samples: np.ndarray, diff: np.ndarray, out_png: Path) -> None:
     try:
         import matplotlib
@@ -220,10 +250,19 @@ def main() -> None:
         type=str,
         default=str(REPO_ROOT / "analysis" / "figures" / "brm_weight_sensitivity.png"),
     )
+    parser.add_argument(
+        "--emit-certificate",
+        action="store_true",
+        help="Add the exact LP-vertex robustness certificate (Theorem 2) to the "
+        "JSON summary alongside the legacy Dirichlet-sweep fields.",
+    )
     args = parser.parse_args()
 
     vals = _load_condition_values(Path(args.paper_numbers))
     summary, samples, diff = sweep(vals, args.n_samples, args.seed)
+
+    if args.emit_certificate:
+        summary["certificate"] = certificate(vals)
 
     out_json = Path(args.out_json)
     out_json.parent.mkdir(parents=True, exist_ok=True)

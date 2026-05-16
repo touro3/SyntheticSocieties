@@ -1,0 +1,5 @@
+{
+  "status": "awaiting_runs",
+  "message": "No mx_A_s* / mx_B_s* runs at N=500 T=30 in the registry yet. Launch scripts/launch_gpu_ab.sh, then re-run this script \u2014 it is press-play.",
+  "seeds_found": {}
+}

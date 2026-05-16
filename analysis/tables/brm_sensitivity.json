@@ -1,5 +1,5 @@
 {
-  "n_samples": 500,
+  "n_samples": 5000,
   "seed": 42,
   "fraction_BRM_B_gt_A": 1.0,
   "passed_90pct_threshold": true,
@@ -9,12 +9,12 @@
     "diff": 0.23515483485015154
   },
   "diff_stats": {
-    "mean": 0.2381991453389476,
-    "std": 0.048556560522041846,
-    "min": 0.135689465092379,
-    "max": 0.36106004837731664,
-    "q05": 0.16475435729096619,
-    "q95": 0.3205441669834431
+    "mean": 0.2355609833241354,
+    "std": 0.04606060025559423,
+    "min": 0.12955268794323793,
+    "max": 0.3733683667292077,
+    "q05": 0.16369090347588458,
+    "q95": 0.31658737420732724
   },
   "weight_keys": [
     "jsd",
@@ -23,5 +23,26 @@
     "stability"
   ],
   "audit_row": "E.5",
-  "provenance": "Sub-components loaded from analysis/paper_numbers.json with documented fallback to paper \u00a74.2 pilot values."
+  "provenance": "Sub-components loaded from analysis/paper_numbers.json with documented fallback to paper \u00a74.2 pilot values.",
+  "certificate": {
+    "vertex_deltas": {
+      "jsd": 0.15561933940060646,
+      "gini_gap": 0.2849999999999999,
+      "coop_gap": 0.38,
+      "stability": 0.11999999999999988
+    },
+    "delta_vector": [
+      0.15561933940060646,
+      0.2849999999999999,
+      0.38,
+      0.11999999999999988
+    ],
+    "min_delta": 0.11999999999999988,
+    "argmin_vertex": "stability",
+    "verdict": "ROBUST",
+    "rule": "min_j \u0394_j > 0 \u21d2 ROBUST",
+    "method": "exact LP-vertex enumeration (no sampling); Boyd & Vandenberghe 2004 \u00a74.2",
+    "theorem": "docs/theorems.md Theorem 2",
+    "audit_row": "E.5"
+  }
 }

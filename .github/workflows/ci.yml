@@ -221,18 +221,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # HF Spaces auto-builds the Docker image on every push to the Space repo.
-      # Secrets required (Settings → Secrets and variables → Actions):
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Uploads the slim build context (no experiments/ or figures binaries);
+      # huggingface_hub stores the few parquet files via Xet automatically.
+      # HF then rebuilds the Docker image. Secrets required (repo Settings →
+      # Secrets and variables → Actions):
       #   HF_TOKEN    — a Hugging Face write token
       #   HF_SPACE_ID — "<username>/<space-name>", e.g. touro3/synthetic-societies
-      - name: Push to Hugging Face Space
+      - name: Deploy to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
         run: |
-          git push --force \
-            "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID}.git" \
-            HEAD:main
+          pip install "huggingface_hub>=0.25"
+          python scripts/deploy_hf_space.py

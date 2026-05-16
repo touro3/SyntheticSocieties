@@ -505,6 +505,15 @@ onMounted(async () => {
   } catch {
     serverCaps.value = { design: { server_configured: false, preferred: null }, simulation: {} }
   }
+  // Default llm_backend is 'ollama', which isn't available on GPU-less cloud
+  // deployments (e.g. HF Spaces). If the selected sim provider isn't ready,
+  // switch to the first available one so the LLM path works out of the box.
+  if (!providerAvailable(selectedProvider.value, serverCaps.value)) {
+    const fallback = ['groq', 'openai', 'huggingface', 'ollama']
+      .map(v => providers.find(p => p.value === v))
+      .find(p => p && providerAvailable(p, serverCaps.value))
+    if (fallback) selectProvider(fallback)
+  }
 })
 
 // True when server already has a provider configured — hide all key/provider UI

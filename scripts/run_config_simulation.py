@@ -28,6 +28,19 @@ from utils.config import load_config
 from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
 
 
+def _resolve_experiment_id(config: dict) -> str:
+    """Experiment id with the same "api_run" fallback the API uses.
+
+    Configs without project.experiment_id (e.g. cross_model/*, cross_cultural/*)
+    previously raised KeyError here, crashing the run before any state file was
+    written so /status could never find it. Mutates config so later direct
+    accesses to config["project"]["experiment_id"] also succeed.
+    """
+    project = config.setdefault("project", {})
+    project.setdefault("experiment_id", "api_run")
+    return project["experiment_id"]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run a BGF simulation from config.")
     parser.add_argument(
@@ -223,7 +236,7 @@ def build_policy(config: dict):
         from decision.llm_policy import LLMPolicy
 
         llm_cfg = config.get("llm", {})
-        experiment_id = config["project"]["experiment_id"]
+        experiment_id = _resolve_experiment_id(config)
 
         backend = _build_llm_backend(llm_cfg)
         prompt_logger = _build_prompt_logger(experiment_id)
@@ -245,7 +258,7 @@ def build_policy(config: dict):
 
         llm_cfg = config.get("llm", {})
         padded_cfg = config.get("padded", {})
-        experiment_id = config["project"]["experiment_id"]
+        experiment_id = _resolve_experiment_id(config)
 
         backend = _build_llm_backend(llm_cfg)
         prompt_logger = _build_prompt_logger(experiment_id)
@@ -263,7 +276,7 @@ def build_policy(config: dict):
         from decision.llm_policy import LLMPolicy
 
         llm_cfg = config.get("llm", {})
-        experiment_id = config["project"]["experiment_id"]
+        experiment_id = _resolve_experiment_id(config)
 
         backend = _build_llm_backend(llm_cfg)
         prompt_logger = _build_prompt_logger(experiment_id)
@@ -311,7 +324,7 @@ def build_policy(config: dict):
 
         llm_cfg = config.get("llm", {})
         ablation_cfg = config.get("ablation", {})
-        experiment_id = config["project"]["experiment_id"]
+        experiment_id = _resolve_experiment_id(config)
 
         backend = _build_llm_backend(llm_cfg)
         prompt_logger = _build_prompt_logger(experiment_id)
@@ -344,7 +357,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         config = apply_overrides(config, overrides)
         print(f"Applied CLI overrides: {overrides}")
 
-    experiment_id = config["project"]["experiment_id"]
+    experiment_id = _resolve_experiment_id(config)
     seed = config["project"]["seed"]
 
     set_global_seed(seed)

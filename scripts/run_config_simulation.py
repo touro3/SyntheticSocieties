@@ -144,26 +144,74 @@ _OPENAI_COMPAT_PROVIDERS = {
 }
 
 
-def _build_llm_backend(llm_cfg: dict):
+def _transformers_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("transformers") is not None
+
+
+def _build_openai_compat_backend(provider: str, llm_cfg: dict):
     import os as _os
 
+    from decision.openai_backend import OpenAIBackend
+
+    base_url, env_var, key_fallback = _OPENAI_COMPAT_PROVIDERS[provider]
+    api_key = llm_cfg.get("api_key") or ((_os.environ.get(env_var) or None) if env_var else None) or key_fallback
+    backend = OpenAIBackend(
+        model_id=llm_cfg.get("model_id", "gpt-4o-mini"),
+        max_new_tokens=llm_cfg.get("max_new_tokens", 256),
+        temperature=llm_cfg.get("temperature", 0.7),
+        max_retries=llm_cfg.get("max_retries", 2),
+        api_key=api_key,
+        base_url=base_url,
+    )
+    backend.load()
+    return backend
+
+
+def _cloud_fallback_provider() -> str | None:
+    """First OpenAI-compatible provider whose API key is present in the env.
+
+    On cloud deployments (HF Spaces) there is no GPU and `transformers` is not
+    installed, so huggingface-backed configs (e.g. base_config.yaml) cannot run
+    locally. If a hosted-inference key is configured, transparently use it
+    instead of crashing with ModuleNotFoundError.
+    """
+    import os as _os
+
+    for provider, (_base_url, env_var, _fallback) in _OPENAI_COMPAT_PROVIDERS.items():
+        if env_var and (_os.environ.get(env_var) or "").strip():
+            return provider
+    return None
+
+
+def _build_llm_backend(llm_cfg: dict):
     backend_type = llm_cfg.get("backend_type", "huggingface")
 
     if backend_type in _OPENAI_COMPAT_PROVIDERS:
-        from decision.openai_backend import OpenAIBackend
+        return _build_openai_compat_backend(backend_type, llm_cfg)
 
-        base_url, env_var, key_fallback = _OPENAI_COMPAT_PROVIDERS[backend_type]
-        api_key = llm_cfg.get("api_key") or ((_os.environ.get(env_var) or None) if env_var else None) or key_fallback
-        backend = OpenAIBackend(
-            model_id=llm_cfg.get("model_id", "gpt-4o-mini"),
-            max_new_tokens=llm_cfg.get("max_new_tokens", 256),
-            temperature=llm_cfg.get("temperature", 0.7),
-            max_retries=llm_cfg.get("max_retries", 2),
-            api_key=api_key,
-            base_url=base_url,
+    try:
+        from decision.llm_backend import LLMBackend  # noqa: F401
+    except ModuleNotFoundError:
+        LLMBackend = None  # type: ignore[assignment]
+
+    if LLMBackend is None or not _transformers_available():
+        provider = _cloud_fallback_provider()
+        if provider is None:
+            raise RuntimeError(
+                "backend_type 'huggingface' requires the 'transformers' package "
+                "and a GPU, which are unavailable in this deployment. Set a "
+                "hosted-inference key (GROQ_API_KEY or OPENAI_API_KEY) so runs "
+                "can fall back to an API backend, or use a config with "
+                "llm.backend_type set to 'groq' or 'openai'."
+            )
+        print(
+            f"transformers unavailable (cloud/CPU deployment); falling back to "
+            f"'{provider}' API backend for this run.",
+            file=__import__("sys").stderr,
         )
-        backend.load()
-        return backend
+        return _build_openai_compat_backend(provider, llm_cfg)
 
     from decision.llm_backend import LLMBackend
 

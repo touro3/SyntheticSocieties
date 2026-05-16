@@ -78,7 +78,6 @@ def load_per_run() -> dict[str, dict[str, np.ndarray]]:
     con.execute(f"SET variable horizon = {HORIZON};")
     # The first statement in the .sql is the per_run SELECT; read it back.
     sql = SQL_FILE.read_text()
-    per_run_select = sql.split(";")[0]  # 'SET variable ...' lines are 3 stmts
     # Re-extract just the final SELECT * FROM per_run block robustly:
     marker = "SELECT * FROM per_run"
     body = sql[sql.index("WITH runs AS") : sql.index(marker) + len(marker)]
@@ -212,8 +211,7 @@ def welch_t(a: np.ndarray, b: np.ndarray) -> float:
         if se == 0:
             return 1.0
         t = (a.mean() - b.mean()) / se
-        df = se**4 / ((va / na) ** 2 / (na - 1) + (vb / nb) ** 2 / (nb - 1))
-        # survival of |t| via normal approx (df>=~9 here)
+        # Welch–Satterthwaite df ≈ 9 here; survival of |t| via normal approx
         return float(2 * (1 - _norm_cdf(abs(t))))
 
 

@@ -376,11 +376,22 @@ Test Infrastructure
 **Status:** Infrastructure complete; empirical work pending (10-20 seed runs, human eval, policy sweep)
 
 ## Sub-phase 28.1 — Statistical Power and Rigor
-[ ] Increase seed count to 10-20 for core A/B comparison
-[ ] Add bootstrap confidence intervals to all metrics
+[ ] Increase seed count to 10-20 for core A/B comparison (analytics wired; awaiting `launch_gpu_ab.sh` runs)
+[ ] Add bootstrap confidence intervals to all metrics (registry-derivable metrics done; BRM_composite deferred to Theorem 2 certificate)
 [x] Create `docs/hypothesis_preregistration.md` with H1-H8
 [x] Implement Benjamini-Hochberg FDR correction in `metrics/statistical_inference.py`
 [x] Update paper: all metrics reported as `value [95% CI]` format (framework added; values pending GPU runs)
+[x] Press-play 10-seed analytics: `analysis/ten_seed_aggregate.sql` (registry-only,
+    no run replay) + `analysis/ten_seed_report.py` — per-seed/per-condition
+    cooperation_rate, wealth_gini, B_RLHF with BCa bootstrap 95% CIs,
+    Mann–Whitney U (primary) + Welch (sensitivity), BH-FDR, Cohen's d.
+    Reports `awaiting_runs` and exits 0 until GPU runs land
+    (`analysis/tables/ten_seed_confirmatory.json` placeholder committed)
+[x] Theorem 2 weight-robustness certificate: `analysis/brm_sensitivity.py
+    --emit-certificate` emits the four vertex deltas Δ_j and min_j Δ_j with
+    ROBUST verdict (canonical run: min_j Δ_j=0.12>0, equal-weight Δ=0.235),
+    aligning code with docs/theorems.md "Verifiable certificate"; supersedes
+    the BRM_composite registry-CI gap (audit row E.5)
 
 ## Sub-phase 28.2 — Non-LLM Baseline Comparison
 [x] Implement `decision/rule_based_ess_policy.py` (deterministic ESS-grounded Condition D)

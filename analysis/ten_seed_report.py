@@ -34,6 +34,7 @@ Design choices
   ``status="awaiting_runs"`` and exits 0, so it is safe to wire into CI
   now and it simply activates when the seeds land.
 """
+
 from __future__ import annotations
 
 import json
@@ -130,33 +131,55 @@ def _norm_cdf(z: float) -> float:
 
 def _norm_ppf(p: float) -> float:
     # Acklam's rational approximation; adequate for CI endpoints.
-    a = [-3.969683028665376e01, 2.209460984245205e02, -2.759285104469687e02,
-         1.383577518672690e02, -3.066479806614716e01, 2.506628277459239e00]
-    b = [-5.447609879822406e01, 1.615858368580409e02, -1.556989798598866e02,
-         6.680131188771972e01, -1.328068155288572e01]
-    c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e00,
-         -2.549732539343734e00, 4.374664141464968e00, 2.938163982698783e00]
-    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00,
-         3.754408661907416e00]
+    a = [
+        -3.969683028665376e01,
+        2.209460984245205e02,
+        -2.759285104469687e02,
+        1.383577518672690e02,
+        -3.066479806614716e01,
+        2.506628277459239e00,
+    ]
+    b = [
+        -5.447609879822406e01,
+        1.615858368580409e02,
+        -1.556989798598866e02,
+        6.680131188771972e01,
+        -1.328068155288572e01,
+    ]
+    c = [
+        -7.784894002430293e-03,
+        -3.223964580411365e-01,
+        -2.400758277161838e00,
+        -2.549732539343734e00,
+        4.374664141464968e00,
+        2.938163982698783e00,
+    ]
+    d = [7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00, 3.754408661907416e00]
     pl, ph = 0.02425, 1 - 0.02425
     if p < pl:
         q = math.sqrt(-2 * math.log(p))
-        return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
-               ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
+        return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
+        )
     if p > ph:
         q = math.sqrt(-2 * math.log(1 - p))
-        return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / \
-               ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
+        return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1
+        )
     q = p - 0.5
     r = q * q
-    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / \
-           (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1)
+    return (
+        (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5])
+        * q
+        / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+    )
 
 
 def mann_whitney_u(a: np.ndarray, b: np.ndarray) -> float:
     """Two-sided Mann-Whitney U p-value (SciPy if available, else normal approx)."""
     try:
         from scipy.stats import mannwhitneyu
+
         return float(mannwhitneyu(a, b, alternative="two-sided").pvalue)
     except Exception:
         a, b = np.asarray(a), np.asarray(b)
@@ -179,6 +202,7 @@ def mann_whitney_u(a: np.ndarray, b: np.ndarray) -> float:
 def welch_t(a: np.ndarray, b: np.ndarray) -> float:
     try:
         from scipy.stats import ttest_ind
+
         return float(ttest_ind(a, b, equal_var=False).pvalue)
     except Exception:
         a, b = np.asarray(a), np.asarray(b)
@@ -188,7 +212,7 @@ def welch_t(a: np.ndarray, b: np.ndarray) -> float:
         if se == 0:
             return 1.0
         t = (a.mean() - b.mean()) / se
-        df = se**4 / ((va/na)**2/(na-1) + (vb/nb)**2/(nb-1))
+        df = se**4 / ((va / na) ** 2 / (na - 1) + (vb / nb) ** 2 / (nb - 1))
         # survival of |t| via normal approx (df>=~9 here)
         return float(2 * (1 - _norm_cdf(abs(t))))
 
@@ -209,12 +233,13 @@ def benjamini_hochberg(pvals: dict[str, float], q: float = 0.05) -> dict[str, di
 def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
     a, b = np.asarray(a), np.asarray(b)
     na, nb = len(a), len(b)
-    sp = math.sqrt(((na-1)*a.var(ddof=1) + (nb-1)*b.var(ddof=1)) / (na+nb-2))
+    sp = math.sqrt(((na - 1) * a.var(ddof=1) + (nb - 1) * b.var(ddof=1)) / (na + nb - 2))
     return float((b.mean() - a.mean()) / sp) if sp else float("nan")
 
 
 def make_figures(data: dict, results: dict) -> list[str]:
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
@@ -232,13 +257,13 @@ def make_figures(data: dict, results: dict) -> list[str]:
         los = [results["per_condition"][cond][m]["ci95"][0] for m in metrics]
         his = [results["per_condition"][cond][m]["ci95"][1] for m in metrics]
         err = [np.array(means) - np.array(los), np.array(his) - np.array(means)]
-        ax.bar(xs + (ci_i - 0.5) * width, means, width, label=cond,
-               yerr=err, capsize=4)
+        ax.bar(xs + (ci_i - 0.5) * width, means, width, label=cond, yerr=err, capsize=4)
     ax.set_xticks(xs)
     ax.set_xticklabels([METRICS[m] for m in metrics])
     ax.set_ylabel("Value")
-    ax.set_title(f"10-seed N={POP_SIZE} T={HORIZON} confirmatory A/B\n"
-                 "(error bars = BCa bootstrap 95% CI, 10k resamples)")
+    ax.set_title(
+        f"10-seed N={POP_SIZE} T={HORIZON} confirmatory A/B\n(error bars = BCa bootstrap 95% CI, 10k resamples)"
+    )
     ax.legend()
     fig.tight_layout()
     p1 = FIG_DIR / "ten_seed_ab_ci.png"
@@ -275,17 +300,18 @@ def main() -> int:
     if len(data) < 2 or min(have.values(), default=0) == 0:
         payload = {
             "status": "awaiting_runs",
-            "message": ("No mx_A_s* / mx_B_s* runs at N=500 T=30 in the "
-                        "registry yet. Launch scripts/launch_gpu_ab.sh, "
-                        "then re-run this script — it is press-play."),
+            "message": (
+                "No mx_A_s* / mx_B_s* runs at N=500 T=30 in the "
+                "registry yet. Launch scripts/launch_gpu_ab.sh, "
+                "then re-run this script — it is press-play."
+            ),
             "seeds_found": have,
         }
         OUT_JSON.write_text(json.dumps(payload, indent=2))
         print(json.dumps(payload, indent=2))
         return 0
 
-    results: dict = {"status": "complete", "n_per_arm": have,
-                     "per_condition": {}, "contrasts": {}}
+    results: dict = {"status": "complete", "n_per_arm": have, "per_condition": {}, "contrasts": {}}
     a_key = next(k for k in data if k.startswith("A"))
     b_key = next(k for k in data if k.startswith("B"))
 
@@ -330,8 +356,7 @@ def main() -> int:
     figs = make_figures(data, results)
     results["figures"] = figs
     OUT_JSON.write_text(json.dumps(results, indent=2))
-    print(json.dumps({k: results[k] for k in
-                       ("status", "n_per_arm", "contrasts")}, indent=2))
+    print(json.dumps({k: results[k] for k in ("status", "n_per_arm", "contrasts")}, indent=2))
     print(f"\nWrote {OUT_JSON}")
     for f in figs:
         print(f"Wrote {f}")

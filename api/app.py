@@ -913,6 +913,112 @@ def create_app(
 
         return jsonify(payload)
 
+    # ── Network replay (real per-round trust/cooperation graph) ───────────────
+
+    @app.get("/replay/<exp_id>")
+    @_read_limit
+    def replay(exp_id: str):
+        """Reconstruct the real per-round interaction network from events.jsonl.
+
+        Unlike the decorative flock animation, every node action, speech
+        bubble, and edge here comes from the recorded simulation: each round
+        carries each agent's actual action/target/wealth/stress plus the
+        directed cooperate/steal edges that actually fired that round.
+
+        Agents are capped at _REPLAY_AGENT_CAP (most interaction-active first)
+        to keep the payload and the SVG readable for large populations.
+        """
+        ok, err = _check_auth()
+        if not ok:
+            return err
+
+        try:
+            exp_dir = _resolve_exp_dir(exp_id)
+        except ValueError:
+            return jsonify({"error": "Invalid experiment ID"}), 400
+
+        if not exp_dir.exists():
+            return jsonify({"error": "Experiment not found"}), 404
+
+        events_path = exp_dir / "events.jsonl"
+        if not events_path.exists():
+            return jsonify({"error": "No events log — replay requires a run with saved events"}), 404
+
+        all_events = _read_events_cached(events_path)
+        if not all_events:
+            return jsonify({"error": "Events log is empty"}), 404
+
+        _REPLAY_AGENT_CAP = 60
+
+        def _agent_key(aid: str):
+            # Natural sort: "agent_2" < "agent_10".
+            digits = "".join(ch for ch in aid if ch.isdigit())
+            return (int(digits) if digits else 0, aid)
+
+        # First pass: interaction degree (to pick which agents to show) and
+        # which agents ever steal (adversarial / "bad apple").
+        degree: dict[str, int] = {}
+        adversarial: set[str] = set()
+        all_agents: set[str] = set()
+        for ev in all_events:
+            aid = ev.get("agent_id")
+            if not aid:
+                continue
+            all_agents.add(aid)
+            act = ev.get("action", {}) or {}
+            atype = act.get("action_type", "")
+            tgt = act.get("target_agent_id")
+            if atype == "steal":
+                adversarial.add(aid)
+            if atype in ("cooperate", "steal") and tgt:
+                degree[aid] = degree.get(aid, 0) + 1
+                degree[tgt] = degree.get(tgt, 0) + 1
+
+        shown = sorted(all_agents, key=lambda a: (-degree.get(a, 0), _agent_key(a)))
+        shown = shown[:_REPLAY_AGENT_CAP]
+        shown_sorted = sorted(shown, key=_agent_key)
+        shown_set = set(shown_sorted)
+
+        # Second pass: bucket events by round.
+        rounds: dict[int, dict] = {}
+        for ev in all_events:
+            aid = ev.get("agent_id")
+            if aid not in shown_set:
+                continue
+            rid = ev.get("round_id")
+            if rid is None:
+                continue
+            bucket = rounds.setdefault(rid, {"round": rid, "states": {}, "edges": []})
+            act = ev.get("action", {}) or {}
+            atype = act.get("action_type", "unknown")
+            tgt = act.get("target_agent_id")
+            state = ev.get("state_after", {}) or {}
+            reason = (act.get("reasoning_summary") or "").strip()
+            if len(reason) > 70:
+                reason = reason[:67] + "…"
+            bucket["states"][aid] = {
+                "a": atype,
+                "t": tgt if tgt in shown_set else None,
+                "w": round(float(state.get("wealth", 0) or 0), 1),
+                "s": round(float(state.get("stress", 0) or 0), 2),
+                "r": reason,
+            }
+            if atype in ("cooperate", "steal") and tgt in shown_set:
+                bucket["edges"].append([aid, tgt, atype])
+
+        ordered = [rounds[k] for k in sorted(rounds.keys())]
+
+        return jsonify(
+            {
+                "experiment_id": exp_id,
+                "n_agents": len(all_agents),
+                "shown": len(shown_sorted),
+                "agent_ids": shown_sorted,
+                "adversarial": sorted(adversarial & shown_set, key=_agent_key),
+                "rounds": ordered,
+            }
+        )
+
     # ── List experiments ──────────────────────────────────────────────────────
 
     @app.get("/experiments")

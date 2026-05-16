@@ -34,6 +34,7 @@ export const api = {
   designSimulation: (body)                    => http.post('/design-simulation', body, { timeout: 60000 }),
   status:         (expId)                     => http.get(`/status/${expId}`),
   results:        (expId)                     => http.get(`/results/${expId}`),
+  replay:         (expId)                     => http.get(`/replay/${expId}`),
   interview:      (expId, agentId, question)  => http.post(`/interview/${expId}/${agentId}`, { question }),
   anchor:         (expId, question)           => http.post(`/anchor/${expId}`, { question }),
   inject:         (expId, eventType, payload) => http.post(`/inject/${expId}`, { event_type: eventType, payload }),

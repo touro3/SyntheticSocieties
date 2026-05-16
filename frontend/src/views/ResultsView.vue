@@ -63,6 +63,9 @@
         </div>
       </div>
 
+      <!-- Real per-round interaction network (post-hoc replay) -->
+      <NetworkReplay :exp-id="expId" />
+
       <div class="results-grid">
 
         <!-- LEFT col: charts + metadata -->
@@ -204,6 +207,7 @@ import { useRoute } from 'vue-router'
 import { api, gini, mean } from '../api/index.js'
 import { useReveal } from '../composables/useReveal.js'
 import { Chart, registerables } from 'chart.js'
+import NetworkReplay from '../components/NetworkReplay.vue'
 Chart.register(...registerables)
 
 const route  = useRoute()

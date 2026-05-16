@@ -207,8 +207,7 @@ def _build_llm_backend(llm_cfg: dict):
                 "llm.backend_type set to 'groq' or 'openai'."
             )
         print(
-            f"transformers unavailable (cloud/CPU deployment); falling back to "
-            f"'{provider}' API backend for this run.",
+            f"transformers unavailable (cloud/CPU deployment); falling back to '{provider}' API backend for this run.",
             file=__import__("sys").stderr,
         )
         return _build_openai_compat_backend(provider, llm_cfg)

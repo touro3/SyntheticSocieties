@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from scripts.build_condition_d_table import build, load_condition_d_run
 from metrics.behavioral_realism import rlhf_bias_index_from_counts
+from scripts.build_condition_d_table import build, load_condition_d_run
 
 
 def _make_run(root, name, *, n=100, t=30, gini=0.5, work=100, save=50, cooperate=150):

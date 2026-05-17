@@ -26,7 +26,8 @@ private LANs). Before exposing it on the public internet:
    `Authorization: Bearer <token>`. **Exceptions** (public by design, bounded by
    per-IP rate limiting instead of the token): all `GET`/`HEAD`/`OPTIONS`, and
    the demo POST routes in `_PUBLIC_POST_PATHS` — `/design-simulation`,
-   `/human-eval/rating`, `/human-game/{session,action,complete}`.
+   `/simulate-wizard`, `/human-eval/rating`,
+   `/human-game/{session,action,complete}`.
    Generate a token: `python -c "import secrets; print(secrets.token_hex(32))"`
 
 2. **Run behind a reverse proxy** (nginx / Caddy) with TLS — the Flask dev server
@@ -64,8 +65,10 @@ public `GET /results` / `/status` endpoints or server logs.
 
 `flask-limiter` enforces per-IP limits on every write/compute endpoint
 (`flask-limiter` is a hard dependency in `requirements*.txt`). The
-unauthenticated paid-LLM endpoint `/design-simulation` carries a dedicated
-stricter cap. Simulation size is bounded in `configs/schema.py`
+unauthenticated paid-LLM endpoint `/design-simulation` and the
+subprocess-spawning `/simulate-wizard` each carry a dedicated stricter cap
+(`/simulate-wizard`: 3/min, 20/hour, 80/day). Simulation size is bounded in
+`configs/schema.py`
 (`rounds ≤ 200`, `population_size ≤ 1000`) so an oversized uploaded or
 LLM-designed config cannot exhaust compute/disk. The in-memory human-game
 session table is capped and TTL-pruned to prevent memory-exhaustion DoS.

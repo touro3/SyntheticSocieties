@@ -44,6 +44,7 @@ import pytest
 @pytest.mark.parametrize(
     "path,payload",
     [
+        ("/simulate-wizard", {}),
         ("/human-eval/rating", {}),
         ("/human-game/session", {}),
         ("/human-game/action", {}),

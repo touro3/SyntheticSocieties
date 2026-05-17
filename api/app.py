@@ -95,9 +95,15 @@ _AUTH_TOKEN: str | None = os.environ.get("BGF_API_TOKEN")
 # /human-eval/rating and /human-game/* are public participant/demo flows (Prolific
 # study + interactive baseline game): visitors have no token, so token-gating
 # would break the study. They are rate-limited and resource-bounded instead.
+#
+# /simulate-wizard is the public demo's "Launch Simulation" path. It spawns a
+# subprocess simulation, so it is the heaviest public endpoint — its cost/DoS
+# exposure is bounded by a dedicated stricter limiter (`_wizard_limit`) plus the
+# per-run size caps in configs/schema.py, not by the token.
 _PUBLIC_POST_PATHS: frozenset[str] = frozenset(
     {
         "/design-simulation",
+        "/simulate-wizard",
         "/human-eval/rating",
         "/human-game/session",
         "/human-game/action",
@@ -597,6 +603,9 @@ def create_app(
         # Stricter cap for the public, unauthenticated, paid-LLM design endpoint:
         # bounds Groq/OpenAI cost exposure since it is no longer token-gated.
         _design_limit = limiter.limit("5 per minute; 40 per hour; 150 per day")
+        # Heaviest public endpoint: each call spawns a subprocess simulation.
+        # Tighter than _simulate_limit since it is no longer token-gated.
+        _wizard_limit = limiter.limit("3 per minute; 20 per hour; 80 per day")
         _report_limit = limiter.limit("5 per minute")
         _write_limit = limiter.limit("30 per minute")
         _read_limit = limiter.limit("60 per minute")
@@ -613,7 +622,7 @@ def create_app(
 
         _simulate_limit = _report_limit = _write_limit = _noop
         _design_limit = _read_limit = _experiments_limit = _incomplete_limit = _noop
-        _human_eval_write_limit = _human_game_limit = _noop
+        _wizard_limit = _human_eval_write_limit = _human_game_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
     # ── Static assets for Vue SPA (built to api/static/) ─────────────────────
@@ -2638,7 +2647,7 @@ def create_app(
     # ── No-code wizard simulate ──────────────────────────────────────────
 
     @app.post("/simulate-wizard")
-    @_simulate_limit
+    @_wizard_limit
     def simulate_wizard():
         """
         Launch a simulation from wizard parameters (no YAML knowledge needed).

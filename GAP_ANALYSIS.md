@@ -62,6 +62,7 @@ This is the single strongest possible evidence for the central claim.
 
 ---
 
+
 ### 4. LaTeX venue formatting — **DONE ✓**
 `docs/paper_aamas.tex` stub created (ACM sigconf, 8 pages).
 Abstract, contributions, formal spec, cross-cultural result, and bibliography

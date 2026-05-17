@@ -86,6 +86,13 @@ _UPLOADS_DIR = Path("uploads") / "ess_data"
 # If unset, auth is disabled — intended for local / trusted-network use only.
 _AUTH_TOKEN: str | None = os.environ.get("BGF_API_TOKEN")
 
+# Public POST endpoints: write/compute routes that stay open even when a token
+# is configured, because they are part of the public demo UX and would
+# otherwise require shipping the token in client-side JS (where it is trivially
+# readable, defeating the purpose). Cost/DoS exposure on these is bounded
+# instead by the per-IP rate limiter (see `_simulate_limit`), not by the token.
+_PUBLIC_POST_PATHS: frozenset[str] = frozenset({"/design-simulation"})
+
 # Valid experiment ID pattern: alphanumeric, underscores, hyphens, dots only.
 # Blocks path-traversal sequences like "../", "%2e%2e", etc.
 _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
@@ -436,6 +443,10 @@ def _check_auth() -> tuple[bool, Any]:
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return True, None
 
+    # Public demo POSTs (e.g. /design-simulation): rate-limited, not token-gated.
+    if request.path in _PUBLIC_POST_PATHS:
+        return True, None
+
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return False, (jsonify({"error": "Authorization header required"}), 401)
@@ -539,6 +550,9 @@ def create_app(
             storage_uri="memory://",
         )
         _simulate_limit = limiter.limit("10 per minute")
+        # Stricter cap for the public, unauthenticated, paid-LLM design endpoint:
+        # bounds Groq/OpenAI cost exposure since it is no longer token-gated.
+        _design_limit = limiter.limit("5 per minute; 40 per hour; 150 per day")
         _report_limit = limiter.limit("5 per minute")
         _write_limit = limiter.limit("30 per minute")
         _read_limit = limiter.limit("60 per minute")
@@ -550,7 +564,7 @@ def create_app(
             return f
 
         _simulate_limit = _report_limit = _write_limit = _noop
-        _read_limit = _experiments_limit = _incomplete_limit = _noop
+        _design_limit = _read_limit = _experiments_limit = _incomplete_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
     # ── Static assets for Vue SPA (built to api/static/) ─────────────────────
@@ -2420,7 +2434,7 @@ def create_app(
     # ── AI simulation design ─────────────────────────────────────────────────────
 
     @app.post("/design-simulation")
-    @_simulate_limit
+    @_design_limit
     def design_simulation():
         """
         AI agent interprets a natural language prompt and designs a full simulation.

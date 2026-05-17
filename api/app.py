@@ -111,6 +111,13 @@ _PUBLIC_POST_PATHS: frozenset[str] = frozenset(
     }
 )
 
+# Public POST routes with dynamic path segments (exp_id / agent_id), so they
+# cannot be matched exactly: the Interact page's "Send" (agent interview) and
+# "Broadcast" (anchor query) buttons. Both are rate-limited (`_write_limit` /
+# `_read_limit`) and read-only against existing experiments. The trailing
+# slash is required so the prefix cannot match an unintended sibling route.
+_PUBLIC_POST_PREFIXES: tuple[str, ...] = ("/interview/", "/anchor/")
+
 # Provider API-key token shapes (OpenAI sk-/sk-proj-, Groq gsk_, HF hf_).
 _SECRET_TOKEN_RE = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|gsk_[A-Za-z0-9]{8,}|hf_[A-Za-z0-9]{8,})")
 
@@ -483,7 +490,7 @@ def _check_auth() -> tuple[bool, Any]:
         return True, None
 
     # Public demo POSTs (e.g. /design-simulation): rate-limited, not token-gated.
-    if request.path in _PUBLIC_POST_PATHS:
+    if request.path in _PUBLIC_POST_PATHS or request.path.startswith(_PUBLIC_POST_PREFIXES):
         return True, None
 
     auth_header = request.headers.get("Authorization", "")

@@ -27,7 +27,9 @@ private LANs). Before exposing it on the public internet:
    per-IP rate limiting instead of the token): all `GET`/`HEAD`/`OPTIONS`, and
    the demo POST routes in `_PUBLIC_POST_PATHS` — `/design-simulation`,
    `/simulate-wizard`, `/human-eval/rating`,
-   `/human-game/{session,action,complete}`.
+   `/human-game/{session,action,complete}` — plus the dynamic-path prefixes
+   in `_PUBLIC_POST_PREFIXES` — `/interview/<exp>/<agent>` and
+   `/anchor/<exp>` (the Interact page's Send / Broadcast buttons).
    Generate a token: `python -c "import secrets; print(secrets.token_hex(32))"`
 
 2. **Run behind a reverse proxy** (nginx / Caddy) with TLS — the Flask dev server

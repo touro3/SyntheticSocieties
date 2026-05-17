@@ -49,6 +49,9 @@ import pytest
         ("/human-game/session", {}),
         ("/human-game/action", {}),
         ("/human-game/complete", {}),
+        # Dynamic-path prefixes (Interact page Send / Broadcast).
+        ("/interview/some_exp/agent_0", {"question": "hi"}),
+        ("/anchor/some_exp", {"question": "hi"}),
     ],
 )
 def test_public_demo_posts_not_token_gated(monkeypatch, path, payload):

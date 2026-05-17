@@ -25,7 +25,7 @@ from population.generator import (
 )
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
-from utils.io import ensure_dir, save_json, save_yaml, set_global_seed
+from utils.io import ensure_dir, redact_secrets, save_json, save_yaml, set_global_seed
 
 
 def _resolve_experiment_id(config: dict) -> str:
@@ -411,7 +411,9 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
 
     run_dir = ensure_dir(Path("experiments") / experiment_id)
 
-    save_yaml(config, run_dir / "config.yaml")
+    # Redact credentials: this snapshot is world-readable and exposed via the
+    # public GET /results and /status endpoints.
+    save_yaml(redact_secrets(config), run_dir / "config.yaml")
 
     metadata = {
         "project_name": config["project"]["name"],

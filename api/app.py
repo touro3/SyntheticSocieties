@@ -91,14 +91,53 @@ _AUTH_TOKEN: str | None = os.environ.get("BGF_API_TOKEN")
 # otherwise require shipping the token in client-side JS (where it is trivially
 # readable, defeating the purpose). Cost/DoS exposure on these is bounded
 # instead by the per-IP rate limiter (see `_simulate_limit`), not by the token.
-_PUBLIC_POST_PATHS: frozenset[str] = frozenset({"/design-simulation"})
+#
+# /human-eval/rating and /human-game/* are public participant/demo flows (Prolific
+# study + interactive baseline game): visitors have no token, so token-gating
+# would break the study. They are rate-limited and resource-bounded instead.
+#
+# /simulate-wizard is the public demo's "Launch Simulation" path. It spawns a
+# subprocess simulation, so it is the heaviest public endpoint — its cost/DoS
+# exposure is bounded by a dedicated stricter limiter (`_wizard_limit`) plus the
+# per-run size caps in configs/schema.py, not by the token.
+_PUBLIC_POST_PATHS: frozenset[str] = frozenset(
+    {
+        "/design-simulation",
+        "/simulate-wizard",
+        "/human-eval/rating",
+        "/human-game/session",
+        "/human-game/action",
+        "/human-game/complete",
+    }
+)
+
+# Provider API-key token shapes (OpenAI sk-/sk-proj-, Groq gsk_, HF hf_).
+_SECRET_TOKEN_RE = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|gsk_[A-Za-z0-9]{8,}|hf_[A-Za-z0-9]{8,})")
+
+
+def _scrub_secrets(text: str | None) -> str:
+    """Mask credentials before they reach logs / status files.
+
+    Replaces the live values of known secret env vars and any provider
+    token-shaped substrings, so a chatty/erroring child process cannot leak
+    a key into server logs or the publicly-readable run status file.
+    """
+    if not text:
+        return text or ""
+    out = text
+    for _var in ("OPENAI_API_KEY", "GROQ_API_KEY", "BGF_API_TOKEN"):
+        _val = os.environ.get(_var, "")
+        if _val and len(_val) >= 8:
+            out = out.replace(_val, "***REDACTED***")
+    return _SECRET_TOKEN_RE.sub("***REDACTED***", out)
+
 
 # Valid experiment ID pattern: alphanumeric, underscores, hyphens, dots only.
 # Blocks path-traversal sequences like "../", "%2e%2e", etc.
 _EXP_ID_RE = re.compile(r"^[A-Za-z0-9_\-\.]{1,128}$")
 
 # ── Design-LLM response cache ─────────────────────────────────────────────
-# Keyed by sha256(provider + user_msg)[:16].  Identical prompts (same scenario
+# Keyed by sha256(provider + user_msg).  Identical prompts (same scenario
 # description) return the cached design without burning an API credit.
 _DESIGN_CACHE: dict[str, tuple] = {}
 _DESIGN_CACHE_MAX = 128  # ~128 scenario designs in RAM before FIFO eviction
@@ -289,7 +328,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         raise RuntimeError("openai package not installed — pip install openai") from exc
 
     # Cache check — skip API call for identical prompts (same scenario wording)
-    cache_key = hashlib.sha256(f"{provider}:{user_msg}".encode()).hexdigest()[:16]
+    cache_key = hashlib.sha256(f"{provider}:{user_msg}".encode()).hexdigest()
     with _DESIGN_CACHE_LOCK:
         if cache_key in _DESIGN_CACHE:
             logger.info("design LLM: cache hit %s", cache_key)
@@ -460,6 +499,25 @@ def _check_auth() -> tuple[bool, Any]:
     return True, None
 
 
+def _is_trusted_caller() -> bool:
+    """True if the caller may supply privileged inputs (e.g. an LLM API key).
+
+    Open mode (no token configured) is trusted local/LAN use. When a token IS
+    configured, only a request presenting the valid bearer token is trusted —
+    a public, tokenless caller hitting a `_PUBLIC_POST_PATHS` route is NOT, so
+    its client-supplied API keys are ignored in favour of server-env keys
+    only. This prevents anonymous users from injecting arbitrary provider
+    credentials through the public demo endpoints.
+    """
+    if not _AUTH_TOKEN:
+        return True
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return False
+    provided = auth_header[len("Bearer ") :]
+    return hmac.compare_digest(provided.encode(), _AUTH_TOKEN.encode())
+
+
 def _resolve_exp_dir(exp_id: str) -> Path:
     """Return the experiment directory path, raising ValueError on bad input.
 
@@ -537,8 +595,19 @@ def create_app(
     app.config["MAX_CONTENT_LENGTH"] = 52 * 1024 * 1024  # 52 MB
 
     # CORS — prefer explicit origins for production; fall back to env var, then open.
+    # CORS — prefer explicit origins. When neither the `allowed_origins` arg nor
+    # BGF_CORS_ORIGINS is set, fall back to the known public Space + localhost
+    # dev origins rather than "*", so a public deploy does not allow arbitrary
+    # cross-origin reads of the (auth-exempt) GET endpoints by default.
+    _DEFAULT_ORIGINS = [
+        "https://touro3-synthetic-societies.hf.space",
+        "http://localhost:5050",
+        "http://localhost:5173",
+        "http://127.0.0.1:5050",
+        "http://127.0.0.1:5173",
+    ]
     _env_origins = os.environ.get("BGF_CORS_ORIGINS", "").strip()
-    _resolved_origins = allowed_origins or (_env_origins.split(",") if _env_origins else None) or "*"
+    _resolved_origins = allowed_origins or (_env_origins.split(",") if _env_origins else None) or _DEFAULT_ORIGINS
     CORS(app, origins=_resolved_origins)
 
     # ── Rate limiting (optional — requires flask-limiter) ────────────────────
@@ -553,11 +622,18 @@ def create_app(
         # Stricter cap for the public, unauthenticated, paid-LLM design endpoint:
         # bounds Groq/OpenAI cost exposure since it is no longer token-gated.
         _design_limit = limiter.limit("5 per minute; 40 per hour; 150 per day")
+        # Heaviest public endpoint: each call spawns a subprocess simulation.
+        # Tighter than _simulate_limit since it is no longer token-gated.
+        _wizard_limit = limiter.limit("3 per minute; 20 per hour; 80 per day")
         _report_limit = limiter.limit("5 per minute")
         _write_limit = limiter.limit("30 per minute")
         _read_limit = limiter.limit("60 per minute")
         _experiments_limit = limiter.limit("30 per minute")
         _incomplete_limit = limiter.limit("10 per minute")
+        # Public, unauthenticated write/compute demo endpoints — bound disk-write
+        # and memory-growth abuse since they are not token-gated.
+        _human_eval_write_limit = limiter.limit("10 per minute; 100 per hour")
+        _human_game_limit = limiter.limit("30 per minute; 300 per hour")
     else:
         # No-op decorators if flask-limiter is not installed.
         def _noop(f):
@@ -565,6 +641,7 @@ def create_app(
 
         _simulate_limit = _report_limit = _write_limit = _noop
         _design_limit = _read_limit = _experiments_limit = _incomplete_limit = _noop
+        _wizard_limit = _human_eval_write_limit = _human_game_limit = _noop
         logger.warning("flask-limiter not installed — rate limiting disabled. Install with: pip install flask-limiter")
 
     # ── Static assets for Vue SPA (built to api/static/) ─────────────────────
@@ -626,12 +703,21 @@ def create_app(
 
     @app.get("/configs")
     def list_configs():
+        # Only expose curated, static config files. Wizard/run-generated configs
+        # live under configs/wizard/ (or carry an exp_-style id) and would leak
+        # experiment identifiers and run layout, so they are excluded.
         configs = []
         if _CONFIGS_ROOT.exists():
             for p in sorted(_CONFIGS_ROOT.rglob("*.yaml")):
                 rel = str(p.relative_to(_CONFIGS_ROOT.parent))
-                if "__pycache__" not in rel:
-                    configs.append(rel)
+                parts = p.relative_to(_CONFIGS_ROOT).parts
+                if "__pycache__" in rel:
+                    continue
+                if parts and parts[0] == "wizard":
+                    continue
+                if p.stem.startswith("exp_"):
+                    continue
+                configs.append(rel)
         return jsonify({"configs": configs})
 
     # ── Health ────────────────────────────────────────────────────────────────
@@ -2488,12 +2574,18 @@ def create_app(
         if provider == "ollama":
             api_key = ""
         else:
-            # API key: body > server env
-            api_key = (
-                str(body.get("api_key", "")).strip()
-                or (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "")
-                or os.environ.get("OPENAI_API_KEY", "")
+            # API key resolution. A client-supplied key is honoured ONLY for
+            # trusted (token-authenticated or open-mode) callers. Anonymous
+            # public-demo callers cannot inject their own provider credentials —
+            # they get the server-env key or nothing.
+            client_key = str(body.get("api_key", "")).strip()
+            server_key = (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "") or os.environ.get(
+                "OPENAI_API_KEY", ""
             )
+            if client_key and not _is_trusted_caller():
+                logger.warning("Ignored client-supplied api_key from untrusted caller %s", request.remote_addr)
+                client_key = ""
+            api_key = client_key or server_key
             if not api_key:
                 return (
                     jsonify(
@@ -2534,15 +2626,25 @@ def create_app(
             if key not in design:
                 design.setdefault(key, {} if key in ("config", "population_traits") else "")
 
-        # Clamp config values to safe ranges
+        # Clamp config values to safe ranges. Coercion is fault-tolerant: the
+        # LLM is untrusted, so non-numeric / absurd values must fall back to a
+        # safe default and be clamped, never raise (500) or bypass the bound.
+        def _safe_num(val, default, lo, hi, cast):
+            try:
+                return max(lo, min(hi, cast(val)))
+            except (TypeError, ValueError):
+                return default
+
         cfg = design.get("config", {})
-        cfg["agents"] = max(5, min(200, int(cfg.get("agents", 20))))
-        cfg["rounds"] = max(5, min(100, int(cfg.get("rounds", 10))))
+        if not isinstance(cfg, dict):
+            cfg = {}
+        cfg["agents"] = _safe_num(cfg.get("agents", 20), 20, 5, 200, int)
+        cfg["rounds"] = _safe_num(cfg.get("rounds", 10), 10, 5, 100, int)
         if cfg.get("policy") not in {"mock", "random", "rule_based", "template", "llm"}:
             cfg["policy"] = "rule_based"
         if cfg.get("network_type") not in {"random", "small_world"}:
             cfg["network_type"] = "random"
-        cfg["bad_apple_frac"] = max(0.0, min(0.3, float(cfg.get("bad_apple_frac", 0.0))))
+        cfg["bad_apple_frac"] = _safe_num(cfg.get("bad_apple_frac", 0.0), 0.0, 0.0, 0.3, float)
         design["config"] = cfg
 
         # Synthesise population parquet from trait distributions
@@ -2570,7 +2672,7 @@ def create_app(
     # ── No-code wizard simulate ──────────────────────────────────────────
 
     @app.post("/simulate-wizard")
-    @_simulate_limit
+    @_wizard_limit
     def simulate_wizard():
         """
         Launch a simulation from wizard parameters (no YAML knowledge needed).
@@ -2705,8 +2807,13 @@ def create_app(
         if not _MODEL_RE.match(llm_model_id):
             return jsonify({"error": "Invalid llm_model_id"}), 400
 
-        # Accept key under either name
+        # Accept a client-supplied key (either name) ONLY from a trusted
+        # caller. Anonymous public-demo callers cannot inject provider
+        # credentials — the run falls back to the server-env key (if any).
         llm_api_key = str(body.get("openai_api_key", "")).strip() or str(body.get("llm_api_key", "")).strip() or None
+        if llm_api_key and not _is_trusted_caller():
+            logger.warning("Ignored client-supplied llm_api_key from untrusted caller %s", request.remote_addr)
+            llm_api_key = None
 
         # ── Generate experiment ID and YAML config ────────────────────────
         ts = int(time.time())
@@ -2835,11 +2942,11 @@ def create_app(
                     text=True,
                 )
                 if result.stdout:
-                    logger.info("Wizard run %s stdout: %s", exp_id, result.stdout[-1000:])
+                    logger.info("Wizard run %s stdout: %s", exp_id, _scrub_secrets(result.stdout[-1000:]))
                 _persist_scenario(exp_out)
             except subprocess.CalledProcessError as exc:
-                stderr_tail = (exc.stderr or "")[-800:]
-                stdout_tail = (exc.stdout or "")[-400:]
+                stderr_tail = _scrub_secrets((exc.stderr or "")[-800:])
+                stdout_tail = _scrub_secrets((exc.stdout or "")[-400:])
                 logger.error(
                     "Wizard simulation failed (exp=%s) rc=%s\nstdout: %s\nstderr: %s",
                     exp_id,
@@ -3089,9 +3196,12 @@ def create_app(
         )
 
     @app.post("/human-eval/rating")
-    @_human_eval_limit
+    @_human_eval_write_limit
     def human_eval_rating():
         """Save a participant's rating for a vignette pair."""
+        ok, err = _check_auth()
+        if not ok:
+            return err
         try:
             body: dict = request.get_json(force=True, silent=False) or {}
         except Exception:
@@ -3221,10 +3331,29 @@ def create_app(
     _HUMAN_RESPONSES_CSV = Path("data/human/responses.csv")
 
     import threading as _threading
+    import time as _time
     import uuid as _uuid
 
     _hg_sessions: dict[str, dict] = {}
     _hg_lock = _threading.Lock()
+
+    # Bound the in-memory session table so an attacker cannot exhaust memory by
+    # spamming /human-game/session. Expired sessions are pruned lazily; if the
+    # cap is still exceeded the oldest sessions are evicted.
+    _HG_MAX_SESSIONS = 5000
+    _HG_SESSION_TTL = 6 * 3600  # seconds
+
+    def _hg_prune_locked() -> None:
+        """Drop expired/overflow sessions. Caller must hold _hg_lock."""
+        now = _time.time()
+        expired = [k for k, v in _hg_sessions.items() if now - v.get("created", now) > _HG_SESSION_TTL]
+        for k in expired:
+            del _hg_sessions[k]
+        if len(_hg_sessions) >= _HG_MAX_SESSIONS:
+            for k in sorted(_hg_sessions, key=lambda k: _hg_sessions[k].get("created", 0.0))[
+                : len(_hg_sessions) - _HG_MAX_SESSIONS + 1
+            ]:
+                del _hg_sessions[k]
 
     _HG_NUM_ROUNDS = 10
     _HG_INITIAL_WEALTH = 50.0
@@ -3247,6 +3376,7 @@ def create_app(
             "actions": [],
             "cooperation_count": 0,
             "complete": False,
+            "created": _time.time(),
         }
 
     def _hg_apply_action(session: dict, action: str, target: str | None) -> dict:
@@ -3351,7 +3481,11 @@ def create_app(
         return send_from_directory(str(static_dir), filename)
 
     @app.post("/human-game/session")
+    @_human_game_limit
     def human_game_session():
+        ok, err = _check_auth()
+        if not ok:
+            return err
         body = request.get_json(silent=True) or {}
         try:
             pre_trust = max(1.0, min(10.0, float(body.get("pre_trust", 5))))
@@ -3360,6 +3494,7 @@ def create_app(
             return jsonify({"error": "pre_trust and pre_risk must be numbers"}), 400
         session = _hg_new_session((pre_trust - 1) / 9.0, (pre_risk - 1) / 9.0)
         with _hg_lock:
+            _hg_prune_locked()
             _hg_sessions[session["session_id"]] = session
         return jsonify(
             {
@@ -3372,7 +3507,11 @@ def create_app(
         ), 201
 
     @app.post("/human-game/action")
+    @_human_game_limit
     def human_game_action():
+        ok, err = _check_auth()
+        if not ok:
+            return err
         body = request.get_json(silent=True) or {}
         sid = body.get("session_id")
         action = body.get("action", "work").lower()
@@ -3407,7 +3546,11 @@ def create_app(
         )
 
     @app.post("/human-game/complete")
+    @_human_game_limit
     def human_game_complete():
+        ok, err = _check_auth()
+        if not ok:
+            return err
         body = request.get_json(silent=True) or {}
         sid = body.get("session_id")
         with _hg_lock:

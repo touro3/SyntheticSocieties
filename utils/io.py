@@ -27,6 +27,32 @@ def save_yaml(data: dict[str, Any], path: str | Path) -> None:
         yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
 
+_SECRET_KEY_HINTS = ("api_key", "apikey", "token", "secret", "password", "passwd")
+_REDACTED = "***REDACTED***"
+
+
+def redact_secrets(data: Any) -> Any:
+    """Return a deep copy of ``data`` with secret-looking values masked.
+
+    Any dict key whose name contains an entry from ``_SECRET_KEY_HINTS``
+    (case-insensitive) has its value replaced with ``***REDACTED***``. Used
+    before persisting config snapshots so credentials never land in
+    world-readable ``experiments/<id>/config.yaml`` (served via public GET
+    endpoints).
+    """
+    if isinstance(data, dict):
+        out: dict[Any, Any] = {}
+        for k, v in data.items():
+            if isinstance(k, str) and any(h in k.lower() for h in _SECRET_KEY_HINTS):
+                out[k] = _REDACTED if v not in (None, "") else v
+            else:
+                out[k] = redact_secrets(v)
+        return out
+    if isinstance(data, list):
+        return [redact_secrets(v) for v in data]
+    return data
+
+
 def set_global_seed(seed: int) -> None:
     """Set seed across all RNG sources for full reproducibility.
 

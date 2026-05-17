@@ -68,7 +68,15 @@ def _connect(
         raise FileNotFoundError(f"Experiment index not found: {path}")
     if path.suffix != ".parquet":
         raise ValueError(f"Experiment index must be a .parquet file: {path}")
-    safe_path = str(path.resolve()).replace("'", "''")
+    # DuckDB cannot bind a prepared parameter inside CREATE VIEW/read_parquet,
+    # so the path is interpolated as a SQL string literal. Doubling single
+    # quotes is the correct, complete escaping for a single-quoted literal; the
+    # index path is server-controlled (the experiment registry), and control
+    # characters that could break out of the literal are rejected outright.
+    resolved = str(path.resolve())
+    if any(c in resolved for c in ("\n", "\r", "\x00")):
+        raise ValueError(f"Illegal characters in index path: {resolved!r}")
+    safe_path = resolved.replace("'", "''")
     conn.execute(f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{safe_path}')")
 
     where_sql = _build_filters_sql(

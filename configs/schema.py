@@ -20,8 +20,11 @@ class ProjectConfig(BaseModel):
 
 
 class SimulationConfig(BaseModel):
-    rounds: int = Field(default=3, ge=1)
-    population_size: int = Field(default=5, ge=1)
+    # Upper bounds cap compute/disk so an oversized config (uploaded YAML or
+    # LLM-designed scenario) cannot exhaust GPU/CPU/disk. Headroom over the
+    # largest shipped pipeline (phase_d: 500 agents × 100 rounds).
+    rounds: int = Field(default=3, ge=1, le=200)
+    population_size: int = Field(default=5, ge=1, le=1000)
 
 
 class PolicyConfig(BaseModel):
@@ -65,10 +68,10 @@ class LLMConfig(BaseModel):
     dtype: str = "float16"
     device_map: str = "auto"
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    max_new_tokens: int = Field(default=256, ge=1)
-    memory_window: int = Field(default=5, ge=1)
-    max_retries: int = Field(default=2, ge=0)
-    inference_timeout: int = Field(default=120, ge=1)
+    max_new_tokens: int = Field(default=256, ge=1, le=8192)
+    memory_window: int = Field(default=5, ge=1, le=100)
+    max_retries: int = Field(default=2, ge=0, le=10)
+    inference_timeout: int = Field(default=120, ge=1, le=600)
 
     @field_validator("cache_dir", mode="before")
     @classmethod

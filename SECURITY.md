@@ -56,6 +56,14 @@ API keys (`OPENAI_API_KEY`, `BGF_REPORT_API_KEY`) must be supplied via environme
 variables, never as URL query parameters or in committed config files.
 The `/report` endpoint reads the key from the server environment exclusively.
 
+Client-supplied keys (`api_key` / `openai_api_key` / `llm_api_key` in the body
+of `/design-simulation` and `/simulate-wizard`) are honoured **only for trusted
+callers** — i.e. open mode, or a request bearing the valid `BGF_API_TOKEN`
+(`_is_trusted_caller()`). An anonymous public-demo caller cannot inject
+provider credentials; such requests fall back to the server-env key (or fail
+cleanly if none is set). This keeps the public endpoints from being used as an
+open relay for arbitrary third-party API keys.
+
 Persisted run snapshots (`experiments/<id>/config.yaml`) are scrubbed by
 `utils.io.redact_secrets()` before write, and subprocess stdout/stderr is passed
 through `_scrub_secrets()` before logging, so credentials cannot leak via the

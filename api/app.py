@@ -499,6 +499,25 @@ def _check_auth() -> tuple[bool, Any]:
     return True, None
 
 
+def _is_trusted_caller() -> bool:
+    """True if the caller may supply privileged inputs (e.g. an LLM API key).
+
+    Open mode (no token configured) is trusted local/LAN use. When a token IS
+    configured, only a request presenting the valid bearer token is trusted —
+    a public, tokenless caller hitting a `_PUBLIC_POST_PATHS` route is NOT, so
+    its client-supplied API keys are ignored in favour of server-env keys
+    only. This prevents anonymous users from injecting arbitrary provider
+    credentials through the public demo endpoints.
+    """
+    if not _AUTH_TOKEN:
+        return True
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return False
+    provided = auth_header[len("Bearer ") :]
+    return hmac.compare_digest(provided.encode(), _AUTH_TOKEN.encode())
+
+
 def _resolve_exp_dir(exp_id: str) -> Path:
     """Return the experiment directory path, raising ValueError on bad input.
 
@@ -2555,12 +2574,18 @@ def create_app(
         if provider == "ollama":
             api_key = ""
         else:
-            # API key: body > server env
-            api_key = (
-                str(body.get("api_key", "")).strip()
-                or (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "")
-                or os.environ.get("OPENAI_API_KEY", "")
+            # API key resolution. A client-supplied key is honoured ONLY for
+            # trusted (token-authenticated or open-mode) callers. Anonymous
+            # public-demo callers cannot inject their own provider credentials —
+            # they get the server-env key or nothing.
+            client_key = str(body.get("api_key", "")).strip()
+            server_key = (os.environ.get("GROQ_API_KEY", "") if provider == "groq" else "") or os.environ.get(
+                "OPENAI_API_KEY", ""
             )
+            if client_key and not _is_trusted_caller():
+                logger.warning("Ignored client-supplied api_key from untrusted caller %s", request.remote_addr)
+                client_key = ""
+            api_key = client_key or server_key
             if not api_key:
                 return (
                     jsonify(
@@ -2782,8 +2807,13 @@ def create_app(
         if not _MODEL_RE.match(llm_model_id):
             return jsonify({"error": "Invalid llm_model_id"}), 400
 
-        # Accept key under either name
+        # Accept a client-supplied key (either name) ONLY from a trusted
+        # caller. Anonymous public-demo callers cannot inject provider
+        # credentials — the run falls back to the server-env key (if any).
         llm_api_key = str(body.get("openai_api_key", "")).strip() or str(body.get("llm_api_key", "")).strip() or None
+        if llm_api_key and not _is_trusted_caller():
+            logger.warning("Ignored client-supplied llm_api_key from untrusted caller %s", request.remote_addr)
+            llm_api_key = None
 
         # ── Generate experiment ID and YAML config ────────────────────────
         ts = int(time.time())

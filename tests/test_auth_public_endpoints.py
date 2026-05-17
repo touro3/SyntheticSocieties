@@ -115,3 +115,26 @@ def test_scrub_secrets_masks_env_keys(monkeypatch):
     assert "sk-proj-LIVEKEY12345" not in out
     assert "gsk_abcd1234efgh" not in out
     assert "***REDACTED***" in out
+
+
+def test_untrusted_caller_cannot_supply_api_key(monkeypatch):
+    """Public (tokenless) callers must not inject provider credentials."""
+    import api.app as m
+
+    app = m.create_app()
+
+    # Token configured: anonymous request is NOT trusted; valid bearer is.
+    monkeypatch.setattr(m, "_AUTH_TOKEN", "secret-token")
+    with app.test_request_context("/design-simulation", method="POST"):
+        assert m._is_trusted_caller() is False
+    with app.test_request_context(
+        "/design-simulation", method="POST", headers={"Authorization": "Bearer secret-token"}
+    ):
+        assert m._is_trusted_caller() is True
+    with app.test_request_context("/design-simulation", method="POST", headers={"Authorization": "Bearer wrong"}):
+        assert m._is_trusted_caller() is False
+
+    # Open mode (no token): local/LAN use is trusted.
+    monkeypatch.setattr(m, "_AUTH_TOKEN", None)
+    with app.test_request_context("/design-simulation", method="POST"):
+        assert m._is_trusted_caller() is True

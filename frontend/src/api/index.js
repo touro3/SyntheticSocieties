@@ -5,6 +5,17 @@ const http = axios.create({
   timeout: 30000,
 })
 
+// Attach the BGF bearer token (if configured) to every outgoing request.
+// Set VITE_BGF_API_TOKEN in your .env to match the BGF_API_TOKEN on the server.
+// If neither is set the backend runs in open mode and this header is harmless.
+const _BGF_TOKEN = import.meta.env.VITE_BGF_API_TOKEN || ''
+if (_BGF_TOKEN) {
+  http.interceptors.request.use((config) => {
+    config.headers['Authorization'] = `Bearer ${_BGF_TOKEN}`
+    return config
+  })
+}
+
 // Retry on 502/503/504 (server cold-start or deploy bounce) with exponential backoff.
 http.interceptors.response.use(null, async (error) => {
   const config = error.config

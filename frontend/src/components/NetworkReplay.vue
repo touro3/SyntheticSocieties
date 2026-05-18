@@ -41,6 +41,7 @@
         <!-- Agent nodes -->
         <g
           v-for="aid in data.agent_ids" :key="aid"
+          v-if="pos[aid]"
           :transform="`translate(${pos[aid].x},${pos[aid].y})`"
           class="agent-node"
           :class="[states[aid]?.a || 'idle', { adversarial: advSet.has(aid), selected: selectedAgent === aid }]"
@@ -141,6 +142,8 @@ const H = 580
 const NODE_R = 15
 const MARGIN = 52
 const MAX_CHARS = 22
+// Maximum radius that keeps all node centres within MARGIN of the SVG edges
+const MAX_R = Math.floor(Math.min(W / 2, H / 2) - MARGIN - 6)  // ≈ 232
 
 const advSet  = computed(() => new Set(data.value?.adversarial || []))
 const current = computed(() => data.value?.rounds[idx.value] || { round: 0, states: {}, edges: [] })
@@ -159,13 +162,17 @@ function layout(ids) {
 
   let rings
   if (n <= 8) {
-    // Single ring, radius sized to keep comfortable spacing
-    rings = [{ r: Math.max(90, n * 18), cap: n }]
+    // Target ≥200px arc per agent so bubbles (max ~172px wide) don't collide.
+    // r = N * 200 / (2π), then clamp to [130, MAX_R].
+    const r = Math.min(MAX_R, Math.max(130, Math.ceil(n * 200 / (2 * Math.PI))))
+    rings = [{ r, cap: n }]
   } else if (n <= 18) {
     const n1 = Math.ceil(n * 0.35)
+    const rOuter = Math.min(MAX_R, Math.max(170, Math.ceil(n * 200 / (2 * Math.PI))))
+    const rInner = Math.max(70, Math.floor(rOuter * 0.45))
     rings = [
-      { r: 70,  cap: n1 },
-      { r: 150, cap: n - n1 },
+      { r: rInner, cap: n1 },
+      { r: rOuter, cap: n - n1 },
     ]
   } else {
     rings = [
@@ -282,11 +289,13 @@ function bubbleOffset(aid) {
   let by = -(BH + 10)
 
   // Near right edge — flip left
-  if (p.x + bx + bw > W - 8) bx = -(bw + NODE_R + 4)
+  if (p.x + bx + bw > W - MARGIN) bx = -(bw + NODE_R + 4)
+  // Near left edge after flip — clamp at margin
+  if (p.x + bx < MARGIN) bx = -p.x + MARGIN
   // Near top edge — flip below node
-  if (p.y + by < 8) by = NODE_R + 12
+  if (p.y + by < MARGIN) by = NODE_R + 12
   // Near bottom edge — push up
-  if (p.y + by + BH > H - 8) by = -(BH + 10)
+  if (p.y + by + BH > H - MARGIN) by = -(BH + 10)
 
   return `translate(${Math.round(bx)},${Math.round(by)})`
 }

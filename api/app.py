@@ -1153,8 +1153,8 @@ def create_app(
             tgt = act.get("target_agent_id")
             state = ev.get("state_after", {}) or {}
             reason = (act.get("reasoning_summary") or "").strip()
-            if len(reason) > 70:
-                reason = reason[:67] + "…"
+            if len(reason) > 300:
+                reason = reason[:297] + "…"
             bucket["states"][aid] = {
                 "a": atype,
                 "t": tgt if tgt in shown_set else None,

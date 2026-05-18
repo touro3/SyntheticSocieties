@@ -112,11 +112,11 @@ _PUBLIC_POST_PATHS: frozenset[str] = frozenset(
 )
 
 # Public POST routes with dynamic path segments (exp_id / agent_id), so they
-# cannot be matched exactly: the Interact page's "Send" (agent interview) and
-# "Broadcast" (anchor query) buttons. Both are rate-limited (`_write_limit` /
-# `_read_limit`) and read-only against existing experiments. The trailing
-# slash is required so the prefix cannot match an unintended sibling route.
-_PUBLIC_POST_PREFIXES: tuple[str, ...] = ("/interview/", "/anchor/")
+# cannot be matched exactly: the Interact page's "Send" (agent interview),
+# "Broadcast" (anchor query), and "Inject Event" buttons. All are rate-limited
+# and operate only on existing experiments. The trailing slash is required so
+# the prefix cannot match an unintended sibling route.
+_PUBLIC_POST_PREFIXES: tuple[str, ...] = ("/interview/", "/anchor/", "/inject/")
 
 # Provider API-key token shapes (OpenAI sk-/sk-proj-, Groq gsk_, HF hf_).
 _SECRET_TOKEN_RE = re.compile(r"\b(sk-[A-Za-z0-9_-]{8,}|gsk_[A-Za-z0-9]{8,}|hf_[A-Za-z0-9]{8,})")

@@ -155,6 +155,12 @@ _DESIGN_CACHE_LOCK = threading.Lock()  # guards the check-evict-insert sequence
 # every /interview call (Render's free tier has limited open-file descriptors).
 _OAI_CLIENTS: dict[str, Any] = {}
 
+# ── Ollama warmup throttle ────────────────────────────────────────────────
+# Tracks the last time we kicked off a background model-load so we don't
+# spam Ollama on every /api/capabilities poll.
+_OLLAMA_WARMUP_TS: float = 0.0
+_OLLAMA_WARMUP_LOCK = threading.Lock()
+
 # Valid LLM model name: HF model IDs (org/name) and OpenAI slugs.
 # Allows letters, digits, dots, hyphens, forward-slashes, colons — nothing else.
 _MODEL_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/:-]{0,100}$")
@@ -318,6 +324,41 @@ def _ollama_available() -> bool:
             return _r.status == 200
     except Exception:
         return False
+
+
+def _maybe_warmup_ollama(model: str = "llama3.2") -> None:
+    """Fire a background thread to pre-load the Ollama model if it isn't already
+    warm.  Throttled to at most once every 4 minutes so repeated /api/capabilities
+    polls don't pile up.  The warmup completes silently; any error is ignored."""
+    global _OLLAMA_WARMUP_TS
+    import time as _time
+
+    with _OLLAMA_WARMUP_LOCK:
+        now = _time.time()
+        if now - _OLLAMA_WARMUP_TS < 240:
+            return
+        _OLLAMA_WARMUP_TS = now
+
+    def _run():
+        try:
+            import json as _j
+            import urllib.request as _ur2
+
+            payload = _j.dumps(
+                {"model": model, "messages": [{"role": "user", "content": ""}], "max_tokens": 1}
+            ).encode()
+            req = _ur2.Request(
+                "http://localhost:11434/v1/chat/completions",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with _ur2.urlopen(req, timeout=120):
+                pass
+            logger.debug("Ollama model '%s' warm-up complete", model)
+        except Exception as exc:
+            logger.debug("Ollama warm-up skipped: %s", exc)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: str = "llama3.2") -> tuple[dict, dict]:
@@ -683,6 +724,7 @@ def create_app(
 
         _api_prefixes = (
             "health",
+            "ping",
             "simulate",
             "status",
             "results",
@@ -698,6 +740,7 @@ def create_app(
             "upload-ess-data",
             "design-simulation",
             "api",
+            "benchmark",
         )
         if any(path.startswith(p) for p in _api_prefixes):
             return jsonify({"error": "Not found"}), 404
@@ -767,6 +810,7 @@ def create_app(
 
         if ollama_ok:
             preferred = "ollama"
+            _maybe_warmup_ollama()
         elif groq_key:
             preferred = "groq"
         elif openai_key:

@@ -42,7 +42,7 @@ export const api = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000,
   }),
-  designSimulation: (body)                    => http.post('/design-simulation', body, { timeout: 60000 }),
+  designSimulation: (body)                    => http.post('/design-simulation', body, { timeout: 120000 }),
   status:         (expId)                     => http.get(`/status/${expId}`),
   results:        (expId)                     => http.get(`/results/${expId}`),
   replay:         (expId)                     => http.get(`/replay/${expId}`),

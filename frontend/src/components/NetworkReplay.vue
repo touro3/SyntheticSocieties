@@ -1,8 +1,8 @@
 <template>
-  <div class="replay card">
-    <div class="replay-head">
+  <div class="nr">
+    <div class="nr-head">
       <h2 class="section-title" style="margin:0">Network Replay</h2>
-      <span class="replay-sub">
+      <span class="nr-sub">
         real per-round trust / cooperation graph
         <template v-if="data">
           · {{ data.shown }}<template v-if="data.n_agents > data.shown"> of {{ data.n_agents }}</template>
@@ -11,98 +11,147 @@
       </span>
     </div>
 
-    <div v-if="loading" class="replay-state"><span class="spin">⟳</span> Loading events…</div>
-    <div v-else-if="err" class="replay-state err">{{ err }}</div>
-    <div v-else-if="!data || !data.rounds.length" class="replay-state">
-      No recorded events for this run.
-    </div>
+    <div v-if="loading" class="nr-state"><span class="spin">⟳</span> Loading…</div>
+    <div v-else-if="err" class="nr-state err">{{ err }}</div>
+    <div v-else-if="!data?.rounds?.length" class="nr-state">No recorded events for this run.</div>
 
     <template v-else>
-      <svg class="replay-svg" :viewBox="`0 0 ${W} ${H}`" xmlns="http://www.w3.org/2000/svg">
+      <svg class="nr-graph" :viewBox="`0 0 ${W} ${H}`">
         <defs>
-          <marker id="arr-cooperate" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-            <polygon points="0 0,8 3,0 6" fill="rgba(20,184,166,.85)" />
+          <!-- Dot grid background -->
+          <pattern id="nr-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="12" cy="12" r="0.75" fill="rgba(148,163,184,.09)"/>
+          </pattern>
+          <!-- Edge glow -->
+          <filter id="nr-gf" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="2.2" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <!-- Node halo glow -->
+          <filter id="nr-hf" x="-120%" y="-120%" width="340%" height="340%">
+            <feGaussianBlur stdDeviation="6" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <!-- Selection pulse glow -->
+          <filter id="nr-sf" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur stdDeviation="4" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <!-- Arrowheads -->
+          <marker id="ah-coop" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0,8 3,0 6" fill="rgba(20,184,166,.95)"/>
           </marker>
-          <marker id="arr-steal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-            <polygon points="0 0,8 3,0 6" fill="rgba(244,63,94,.9)" />
+          <marker id="ah-steal" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0,8 3,0 6" fill="rgba(239,68,68,.95)"/>
           </marker>
         </defs>
 
-        <!-- Interaction edges -->
-        <g class="lines-layer">
+        <!-- Canvas layers -->
+        <rect :width="W" :height="H" fill="#070c18"/>
+        <rect :width="W" :height="H" fill="url(#nr-dots)"/>
+
+        <!-- ── Edges ────────────────────────────────── -->
+        <g class="edges-layer">
           <line
-            v-for="(e, i) in edgesClipped" :key="'e' + i"
+            v-for="(e, i) in edgesClipped" :key="'e'+i"
             :x1="e.x1" :y1="e.y1" :x2="e.x2" :y2="e.y2"
-            class="edge-line" :class="e.type"
-            :marker-end="`url(#arr-${e.type})`"
+            :class="`nr-edge nr-edge-${e.type}`"
+            :marker-end="e.type === 'cooperate' ? 'url(#ah-coop)' : 'url(#ah-steal)'"
+            filter="url(#nr-gf)"
           />
         </g>
 
-        <!-- Agent nodes -->
-        <g
-          v-for="aid in data.agent_ids" :key="aid"
-          v-if="pos[aid]"
-          :transform="`translate(${pos[aid].x},${pos[aid].y})`"
-          class="agent-node"
-          :class="[states[aid]?.a || 'idle', { adversarial: advSet.has(aid), selected: selectedAgent === aid }]"
-          style="cursor:pointer"
-          @click="selectAgent(aid)"
-        >
-          <circle r="15" class="node-body" />
-          <circle r="10" class="node-inner" />
-          <text class="node-glyph" text-anchor="middle" dominant-baseline="central">{{ glyph(states[aid]?.a) }}</text>
-          <text class="node-label" text-anchor="middle" y="27">{{ shortId(aid) }}</text>
+        <!-- ── Halos (rendered behind nodes) ──────── -->
+        <!-- v-for on <template> then v-if on child — avoids Vue3 v-if/v-for priority bug -->
+        <template v-for="aid in data.agent_ids" :key="'h'+aid">
+          <circle
+            v-if="pos[aid] && states[aid]?.a && states[aid].a !== 'idle' && states[aid].a !== 'unknown'"
+            :cx="pos[aid].x" :cy="pos[aid].y" r="22"
+            :class="`nr-halo nr-halo-${states[aid].a}`"
+            filter="url(#nr-hf)"
+          />
+        </template>
 
-          <!-- Speech bubble (bounded + truncated) -->
-          <g v-if="bubbleFor(aid)" class="bubble-group" :transform="bubbleOffset(aid)">
-            <rect :width="bubbleRectW(aid)" height="20" rx="5" class="bubble-rect" />
-            <text x="6" y="14" class="bubble-text" :textLength="bubbleTextW(aid)" lengthAdjust="spacing">
-              {{ truncatedBubble(bubbleFor(aid)) }}
+        <!-- ── Agent nodes ─────────────────────────── -->
+        <template v-for="aid in data.agent_ids" :key="'n'+aid">
+          <g
+            v-if="pos[aid]"
+            :transform="`translate(${pos[aid].x},${pos[aid].y})`"
+            :class="['nr-node', states[aid]?.a || 'idle', { adv: advSet.has(aid), sel: selectedAgent === aid }]"
+            style="cursor:pointer"
+            @click="selectAgent(aid)"
+          >
+            <!-- Selection ring (outer orbit) -->
+            <circle v-if="selectedAgent === aid" r="19" class="nr-sel-ring" filter="url(#nr-sf)"/>
+            <!-- Adversarial hatch ring -->
+            <circle v-if="advSet.has(aid)" r="16" class="nr-adv-ring"/>
+            <!-- Main disc -->
+            <circle r="13" class="nr-disc"/>
+            <!-- Action glyph -->
+            <text text-anchor="middle" dominant-baseline="central" class="nr-glyph">
+              {{ glyph(states[aid]?.a) }}
             </text>
-            <!-- Expand button shown when text is truncated -->
+            <!-- Agent ID below -->
+            <text text-anchor="middle" y="26" class="nr-label">{{ shortId(aid) }}</text>
+          </g>
+        </template>
+
+        <!-- ── Thought pills (topmost layer) ─────── -->
+        <template v-for="aid in data.agent_ids" :key="'p'+aid">
+          <g
+            v-if="pos[aid] && bubbleFor(aid)"
+            :transform="`translate(${pos[aid].x + pillDx(aid)}, ${pos[aid].y + pillDy(aid)})`"
+            class="nr-pill"
+          >
+            <rect :width="pillW(aid)" height="18" rx="9" class="nr-pill-bg"/>
+            <text x="9" y="13" class="nr-pill-text">{{ truncatedBubble(bubbleFor(aid)) }}</text>
+            <!-- Expand dot -->
             <g
               v-if="isLong(bubbleFor(aid))"
-              class="expand-btn"
-              :transform="`translate(${bubbleRectW(aid) - 22}, 0)`"
+              :transform="`translate(${pillW(aid) - 20},0)`"
+              class="nr-pill-more" style="cursor:pointer"
               @click.stop="selectedAgent = aid"
             >
-              <rect width="20" height="20" rx="5" class="expand-rect" />
-              <text x="10" y="14" text-anchor="middle" class="expand-text">…</text>
+              <rect width="20" height="18" rx="9" class="nr-pill-more-bg"/>
+              <text x="10" y="13" text-anchor="middle" class="nr-pill-more-text">…</text>
             </g>
           </g>
-        </g>
+        </template>
       </svg>
 
-      <!-- Full thought expansion panel -->
-      <transition name="slide-down">
-        <div v-if="selectedAgent" class="thought-panel">
-          <div class="thought-head">
-            <span class="thought-id">{{ selectedAgent }}</span>
-            <span class="thought-action" :class="states[selectedAgent]?.a || ''">
+      <!-- Full reasoning panel -->
+      <transition name="slide-up">
+        <div v-if="selectedAgent" class="nr-panel">
+          <div class="nr-panel-head">
+            <span class="nr-panel-id">{{ selectedAgent }}</span>
+            <span :class="['nr-panel-action', states[selectedAgent]?.a]">
               {{ states[selectedAgent]?.a || '—' }}
             </span>
-            <span class="thought-stats">
-              wealth {{ states[selectedAgent]?.w ?? '—' }} &nbsp;·&nbsp; stress {{ states[selectedAgent]?.s ?? '—' }}
+            <span class="nr-panel-stats">
+              ⬡ {{ states[selectedAgent]?.w ?? '—' }} &nbsp;·&nbsp;
+              ⚡ {{ states[selectedAgent]?.s ?? '—' }}
             </span>
-            <button class="close-btn" @click="selectedAgent = null">✕</button>
+            <button class="nr-panel-close" @click="selectedAgent = null">✕</button>
           </div>
-          <p class="thought-body">
+          <p class="nr-panel-text">
             {{ states[selectedAgent]?.r || states[selectedAgent]?.a || 'No reasoning recorded.' }}
           </p>
         </div>
       </transition>
 
       <!-- Transport controls -->
-      <div class="transport">
+      <div class="nr-transport">
         <button class="btn btn-sm btn-outline" @click="togglePlay">
           {{ playing ? '❚❚ Pause' : '▶ Play' }}
         </button>
         <input
-          class="scrub" type="range" min="0" :max="data.rounds.length - 1"
+          class="nr-scrub" type="range" min="0" :max="data.rounds.length - 1"
           v-model.number="idx" @input="playing = false"
         />
-        <span class="round-tag">round {{ current.round }} / {{ data.rounds[data.rounds.length - 1].round }}</span>
-        <select v-model.number="speed" class="speed">
+        <span class="nr-round-tag">
+          round {{ current.round }} / {{ data.rounds[data.rounds.length - 1].round }}
+        </span>
+        <select v-model.number="speed" class="nr-speed">
           <option :value="1200">0.5×</option>
           <option :value="700">1×</option>
           <option :value="350">2×</option>
@@ -110,13 +159,13 @@
         </select>
       </div>
 
-      <div class="legend">
-        <span><i class="sw cooperate"></i> cooperate</span>
+      <div class="nr-legend">
+        <span><i class="sw coop"></i> cooperate</span>
         <span><i class="sw steal"></i> steal</span>
         <span><i class="sw work"></i> work</span>
         <span><i class="sw save"></i> save</span>
         <span><i class="sw adv"></i> adversarial</span>
-        <span class="legend-hint">click agent to expand thought</span>
+        <span class="nr-hint">click node to expand thought</span>
       </div>
     </template>
   </div>
@@ -128,57 +177,56 @@ import { api } from '../api/index.js'
 
 const props = defineProps({ expId: { type: String, required: true } })
 
-const loading = ref(true)
-const err = ref('')
-const data = ref(null)
-const idx = ref(0)
-const playing = ref(false)
-const speed = ref(700)
+// ── State ──────────────────────────────────────────────────────────────────
+const loading       = ref(true)
+const err           = ref('')
+const data          = ref(null)
+const idx           = ref(0)
+const playing       = ref(false)
+const speed         = ref(700)
 const selectedAgent = ref(null)
 
-// SVG canvas dimensions (viewBox units, scales with container)
-const W = 800
-const H = 580
-const NODE_R = 15
-const MARGIN = 52
-const MAX_CHARS = 22
-// Maximum radius that keeps all node centres within MARGIN of the SVG edges
-const MAX_R = Math.floor(Math.min(W / 2, H / 2) - MARGIN - 6)  // ≈ 232
+// ── SVG constants ──────────────────────────────────────────────────────────
+const W      = 860
+const H      = 560
+const NODE_R = 13
+const MARGIN = 55
+// Largest ring radius that keeps node centres inside the margin boundary
+const MAX_R  = Math.floor(Math.min(W / 2, H / 2) - MARGIN - 4)  // ≈ 221
 
+// ── Derived round data ─────────────────────────────────────────────────────
 const advSet  = computed(() => new Set(data.value?.adversarial || []))
 const current = computed(() => data.value?.rounds[idx.value] || { round: 0, states: {}, edges: [] })
 const states  = computed(() => current.value.states || {})
 const edges   = computed(() => current.value.edges || [])
 
-// Deterministic concentric-ring layout — no overlaps.
-// Most-connected agents (sorted first by server) are placed in inner rings.
+// ── Layout: concentric rings, no overlaps ──────────────────────────────────
+// Target ≥ 200 px of arc per agent so thought pills (max ~165 px) don't collide.
+//   r = N × 200 / (2π), clamped to [130, MAX_R]
+// Most-connected agents (server-sorted: highest degree first) go to inner rings.
 const pos = reactive({})
+
 function layout(ids) {
   const n = ids.length
-  if (n === 0) return
+  if (!n) return
   const cx = W / 2, cy = H / 2
 
   if (n === 1) { pos[ids[0]] = { x: cx, y: cy }; return }
 
   let rings
   if (n <= 8) {
-    // Target ≥200px arc per agent so bubbles (max ~172px wide) don't collide.
-    // r = N * 200 / (2π), then clamp to [130, MAX_R].
     const r = Math.min(MAX_R, Math.max(130, Math.ceil(n * 200 / (2 * Math.PI))))
     rings = [{ r, cap: n }]
   } else if (n <= 18) {
-    const n1 = Math.ceil(n * 0.35)
-    const rOuter = Math.min(MAX_R, Math.max(170, Math.ceil(n * 200 / (2 * Math.PI))))
-    const rInner = Math.max(70, Math.floor(rOuter * 0.45))
-    rings = [
-      { r: rInner, cap: n1 },
-      { r: rOuter, cap: n - n1 },
-    ]
+    const rOuter = Math.min(MAX_R, Math.max(165, Math.ceil(n * 200 / (2 * Math.PI))))
+    const rInner = Math.max(70, Math.round(rOuter * 0.44))
+    const nInner = Math.ceil(n * 0.35)
+    rings = [{ r: rInner, cap: nInner }, { r: rOuter, cap: n - nInner }]
   } else {
     rings = [
-      { r: 45,  cap: 6  },
-      { r: 95,  cap: 12 },
-      { r: 150, cap: 18 },
+      { r: 48,  cap: 6  },
+      { r: 98,  cap: 12 },
+      { r: 152, cap: 18 },
       { r: 215, cap: 30 },
     ]
   }
@@ -189,7 +237,7 @@ function layout(ids) {
     const count = Math.min(remaining.length, ring.cap)
     const batch = remaining.splice(0, count)
     batch.forEach((aid, i) => {
-      const angle = (i / count) * Math.PI * 2 - Math.PI / 2
+      const angle = (i / count) * 2 * Math.PI - Math.PI / 2
       pos[aid] = {
         x: Math.round(cx + Math.cos(angle) * ring.r),
         y: Math.round(cy + Math.sin(angle) * ring.r),
@@ -197,13 +245,13 @@ function layout(ids) {
     })
   }
 
-  // Any overflow: distribute evenly around the outermost ring
+  // Overflow: space remaining agents evenly around the outermost ring
   if (remaining.length) {
-    const lastR = 215
-    const already = ids.length - remaining.length
+    const placed  = ids.length - remaining.length
+    const total   = ids.length
+    const lastR   = rings[rings.length - 1].r
     remaining.forEach((aid, j) => {
-      const total = already + remaining.length
-      const angle = ((already + j) / total) * Math.PI * 2 - Math.PI / 2
+      const angle = ((placed + j) / total) * 2 * Math.PI - Math.PI / 2
       pos[aid] = {
         x: Math.max(MARGIN, Math.min(W - MARGIN, Math.round(cx + Math.cos(angle) * lastR))),
         y: Math.max(MARGIN, Math.min(H - MARGIN, Math.round(cy + Math.sin(angle) * lastR))),
@@ -212,11 +260,11 @@ function layout(ids) {
   }
 }
 
-// Clip edge line endpoints to the node circle boundary + arrowhead gap
+// ── Clipped edges (lines start/end at node boundary, not centre) ───────────
 const edgesClipped = computed(() => {
-  const GAP = NODE_R + 2
-  const ARROW_GAP = NODE_R + 10
-  const BIDIR_OFFSET = 4 // perpendicular shift when both directions exist
+  const GAP        = NODE_R + 2
+  const ARROW_GAP  = NODE_R + 10
+  const BIDIR_OFF  = 5
 
   const edgeSet = new Set(edges.value.map(e => `${e[0]}\0${e[1]}`))
 
@@ -229,18 +277,19 @@ const edgesClipped = computed(() => {
     if (dist < 1) return null
     const nx = dx / dist, ny = dy / dist
     const bidir = edgeSet.has(`${tgt}\0${src}`)
-    const ox = bidir ? -ny * BIDIR_OFFSET : 0
-    const oy = bidir ?  nx * BIDIR_OFFSET : 0
+    const ox = bidir ? -ny * BIDIR_OFF : 0
+    const oy = bidir ?  nx * BIDIR_OFF : 0
     return {
-      x1: p1.x + nx * GAP       + ox,
-      y1: p1.y + ny * GAP       + oy,
-      x2: p2.x - nx * ARROW_GAP + ox,
-      y2: p2.y - ny * ARROW_GAP + oy,
+      x1: p1.x + nx * GAP        + ox,
+      y1: p1.y + ny * GAP        + oy,
+      x2: p2.x - nx * ARROW_GAP  + ox,
+      y2: p2.y - ny * ARROW_GAP  + oy,
       type,
     }
   }).filter(Boolean)
 })
 
+// ── Node helpers ───────────────────────────────────────────────────────────
 const GLYPHS = { cooperate: '◈', steal: '✗', work: '◆', save: '▣' }
 function glyph(a) { return GLYPHS[a] || '·' }
 
@@ -249,62 +298,50 @@ function shortId(aid) {
   return m ? 'A' + m[0] : aid.slice(0, 4)
 }
 
+// ── Thought pill helpers ───────────────────────────────────────────────────
+const MAX_CHARS = 22
+
 function bubbleFor(aid) {
   const s = states.value[aid]
-  if (!s) return null
-  return (s.r || s.a) || null
+  return s ? (s.r || s.a || null) : null
 }
 
-function isLong(text) { return text && text.length > MAX_CHARS }
+function isLong(text) { return !!text && text.length > MAX_CHARS }
 
 function truncatedBubble(text) {
-  if (!text || text.length <= MAX_CHARS) return text || ''
-  return text.slice(0, MAX_CHARS)
+  return text && text.length > MAX_CHARS ? text.slice(0, MAX_CHARS) : (text || '')
 }
 
-// Width of the bubble background rect
-function bubbleRectW(aid) {
+function pillW(aid) {
   const text = bubbleFor(aid)
   if (!text) return 0
-  const visibleChars = Math.min(text.length, MAX_CHARS)
-  const textPx = visibleChars * 6.2 + 12
-  return isLong(text) ? textPx + 24 : textPx
+  const chars = Math.min(text.length, MAX_CHARS)
+  return chars * 6.4 + 18 + (isLong(text) ? 22 : 0)
 }
 
-// textLength for the SVG text element (keeps chars from overflowing)
-function bubbleTextW(aid) {
-  const text = bubbleFor(aid)
-  if (!text) return 0
-  const visibleChars = Math.min(text.length, MAX_CHARS)
-  return visibleChars * 6.2
+function pillDx(aid) {
+  const p   = pos[aid]
+  const bw  = pillW(aid)
+  const bx  = NODE_R + 7
+  // Flip left when near right edge
+  if (p.x + bx + bw > W - MARGIN) return -(bw + NODE_R + 7)
+  return bx
 }
 
-// Position the bubble so it never leaves the SVG canvas
-function bubbleOffset(aid) {
-  const p = pos[aid]
-  const bw = bubbleRectW(aid)
-  const BH = 20
-
-  let bx = NODE_R + 4
-  let by = -(BH + 10)
-
-  // Near right edge — flip left
-  if (p.x + bx + bw > W - MARGIN) bx = -(bw + NODE_R + 4)
-  // Near left edge after flip — clamp at margin
-  if (p.x + bx < MARGIN) bx = -p.x + MARGIN
-  // Near top edge — flip below node
-  if (p.y + by < MARGIN) by = NODE_R + 12
-  // Near bottom edge — push up
-  if (p.y + by + BH > H - MARGIN) by = -(BH + 10)
-
-  return `translate(${Math.round(bx)},${Math.round(by)})`
+function pillDy(aid) {
+  const p  = pos[aid]
+  const by = -(18 + 12)  // default: above the node
+  // Flip below when near top edge
+  if (p.y + by < MARGIN) return NODE_R + 16
+  return by
 }
 
+// ── Agent selection ────────────────────────────────────────────────────────
 function selectAgent(aid) {
   selectedAgent.value = selectedAgent.value === aid ? null : aid
 }
 
-// Playback timer
+// ── Playback ───────────────────────────────────────────────────────────────
 let timer = null
 function tick() {
   if (!playing.value || !data.value) return
@@ -338,120 +375,185 @@ onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <style scoped>
-.replay { padding: 20px; }
-.replay-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.replay-sub { font-size: 12px; color: var(--muted, #8b93a7); }
-.replay-state { padding: 40px; text-align: center; color: var(--muted, #8b93a7); }
-.replay-state.err { color: var(--rose, #f43f5e); }
+/* ── Container ─────────────────────────────────────────────────────────── */
+.nr { padding: 20px; }
+.nr-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.nr-sub  { font-size: 12px; color: var(--muted, #8b93a7); }
+.nr-state { padding: 44px; text-align: center; color: var(--muted, #8b93a7); }
+.nr-state.err { color: #ef4444; }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* SVG canvas */
-.replay-svg {
-  width: 100%; display: block; border-radius: 14px;
-  background: linear-gradient(135deg, rgba(5,10,21,.95), rgba(13,21,40,.9) 50%, rgba(22,26,60,.85));
-  border: 1px solid rgba(99,102,241,.18);
+/* ── SVG graph ─────────────────────────────────────────────────────────── */
+.nr-graph {
+  width: 100%; display: block;
+  border-radius: 16px;
+  border: 1px solid rgba(99,102,241,.16);
+  box-shadow: 0 0 40px rgba(0,0,0,.6), inset 0 0 80px rgba(7,12,24,.8);
 }
 
-/* Edges */
-.edge-line { stroke-width: 1.8; fill: none; }
-.edge-line.cooperate {
-  stroke: rgba(20,184,166,.7);
-  filter: drop-shadow(0 0 2px rgba(20,184,166,.45));
+/* ── Edges ─────────────────────────────────────────────────────────────── */
+.nr-edge { stroke-width: 1.5; fill: none; }
+.nr-edge-cooperate {
+  stroke: rgba(20,184,166,.75);
+  filter: drop-shadow(0 0 3px rgba(20,184,166,.6));
 }
-.edge-line.steal {
-  stroke: rgba(244,63,94,.75);
+.nr-edge-steal {
+  stroke: rgba(239,68,68,.75);
   stroke-dasharray: 5 3;
-  filter: drop-shadow(0 0 2px rgba(244,63,94,.5));
+  filter: drop-shadow(0 0 3px rgba(239,68,68,.6));
 }
 
-/* Node base */
-.node-body  { fill: rgba(99,102,241,.18); stroke: rgba(99,102,241,.5);  stroke-width: 1.4; transition: stroke .2s, fill .2s; }
-.node-inner { fill: rgba(99,102,241,.35); transition: fill .2s; }
+/* ── Halos (glow behind nodes) ─────────────────────────────────────────── */
+.nr-halo         { opacity: .55; }
+.nr-halo-cooperate { fill: rgba(20,184,166,.5); }
+.nr-halo-steal     { fill: rgba(239,68,68,.55); }
+.nr-halo-work      { fill: rgba(99,102,241,.45); }
+.nr-halo-save      { fill: rgba(234,179,8,.4); }
 
-/* Action-coloured nodes */
-.agent-node.cooperate .node-body  { fill: rgba(20,184,166,.18); stroke: rgba(20,184,166,.65); }
-.agent-node.cooperate .node-inner { fill: rgba(20,184,166,.42); }
-.agent-node.steal     .node-body  { fill: rgba(244,63,94,.18);  stroke: rgba(244,63,94,.65); }
-.agent-node.steal     .node-inner { fill: rgba(244,63,94,.42); }
-.agent-node.work      .node-body  { fill: rgba(99,102,241,.22); stroke: rgba(99,102,241,.62); }
-.agent-node.save      .node-body  { fill: rgba(245,158,11,.16); stroke: rgba(245,158,11,.58); }
-.agent-node.save      .node-inner { fill: rgba(245,158,11,.38); }
+/* ── Node discs ────────────────────────────────────────────────────────── */
+.nr-disc {
+  fill: rgba(30,41,59,.85);
+  stroke: rgba(148,163,184,.35);
+  stroke-width: 1.4;
+  transition: fill .2s, stroke .2s;
+}
+.nr-node.cooperate .nr-disc { fill: rgba(13,101,95,.82); stroke: rgba(20,184,166,.8); }
+.nr-node.steal     .nr-disc { fill: rgba(127,29,29,.82); stroke: rgba(239,68,68,.8); }
+.nr-node.work      .nr-disc { fill: rgba(49,46,129,.82); stroke: rgba(99,102,241,.8); }
+.nr-node.save      .nr-disc { fill: rgba(92,60,0,.82);   stroke: rgba(234,179,8,.8); }
 
-/* Adversarial + selected highlights */
-.agent-node.adversarial .node-body { stroke-dasharray: 3 2; stroke: rgba(244,63,94,.8); }
-.agent-node.selected    .node-body { stroke: rgba(255,255,255,.85); stroke-width: 2.4; }
+/* Adversarial: dashed red outer ring */
+.nr-adv-ring {
+  fill: none;
+  stroke: rgba(239,68,68,.7);
+  stroke-width: 1.2;
+  stroke-dasharray: 3.5 2;
+}
+/* Selected: bright white orbit ring */
+.nr-sel-ring {
+  fill: none;
+  stroke: rgba(255,255,255,.82);
+  stroke-width: 1.8;
+}
 
-.node-glyph { font-size: 9px;  fill: rgba(255,255,255,.82); font-family: monospace; pointer-events: none; }
-.node-label { font-size: 7px;  fill: rgba(255,255,255,.42); font-family: monospace; pointer-events: none; }
+.nr-glyph {
+  font-size: 9px;
+  fill: rgba(255,255,255,.85);
+  font-family: 'ui-monospace', monospace;
+  pointer-events: none;
+}
+.nr-label {
+  font-size: 7px;
+  fill: rgba(148,163,184,.6);
+  font-family: 'ui-monospace', monospace;
+  pointer-events: none;
+}
 
-/* Thought bubbles */
-.bubble-rect { fill: rgba(12,18,42,.97); stroke: rgba(99,102,241,.45); stroke-width: .8; }
-.bubble-text { font-size: 7px; fill: rgba(255,255,255,.88); font-family: monospace; pointer-events: none; }
-.expand-rect {
-  fill: rgba(99,102,241,.3); stroke: rgba(99,102,241,.6); stroke-width: .8;
+/* ── Thought pills ─────────────────────────────────────────────────────── */
+.nr-pill-bg {
+  fill: rgba(7,12,24,.93);
+  stroke: rgba(148,163,184,.22);
+  stroke-width: 0.8;
+}
+.nr-pill-text {
+  font: 6.5px/1 'ui-monospace', monospace;
+  fill: rgba(226,232,240,.88);
+  pointer-events: none;
+}
+.nr-pill-more-bg {
+  fill: rgba(99,102,241,.28);
+  stroke: rgba(99,102,241,.55);
+  stroke-width: 0.8;
   cursor: pointer;
   transition: fill .15s;
 }
-.expand-btn:hover .expand-rect { fill: rgba(99,102,241,.55); }
-.expand-text { font-size: 9px; fill: rgba(255,255,255,.92); font-family: monospace; cursor: pointer; pointer-events: all; }
-.bubble-group { animation: pop .2s cubic-bezier(.34,1.56,.64,1) both; }
-@keyframes pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+.nr-pill-more:hover .nr-pill-more-bg { fill: rgba(99,102,241,.55); }
+.nr-pill-more-text {
+  font: bold 8px/1 'ui-monospace', monospace;
+  fill: rgba(255,255,255,.9);
+  pointer-events: none;
+}
+.nr-pill { animation: pill-pop .18s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes pill-pop { from { opacity: 0; transform: scale(.7); } to { opacity: 1; transform: scale(1); } }
 
-/* Expanded thought panel */
-.thought-panel {
+/* ── Reasoning panel ───────────────────────────────────────────────────── */
+.nr-panel {
   margin-top: 12px;
-  padding: 12px 16px;
-  background: rgba(12,18,42,.92);
-  border: 1px solid rgba(99,102,241,.32);
-  border-radius: 10px;
+  padding: 13px 16px;
+  background: rgba(7,12,24,.95);
+  border: 1px solid rgba(99,102,241,.28);
+  border-radius: 12px;
 }
-.thought-head {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;
+.nr-panel-head {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 9px;
 }
-.thought-id { font-family: monospace; font-size: 12px; color: var(--muted, #8b93a7); }
-.thought-action {
-  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
-  background: rgba(99,102,241,.2); color: rgba(150,153,255,.9);
+.nr-panel-id {
+  font: 11px/1 'ui-monospace', monospace;
+  color: rgba(148,163,184,.8);
 }
-.thought-action.cooperate { background: rgba(20,184,166,.2);  color: rgba(20,184,166,.95); }
-.thought-action.steal     { background: rgba(244,63,94,.2);   color: rgba(244,63,94,.95); }
-.thought-action.work      { background: rgba(99,102,241,.2);  color: rgba(150,153,255,.95); }
-.thought-action.save      { background: rgba(245,158,11,.15); color: rgba(245,158,11,.95); }
-.thought-stats { font-size: 11px; color: var(--muted, #8b93a7); font-family: monospace; }
-.close-btn {
-  margin-left: auto; background: none; border: none;
-  color: var(--muted, #8b93a7); cursor: pointer; font-size: 14px; padding: 0 4px;
+.nr-panel-action {
+  padding: 2px 9px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+  background: rgba(99,102,241,.18); color: rgba(165,168,255,.95);
 }
-.close-btn:hover { color: rgba(255,255,255,.9); }
-.thought-body { margin: 0; font-size: 13px; line-height: 1.6; color: rgba(255,255,255,.88); }
+.nr-panel-action.cooperate { background: rgba(20,184,166,.18); color: rgba(20,184,166,.95); }
+.nr-panel-action.steal     { background: rgba(239,68,68,.18);  color: rgba(239,68,68,.95); }
+.nr-panel-action.work      { background: rgba(99,102,241,.18); color: rgba(165,168,255,.95); }
+.nr-panel-action.save      { background: rgba(234,179,8,.14);  color: rgba(234,179,8,.95); }
+.nr-panel-stats {
+  font: 11px/1 'ui-monospace', monospace;
+  color: rgba(148,163,184,.7);
+}
+.nr-panel-close {
+  margin-left: auto;
+  background: none; border: none;
+  color: rgba(148,163,184,.6);
+  cursor: pointer; font-size: 14px; padding: 0 2px;
+  transition: color .15s;
+}
+.nr-panel-close:hover { color: rgba(255,255,255,.9); }
+.nr-panel-text {
+  margin: 0;
+  font-size: 13px; line-height: 1.65;
+  color: rgba(226,232,240,.9);
+}
 
-/* Transport */
-.transport { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
-.scrub { flex: 1; min-width: 160px; accent-color: var(--blue2, #6366f1); }
-.round-tag { font-family: monospace; font-size: 12px; color: var(--muted, #8b93a7); min-width: 120px; }
-.speed {
+/* ── Transport ─────────────────────────────────────────────────────────── */
+.nr-transport {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 14px; flex-wrap: wrap;
+}
+.nr-scrub { flex: 1; min-width: 160px; accent-color: #6366f1; }
+.nr-round-tag {
+  font: 12px/1 'ui-monospace', monospace;
+  color: rgba(148,163,184,.7); min-width: 130px;
+}
+.nr-speed {
   background: transparent; color: inherit;
-  border: 1px solid rgba(99,102,241,.3); border-radius: 6px;
-  padding: 3px 6px; font-size: 12px;
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 6px; padding: 3px 6px; font-size: 12px;
 }
 
-/* Legend */
-.legend {
-  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px;
-  font-size: 11px; color: var(--muted, #8b93a7); align-items: center;
+/* ── Legend ────────────────────────────────────────────────────────────── */
+.nr-legend {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  margin-top: 12px; font-size: 11px;
+  color: rgba(148,163,184,.7); align-items: center;
 }
-.legend i.sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
-.sw.cooperate { background: rgba(20,184,166,.6); }
-.sw.steal     { background: rgba(244,63,94,.6); }
-.sw.work      { background: rgba(99,102,241,.5); }
-.sw.save      { background: rgba(245,158,11,.55); }
-.sw.adv       { border: 1.5px dashed rgba(244,63,94,.8); background: transparent; }
-.legend-hint  { font-style: italic; margin-left: auto; }
+.nr-legend i.sw {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 3px; margin-right: 4px; vertical-align: middle;
+}
+.sw.coop  { background: rgba(20,184,166,.65); }
+.sw.steal { background: rgba(239,68,68,.65); }
+.sw.work  { background: rgba(99,102,241,.55); }
+.sw.save  { background: rgba(234,179,8,.55); }
+.sw.adv   { border: 1.5px dashed rgba(239,68,68,.75); background: transparent; }
+.nr-hint  { font-style: italic; margin-left: auto; }
 
-/* Slide-down transition for thought panel */
-.slide-down-enter-active,
-.slide-down-leave-active { transition: opacity .18s ease, transform .18s ease; }
-.slide-down-enter-from,
-.slide-down-leave-to    { opacity: 0; transform: translateY(-6px); }
+/* ── Slide-up transition ───────────────────────────────────────────────── */
+.slide-up-enter-active, .slide-up-leave-active { transition: opacity .18s ease, transform .18s ease; }
+.slide-up-enter-from,   .slide-up-leave-to     { opacity: 0; transform: translateY(8px); }
 </style>

@@ -114,7 +114,7 @@ where π(a) is the empirical frequency of action a and π_uniform(a) = 1/3 for t
 
 ### Persona Decay
 
-Expected cooperation rate is estimated from a logistic regression fitted on ESS Round 11 Austrian volunteering behavior (n ≈ 1,900 respondents):
+Expected cooperation rate is estimated from a logistic regression fitted on ESS Round 11 Austrian volunteering behavior (n = 866 respondents with all features non-null):
 
 ```
 E[coop | profile] = σ(β₀ + β_risk · risk_taking 

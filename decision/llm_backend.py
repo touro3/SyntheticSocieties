@@ -37,6 +37,11 @@ logger = logging.getLogger(__name__)
 
 SLOW_INFERENCE_THRESHOLD_S: float = 30.0  # Warn if a single generate() takes longer
 
+# Isolated RNG for retry jitter — intentionally unseeded (jitter should be
+# random) but separated from the global ``random`` module so that retry events
+# do not advance the global seed and break downstream reproducibility.
+_jitter_rng = random.Random()
+
 
 def _is_cuda_oom(exc: Exception) -> bool:
     """Return True if *exc* is a CUDA out-of-memory error."""
@@ -468,7 +473,7 @@ class LLMBackend:
                 if attempt < self.max_retries:
                     # Jittered exponential backoff (MiroFish pattern)
                     current_delay = min(delay, self._backoff_max_delay)
-                    jittered = current_delay * (0.5 + random.random())
+                    jittered = current_delay * (0.5 + _jitter_rng.random())
                     next_temp = max(0.1, temp - ((attempt + 1) * self._retry_temp_reduction))
                     logger.warning(
                         "generate() attempt %d/%d timed out; retrying in %.1fs (temp %.2f → %.2f)",

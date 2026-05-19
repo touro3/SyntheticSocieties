@@ -19,7 +19,7 @@ from decision.constants import (
 )
 from decision.schemas import ProposedAction
 
-VALID_ACTIONS = {"work", "save", "cooperate", "communicate"}
+VALID_ACTIONS = {"work", "save", "cooperate", "communicate", "steal"}
 
 # ── Parse statistics tracking ────────────────────────────────────────────────
 # Module-level counters for diagnosing LLM output quality across runs.
@@ -172,6 +172,7 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
                 amount=DEFAULT_WORK_AMOUNT,
                 reasoning_summary="[parsed from keywords: cooperation detected but no neighbors — defaulting to work]",
                 confidence=DEFAULT_KEYWORD_CONFIDENCE,
+                substitutions=["action_inferred_from_keywords:cooperate", "cooperate_downgraded_to_work_no_neighbors"],
             )
         return ProposedAction(
             action_type="cooperate",
@@ -179,6 +180,7 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
             amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[parsed from keywords: cooperation detected]",
             confidence=DEFAULT_KEYWORD_CONFIDENCE,
+            substitutions=["action_inferred_from_keywords:cooperate"],
         )
 
     if best_action == "save":
@@ -187,6 +189,7 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
             amount=DEFAULT_COOPERATE_AMOUNT,
             reasoning_summary="[parsed from keywords: saving detected]",
             confidence=DEFAULT_KEYWORD_CONFIDENCE,
+            substitutions=["action_inferred_from_keywords:save"],
         )
 
     # best_action == "work"
@@ -195,6 +198,7 @@ def _try_keyword_fallback(text: str, neighbors: Optional[list[str]]) -> Optional
         amount=DEFAULT_WORK_AMOUNT,
         reasoning_summary="[parsed from keywords: work detected]",
         confidence=DEFAULT_KEYWORD_CONFIDENCE,
+        substitutions=["action_inferred_from_keywords:work"],
     )
 
 
@@ -285,11 +289,15 @@ def _field_extract_action(
     reasoning = reason_match.group(1) if reason_match else "[field extraction fallback]"
     target = target_match.group(1) if target_match else None
 
-    if action_type in ("cooperate", "communicate"):
+    field_subs = ["action_recovered_via_field_extraction"]
+    if action_type in ("cooperate", "communicate", "steal"):
         if target and neighbors and target not in neighbors:
+            original = target
             target = neighbors[0] if neighbors else None
+            field_subs.append(f"invalid_target_replaced:{original}->{target}")
         elif target is None and neighbors:
             target = neighbors[0]
+            field_subs.append(f"target_defaulted_to_neighbor:{target}")
 
     try:
         return ProposedAction(
@@ -298,6 +306,7 @@ def _field_extract_action(
             amount=max(0.0, min(float(amount), MAX_ACTION_AMOUNT)),
             confidence=max(0.0, min(float(confidence), 1.0)),
             reasoning_summary=reasoning[:500],
+            substitutions=field_subs,
         )
     except Exception:
         return None
@@ -382,13 +391,17 @@ def _validate_action(
     reasoning = data.get("reasoning_summary", "LLM decision")
     confidence = data.get("confidence")
 
-    # Validate cooperate/communicate has a valid target
-    if action_type in ("cooperate", "communicate"):
+    # Validate cooperate/communicate/steal has a valid target
+    substitutions: list[str] = []
+    if action_type in ("cooperate", "communicate", "steal"):
         if target is None and neighbors:
             target = neighbors[0]
+            substitutions.append(f"target_defaulted_to_neighbor:{target}")
         elif target and neighbors and target not in neighbors:
             # LLM picked an invalid neighbor — use first valid one
+            original = target
             target = neighbors[0] if neighbors else None
+            substitutions.append(f"invalid_target_replaced:{original}->{target}")
 
     # Clamp amount to valid range [0, MAX_ACTION_AMOUNT]
     if amount is not None:
@@ -415,7 +428,10 @@ def _validate_action(
             amount=amount,
             reasoning_summary=str(reasoning)[:500],
             confidence=confidence,
+            substitutions=substitutions,
         )
+        if substitutions:
+            metadata["substitutions"] = substitutions
         return action, metadata
     except Exception as e:
         metadata["parse_error"] = f"ProposedAction construction failed: {e}"

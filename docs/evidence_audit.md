@@ -64,7 +64,7 @@ This document is the canonical claim→evidence mapping. Every scientific claim 
 |---|---|---|---|---|
 | D.1 | ESS-item ↔ behavioral-paradigm ↔ BGF-action mapping | `docs/construct_validity.md` §1 table with published anchors (Berg 1995, Henrich 2010, Fehr & Gächter 2002, Holt & Laury 2002, Falk 2018) | 📐 | Literature mapping; not an empirical claim about BGF. Anchor citations added to `paper/references.bib`. |
 | D.2 | BGF (−3, +12/cooperator) payoff matches canonical PGG multiplier range (m ∈ [2,5], Ledyard 1995) | `environment/economy.py` source + Ledyard 1995 anchor | 📐 | Construction; payoff parameters explicit in code and documented in §2.1. |
-| D.3 | H9 — BGF cooperation correlates with Herrmann 2008 / Henrich 2010 PGG country rates | None | ⏳ | Pre-registered in `hypothesis_preregistration.md` (added 2026-05-13). Implementation requires: ingest Herrmann/Henrich tables → extend `metrics/cross_cultural.py` → write `analysis/tables/h9_cross_cultural_behavioral.json`. **CPU-only; uses existing cross-cultural pilot outputs.** |
+| D.3 | H9 — BGF cooperation correlates with Herrmann 2008 / Henrich 2010 PGG country rates | `analysis/tables/h9_cross_cultural_behavioral.json` (ρ = +0.886, exact p = 0.033) | ✅ | Spearman ρ = +0.886 (6 clusters), exact two-tailed permutation p = 0.033. Formally significant at α = 0.05. Addresses Limitation 11 circularity. |
 | D.4 | Glaeser et al. (2000) attitude↔trust-game correlation r ≈ 0.20–0.35 | Glaeser 2000 paper (now in bib) | 📐 | Literature claim, not BGF-specific. Used to bound the realistic gap between ESS attitudes and behavioral outcomes. |
 
 ## Section E — Evaluation protocol (`docs/evaluation_protocol.md`)
@@ -75,8 +75,8 @@ This document is the canonical claim→evidence mapping. Every scientific claim 
 | E.2 | Bootstrap percentile CI (2,000 resamples, fixed seed 42) | `metrics/statistical_inference.py:bootstrap_ci` + tests | ✅ | Unit-tested. |
 | E.3 | Cohen's d / Hedges' g effect sizes (small-n bias correction) | `metrics/statistical_inference.py` + tests | ✅ | Unit-tested. |
 | E.4 | A priori power analysis (MDE ≈ 1.32 at n=10, α=0.05, two-sided MWU) | `docs/evaluation_protocol.md` §6 derivation using `statsmodels.stats.power` | ⏳ | Derivation given in §6; reproducer script `analysis/power_curves.py` not yet committed (CPU-only, ~30 LOC). |
-| E.5 | BRM Dirichlet weight-sensitivity ≥ 90% of simplex | None | ⏳ | `analysis/brm_sensitivity.py` not yet committed. CPU-only, ~80 LOC. Pre-specified pass/fail threshold in §8. |
-| E.6 | Convergent-evidence forest plot (H1–H9) | None | ⏳ | `analysis/forest_plot.py` not yet committed. CPU-only, ~80 LOC, reads existing tables. |
+| E.5 | BRM Dirichlet weight-sensitivity ≥ 90% of simplex | `analysis/tables/brm_sensitivity.json` (5,000 Dirichlet samples, 100% pass, min Δ = 0.12) | ✅ | All four vertex deltas strictly positive (jsd: 0.156, gini_gap: 0.285, coop_gap: 0.380, stability: 0.120). Verdict: ROBUST. Analytic certificate emitted. |
+| E.6 | Convergent-evidence forest plot (H1–H9) | `analysis/tables/forest_plot.json`, `analysis/figures/forest_plot.png` | ✅ | Forest plot generated with verified effect sizes for H1, H2, H5, H7, H9. Pending rows (H3, H4, H6, H8) are placeholders. |
 
 ## Section F — Architecture rationale (`docs/architecture_rationale.md`)
 
@@ -95,7 +95,7 @@ Architectural commitments (every layer must have a falsifiable consequence; see 
 | F.9 | `simulation/kernel.py` (sync event loop) | ⏳ Async ablation not implemented |
 | F.10 | `decision/prompt_builder.py` (V0–V4 ladder) | ✅ Ablation results in paper §3.6 |
 | F.11 | `decision/output_parser.py` (strict JSON + regex fallback) | ✅ `tests/test_output_parser.py` |
-| F.12 | `tracker/experiment_index.parquet` | ✅ 180 experiment runs registered |
+| F.12 | `tracker/experiment_index.parquet` | ✅ 192 experiment runs registered |
 
 ## Section G — Test suite (per-module coverage)
 
@@ -114,7 +114,7 @@ Architectural commitments (every layer must have a falsifiable consequence; see 
 | `decision/sql_rag.py`, `decision/graph_rag.py` | `tests/test_rag.py` (+ subset specifically targeted) | ✅ |
 | `decision/output_parser.py` | `tests/test_output_parser.py` | ✅ |
 | `agents/memory.py` | `tests/test_memory*.py` | ✅ |
-| Total | 363 test functions across 106 test files | ✅ |
+| Total | 1,441 test functions across 122 test files | ✅ |
 
 ---
 
@@ -137,10 +137,10 @@ Sorted by severity. Each item maps to a row above so progress is auditable.
 ### H.3 — MEDIUM (CPU-only, no blocker)
 
 - B.4 / C.4 — Build `analysis/mediation_summary.py` aggregating existing factorial-cell experiments → `analysis/tables/mediation.json`. ~5 min runtime.
-- D.3 — Build H9 cross-cultural behavioral comparison: extend `metrics/cross_cultural.py` to ingest Herrmann/Henrich tables → `analysis/tables/h9_cross_cultural_behavioral.json`. ~30 min including data ingest.
+- ~~D.3 — Build H9 cross-cultural behavioral comparison~~ ✅ **DONE** (2026-05-19): `analysis/tables/h9_cross_cultural_behavioral.json` (ρ = +0.886, p = 0.033).
 - E.4 — Build `analysis/power_curves.py` (`statsmodels.stats.power` MDE tables for H1–H9). ~5 min.
-- E.5 — Build `analysis/brm_sensitivity.py` (Dirichlet sweep over BRM weights) + figure. ~5 min.
-- E.6 — Build `analysis/forest_plot.py` (H1–H9 effect sizes with bootstrap CIs). ~10 min.
+- ~~E.5 — Build `analysis/brm_sensitivity.py`~~ ✅ **DONE** (2026-05-19): `analysis/tables/brm_sensitivity.json` (5,000 samples, 100% pass, ROBUST certificate).
+- ~~E.6 — Build `analysis/forest_plot.py`~~ ✅ **DONE** (2026-05-19): `analysis/tables/forest_plot.json` + `analysis/figures/forest_plot.png`.
 - A.8 — Re-aggregate Condition D Gini=0.325±0.001 into a canonical `paper_numbers.json` key.
 
 ### H.4 — LOW (literature / theoretical, no empirical work needed)

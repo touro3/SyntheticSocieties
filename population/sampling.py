@@ -6,8 +6,16 @@ from typing import Optional
 import numpy as np
 
 
-def sample_age(min_age: int, max_age: int) -> int:
-    return random.randint(min_age, max_age)
+def sample_age(min_age: int, max_age: int, rng: random.Random | None = None) -> int:
+    """Sample an age uniformly from [min_age, max_age].
+
+    Args:
+        rng: Optional local RNG for deterministic sampling. When None,
+             falls back to the global ``random`` module (seeded via
+             ``set_global_seed()`` in experiment scripts).
+    """
+    _rng = rng or random
+    return _rng.randint(min_age, max_age)
 
 
 def sample_income(base_income: float, income_step: float, index: int) -> float:

@@ -160,7 +160,10 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
     # V3: Surface Agent Trust Dictionary directly in state
     if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
         # Only show neighbors where trust > 0
-        active_trust = {k: round(v, 2) for k, v in state.trust_network.items() if v > 0}
+        active_trust = dict(sorted(
+            ((k, round(v, 2)) for k, v in state.trust_network.items() if v > 0),
+            key=lambda kv: kv[0],
+        ))
         if active_trust:
             base += f"\n[Your internal trust toward specific neighbors based on their past help: {active_trust}]"
 

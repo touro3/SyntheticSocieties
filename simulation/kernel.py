@@ -431,8 +431,10 @@ class SimulationKernel:
 
             # Build neighbor activity summary (cap at 5 to prevent prompt bloat,
             # mirrors MiroFish BATCH_SIZE = 5 pattern)
+            # Sort neighbor IDs for deterministic observation strings
+            # (adjacency-list order may vary after graph mutations).
             neighbor_actions: list[str] = []
-            for nid in neighbors[:5]:
+            for nid in sorted(neighbors)[:5]:
                 action = action_registry.get(nid)
                 if action:
                     neighbor_actions.append(f"{nid} chose to {action}")

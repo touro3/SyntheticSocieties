@@ -69,6 +69,12 @@ class AgentProfile:
     health_status: Optional[float] = None  # 0=poor, 1=excellent
     religiosity: Optional[float] = None  # 0-1
 
+    # ── Adversarial flag (bad-apple injection) ───────────────────────────
+    # When True, the institution hard-constrains this agent to steal-only:
+    # any non-steal action is rejected by the deterministic gate, regardless
+    # of what the policy/LLM proposes.
+    is_adversarial: bool = False
+
     def __post_init__(self) -> None:
         # Validate gender
         if self.gender is not None and self.gender not in (1, 2):

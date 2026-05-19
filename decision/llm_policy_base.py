@@ -19,7 +19,7 @@ from decision.constants import (
     TRUST_LOW,
     WORK_WEALTH_THRESHOLD,
 )
-from decision.output_parser import parse_llm_output
+from decision.output_parser import parse_llm_output_with_retry
 from decision.schemas import ProposedAction
 
 logger = logging.getLogger(__name__)
@@ -99,7 +99,12 @@ class LLMPolicyBase:
                     )
                     logprob = None
 
-                action, parse_meta = parse_llm_output(raw_text, neighbors)
+                # Use the repair+field-extract pipeline on the live decision
+                # path. JSON repair and field-level extraction are pure CPU
+                # string ops (no extra LLM calls), so recovering a malformed
+                # response here is strictly better than discarding it and
+                # falling back to a rule-based action.
+                action, parse_meta = parse_llm_output_with_retry(raw_text, neighbors)
 
                 if action is not None:
                     # Replace self-reported confidence with the model's actual

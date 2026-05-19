@@ -31,14 +31,14 @@ source data, and re-run of its generation script.
 **Status: ✅ FIXED — Rebuilt from canonical phase_c data**
 - **Problem found:** Old figure used small broken experiments (cmp_llm with synthetic population bug + ablation_no_persona with 45-event runs). Caption had work/cooperate labels swapped.
 - **Fix applied:** Replaced with `scripts/fix_figure2_canonical.py` — reads `analysis/paper_numbers.json` (phase_c_comparison, N=50, T=30, seed=42, Mistral-7B).
-- **New caption:** Accurately describes Condition A (coop=96.2%, B_RLHF=0.712) vs Condition B (coop=58.2%, B_RLHF=0.420).
+- **New caption:** Accurately describes Condition A (coop=96.2%) vs Condition B (coop=58.2%). *(Note: the B_RLHF values 0.712 and 0.420 reported in the original caption are mathematically impossible under TV — see audit rows A.13/A.14. They must be recomputed from the raw action triplet in the event log once phase_c_comparison data is recovered.)*
 - **Verified numbers:**
 
 | Metric | Condition A | Condition B |
 |--------|-------------|-------------|
 | Cooperation rate | 0.962 | 0.582 |
 | Gini coefficient | 0.625 | 0.260 |
-| B_RLHF index | 0.712 | 0.420 |
+| B_RLHF index | ⚠️ 0.712 (impossible) | ⚠️ 0.420 (impossible) |
 | Action: cooperate | 96.2% | 58.0% |
 | Action: save | 0.0% | 33.7% |
 | Action: work | 3.8% | 8.0% |
@@ -98,7 +98,7 @@ source data, and re-run of its generation script.
 | GPT-4o-mini | A | 0.223 ✓ | 0.495 ✓ | — |
 | GPT-4o-mini | B | 0.313 ✓ | 0.590 ✓ | +40.3% ✓ |
 
-**Note:** `analysis/cross_model_results.json` may be reverted by linter. Canonical values above. Regenerate with `python scripts/plot_cross_model_comparison.py`.
+**Note:** These Table 3 values (e.g. Mistral A coop=0.900, B_RLHF=0.567) **do not match** `analysis/cross_model_results.json` (Mistral A coop=0.588, B_RLHF=0.254). The JSON appears to be from a different run. The canonical source for Table 3 must be identified and the JSON regenerated to match. ΔB_RLHF directions are consistent but magnitudes differ by 2–12×. Regenerate with `python scripts/plot_cross_model_comparison.py`.
 
 ### Figures 11–12 — `feature_importance_coefficients.png`, `feature_importance_ablation.png`
 **Status: ✅ VERIFIED — All numbers exact**
@@ -148,5 +148,5 @@ source data, and re-run of its generation script.
 - [ ] Run `python scripts/fix_figure2_canonical.py` (already done, always re-run before submission)
 - [ ] Run `python scripts/plot_cross_model_comparison.py` (re-run to guard against JSON revert)
 - [ ] Run `python scripts/compute_paper_numbers.py --verify` — all claims should PASS
-- [ ] Verify test count: `python -m pytest tests/ --co -q | tail -1` → should say 1,372
-- [ ] Check paper test count references: `grep "1,372" docs/paper.md | wc -l` → should be 6
+- [ ] Verify test count: `python -m pytest tests/ --co -q | tail -1` → should say 1,441
+- [ ] Check paper test count references: `grep "1,441" docs/paper.md | wc -l` → should be 6

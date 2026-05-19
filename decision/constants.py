@@ -36,6 +36,7 @@ STRESS_CRITICAL: float = 0.7
 DEFAULT_WORK_AMOUNT: float = 10.0
 DEFAULT_SAVE_AMOUNT: float = 5.0
 DEFAULT_COOPERATE_AMOUNT: float = 5.0
+DEFAULT_STEAL_AMOUNT: float = 5.0
 
 # Maximum amount any single action may transfer (enforced by output parser).
 MAX_ACTION_AMOUNT: float = 20.0

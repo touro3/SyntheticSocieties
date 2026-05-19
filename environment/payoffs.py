@@ -24,6 +24,9 @@ class GamePayoffs:
     save_stress_relief: float = -0.2
     cooperate_stress_relief: float = -0.1
     cooperation_multiplier: float = 1.5
+    # Theft is a zero-sum predatory transfer: the thief takes `amount` from a
+    # target (bounded by the target's wealth). It carries a stress cost.
+    steal_stress_increase: float = 0.25
 
 
 # Default instance — import this, don't instantiate your own unless testing.

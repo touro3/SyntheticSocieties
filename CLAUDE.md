@@ -72,7 +72,7 @@ Core Simulation Layers
 `model_config.py` — `ModelConfig` dataclass + `get_backend()` factory for cross-model support
 `openai_backend.py` — OpenAI responses.create API with caching and retry
 `environment/` — The economic world:
-`economy.py` — `EconomyEngine`: parses agent actions, enforces game-theory rules. Actions: `work` (+8 wealth), `save` (+4), `cooperate` (-3, generates +12/cooperator shared), `steal` (bad apples take 50% of public pool)
+`world.py` / `institutions.py` — `World` delegates to `InstitutionManager`, the deterministic validate→execute gate. Payoffs come from `payoffs.py:GamePayoffs` (NOT from LLM-proposed amounts): `work` (+`work_income`, fixed), `save` (`save_wealth_delta`), `cooperate` (−amount to source, +amount×`cooperation_multiplier` to target), `steal` (zero-sum: thief +amount, target −amount, bounded by target wealth). `steal` is adversarial-only and `is_adversarial` agents are hard-constrained by the gate to steal-only. Note: `scripts/run_bad_apple.py` runs a *separate* parallel-economy model (work +8 / save +4 / pooled +12) that bypasses the kernel — its numbers differ from the harness by design.
 `network.py` — `NetworkManager`: small-world (Watts-Strogatz) and random (Erdős–Rényi)
 `institutions.py` — Institutional redistribution rules
 `payoffs.py` — `DEFAULT_PAYOFFS` dataclass used by economy engine and human game
@@ -157,8 +157,8 @@ Condition A: "Pure LLM" — no grounding, no RAG
 Condition B: "Grounded LLM" — RAG-injected ESS distributions (central experimental contrast)
 Condition C: "Generative Agents" — fictional-persona LLM policy (Park et al. 2023 proxy), no ESS/RAG
 Agent Mechanics
-Bad apple agents: `is_adversarial=True` on profile. `EconomyEngine.parse_action()` hard-constrains them to steal-only
-Anti-hallucination: `output_parser.py` uses strict JSON + regex fallback; `EconomyEngine` maps invalid LLM responses to `work`
+Bad apple agents: `is_adversarial=True` on `AgentProfile` (mirrored onto `Agent.is_adversarial`). `InstitutionManager.validate()` hard-constrains them to steal-only (`adversarial_must_steal`) and forbids non-adversarial agents from stealing (`steal_not_permitted`)
+Anti-hallucination: `output_parser.py` uses strict JSON + regex fallback; invalid/unparseable LLM responses fall back to a deterministic rule-based action (`LLMPolicyBase._fallback_action`), and the `InstitutionManager` gate rejects any action that violates game rules
 Memory: hierarchical with sliding window and long-term summary slot
 RAG: `sql_rag.py` + `graph_rag.py` provide dual retrieval. Verify both are active in Condition B runs
 API Patterns

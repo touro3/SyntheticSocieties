@@ -19,6 +19,10 @@ class Agent:
         self.state = state
         self.memory = memory
         self.policy = policy
+        # Mirror the profile flag onto the agent so the institution gate and
+        # bad-apple injection scripts share one source of truth. Scripts may
+        # also flip this directly (agent.is_adversarial = True) post-build.
+        self.is_adversarial = getattr(profile, "is_adversarial", False)
 
     def perceive(self, world_snapshot: dict, local_network: dict) -> dict:
         return {

@@ -64,7 +64,26 @@ class RoundProcessor:
 
     def _apply_target_delta(self, executed_event: dict) -> None:
         target_id = executed_event.get("target_agent_id")
+        source_id = executed_event.get("agent_id")
         target_delta = executed_event.get("target_wealth_delta", 0.0)
+
+        # Transactional boundary: this method mutates target wealth, source &
+        # target trust, and the network graph in sequence. Snapshot the wealth
+        # of every agent we may touch so a mid-sequence failure cannot leave a
+        # half-applied economic state — restore and re-raise so the kernel
+        # surfaces the error instead of silently corrupting the simulation.
+        touched_ids = [aid for aid in (target_id, source_id) if aid and aid in self.agent_lookup]
+        wealth_snapshot = {aid: self.agent_lookup[aid].state.wealth for aid in touched_ids}
+        try:
+            self._apply_target_delta_unsafe(executed_event, target_id, source_id, target_delta)
+        except Exception:
+            for aid, w in wealth_snapshot.items():
+                self.agent_lookup[aid].state.wealth = w
+            raise
+
+    def _apply_target_delta_unsafe(
+        self, executed_event: dict, target_id, source_id, target_delta: float
+    ) -> None:
         if target_id and target_delta and target_id in self.agent_lookup:
             target = self.agent_lookup[target_id]
             target.state.wealth += target_delta
@@ -175,6 +194,10 @@ class RoundProcessor:
                 "perception": perception,
                 "action": proposed_action.model_dump(),
                 "validation": validation.model_dump(),
+                # First-class audit field: non-empty only when the harness
+                # parser rewrote the model's raw output. Lets analysis filter
+                # model-authored decisions from harness-repaired ones.
+                "harness_substitutions": list(getattr(proposed_action, "substitutions", []) or []),
                 "result": executed_event,
                 "state_after": agent.state.snapshot(),
             }

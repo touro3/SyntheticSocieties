@@ -19,8 +19,6 @@ from typing import TYPE_CHECKING, Optional
 
 from decision.constants import STRESS_CRITICAL
 from decision.system_prompts import (
-    BALANCED_SYSTEM_PROMPT,
-    BASE_SYSTEM_PROMPT,
     get_shuffled_system_prompt,
 )
 from decision.token_budget import DEFAULT_MAX_TOKENS, trim_to_budget

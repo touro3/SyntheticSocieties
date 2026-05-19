@@ -22,9 +22,7 @@ class InstitutionManager:
         # theft. This is enforced by the deterministic gate, NOT by prompting
         # — the LLM cannot escape it no matter what it proposes. Symmetrically,
         # steal is an adversarial-only action: a normal agent cannot steal.
-        adversarial = getattr(agent, "is_adversarial", False) or getattr(
-            agent.profile, "is_adversarial", False
-        )
+        adversarial = getattr(agent, "is_adversarial", False) or getattr(agent.profile, "is_adversarial", False)
         if adversarial and action.action_type != "steal":
             return ValidationResult(valid=False, reason="adversarial_must_steal")
         if action.action_type == "steal" and not adversarial:

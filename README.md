@@ -139,8 +139,17 @@ python scripts/run_full_pipeline.py --plots-only
 #   analysis/reports/research_integrity_audit.json
 #   analysis/reports/research_integrity_audit.md
 
-# Run full test suite (1,203 tests)
-pytest tests/ -v
+# Reproducibility: ALWAYS pin hash randomization. PYTHONHASHSEED must be
+# exported BEFORE the Python interpreter starts (it cannot be set from
+# pytest/conftest — that is too late). reproduce_paper.sh and the GPU
+# launcher already export PYTHONHASHSEED=0; for manual runs do the same:
+PYTHONHASHSEED=0 python scripts/run_full_pipeline.py --seeds 1,2,3
+
+# Full paper reproduction (sets PYTHONHASHSEED=0 for you):
+bash reproduce_paper.sh
+
+# Run full test suite (1,203 tests) — pin the hash seed here too
+PYTHONHASHSEED=0 pytest tests/ -v
 
 # Run specific new metric tests
 pytest tests/test_behavioral_realism.py tests/test_persona_decay.py \

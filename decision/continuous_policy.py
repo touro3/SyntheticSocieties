@@ -25,6 +25,7 @@ Ternary payoff reference (environment/payoffs.py):
 
 from __future__ import annotations
 
+import hashlib
 import random
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -176,9 +177,15 @@ class ContinuousToDiscreteAdapter:
     `context["neighbors"]` when present.
     """
 
-    def __init__(self, policy: ContinuousPolicy, stochastic: bool = True) -> None:
+    def __init__(self, policy: ContinuousPolicy, stochastic: bool = True, seed: int = 42) -> None:
         self._policy = policy
         self._stochastic = stochastic
+        self._seed = seed
+
+    def _derive_seed(self, agent_id: str, round_id: int) -> int:
+        """Stable per-(agent, round) integer seed (SHA-256, not salted hash())."""
+        digest = hashlib.sha256(f"{self._seed}:{agent_id}:{round_id}".encode()).hexdigest()
+        return int(digest[:8], 16)
 
     def propose_action(
         self,
@@ -190,12 +197,19 @@ class ContinuousToDiscreteAdapter:
     ) -> ProposedAction:
         weights = self._policy.decide(profile, state, memory, context, round_id)
 
+        # Per-(agent, round) deterministic RNG so neighbor selection and
+        # categorical sampling are reproducible across runs and immune to
+        # intervening global-random consumption.
+        derived = self._derive_seed(profile.agent_id, round_id)
+        rng = random.Random(derived)
+
         neighbors: Sequence[str] = context.get("neighbors", [])
-        target = random.choice(list(neighbors)) if neighbors else None
+        target = rng.choice(list(neighbors)) if neighbors else None
 
         return weights.to_proposed_action(
             stochastic=self._stochastic,
             target_agent_id=target,
+            rng=np.random.default_rng(derived),
         )
 
 

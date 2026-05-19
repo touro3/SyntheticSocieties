@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import random
 import random as _random
 from typing import Optional
@@ -109,7 +110,7 @@ def generate_population(config: dict, policy, persistent_dir: str | None = None)
 
     # ── Condition C: Counterfactual Identity ("Soul Swap") ────────────────
     if defaults.get("shuffle_traits", False):
-        _shuffle_traits(agents)
+        _shuffle_traits(agents, seed=config.get("project", {}).get("seed", 42))
 
     return agents
 
@@ -228,7 +229,7 @@ def generate_empirical_population(
 
     # ── Condition C: Counterfactual Identity ("Soul Swap") ────────────────
     if defaults.get("shuffle_traits", False):
-        _shuffle_traits(agents)
+        _shuffle_traits(agents, seed=seed)
 
     return agents
 
@@ -311,21 +312,29 @@ def from_seed_document(
 _TRAIT_FIELDS = ("risk_tolerance", "competitiveness", "trust_people", "social_activity")
 
 
-def _shuffle_traits(agents: list[Agent]) -> None:
+def _shuffle_traits(agents: list[Agent], seed: int = 42) -> None:
     """Permute psychological trait columns independently across the population.
 
     Demographics (age, income, education, gender, country) remain intact.
     Each trait is shuffled independently so that the joint distribution of
     traits is also destroyed — this is the strongest "soul swap" condition.
+
+    Determinism: a local ``random.Random`` is seeded per trait field with a
+    stable SHA-256-derived sub-seed (NOT Python's salted ``hash()``), so the
+    Condition C permutation is fully reproducible for a given experiment seed
+    and immune to any intervening global-random consumption.
     """
     n = len(agents)
     if n < 2:
         return
 
     for field in _TRAIT_FIELDS:
+        # Independent, stable per-field sub-seed.
+        field_seed = int(hashlib.sha256(f"{seed}:{field}".encode()).hexdigest()[:8], 16)
+        field_rng = random.Random(field_seed)
         # Collect current values
         values = [getattr(a.profile, field, None) for a in agents]
-        _random.shuffle(values)
+        field_rng.shuffle(values)
         # Re-assign
         for agent, val in zip(agents, values):
             if hasattr(agent.profile, field):

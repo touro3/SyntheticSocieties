@@ -160,10 +160,12 @@ def build_state_block(state: AgentState, ablation_level: int = 5) -> str:
     # V3: Surface Agent Trust Dictionary directly in state
     if ablation_level >= AblationLevel.TRUST_SURFACED and hasattr(state, "trust_network") and state.trust_network:
         # Only show neighbors where trust > 0
-        active_trust = dict(sorted(
-            ((k, round(v, 2)) for k, v in state.trust_network.items() if v > 0),
-            key=lambda kv: kv[0],
-        ))
+        active_trust = dict(
+            sorted(
+                ((k, round(v, 2)) for k, v in state.trust_network.items() if v > 0),
+                key=lambda kv: kv[0],
+            )
+        )
         if active_trust:
             base += f"\n[Your internal trust toward specific neighbors based on their past help: {active_trust}]"
 
@@ -493,7 +495,12 @@ def build_prompt_staged(
     cannibalises persona or vice-versa. The final action instruction is always
     appended last and is never trimmed.
     """
-    system_text = BALANCED_SYSTEM_PROMPT if ablation_level >= AblationLevel.BALANCED else BASE_SYSTEM_PROMPT
+    # Shuffle action ordering in the system prompt with the same SHA-256
+    # per-(round, agent) seed used by build_prompt(), so the staged builder
+    # does not reintroduce LLM position bias by always listing actions in a
+    # fixed order. Deterministic: identical seeds → identical ordering.
+    shuffle_seed = int(hashlib.sha256(f"{round_id}:{profile.agent_id}".encode()).hexdigest()[:8], 16)
+    system_text = get_shuffled_system_prompt(seed=shuffle_seed)
 
     # ── Stage 1: Identity ────────────────────────────────────────────────────
     persona = build_persona_block(profile)

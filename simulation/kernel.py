@@ -11,13 +11,15 @@ import gc
 import json
 import logging
 import os
+import random
 import time
 import warnings
 from collections import Counter
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
-from agents.memory import HierarchicalMemory, MemoryItem
+from agents.memory import HierarchicalMemory, MemoryItem, MemoryLevel
 from decision.output_parser import get_parse_stats, reset_parse_stats
 from metrics.inequality import gini_coefficient as _gini_canonical
 from simulation.round_processor import RoundProcessor
@@ -36,6 +38,83 @@ def _atomic_write_json(path: Path, data: dict) -> None:
     tmp.parent.mkdir(parents=True, exist_ok=True)
     tmp.write_text(json.dumps(data))
     os.replace(tmp, path)  # os.replace is POSIX-atomic
+
+
+def _capture_rng_states() -> dict:
+    """Snapshot every RNG the simulation may consume, in JSON-safe form.
+
+    torch is optional — guarded so test/CI environments without it still
+    checkpoint cleanly.
+    """
+    states: dict = {}
+
+    py = random.getstate()
+    # py = (version:int, tuple[int]*625, gauss_next:None|float)
+    states["python"] = [py[0], list(py[1]), py[2]]
+
+    try:
+        import numpy as np
+
+        np_state = np.random.get_state()
+        states["numpy"] = [
+            np_state[0],
+            np_state[1].tolist(),
+            int(np_state[2]),
+            int(np_state[3]),
+            float(np_state[4]),
+        ]
+    except Exception:
+        pass
+
+    try:
+        import torch
+
+        states["torch"] = torch.random.get_rng_state().tolist()
+        if torch.cuda.is_available():
+            states["torch_cuda"] = [s.tolist() for s in torch.cuda.get_rng_state_all()]
+    except Exception:
+        pass
+
+    return states
+
+
+def _restore_rng_states(states: dict) -> None:
+    """Inverse of _capture_rng_states(). Missing keys are skipped silently."""
+    if not states:
+        return
+
+    py = states.get("python")
+    if py is not None:
+        random.setstate((py[0], tuple(py[1]), py[2]))
+
+    np_state = states.get("numpy")
+    if np_state is not None:
+        try:
+            import numpy as np
+
+            np.random.set_state(
+                (
+                    np_state[0],
+                    np.array(np_state[1], dtype=np.uint32),
+                    int(np_state[2]),
+                    int(np_state[3]),
+                    float(np_state[4]),
+                )
+            )
+        except Exception:
+            pass
+
+    torch_state = states.get("torch")
+    if torch_state is not None:
+        try:
+            import torch
+
+            torch.random.set_rng_state(torch.tensor(torch_state, dtype=torch.uint8))
+            cuda_states = states.get("torch_cuda")
+            if cuda_states and torch.cuda.is_available():
+                torch.cuda.set_rng_state_all([torch.tensor(s, dtype=torch.uint8) for s in cuda_states])
+        except Exception:
+            pass
 
 
 # Flush in-memory round_metrics to disk every N rounds to keep RAM bounded.
@@ -287,29 +366,115 @@ class SimulationKernel:
 
     # ── Checkpoint ───────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _serialize_memory(memory: HierarchicalMemory) -> dict:
+        """Serialize the full HierarchicalMemory so resume is not amnesiac."""
+        return {
+            "recent": [asdict(i) for i in memory.recent],
+            "archive": [asdict(i) for i in memory.archive],
+            "reflections": list(memory.reflections),
+            "pending_buffer": [asdict(i) for i in memory._pending_buffer],
+            "current_round": int(memory._current_round),
+            "level": int(memory.level),
+        }
+
+    @staticmethod
+    def _restore_memory(memory: HierarchicalMemory, snap: dict) -> None:
+        def _items(rows):
+            return [MemoryItem(**r) for r in rows]
+
+        memory.recent = _items(snap.get("recent", []))
+        memory.archive = _items(snap.get("archive", []))
+        memory.reflections = list(snap.get("reflections", []))
+        memory._pending_buffer = _items(snap.get("pending_buffer", []))
+        memory._current_round = int(snap.get("current_round", 0))
+        if "level" in snap:
+            memory.level = MemoryLevel(int(snap["level"]))
+        # Force reflection recomputation from the restored archive/recent.
+        memory._cache_dirty = True
+        memory._reflection_cache = None
+
+    def _social_graph(self):
+        """Return the live nx.Graph if a network manager is wired, else None."""
+        nm = getattr(self.world, "network_manager", None)
+        return getattr(nm, "graph", None) if nm is not None else None
+
     def save_checkpoint(self, path: Path) -> None:
-        """Persist agent states and current round_id to a JSON checkpoint."""
+        """Persist full simulation state to a JSON checkpoint.
+
+        Captures everything needed for a scientifically-valid resume: agent
+        state AND memory (C1), the social graph (C2), every RNG (C3),
+        collective memory (C4), and the complete world state (C5).
+        """
         data = {
             "round_id": self.world.state.round_id,
             "agents": {agent.profile.agent_id: agent.state.snapshot() for agent in self.agents},
+            "agent_memory": {agent.profile.agent_id: self._serialize_memory(agent.memory) for agent in self.agents},
+            "rng_states": _capture_rng_states(),
+            "world_state": asdict(self.world.state),
         }
+
+        # C2 — social graph (edge list with weights + nodes).
+        graph = self._social_graph()
+        if graph is not None:
+            data["social_graph"] = {
+                "nodes": list(graph.nodes()),
+                "edges": [[u, v, float(d.get("weight", 1.0))] for u, v, d in graph.edges(data=True)],
+            }
+
+        # C4 — collective memory facts.
+        if self.collective_memory is not None:
+            data["collective_memory"] = [asdict(f) for f in self.collective_memory.snapshot()]
+
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         _atomic_write_json(path, data)
 
     def load_checkpoint(self, path: Path) -> int:
-        """Restore agent states from a checkpoint. Returns the saved round_id."""
+        """Restore full simulation state from a checkpoint. Returns round_id."""
         data = json.loads(Path(path).read_text())
         saved = data.get("agents", {})
+        saved_mem = data.get("agent_memory", {})
         for agent in self.agents:
             snap = saved.get(agent.profile.agent_id)
-            if snap is None:
-                continue
-            agent.state.wealth = float(snap.get("wealth", agent.state.wealth))
-            agent.state.stress = float(snap.get("stress", agent.state.stress))
-            agent.state.satisfaction = float(snap.get("satisfaction", agent.state.satisfaction))
-            agent.state.last_action = snap.get("last_action", agent.state.last_action)
-            agent.state.trust = {k: float(v) for k, v in snap.get("trust", {}).items()}
+            if snap is not None:
+                agent.state.wealth = float(snap.get("wealth", agent.state.wealth))
+                agent.state.stress = float(snap.get("stress", agent.state.stress))
+                agent.state.satisfaction = float(snap.get("satisfaction", agent.state.satisfaction))
+                agent.state.last_action = snap.get("last_action", agent.state.last_action)
+                agent.state.trust = {k: float(v) for k, v in snap.get("trust", {}).items()}
+            mem_snap = saved_mem.get(agent.profile.agent_id)
+            if mem_snap is not None:
+                self._restore_memory(agent.memory, mem_snap)
+
+        # C3 — RNG states.
+        _restore_rng_states(data.get("rng_states", {}))
+
+        # C5 — full world state (prices, signals, resources, injection queue).
+        ws = data.get("world_state")
+        if isinstance(ws, dict):
+            for k, v in ws.items():
+                if hasattr(self.world.state, k):
+                    setattr(self.world.state, k, v)
+
+        # C2 — social graph.
+        graph = self._social_graph()
+        sg = data.get("social_graph")
+        if graph is not None and isinstance(sg, dict):
+            graph.remove_edges_from(list(graph.edges()))
+            graph.add_nodes_from(sg.get("nodes", []))
+            for edge in sg.get("edges", []):
+                u, v, w = edge[0], edge[1], float(edge[2])
+                graph.add_edge(u, v, weight=w)
+
+        # C4 — collective memory.
+        cm = data.get("collective_memory")
+        if self.collective_memory is not None and isinstance(cm, list):
+            from agents.collective_memory import WorldFact
+
+            with self.collective_memory._lock:
+                self.collective_memory._facts = [WorldFact(**f) for f in cm]
+
         round_id = int(data.get("round_id", 0))
         self.world.state.round_id = round_id
         return round_id

@@ -320,6 +320,117 @@ class TestLoadCheckpoint:
 # ---------------------------------------------------------------------------
 
 
+class TestCheckpointMemory:
+    """FIX 1 (C1): agent HierarchicalMemory must survive checkpoint/resume."""
+
+    def _populate(self, mem):
+        from agents.memory import MemoryItem, MemoryLevel
+
+        mem.add(MemoryItem(0, "a1", "cooperate", "helped a1", {"wealth_delta": -3}, 0.7, 15, 0))
+        mem.add(MemoryItem(1, None, "work", "earned", {"wealth_delta": 10}, 0.5, 10, 1))
+        mem.archive.append(MemoryItem(99, "a2", "save", "old event", {}, 0.4, None, 99))
+        mem.reflections.append("Over 5 events you mostly worked.")
+        mem._pending_buffer.append(MemoryItem(2, "a3", "cooperate", "pending", {}, 0.6, 12, 2))
+        mem._current_round = 7
+        mem.level = MemoryLevel.M2
+
+    def test_memory_roundtrip_exact(self, tmp_path):
+        agents = [_make_agent("m0")]
+        self._populate(agents[0].memory)
+        kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
+        ckpt = tmp_path / "mem.json"
+        kernel.save_checkpoint(ckpt)
+
+        # Wipe memory entirely, then restore.
+        fresh = [_make_agent("m0")]
+        kernel2, _ = _make_kernel(agents=fresh, tmp_path=tmp_path)
+        kernel2.load_checkpoint(ckpt)
+
+        m = fresh[0].memory
+        assert [i.content for i in m.recent] == ["helped a1", "earned"]
+        assert [i.event_type for i in m.recent] == ["cooperate", "work"]
+        assert m.recent[0].outcome == {"wealth_delta": -3}
+        assert m.recent[0].expires_at_round == 15
+        assert [i.content for i in m.archive] == ["old event"]
+        assert m.reflections == ["Over 5 events you mostly worked."]
+        assert [i.content for i in m._pending_buffer] == ["pending"]
+        assert m._current_round == 7
+        assert int(m.level) == 2
+
+    def test_no_amnesia_after_resume(self, tmp_path):
+        """The original bug: resumed agents had empty memory."""
+        agents = [_make_agent("m0")]
+        self._populate(agents[0].memory)
+        kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
+        ckpt = tmp_path / "mem.json"
+        kernel.save_checkpoint(ckpt)
+
+        fresh = [_make_agent("m0")]
+        assert fresh[0].memory.recent == []  # starts amnesiac
+        kernel2, _ = _make_kernel(agents=fresh, tmp_path=tmp_path)
+        kernel2.load_checkpoint(ckpt)
+        assert len(fresh[0].memory.recent) > 0  # memory restored
+
+
+class TestCheckpointGraphCollectiveRNG:
+    """FIX 2/3/4(C4): social graph, RNG states, collective memory persist."""
+
+    def test_social_graph_roundtrip(self, tmp_path):
+        import random as _random
+
+        from agents.collective_memory import CollectiveMemory
+        from bgf_logging.event_logger import EventLogger
+        from environment.network import NetworkManager
+        from simulation.kernel import SimulationKernel
+
+        agents = [_make_agent(f"agent_{i}") for i in range(3)]
+        world = _make_world()
+        world.network_manager = NetworkManager.fully_connected(["agent_0", "agent_1", "agent_2"])
+        world.network_manager.strengthen_edge("agent_0", "agent_1", increment=0.5)
+        cm = CollectiveMemory()
+        cm.record(1, "shock", "wealth shock hit", importance=0.9)
+
+        logger = EventLogger(tmp_path / "e.jsonl", overwrite=True)
+        kernel = SimulationKernel(agents=agents, world=world, logger=logger, collective_memory=cm)
+        _random.seed(123)
+        _random.random()  # advance RNG
+        ckpt = tmp_path / "full.json"
+        kernel.save_checkpoint(ckpt)
+
+        expected_next = _random.random()
+
+        # New world with empty graph + empty collective memory.
+        agents2 = [_make_agent(f"agent_{i}") for i in range(3)]
+        world2 = _make_world()
+        world2.network_manager = NetworkManager.fully_connected([])
+        cm2 = CollectiveMemory()
+        kernel2 = SimulationKernel(agents=agents2, world=world2, logger=logger, collective_memory=cm2)
+        kernel2.load_checkpoint(ckpt)
+
+        assert world2.network_manager.get_edge_weight("agent_0", "agent_1") == pytest.approx(1.5)
+        assert [f.content for f in cm2.snapshot()] == ["wealth shock hit"]
+        # RNG restored → next draw matches the value captured at save time.
+        assert _random.random() == pytest.approx(expected_next)
+
+    def test_world_state_roundtrip(self, tmp_path):
+        agents = [_make_agent("a0")]
+        kernel, _ = _make_kernel(agents=agents, tmp_path=tmp_path)
+        kernel.world.state.prices = {"food": 2.5}
+        kernel.world.state.public_signal = {"economy": "crisis"}
+        kernel.world.state.resources = {"jobs": 42.0}
+        ckpt = tmp_path / "ws.json"
+        kernel.save_checkpoint(ckpt)
+
+        kernel.world.state.prices = {}
+        kernel.world.state.public_signal = {}
+        kernel.world.state.resources = {}
+        kernel.load_checkpoint(ckpt)
+
+        assert kernel.world.state.prices == {"food": 2.5}
+        assert kernel.world.state.public_signal == {"economy": "crisis"}
+        assert kernel.world.state.resources == {"jobs": 42.0}
+
+
 class TestRunResume:
     def test_fresh_run_executes_all_rounds(self, tmp_path):
         kernel, agents = _make_kernel(tmp_path=tmp_path)

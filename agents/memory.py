@@ -308,7 +308,10 @@ class HierarchicalMemory:
 
         action_parts = []
         for action, w in weighted_counts.most_common():
-            pct = round(100 * w / total_weight) if total_weight > 0 else 0
+            # Deterministic rounding: int(x + 0.5) avoids Python's
+            # banker's-rounding, which can differ across platforms/BLAS and
+            # silently change the reflection text (hence the LLM prompt).
+            pct = int(100 * w / total_weight + 0.5) if total_weight > 0 else 0
             action_parts.append(f"{action} {pct}%")
         action_summary = ", ".join(action_parts)
 
@@ -323,7 +326,7 @@ class HierarchicalMemory:
                 reciprocated = sum(1 for m in partner_items if m.outcome.get("reciprocated") is True)
                 total_coop = len(partner_items)
                 if reciprocated > 0 or any("reciprocated" in m.outcome for m in partner_items):
-                    pct = round(100 * reciprocated / total_coop)
+                    pct = int(100 * reciprocated / total_coop + 0.5)
                     partner_details.append(f"{partner} (reciprocated {pct}% of the time)")
                 else:
                     partner_details.append(partner)

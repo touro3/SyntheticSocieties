@@ -21,6 +21,11 @@
 # =============================================================================
 
 set -euo pipefail
+
+# Reproducibility: pin hash randomization so any dict/set ordering or
+# hash()-derived value is identical across processes and machines.
+export PYTHONHASHSEED=0
+
 cd "$(dirname "$0")/.."
 PROJECT_ROOT=$(pwd)
 

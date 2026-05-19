@@ -81,9 +81,7 @@ class RoundProcessor:
                 self.agent_lookup[aid].state.wealth = w
             raise
 
-    def _apply_target_delta_unsafe(
-        self, executed_event: dict, target_id, source_id, target_delta: float
-    ) -> None:
+    def _apply_target_delta_unsafe(self, executed_event: dict, target_id, source_id, target_delta: float) -> None:
         if target_id and target_delta and target_id in self.agent_lookup:
             target = self.agent_lookup[target_id]
             target.state.wealth += target_delta

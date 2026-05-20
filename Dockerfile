@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 
 # Layer 2: install metadata only, so editable-install can run before the
 # rest of the source tree invalidates this layer on every source edit.
-COPY pyproject.toml setup.py setup.cfg* ./
+COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e . --no-deps || true
 
 # Layer 3: full source — only this layer is invalidated by source edits.

@@ -30,6 +30,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app/api /app/api
 COPY --from=builder /app/agents /app/agents
 COPY --from=builder /app/decision /app/decision
+COPY --from=builder /app/models /app/models
 COPY --from=builder /app/environment /app/environment
 COPY --from=builder /app/simulation /app/simulation
 COPY --from=builder /app/metrics /app/metrics

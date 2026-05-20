@@ -35,7 +35,6 @@ experiments/
 tests/
 htmlcov/
 uploads/
-models/
 human_experiment/
 benchmark/submissions/
 data/*.csv

@@ -28,3 +28,16 @@ graphify-out/
 node_modules/
 .vscode/
 .idea/
+
+# Bulk artefacts and test trees — never needed at runtime, drastically
+# shrink the build context for both `docker build` and HF Space deploys.
+experiments/
+tests/
+htmlcov/
+uploads/
+models/
+human_experiment/
+benchmark/submissions/
+data/*.csv
+docs/
+analysis/figures/

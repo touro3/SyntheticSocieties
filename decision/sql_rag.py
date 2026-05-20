@@ -3,7 +3,9 @@ SQL-based TableRAG for population grounding.
 Allows agents to query empirical population trends via DuckDB SQL.
 """
 
+import atexit
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import Optional
 
@@ -11,6 +13,11 @@ import duckdb
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# Cap on peer-context cache. Each entry is a small string; bound exists so
+# long cross-model sweeps (~10⁴ distinct demographic tuples) don't grow
+# unbounded inside long-lived policy objects.
+_PEER_CACHE_MAX = 512
 
 
 class SQLRAG:
@@ -34,7 +41,9 @@ class SQLRAG:
         # The default ESS parquet is gitignored and absent on cloud deployments;
         # raising here kills LLM policy builds on Render/CI.
         # Per-agent demographic context is static across rounds — cache it once.
-        self._peer_cache: dict[tuple, str] = {}
+        # LRU-bounded so long sweeps don't leak.
+        self._peer_cache: OrderedDict[tuple, str] = OrderedDict()
+        atexit.register(self.close)
         # Fallback status — audit signal so callers / event logs can record
         # whether grounding actually fired or silently degraded to a static
         # narrative. Values: "ok", "no_data_file", "no_peer_cols",
@@ -140,6 +149,7 @@ class SQLRAG:
         """
         _cache_key = (age, gender, country, round(income_decile or 0, 1))
         if _cache_key in self._peer_cache:
+            self._peer_cache.move_to_end(_cache_key)
             return self._peer_cache[_cache_key]
 
         try:
@@ -292,13 +302,20 @@ class SQLRAG:
         ]:
             result = _run_query(window, use_country, use_income)
             if result:
-                self._peer_cache[_cache_key] = result
+                self._cache_put(_cache_key, result)
                 return result
 
         _fallback = self.static_context or "No peer group data found for this demographic."
-        self._peer_cache[_cache_key] = _fallback
+        self._cache_put(_cache_key, _fallback)
         self._emit_fallback("no_cohort_match")
         return _fallback
+
+    def _cache_put(self, key: tuple, value: str) -> None:
+        """Insert into the bounded LRU peer cache, evicting oldest if full."""
+        self._peer_cache[key] = value
+        self._peer_cache.move_to_end(key)
+        while len(self._peer_cache) > _PEER_CACHE_MAX:
+            self._peer_cache.popitem(last=False)
 
     def close(self):
         """Release DuckDB resources."""

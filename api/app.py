@@ -153,7 +153,18 @@ _DESIGN_CACHE_LOCK = threading.Lock()  # guards the check-evict-insert sequence
 # ── OpenAI client singleton ───────────────────────────────────────────────
 # Re-using one client per api-key prefix avoids TCP handshake overhead on
 # every /interview call (Render's free tier has limited open-file descriptors).
+# FIFO-bounded so a long-running server seeing many distinct API keys (multi-
+# tenant deploys) cannot leak client objects.
 _OAI_CLIENTS: dict[str, Any] = {}
+_OAI_CLIENTS_MAX = 16
+
+
+def _oai_clients_put(prefix: str, client: Any) -> None:
+    """Insert into _OAI_CLIENTS, evicting oldest if over cap."""
+    _OAI_CLIENTS[prefix] = client
+    while len(_OAI_CLIENTS) > _OAI_CLIENTS_MAX:
+        _OAI_CLIENTS.pop(next(iter(_OAI_CLIENTS)))
+
 
 # ── Ollama warmup throttle ────────────────────────────────────────────────
 # Tracks the last time we kicked off a background model-load so we don't
@@ -397,7 +408,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
         # Reuse singleton to avoid TCP reconnect on every call
         key_prefix = api_key[:8]
         if key_prefix not in _OAI_CLIENTS:
-            _OAI_CLIENTS[key_prefix] = openai.OpenAI(api_key=api_key)
+            _oai_clients_put(key_prefix, openai.OpenAI(api_key=api_key))
         client = _OAI_CLIENTS[key_prefix]
         model = "gpt-4o-mini"
 
@@ -1452,7 +1463,7 @@ def create_app(
                 # Reuse singleton — avoids TCP reconnect on every interview call
                 _oai_prefix = oai_key[:8]
                 if _oai_prefix not in _OAI_CLIENTS:
-                    _OAI_CLIENTS[_oai_prefix] = _OAI(api_key=oai_key)
+                    _oai_clients_put(_oai_prefix, _OAI(api_key=oai_key))
                 oai = _OAI_CLIENTS[_oai_prefix]
 
                 # Build scenario persona block (empty string if no design context)

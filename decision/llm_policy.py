@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from decision.llm_backend import LLMBackend
 from decision.llm_policy_base import LLMPolicyBase
 from decision.prompt_builder import build_prompt, build_prompt_text, get_neighbors
 from decision.schemas import ProposedAction
+
+if TYPE_CHECKING:
+    from agents.memory import HierarchicalMemory
+    from agents.profile import AgentProfile
+    from agents.state import AgentState
 
 
 class LLMPolicy(LLMPolicyBase):
@@ -18,14 +23,14 @@ class LLMPolicy(LLMPolicyBase):
         memory_window: int = 5,
         temperature: float = 0.7,
         max_retries: int = 2,
-        prompt_logger=None,
+        prompt_logger: Optional[Any] = None,
         perturbation_mode: Optional[str] = None,
-        graph_rag=None,
-        sql_rag=None,
-        collective_memory=None,
+        graph_rag: Optional[Any] = None,
+        sql_rag: Optional[Any] = None,
+        collective_memory: Optional[Any] = None,
         ablation_level: int = 5,
         prompt_budget: Optional[int] = None,
-    ):
+    ) -> None:
         self.backend = backend
         self.memory_window = memory_window
         self.temperature = temperature
@@ -40,9 +45,9 @@ class LLMPolicy(LLMPolicyBase):
 
     def propose_action(
         self,
-        profile,
-        state,
-        memory,
+        profile: AgentProfile,
+        state: AgentState,
+        memory: HierarchicalMemory,
         context: dict,
         round_id: int,
     ) -> ProposedAction:

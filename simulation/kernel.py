@@ -63,8 +63,8 @@ def _capture_rng_states() -> dict:
             int(np_state[3]),
             float(np_state[4]),
         ]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("RNG state capture/restore skipped: %s", exc)
 
     try:
         import torch
@@ -72,8 +72,8 @@ def _capture_rng_states() -> dict:
         states["torch"] = torch.random.get_rng_state().tolist()
         if torch.cuda.is_available():
             states["torch_cuda"] = [s.tolist() for s in torch.cuda.get_rng_state_all()]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("RNG state capture/restore skipped: %s", exc)
 
     return states
 
@@ -359,7 +359,12 @@ class SimulationKernel:
         # keeping them alive until Python's cyclic GC decides to collect them
         # can double peak RAM usage when population size is large (500+ agents).
         del agent_data, messages_list, batch_results
-        gc.collect()
+        # gc.collect() is expensive (~10–50 ms on 500-agent runs). Calling it
+        # every round costs more CPU than it saves RAM in the common case;
+        # run it every 10 rounds instead. Python's generational GC handles
+        # the rest.
+        if self.world.state.round_id % 10 == 0:
+            gc.collect()
 
         # Memory update uses cached neighbors — no second network traversal.
         self._narrate_and_update_memory(self.world.state.round_id, cached_neighbors=cached_neighbors)
@@ -495,10 +500,19 @@ class SimulationKernel:
         """
         remaining = num_rounds - start_round
         if remaining <= 0:
-            logger.info("All %d rounds already complete — nothing to do.", num_rounds)
+            logger.info(
+                "All %d rounds already complete — nothing to do.",
+                num_rounds,
+                extra={"num_rounds": num_rounds, "start_round": start_round, "n_agents": len(self.agents)},
+            )
             return num_rounds - start_round
         if start_round > 0:
-            logger.info("Resuming from round %d (%d remaining).", start_round, remaining)
+            logger.info(
+                "Resuming from round %d (%d remaining).",
+                start_round,
+                remaining,
+                extra={"start_round": start_round, "remaining": remaining, "n_agents": len(self.agents)},
+            )
         # Evaluate once — the policy type and backend never change mid-run.
         use_batched = self._can_use_batched_mode()
         completed = 0
@@ -739,9 +753,16 @@ class SimulationKernel:
         # Flush to disk every N rounds to keep the in-memory list bounded.
         # round_metrics.jsonl accumulates all historical data; round_metrics
         # in memory only ever holds _METRICS_FLUSH_INTERVAL entries at a time.
+        # When no flush path is configured (e.g. unit tests, kernels created
+        # without heartbeat_path), _flush_round_metrics is a no-op but we
+        # still clear the list so it cannot grow unbounded over long runs.
         if len(self.round_metrics) >= _METRICS_FLUSH_INTERVAL:
             self._flush_round_metrics()
             self.round_metrics.clear()
+        elif self._metrics_flush_path is None and len(self.round_metrics) > _METRICS_FLUSH_INTERVAL * 4:
+            # Safety net: even without a flush path, cap in-memory growth
+            # at 4× the flush interval so the list cannot leak in tests.
+            self.round_metrics = self.round_metrics[-_METRICS_FLUSH_INTERVAL:]
 
         # Early warning: action collapse detection
         if action_dist:

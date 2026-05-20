@@ -1,7 +1,10 @@
 import argparse
 import inspect
+import logging
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -206,9 +209,9 @@ def _build_llm_backend(llm_cfg: dict):
                 "can fall back to an API backend, or use a config with "
                 "llm.backend_type set to 'groq' or 'openai'."
             )
-        print(
-            f"transformers unavailable (cloud/CPU deployment); falling back to '{provider}' API backend for this run.",
-            file=__import__("sys").stderr,
+        logger.warning(
+            "transformers unavailable (cloud/CPU deployment); falling back to '%s' API backend for this run.",
+            provider,
         )
         return _build_openai_compat_backend(provider, llm_cfg)
 
@@ -402,7 +405,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
 
     if overrides:
         config = apply_overrides(config, overrides)
-        print(f"Applied CLI overrides: {overrides}")
+        logger.info("Applied CLI overrides: %s", overrides)
 
     experiment_id = _resolve_experiment_id(config)
     seed = config["project"]["seed"]
@@ -449,22 +452,25 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     try:
         if pop_source == "empirical":
             agents = generate_empirical_population(config, policy, persistent_dir=str(run_dir))
-            print(f"Generated empirical population: {len(agents)} agents from ESS data")
+            logger.info("Generated empirical population: %d agents from ESS data", len(agents))
         elif pop_source == "placebo":
             agents = generate_placebo_population(config, policy)
-            print(
-                f"Generated placebo population: {len(agents)} scrambled-but-valid agents (semantic-isolation control)"
+            logger.info(
+                "Generated placebo population: %d scrambled-but-valid agents (semantic-isolation control)",
+                len(agents),
             )
         else:
             agents = generate_population(config, policy, persistent_dir=str(run_dir))
-            print(f"Generated synthetic population: {len(agents)} agents")
+            logger.info("Generated synthetic population: %d agents", len(agents))
     except Exception as exc:
         _early_run_mgr.fail(str(exc))
         raise
 
     network_manager = build_network(config, agents)
     world = build_world(config, network_manager)
-    logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
+    # Local variable renamed from `logger` to `event_logger` so it no longer
+    # shadows the module-level logging.Logger used by status messages below.
+    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
     from agents.collective_memory import CollectiveMemory
     from environment.social_env import SocialEnvironment
 
@@ -474,7 +480,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     kernel = SimulationKernel(
         agents=agents,
         world=world,
-        logger=logger,
+        logger=event_logger,
         heartbeat_path=run_dir / "heartbeat.json",
         collective_memory=collective_memory,
         social_env=social_env,
@@ -487,9 +493,9 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         checkpoint_path = Path("experiments") / resume_exp_id / "checkpoint.json"
         if checkpoint_path.exists():
             start_round = kernel.load_checkpoint(checkpoint_path)
-            print(f"Resumed from checkpoint: round {start_round} / {num_rounds}")
+            logger.info("Resumed from checkpoint: round %d / %d", start_round, num_rounds)
         else:
-            print(f"Warning: no checkpoint found at {checkpoint_path}, starting fresh.")
+            logger.warning("no checkpoint found at %s, starting fresh.", checkpoint_path)
 
     # ── Graph-enriched persona injection (post-resume) ────────────────────────
     # After a resume, the GraphRAG is rebuilt from events.jsonl by the policy
@@ -522,9 +528,9 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
                 enriched = enrich_persona_from_graph(rec, policy.graph_rag)
                 if hasattr(p, "persona_text"):
                     p.persona_text = enriched
-            print(f"Graph-enriched personas applied to {len(agents)} agents.")
+            logger.info("Graph-enriched personas applied to %d agents.", len(agents))
         except Exception as exc:
-            print(f"Warning: graph persona enrichment skipped ({exc})")
+            logger.warning("graph persona enrichment skipped: %s", exc)
 
     # ── Graceful shutdown wiring ──────────────────────────────────────────────
     from simulation.signal_handler import GracefulShutdown
@@ -550,7 +556,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         run_mgr.tick(start_round + completed)
         if shutdown.requested:
             run_mgr.fail(f"Interrupted by {shutdown.signal_name}")
-            print(f"Run interrupted after round {start_round + completed} — checkpoint saved.")
+            logger.warning("Run interrupted after round %d — checkpoint saved.", start_round + completed)
         else:
             run_mgr.complete()
     except Exception as exc:
@@ -584,13 +590,13 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         data_path = config.get("data", {}).get("ess_clean_path")
         write_witness(run_dir, extra_inputs=[data_path] if data_path else None)
     except Exception as exc:  # pragma: no cover - defensive
-        print(f"Witness generation skipped: {exc}")
+        logger.warning("Witness generation skipped: %s", exc)
 
-    print(f"Experiment completed: {experiment_id}")
-    print(f"Artifacts saved in: {run_dir}")
+    logger.info("Experiment completed: %s", experiment_id)
+    logger.info("Artifacts saved in: %s", run_dir)
 
     for agent in agents:
-        print(agent.profile.agent_id, agent.state)
+        logger.debug("%s %s", agent.profile.agent_id, agent.state)
 
 
 def main() -> None:

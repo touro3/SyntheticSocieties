@@ -8,12 +8,38 @@ import numpy as np
 
 
 def load_events(events_path: str | Path) -> list[dict]:
-    events = []
-    with Path(events_path).open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                events.append(json.loads(line))
+    """Load events from a JSONL file, transparently concatenating rotated shards.
+
+    Accepts either the active ``events.jsonl`` path or its parent directory.
+    When the active file rotates (see ``bgf_logging.event_logger``), shards
+    are written as ``events.0001.jsonl``, ``events.0002.jsonl``, … with the
+    tail in ``events.jsonl``. This function reads all shards in shard order,
+    then the active file, so downstream metrics see the full run regardless
+    of how many rotations occurred.
+    """
+    p = Path(events_path)
+    if p.is_dir():
+        base_dir = p
+        active = base_dir / "events.jsonl"
+    else:
+        base_dir = p.parent
+        active = p
+
+    shards = sorted(base_dir.glob("events.[0-9]*.jsonl"))
+    files: list[Path] = list(shards)
+    if active.exists():
+        files.append(active)
+
+    events: list[dict] = []
+    for fp in files:
+        with fp.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        events.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
     return events
 
 
@@ -128,7 +154,8 @@ def temporal_stability(events: list[dict]) -> dict:
         p = p / p.sum()
         q = q / q.sum()
         m = (p + q) / 2
-        jsd = float(entropy(m) - (entropy(p) + entropy(q)) / 2)
+        # base=2 → JSD in [0,1] bits, matches metrics.distribution.
+        jsd = float(entropy(m, base=2) - (entropy(p, base=2) + entropy(q, base=2)) / 2)
         jsd_values.append(jsd)
 
     mean_jsd = float(np.mean(jsd_values)) if jsd_values else 0.0

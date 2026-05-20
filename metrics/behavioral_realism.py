@@ -29,14 +29,28 @@ Interpretation note — B_RLHF:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 
 from metrics.distribution import jensen_shannon_divergence
 
+logger = logging.getLogger(__name__)
+
 # ── Actions recognized by the BGF action space ───────────────────────────
+#
+# B_RLHF was defined in the paper over the three non-adversarial actions
+# (work / save / cooperate). The `steal` action is adversarial-only (see
+# environment/institutions.py hard constraints) and is intentionally NOT
+# part of the uniform-reference action space — including it would penalize
+# any non-adversarial run for not stealing.
+#
+# To avoid the previous silent-drop bug (where `steal` entries in the input
+# distribution were ignored without warning), `compute_rlhf_bias_index`
+# now emits a warning when unknown actions are present.
 
 _ACTIONS = ("work", "save", "cooperate")
 _UNIFORM = 1.0 / len(_ACTIONS)
+_KNOWN_ACTIONS = frozenset({"work", "save", "cooperate", "steal"})
 
 
 # ── BRM-JSD ──────────────────────────────────────────────────────────────
@@ -94,6 +108,15 @@ def compute_rlhf_bias_index(action_distribution: dict[str, float]) -> float:
     """
     if not action_distribution:
         raise ValueError("Action distribution must not be empty.")
+
+    extras = [a for a in action_distribution if a not in _ACTIONS]
+    if extras:
+        logger.warning(
+            "compute_rlhf_bias_index: distribution contains non-canonical actions %s; "
+            "these are excluded from the B_RLHF uniform reference (work/save/cooperate). "
+            "For adversarial runs containing 'steal', this is by design — see module docstring.",
+            extras,
+        )
 
     tv = 0.0
     for action in _ACTIONS:

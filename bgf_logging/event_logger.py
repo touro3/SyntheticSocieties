@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import IO, Optional
 
@@ -37,6 +38,7 @@ class EventLogger:
         output_path: str | Path,
         overwrite: bool = False,
         max_bytes: int = _DEFAULT_MAX_BYTES,
+        fsync_each: bool = False,
     ) -> None:
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +46,12 @@ class EventLogger:
         self._rotation_count = 0
         self._bytes_written = 0
         self._fh: Optional[IO[str]] = None
+        # When True, every write is flushed + os.fsync'd. This costs ~1 ms
+        # per event but guarantees the event log is durable up to the last
+        # successful write even on hard kill (SIGKILL, OOM, GPU panic).
+        # Default False to preserve baseline throughput; turn on for
+        # production runs whose crash-recovery must not skip events.
+        self._fsync_each = fsync_each
 
         if overwrite and self.output_path.exists():
             self.output_path.unlink()
@@ -91,6 +99,9 @@ class EventLogger:
 
         self._fh.write(line)
         self._bytes_written += line_bytes
+        if self._fsync_each:
+            self._fh.flush()
+            os.fsync(self._fh.fileno())
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 

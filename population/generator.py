@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 from typing import Optional
 
@@ -30,13 +31,12 @@ from population._helpers import (
     safe_int as _safe_int,
 )
 from population._helpers import (
-    safe_mean as _safe_mean,
-)
-from population._helpers import (
     safe_normalized_float as _safe_normalized_float,
 )
 from population.sampling import sample_age, sample_empirical_rows, sample_income
 from population.schemas import PopulationSpec
+
+logger = logging.getLogger(__name__)
 
 
 def _build_memory(defaults: dict, agent_id: str, persistent_dir: str | None) -> HierarchicalMemory:
@@ -155,10 +155,19 @@ def generate_empirical_population(
 
     agents: list[Agent] = []
 
+    # Count NaN→default substitutions so distortions to marginals are visible.
+    nan_counts: dict[str, int] = {"age": 0, "income_decile": 0, "left_right": 0}
+
     for i, row in enumerate(rows):
         # Map ESS fields to AgentProfile, with fallbacks to config defaults
-        age = _safe_int(row.get("age"), default=sample_age(defaults.get("min_age", 25), defaults.get("max_age", 60)))
-        income = _safe_float(row.get("income_decile"), default=0.5) * defaults.get("base_income", 1000.0) * 2
+        raw_age = row.get("age")
+        if raw_age is None or (isinstance(raw_age, float) and raw_age != raw_age):
+            nan_counts["age"] += 1
+        age = _safe_int(raw_age, default=sample_age(defaults.get("min_age", 25), defaults.get("max_age", 60)))
+        raw_decile = row.get("income_decile")
+        if raw_decile is None or (isinstance(raw_decile, float) and raw_decile != raw_decile):
+            nan_counts["income_decile"] += 1
+        income = _safe_float(raw_decile, default=0.5) * defaults.get("base_income", 1000.0) * 2
 
         # Map education level to string
         education = _map_education(row.get("education_level"), defaults.get("education", "unknown"))
@@ -175,13 +184,11 @@ def generate_empirical_population(
         # Social class from income decile
         social_class = _map_social_class(row.get("income_decile"), defaults.get("social_class", "middle"))
 
-        # Compute trust_institutions as average of available institutional trust
-        trust_inst_vars = [
-            row.get("trust_parliament"),
-            row.get("trust_legal"),
-            row.get("trust_police"),
-        ]
-        trust_inst = _safe_mean(trust_inst_vars)
+        # Canonical institutional-trust mean (4-item, NaN-dropped) — same
+        # helper as persona_synthesizer so both paths agree on this field.
+        from population._helpers import trust_institutions_mean as _trust_mean
+
+        trust_inst = _trust_mean(row)
 
         profile = AgentProfile(
             agent_id=f"agent_{i}",
@@ -225,6 +232,19 @@ def generate_empirical_population(
         memory = _build_memory(defaults, f"agent_{i}", persistent_dir)
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
+
+    # Warn loudly when NaN substitution distorts marginals on >5% of agents.
+    for field, count in nan_counts.items():
+        if count and count / max(n, 1) > 0.05:
+            logger.warning(
+                "generate_empirical_population: %d/%d (%.1f%%) agents had NaN '%s' "
+                "and were substituted with a default — empirical marginal for this "
+                "field is distorted.",
+                count,
+                n,
+                100.0 * count / n,
+                field,
+            )
 
     # ── Condition C: Counterfactual Identity ("Soul Swap") ────────────────
     if defaults.get("shuffle_traits", False):

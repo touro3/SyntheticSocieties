@@ -14,10 +14,13 @@ Usage:
 from __future__ import annotations
 
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 CALIBRATION_SEEDS = [42, 123]
 EVALUATION_SEEDS = [7]
@@ -72,7 +75,9 @@ def compute_metrics(exp_ids: list[str]) -> dict:
 
     return {
         "mean_wealth": float(np.mean(arr)),
-        "std_wealth": float(np.std(arr)),
+        # Sample std (ddof=1) so this matches the conventional statistical
+        # interpretation when comparing across runs.
+        "std_wealth": float(np.std(arr, ddof=1)) if arr.size > 1 else 0.0,
         "gini": gini,
         "coop_rate": coop_rate,
         "action_counts": dict(all_actions),
@@ -216,8 +221,15 @@ def ess_wealth_reference(
             float(q["0.9"]),
             float(inc["max"]),
         ]
-    except (OSError, KeyError, ValueError, TypeError):
-        pass  # fall back to the committed-summary anchors above
+    except (OSError, KeyError, ValueError, TypeError) as exc:
+        # Fall back to the committed-summary anchors — but make this loud
+        # so a run computed against the wrong reference cannot pass silently.
+        logger.warning(
+            "ess_wealth_reference: could not load %s (%s); using hardcoded fallback "
+            "anchors [1,2,3,5,7,8,10] for the inverse-CDF interpolation.",
+            path,
+            exc,
+        )
     # Enforce monotone non-decreasing support for a valid inverse CDF.
     v_anchor = np.maximum.accumulate(v_anchor)
     return np.interp(np.linspace(0.0, 1.0, n), p_anchor, v_anchor).astype(float)

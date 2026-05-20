@@ -50,12 +50,21 @@ def _git_rev() -> dict:
 
 
 def _manifest(exp_dir: Path, extra_inputs: list[str] | None = None) -> dict:
-    """Build the hashable manifest for an experiment directory."""
+    """Build the hashable manifest for an experiment directory.
+
+    Includes every rotated event shard (``events.NNNN.jsonl``) so the
+    witness reflects the full event log, not just the active tail. Without
+    this, long runs (>200 MB events) would have most of their data outside
+    the hashed manifest.
+    """
     config_path = exp_dir / "config.yaml"
     inputs: dict[str, Optional[str]] = {
         "config.yaml": _sha256_file(config_path),
         "events.jsonl": _sha256_file(exp_dir / "events.jsonl"),
     }
+    for shard in sorted(exp_dir.glob("events.[0-9]*.jsonl")):
+        inputs[shard.name] = _sha256_file(shard)
+
     for rel in extra_inputs or []:
         p = Path(rel)
         inputs[str(rel)] = _sha256_file(p)
@@ -120,7 +129,13 @@ def verify_witness(exp_dir: str | Path) -> dict:
         return {"ok": False, "reason": "no witness.json"}
 
     stored = json.loads(wpath.read_text())
-    extra = [k for k in stored["manifest"]["inputs"] if k not in ("config.yaml", "events.jsonl")]
+    # Reserved keys are added automatically by _manifest (config.yaml,
+    # events.jsonl, and any rotated events.NNNN.jsonl shards present on disk).
+    extra = [
+        k
+        for k in stored["manifest"]["inputs"]
+        if k not in ("config.yaml", "events.jsonl") and not k.startswith("events.")
+    ]
     recomputed = _digest(_manifest(exp_dir, extra))
 
     if recomputed != stored.get("digest_sha256"):

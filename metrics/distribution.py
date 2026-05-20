@@ -63,7 +63,8 @@ def jensen_shannon_divergence(
     p = (p_counts + eps) / (p_counts + eps).sum()
     q = (q_counts + eps) / (q_counts + eps).sum()
 
-    return float(stats.entropy((p + q) / 2) - (stats.entropy(p) + stats.entropy(q)) / 2)
+    # base=2 so JSD is bounded in [0, 1] (in bits), matching the docstring.
+    return float(stats.entropy((p + q) / 2, base=2) - (stats.entropy(p, base=2) + stats.entropy(q, base=2)) / 2)
 
 
 def kl_divergence(
@@ -103,7 +104,8 @@ def kl_divergence(
     p = (p_counts + eps) / (p_counts + eps).sum()
     q = (q_counts + eps) / (q_counts + eps).sum()
 
-    return float(stats.entropy(p, q))
+    # base=2 so KL is reported in bits (consistent with JSD).
+    return float(stats.entropy(p, q, base=2))
 
 
 def wasserstein_distance(

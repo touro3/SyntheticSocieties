@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 from collections.abc import Iterable
 from pathlib import Path
@@ -34,6 +35,8 @@ from population._helpers import (
     safe_normalized_float as _safe_normalized_float,
 )
 from population.society_spec import SocietySpec
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_record(record):
@@ -78,14 +81,15 @@ class PersonaRecord(BaseModel):
 
 
 def _mean_institutions(row: pd.Series) -> float | None:
-    vals = [
-        _safe_float(row.get("trust_institutions")),
-        _safe_float(row.get("trust_parliament")),
-        _safe_float(row.get("trust_legal")),
-        _safe_float(row.get("trust_police")),
-    ]
-    vals = [v for v in vals if v is not None]
-    return sum(vals) / len(vals) if vals else None
+    """Thin wrapper for the canonical institutional-trust mean.
+
+    Both ESS-to-agent paths (generator.py and this file) now route through
+    :func:`population._helpers.trust_institutions_mean` so the result is
+    identical given the same input row.
+    """
+    from population._helpers import trust_institutions_mean
+
+    return trust_institutions_mean(row)
 
 
 def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: int = 42) -> list[PersonaRecord]:
@@ -95,11 +99,19 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
     rng = random.Random(seed)
     records: list[PersonaRecord] = []
 
+    nan_counts = {"age": 0, "income_decile": 0}
+
     for i in range(n):
         row = df.sample(n=1, replace=True, random_state=rng.randint(0, 10_000_000)).iloc[0]
 
-        income_decile = _safe_int(row.get("income_decile"), 5)
-        age = _safe_int(row.get("age"), 40) or 40
+        raw_decile = row.get("income_decile")
+        if pd.isna(raw_decile):
+            nan_counts["income_decile"] += 1
+        income_decile = _safe_int(raw_decile, 5)
+        raw_age = row.get("age")
+        if pd.isna(raw_age):
+            nan_counts["age"] += 1
+        age = _safe_int(raw_age, 40) or 40
         # Wealth formula matches generate_empirical_population:
         # base=50 + (decile/10) * wealth_step(10) * 10 → range 50-150.
         # The old formula (50 + decile/10 * 50 → 55-100) underestimated
@@ -139,6 +151,17 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
                 else None,
             )
         )
+
+    for field, count in nan_counts.items():
+        if count and count / max(n, 1) > 0.05:
+            logger.warning(
+                "synthesize_ess_personas: %d/%d (%.1f%%) personas had NaN '%s' and were "
+                "substituted with a default; empirical marginal for this field is distorted.",
+                count,
+                n,
+                100.0 * count / n,
+                field,
+            )
 
     return records
 

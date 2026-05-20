@@ -55,7 +55,7 @@ class TestCalibrationJsd:
         right_skew = rng.exponential(1.0, size=600)
         left_skew = 12.0 - rng.exponential(1.0, size=600)
         jsd = calibration_jsd(right_skew, left_skew)
-        assert jsd > 0.3  # natural-log JSD is bounded by ln2 ≈ 0.693
+        assert jsd > 0.3  # base-2 JSD is bounded by 1.0
 
     def test_scale_invariant(self):
         # THE regression guard for the wealth-vs-decile scale trap:

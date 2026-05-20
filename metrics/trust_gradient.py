@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from itertools import permutations as _permutations
 
 import numpy as np
-from scipy.stats import kendalltau, spearmanr
+from scipy.stats import kendalltau, rankdata, spearmanr
 
 
 @dataclass
@@ -125,7 +125,10 @@ def _exact_spearman_permutation_p(x: np.ndarray, observed_r: float) -> float:
     Only feasible for n ≤ 8 (8! = 40,320 permutations).
     """
     n = len(x)
-    ranks_x = np.argsort(np.argsort(x)).astype(float)
+    # Use scipy.stats.rankdata for fractional (average) ranks under ties —
+    # `np.argsort(np.argsort(x))` produces ordinal ranks which biases ρ when
+    # the input has duplicate values.
+    ranks_x = rankdata(x, method="average").astype(float)
     count = 0
     total = 0
     for perm in _permutations(range(n)):

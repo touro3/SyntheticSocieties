@@ -119,7 +119,7 @@ class TestAggregateSeeds:
         assert result["n_seeds"] == 1
         assert len(result["wealth_mean"]) == 5
         assert len(result["stress_mean"]) == 5
-        assert result["action_freqs"].shape == (5, 3)
+        assert result["action_freqs"].shape == (5, 4)
 
     def test_multiple_seeds(self, tmp_path):
         for seed in [42, 123, 7]:
@@ -153,7 +153,7 @@ class TestAggregateSeeds:
     def test_action_labels_present(self, tmp_path):
         self._make_experiment(tmp_path, "cmp_llm_s42", seed=42)
         result = aggregate_seeds("llm", [42], experiments_root=tmp_path)
-        assert result["action_labels"] == ["work", "save", "cooperate"]
+        assert result["action_labels"] == ["work", "save", "cooperate", "steal"]
 
     def test_template_policy_prefix(self, tmp_path):
         self._make_experiment(tmp_path, "cmp_template_s42", seed=42)

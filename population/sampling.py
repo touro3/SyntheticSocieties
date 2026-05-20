@@ -1,9 +1,24 @@
 from __future__ import annotations
 
+import logging
 import random
 from typing import Optional
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
+
+# Candidate ESS survey-weight columns, in preference order:
+#   anweight — analysis weight (combines design + post-strat + population)
+#   pspwght  — post-stratification weight
+#   pweight  — population weight
+#   dweight  — design weight
+# These are present in the raw ESS CSV but absent from the current
+# `data/ess_clean.parquet` extract (which drops them during cleaning).
+# When any are present, sample_empirical_rows will use them as p= for
+# rng.choice; otherwise it falls back to uniform sampling and logs a
+# one-time warning so the run knows weighting was not applied.
+_WEIGHT_CANDIDATES = ("anweight", "pspwght", "pweight", "dweight")
 
 
 def sample_age(min_age: int, max_age: int, rng: random.Random | None = None) -> int:
@@ -29,6 +44,7 @@ def sample_empirical_rows(
     seed: Optional[int] = None,
     country_filter: Optional[list[str]] = None,
     exclude_countries: Optional[list[str]] = None,
+    weight_column: Optional[str] = "auto",
 ):
     """
     Sample rows from a cleaned ESS Parquet file.
@@ -73,10 +89,55 @@ def sample_empirical_rows(
     df = df.reset_index(drop=True)
     rng = np.random.default_rng(seed)
 
-    if mode == "subsample" and n <= len(df):
-        indices = rng.choice(len(df), size=n, replace=False)
+    # Resolve survey-weight column.
+    p_weights: Optional[np.ndarray] = None
+    chosen_weight: Optional[str] = None
+    if weight_column is not None:
+        if weight_column == "auto":
+            for cand in _WEIGHT_CANDIDATES:
+                if cand in df.columns:
+                    chosen_weight = cand
+                    break
+        elif weight_column in df.columns:
+            chosen_weight = weight_column
+        else:
+            logger.warning(
+                "sample_empirical_rows: requested weight_column=%r not present in parquet; "
+                "falling back to uniform sampling.",
+                weight_column,
+            )
+
+    if chosen_weight is not None:
+        w = df[chosen_weight].to_numpy(dtype=float)
+        # Drop NaN/negative entries by zeroing them so they cannot be selected.
+        w = np.where(np.isfinite(w) & (w >= 0), w, 0.0)
+        total = float(w.sum())
+        if total > 0:
+            p_weights = w / total
+            logger.info("sample_empirical_rows: applying ESS survey weights from '%s'.", chosen_weight)
+        else:
+            logger.warning(
+                "sample_empirical_rows: weight column '%s' sums to 0; falling back to uniform.",
+                chosen_weight,
+            )
     else:
-        indices = rng.choice(len(df), size=n, replace=True)
+        if weight_column == "auto":
+            # One-time per-call info — the parquet is just unweighted.
+            logger.info(
+                "sample_empirical_rows: no survey-weight column found in %s "
+                "(checked %s); using uniform sampling. ESS is a stratified survey — "
+                "consider rebuilding the parquet with anweight/pspwght for unbiased marginals.",
+                parquet_path,
+                _WEIGHT_CANDIDATES,
+            )
+
+    if mode == "subsample" and n <= len(df) and p_weights is None:
+        indices = rng.choice(len(df), size=n, replace=False)
+    elif mode == "subsample" and n <= len(df):
+        # Weighted subsampling — without replacement requires numpy >= 1.7.
+        indices = rng.choice(len(df), size=n, replace=False, p=p_weights)
+    else:
+        indices = rng.choice(len(df), size=n, replace=True, p=p_weights)
 
     sampled = df.iloc[indices].reset_index(drop=True)
     return sampled.to_dict(orient="records")

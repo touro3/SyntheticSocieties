@@ -74,16 +74,35 @@ class CrossModelResult:
 
 
 def _iter_events(events_path: Path) -> Iterator[dict]:
-    """Yield parsed JSON objects from a JSONL events file."""
-    with open(events_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                yield json.loads(line)
-            except json.JSONDecodeError:
-                continue
+    """Yield parsed JSON objects from a JSONL events file (rotation-aware).
+
+    Accepts either the active ``events.jsonl`` or a directory; reads any
+    ``events.NNNN.jsonl`` shards in order before the active tail. See
+    ``metrics.event_metrics.load_events`` for the canonical implementation.
+    """
+    p = Path(events_path)
+    if p.is_dir():
+        base_dir = p
+        active = base_dir / "events.jsonl"
+    else:
+        base_dir = p.parent
+        active = p
+
+    shards = sorted(base_dir.glob("events.[0-9]*.jsonl"))
+    files: list[Path] = list(shards)
+    if active.exists():
+        files.append(active)
+
+    for fp in files:
+        with open(fp) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
 
 def extract_action_counts(events_path: Path) -> dict[str, int]:

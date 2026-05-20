@@ -110,6 +110,43 @@ def map_political(left_right, default: str = "center") -> str:
     return "right"
 
 
+def trust_institutions_mean(row) -> Optional[float]:
+    """Canonical institutional-trust mean used by both ESS generator paths.
+
+    Averages the four ESS institutional-trust items present in the cleaned
+    parquet (parliament / legal / police / politicians). NaN cells are
+    dropped (not zero-substituted) so a single missing trust item doesn't
+    pull the mean toward zero.
+
+    Returns None only if all four items are missing for the row.
+
+    Replaces the previous divergence where ``generator.py`` averaged 3 cols
+    and ``persona_synthesizer._mean_institutions`` referenced a non-existent
+    ``trust_institutions`` column, silently dropping it to a 3-col mean.
+    """
+    return safe_mean(
+        [
+            row.get("trust_parliament"),
+            row.get("trust_legal"),
+            row.get("trust_police"),
+            row.get("trust_politicians"),
+        ]
+    )
+
+
+def income_from_decile(income_decile, base_income: float = 400.0) -> float:
+    """Canonical income mapping from ESS decile.
+
+    income = decile * base_income (with base_income default 400.0 to match
+    the legacy ``persona_synthesizer`` scale of 400/decile).
+
+    NaN deciles return ``base_income * 5`` (median-substituted; callers
+    should track NaN rates upstream — see population/generator.py).
+    """
+    val = safe_float(income_decile, default=5.0)
+    return float(val) * float(base_income)
+
+
 def map_social_class(income_decile, default: str = "middle") -> str:
     """Map income decile to social class string."""
     val = safe_int(income_decile)

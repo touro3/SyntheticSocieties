@@ -3,7 +3,6 @@ Extraction of round-by-round trajectories from experiment event logs.
 Parses events.jsonl to reconstruct time-series data for wealth, stress, and actions.
 """
 
-import json
 from collections import defaultdict
 from pathlib import Path
 
@@ -23,38 +22,36 @@ def extract_trajectories(exp_dir: str | Path) -> dict:
             'agent_trajectories': { agent_id: { 'wealth': [], 'stress': [] } }
         }
     """
+    from metrics.event_metrics import load_events
+
     exp_path = Path(exp_dir)
     events_path = exp_path / "events.jsonl"
 
-    if not events_path.exists():
+    # Rotation-aware: load_events globs events*.jsonl under exp_path.
+    shards = sorted(exp_path.glob("events.[0-9]*.jsonl"))
+    if not events_path.exists() and not shards:
         return {}
+
+    events = load_events(exp_path)
 
     wealth_traj = defaultdict(list)
     stress_traj = defaultdict(list)
     action_counts = defaultdict(lambda: defaultdict(int))
     agent_history = defaultdict(lambda: {"wealth": [], "stress": []})
 
-    with events_path.open() as f:
-        for line in f:
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+    for event in events:
+        r_id = event["round_id"]
+        state = event["state_after"]
+        a_id = event["agent_id"]
 
-            r_id = event["round_id"]
-            state = event["state_after"]
-            a_id = event["agent_id"]
+        wealth_traj[r_id].append(state["wealth"])
+        stress_traj[r_id].append(state["stress"])
 
-            wealth_traj[r_id].append(state["wealth"])
-            stress_traj[r_id].append(state["stress"])
+        action = event["action"]["action_type"]
+        action_counts[r_id][action] += 1
 
-            action = event["action"]["action_type"]
-            action_counts[r_id][action] += 1
-
-            # Note: this assumes events are ordered by round then agent
-            # For a more robust version, we'd sort by round_id
-            agent_history[a_id]["wealth"].append(state["wealth"])
-            agent_history[a_id]["stress"].append(state["stress"])
+        agent_history[a_id]["wealth"].append(state["wealth"])
+        agent_history[a_id]["stress"].append(state["stress"])
 
     rounds = sorted(wealth_traj.keys())
 
@@ -109,8 +106,11 @@ def aggregate_seeds(policy: str, seeds: list[int], experiments_root: str | Path 
         s_matrix = np.array([data["stress"][r] for r in rounds])
         all_stress.append(s_matrix)
 
-        # Actions [ Rounds x 3 ] (work, save, cooperate)
-        a_types = ["work", "save", "cooperate"]
+        # Actions [ Rounds x 4 ] (work, save, cooperate, steal)
+        # `steal` is adversarial-only but must appear in the frequency table
+        # so bad-apple runs do not silently sum to <1.0. Non-adversarial
+        # runs produce 0 in the steal column.
+        a_types = ["work", "save", "cooperate", "steal"]
         a_matrix = []
         for r in rounds:
             counts = data["actions"][r]
@@ -132,18 +132,22 @@ def aggregate_seeds(policy: str, seeds: list[int], experiments_root: str | Path 
     pool_wealth = np.concatenate(all_wealth, axis=1)  # [ Rounds x (Agents * Seeds) ]
     pool_stress = np.concatenate(all_stress, axis=1)
 
-    # Action Freqs [ Rounds x 3 ] (average across seeds)
+    # Action Freqs [ Rounds x 4 ] (average across seeds)
     mean_actions = np.mean(all_action_freqs, axis=0)
 
     return {
         "rounds": list(range(min_rounds)),
         "n_seeds": found_seeds,
         "wealth_mean": np.mean(pool_wealth, axis=1),
-        "wealth_std": np.std(pool_wealth, axis=1),
+        "wealth_std": np.std(pool_wealth, axis=1, ddof=1)
+        if pool_wealth.shape[1] > 1
+        else np.zeros(pool_wealth.shape[0]),
         "stress_mean": np.mean(pool_stress, axis=1),
-        "stress_std": np.std(pool_stress, axis=1),
-        "action_freqs": mean_actions,  # [Rounds, 3]
-        "action_labels": ["work", "save", "cooperate"],
+        "stress_std": np.std(pool_stress, axis=1, ddof=1)
+        if pool_stress.shape[1] > 1
+        else np.zeros(pool_stress.shape[0]),
+        "action_freqs": mean_actions,  # [Rounds, 4]
+        "action_labels": ["work", "save", "cooperate", "steal"],
         "pool_wealth": pool_wealth,  # [Rounds x (Agents * Seeds)]
         "pool_stress": pool_stress,  # [Rounds x (Agents * Seeds)]
     }

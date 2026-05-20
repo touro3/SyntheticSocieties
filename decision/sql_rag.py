@@ -3,11 +3,14 @@ SQL-based TableRAG for population grounding.
 Allows agents to query empirical population trends via DuckDB SQL.
 """
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 import duckdb
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 class SQLRAG:
@@ -32,6 +35,24 @@ class SQLRAG:
         # raising here kills LLM policy builds on Render/CI.
         # Per-agent demographic context is static across rounds — cache it once.
         self._peer_cache: dict[tuple, str] = {}
+        # Fallback status — audit signal so callers / event logs can record
+        # whether grounding actually fired or silently degraded to a static
+        # narrative. Values: "ok", "no_data_file", "no_peer_cols",
+        # "no_cohort_match", "query_error".
+        self.last_status: str = "ok"
+        self._warned_fallback: bool = False
+
+    def _emit_fallback(self, reason: str) -> None:
+        """Record fallback reason and emit a single warning per instance."""
+        self.last_status = reason
+        if not self._warned_fallback:
+            logger.warning(
+                "SQLRAG: degrading to static_context (reason=%s, data_path=%s). "
+                "Condition B grounding is NOT active for this run.",
+                reason,
+                self.data_path,
+            )
+            self._warned_fallback = True
 
     def _connect(self) -> None:
         """Lazily open a DuckDB connection and register the population view.
@@ -47,6 +68,7 @@ class SQLRAG:
             # File absent — no SQL queries possible; callers use static_context.
             self._has_peer_cols = False
             self._initialized = True
+            self._emit_fallback("no_data_file")
             return
         self.conn = duckdb.connect()
         self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
@@ -57,6 +79,8 @@ class SQLRAG:
             self._available_cols = set()
         self._has_peer_cols = bool(self._available_cols & self._PEER_COLS)
         self._initialized = True
+        if not self._has_peer_cols:
+            self._emit_fallback("no_peer_cols")
 
     def query_population_trends(self, query: str) -> str:
         """Execute a SELECT query against the population database."""
@@ -273,6 +297,7 @@ class SQLRAG:
 
         _fallback = self.static_context or "No peer group data found for this demographic."
         self._peer_cache[_cache_key] = _fallback
+        self._emit_fallback("no_cohort_match")
         return _fallback
 
     def close(self):

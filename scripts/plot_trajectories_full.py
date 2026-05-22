@@ -41,7 +41,12 @@ COLORS = {
     "work": "#e94560",
     "save": "#0f3460",
     "cooperate": "#16c79a",
+    "steal": "#ff6b6b",
 }
+
+# Optional suffix appended after the seed in experiment IDs (e.g. "_condA").
+# Set by --id-suffix CLI flag in main().
+ID_SUFFIX = ""
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -115,7 +120,7 @@ def plot_per_agent_ci_bands(policy: str, seeds: list[int], output_path: Path, n_
     agent_seed_data: dict[str, list[list[float]]] = {}
     for seed in seeds:
         for pref in prefix_candidates:
-            exp_id = f"{pref}{prefix_name}_s{seed}"
+            exp_id = f"{pref}{prefix_name}_s{seed}{ID_SUFFIX}"
             exp_dir = Path("experiments") / exp_id
             if exp_dir.exists():
                 data = extract_trajectories(exp_dir)
@@ -294,7 +299,16 @@ def main():
     parser = argparse.ArgumentParser(description="Advanced Trajectory Plotting")
     parser.add_argument("--seeds", type=str, default="42,123,7,1,2", help="Comma-sep seeds")
     parser.add_argument("--out-dir", type=str, default="analysis/figures", help="Output dir")
+    parser.add_argument(
+        "--id-suffix",
+        type=str,
+        default="",
+        help="Optional suffix appended to experiment IDs (e.g. '_condA').",
+    )
     args = parser.parse_args()
+
+    global ID_SUFFIX
+    ID_SUFFIX = args.id_suffix
 
     if "," in args.seeds:
         seeds = [int(s.strip()) for s in args.seeds.split(",")]

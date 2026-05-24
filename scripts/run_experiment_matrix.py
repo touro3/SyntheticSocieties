@@ -220,17 +220,57 @@ def _load_summary(exp_id: str, cond: str, seed: int, abl, temp) -> dict:
     if path.exists():
         try:
             data = json.loads(path.read_text())
-            metrics = data.get("metrics", data)
-            row["cooperation_rate"] = metrics.get("cooperation_rate")
-            row["gini"] = metrics.get("gini")
-            row["mean_wealth"] = metrics.get("mean_wealth")
-            row["brm"] = metrics.get("brm")
-            row["fidelity"] = metrics.get("persona_fidelity")
+            metrics = data.get("metrics", {}) or {}
+
+            def _first(*keys):
+                for k in keys:
+                    src = metrics
+                    for part in k.split("."):
+                        if not isinstance(src, dict) or part not in src:
+                            src = None
+                            break
+                        src = src[part]
+                    if src is not None:
+                        return src
+                # Fall back to data root using same dotted-path lookup
+                for k in keys:
+                    src = data
+                    for part in k.split("."):
+                        if not isinstance(src, dict) or part not in src:
+                            src = None
+                            break
+                        src = src[part]
+                    if src is not None:
+                        return src
+                return None
+
+            wealth_vals = _first("wealth.values") or []
+            row["cooperation_rate"] = _first("cooperation_rate", "behavior.cooperation_rate")
+            row["gini"] = _first("gini", "wealth.gini")
+            if row["gini"] is None and wealth_vals:
+                row["gini"] = _compute_gini(wealth_vals)
+            row["mean_wealth"] = _first("mean_wealth", "wealth.mean")
+            if row["mean_wealth"] is None and wealth_vals:
+                row["mean_wealth"] = sum(wealth_vals) / len(wealth_vals)
+            row["brm"] = _first("brm", "brm_composite", "behavioral_realism.brm")
+            row["fidelity"] = _first("persona_fidelity", "fidelity.persona_fidelity")
         except Exception:
             row["status"] = "parse_error"
     else:
         row["status"] = "missing"
     return row
+
+
+def _compute_gini(values) -> float:
+    v = sorted(float(x) for x in values if x is not None)
+    n = len(v)
+    if n == 0:
+        return 0.0
+    s = sum(v)
+    if s <= 0:
+        return 0.0
+    cum = sum(i * x for i, x in enumerate(v, 1))
+    return (2 * cum) / (n * s) - (n + 1) / n
 
 
 # ── Statistical summary ───────────────────────────────────────────────────────

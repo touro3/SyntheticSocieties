@@ -1,6 +1,7 @@
 import argparse
 import inspect
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -29,6 +30,80 @@ from population.generator import (
 from simulation.kernel import SimulationKernel
 from utils.config import load_config
 from utils.io import ensure_dir, redact_secrets, save_json, save_yaml, set_global_seed
+
+
+def _attach_metrics_block(summary: dict, events: list[dict], config: dict) -> None:
+    """Populate summary['metrics'] with BRM composite and Gini.
+
+    Empirical reference targets match analysis/ten_seed_report.py:
+    Gini 0.31 (Eurostat EU median), wealth lognormal(mean=110, σ=0.35),
+    cooperation 0.40 (grounded) vs 0.33 (ungrounded uniform baseline).
+    Grounded-vs-ungrounded inferred from llm.ablation_level (>0 → grounded).
+    """
+    import math
+
+    from metrics.behavioral_realism import compute_composite_brm
+    from metrics.event_metrics import temporal_stability
+
+    def _gini(vals):
+        v = sorted(float(x) for x in vals if x is not None)
+        n = len(v)
+        if not n:
+            return 0.0
+        s = sum(v)
+        if s <= 0:
+            return 0.0
+        cum = sum(i * x for i, x in enumerate(v, 1))
+        return (2 * cum) / (n * s) - (n + 1) / n
+
+    def _emp_wealth_reference(n: int) -> list[float]:
+        n = max(int(n), 2)
+        # inverse-CDF lognormal(mean≈110, σ=0.35), clipped [10, 500]
+        from statistics import NormalDist
+        nd = NormalDist()
+        ps = [(0.5 + i) / n for i in range(n)]
+        mu = math.log(110.0)
+        vals = [math.exp(mu + 0.35 * nd.inv_cdf(p)) for p in ps]
+        return [min(500.0, max(10.0, v)) for v in vals]
+
+    wealth_vals = (summary.get("wealth") or {}).get("values") or []
+    if not wealth_vals:
+        return
+
+    gini_val = _gini(wealth_vals)
+    summary.setdefault("wealth", {})["gini"] = gini_val
+
+    eac = summary.get("event_action_counts") or {}
+    tot = sum(int(eac.get(k, 0)) for k in ("work", "save", "cooperate"))
+    if tot <= 0:
+        return
+    coop_rate = eac.get("cooperate", 0) / tot
+
+    ts_jsd = 0.0
+    try:
+        ts_jsd = float(temporal_stability(events).get("mean_jsd", 0.0))
+    except Exception:
+        pass
+
+    ablation = ((config.get("llm") or {}).get("ablation_level") or 0)
+    emp_coop = 0.40 if int(ablation) > 0 else 0.33
+
+    brm = compute_composite_brm(
+        sim_wealth=wealth_vals,
+        emp_wealth=_emp_wealth_reference(len(wealth_vals)),
+        sim_gini=gini_val,
+        emp_gini=0.31,
+        sim_coop_rate=coop_rate,
+        emp_coop_rate=emp_coop,
+        temporal_stability_jsd=ts_jsd,
+    )
+    summary.setdefault("metrics", {}).update({
+        "brm": float(brm["composite"]),
+        "brm_components": {k: float(v) for k, v in brm.items() if k != "composite"},
+        "gini": gini_val,
+        "cooperation_rate": coop_rate,
+        "mean_wealth": sum(wealth_vals) / len(wealth_vals),
+    })
 
 
 def _resolve_experiment_id(config: dict) -> str:
@@ -228,7 +303,12 @@ def _build_llm_backend(llm_cfg: dict):
         max_retries=llm_cfg.get("max_retries", 2),
         quantization=llm_cfg.get("quantization", None),
     )
-    if "max_batch_size" in llm_cfg:
+    # BGF_MAX_BATCH_SIZE env var (set for OOM-prone GPUs) wins over config —
+    # the env var is an explicit opt-in override, the config value is a default.
+    _env_batch = os.environ.get("BGF_MAX_BATCH_SIZE")
+    if _env_batch and _env_batch.isdigit() and int(_env_batch) > 0:
+        backend._max_batch_size = int(_env_batch)
+    elif "max_batch_size" in llm_cfg:
         backend._max_batch_size = int(llm_cfg["max_batch_size"])
     backend.load()
     return backend
@@ -579,6 +659,13 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             "post_diversity": round(post_diversity(social_env), 4),
             "network_amplification": round(network_amplification(social_env), 4),
         }
+
+    # Persist BRM and Gini so downstream aggregators (run_experiment_matrix,
+    # tracker queries) don't have to recompute from raw events.
+    try:
+        _attach_metrics_block(summary, events, config)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("BRM/Gini attachment skipped: %s", exc)
 
     save_json(summary, run_dir / "summary.json")
 

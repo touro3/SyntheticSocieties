@@ -84,8 +84,8 @@ def parse_seed_list(seeds_str: str) -> list[int]:
 # ── Matrix cell ───────────────────────────────────────────────────────────────
 
 
-def _cell_id(condition: str, seed: int, ablation: int | None, temperature: float | None) -> str:
-    parts = [f"mx_{condition}_s{seed}"]
+def _cell_id(condition: str, seed: int, ablation: int | None, temperature: float | None, suffix: str = "") -> str:
+    parts = [f"mx_{condition}{('_' + suffix) if suffix else ''}_s{seed}"]
     if ablation is not None:
         parts.append(f"abl{ablation}")
     if temperature is not None:
@@ -146,10 +146,12 @@ def run_matrix(args) -> list[dict]:
         print(f"  Temperatures: {temperatures}")
     print(f"{'─' * 64}")
 
+    suffix = getattr(args, "id_suffix", "") or ""
+
     if args.dry_run:
         print("\nDRY RUN — cells that would be executed:\n")
         for i, (cond, seed, abl, temp) in enumerate(cells, 1):
-            eid = _cell_id(cond, seed, abl, temp)
+            eid = _cell_id(cond, seed, abl, temp, suffix)
             print(f"  {i:3d}. {eid}")
         print(f"\nTotal: {total} cells")
         return []
@@ -158,7 +160,7 @@ def run_matrix(args) -> list[dict]:
     completed = skipped = failed = 0
 
     for i, (cond, seed, abl, temp) in enumerate(cells, 1):
-        exp_id = _cell_id(cond, seed, abl, temp)
+        exp_id = _cell_id(cond, seed, abl, temp, suffix)
         summary_path = Path("experiments") / exp_id / "summary.json"
 
         if args.skip_existing and summary_path.exists():
@@ -385,6 +387,7 @@ def parse_args():
     p.add_argument("--skip-existing", action="store_true", help="Skip cells with existing summary.json")
     p.add_argument("--dry-run", action="store_true", help="Print matrix without running")
     p.add_argument("--output-csv", type=str, default="analysis/tables/experiment_matrix_results.csv")
+    p.add_argument("--id-suffix", type=str, default="", help="Inserted after the condition in cell IDs (e.g. 'n500' → mx_A_n500_s1) to disambiguate from prior matrix runs at a different scale")
     return p.parse_args()
 
 

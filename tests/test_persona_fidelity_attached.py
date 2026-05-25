@@ -103,6 +103,5 @@ def test_persona_fidelity_back_compat_when_agents_omitted():
     assert "metrics" in summary
     assert "brm" in summary["metrics"], "BRM must still be computed on old signature"
     assert "persona_fidelity" not in summary["metrics"], (
-        "persona_fidelity must be silently skipped when agents not supplied "
-        "(back-compat for legacy callers)"
+        "persona_fidelity must be silently skipped when agents not supplied (back-compat for legacy callers)"
     )

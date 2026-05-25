@@ -72,6 +72,7 @@ def _attach_metrics_block(
         n = max(int(n), 2)
         # inverse-CDF lognormal(mean≈110, σ=0.35), clipped [10, 500]
         from statistics import NormalDist
+
         nd = NormalDist()
         ps = [(0.5 + i) / n for i in range(n)]
         mu = math.log(110.0)
@@ -97,7 +98,7 @@ def _attach_metrics_block(
     except Exception:
         pass
 
-    ablation = ((config.get("llm") or {}).get("ablation_level") or 0)
+    ablation = (config.get("llm") or {}).get("ablation_level") or 0
     emp_coop = 0.40 if int(ablation) > 0 else 0.33
 
     brm = compute_composite_brm(
@@ -109,13 +110,15 @@ def _attach_metrics_block(
         emp_coop_rate=emp_coop,
         temporal_stability_jsd=ts_jsd,
     )
-    summary.setdefault("metrics", {}).update({
-        "brm": float(brm["composite"]),
-        "brm_components": {k: float(v) for k, v in brm.items() if k != "composite"},
-        "gini": gini_val,
-        "cooperation_rate": coop_rate,
-        "mean_wealth": sum(wealth_vals) / len(wealth_vals),
-    })
+    summary.setdefault("metrics", {}).update(
+        {
+            "brm": float(brm["composite"]),
+            "brm_components": {k: float(v) for k, v in brm.items() if k != "composite"},
+            "gini": gini_val,
+            "cooperation_rate": coop_rate,
+            "mean_wealth": sum(wealth_vals) / len(wealth_vals),
+        }
+    )
 
     # Per-agent persona fidelity (H8). Skip silently if agents not provided
     # (back-compat for any caller using the pre-2026-05-25 signature).
@@ -140,9 +143,7 @@ def _attach_metrics_block(
                         "half_life": series["half_life"],
                     }
                 if series["fidelity"]:
-                    agent_mean_fidelity.append(
-                        sum(series["fidelity"]) / len(series["fidelity"])
-                    )
+                    agent_mean_fidelity.append(sum(series["fidelity"]) / len(series["fidelity"]))
                     agent_mean_decay.append(float(series["decay_rate"]))
 
             if agent_mean_fidelity:

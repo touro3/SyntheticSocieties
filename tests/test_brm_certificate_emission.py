@@ -50,8 +50,7 @@ def test_certificate_block_present_and_well_shaped():
     # Four vertex deltas — these are the Δ_j values the paper cites
     assert "vertex_deltas" in cert, "certificate must expose vertex_deltas dict"
     assert set(cert["vertex_deltas"].keys()) == EXPECTED_VERTEX_KEYS, (
-        f"vertex_deltas must have exactly {EXPECTED_VERTEX_KEYS}, "
-        f"got {set(cert['vertex_deltas'].keys())}"
+        f"vertex_deltas must have exactly {EXPECTED_VERTEX_KEYS}, got {set(cert['vertex_deltas'].keys())}"
     )
     for k, v in cert["vertex_deltas"].items():
         assert isinstance(v, (int, float)), f"vertex_delta[{k}] must be numeric, got {type(v)}"

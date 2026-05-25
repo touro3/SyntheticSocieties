@@ -387,7 +387,12 @@ def parse_args():
     p.add_argument("--skip-existing", action="store_true", help="Skip cells with existing summary.json")
     p.add_argument("--dry-run", action="store_true", help="Print matrix without running")
     p.add_argument("--output-csv", type=str, default="analysis/tables/experiment_matrix_results.csv")
-    p.add_argument("--id-suffix", type=str, default="", help="Inserted after the condition in cell IDs (e.g. 'n500' → mx_A_n500_s1) to disambiguate from prior matrix runs at a different scale")
+    p.add_argument(
+        "--id-suffix",
+        type=str,
+        default="",
+        help="Inserted after the condition in cell IDs (e.g. 'n500' → mx_A_n500_s1) to disambiguate from prior matrix runs at a different scale",
+    )
     return p.parse_args()
 
 

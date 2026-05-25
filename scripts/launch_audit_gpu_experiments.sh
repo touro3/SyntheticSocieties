@@ -98,24 +98,22 @@ tmux new-session -d -s "${SESSION_4}" -c "${PROJECT_ROOT}" \
   "echo '=== Phase C T=30 Pilot Re-run (A.10-A.14) ===' && \
    echo 'Start: '$(date) && \
    echo 'Running Condition A (ungrounded)...' && \
-   python3 -m simulation.runner \
-     --experiment-id phase_c_comparison_A \
-     --n-agents 50 \
-     --n-rounds 30 \
-     --seed 42 \
-     --policy llm \
-     --grounding none \
-     --output-dir experiments/phase_c_comparison_A_s42 \
+   python3 scripts/run_full_pipeline.py \
+     --condition A \
+     --seeds 42 \
+     --agents 50 \
+     --rounds 30 \
+     --include-llm \
+     --skip-integrity-audit \
      2>&1 | tee logs/audit_phase_c_A_$(date +%Y%m%d_%H%M%S).log && \
    echo 'Running Condition B (grounded)...' && \
-   python3 -m simulation.runner \
-     --experiment-id phase_c_comparison_B \
-     --n-agents 50 \
-     --n-rounds 30 \
-     --seed 42 \
-     --policy llm \
-     --grounding ess \
-     --output-dir experiments/phase_c_comparison_B_s42 \
+   python3 scripts/run_full_pipeline.py \
+     --condition B \
+     --seeds 42 \
+     --agents 50 \
+     --rounds 30 \
+     --include-llm \
+     --skip-integrity-audit \
      2>&1 | tee logs/audit_phase_c_B_$(date +%Y%m%d_%H%M%S).log && \
    echo '' && echo 'Done: '$(date) && \
    echo 'Next steps:' && \

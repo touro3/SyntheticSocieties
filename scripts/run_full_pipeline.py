@@ -141,11 +141,17 @@ def experiment_exists(exp_id: str) -> bool:
 
 
 def run_single_experiment(
-    policy: str, seed: int, rounds: int, agents: int, prefix: str, extra_overrides: list[str] = None
+    policy: str,
+    seed: int,
+    rounds: int,
+    agents: int,
+    prefix: str,
+    extra_overrides: list[str] = None,
+    id_suffix: str = "",
 ) -> str:
     """Run a single experiment, return the experiment ID."""
     exp_prefix = POLICY_PREFIX.get(policy, policy)
-    exp_id = f"{prefix}{exp_prefix}_s{seed}"
+    exp_id = f"{prefix}{exp_prefix}_s{seed}{id_suffix}"
 
     # Build config overrides
     base_config = "configs/base_config.yaml"
@@ -188,6 +194,12 @@ def run_experiments(args) -> list[str]:
     elif getattr(args, "condition", None) == "D":
         # Condition D: deterministic rule-based ESS policy only, no LLM needed
         policies = ["rule_based_ess"]
+
+    # Suffix experiment IDs by condition so re-running --condition A then B
+    # writes to distinct experiments/<id>_condA and <id>_condB directories
+    # instead of clobbering each other.  Unset condition → no suffix
+    # (backwards compatible with pre-existing run IDs and downstream tooling).
+    id_suffix = f"_cond{args.condition}" if getattr(args, "condition", None) else ""
 
     experiments = []
     # Regular baselines
@@ -247,7 +259,7 @@ def run_experiments(args) -> list[str]:
         to_run = []
         for i, prefix, policy, seed, extra in baseline_exps:
             exp_prefix = POLICY_PREFIX.get(policy, policy)
-            exp_id = f"{prefix}{exp_prefix}_s{seed}"
+            exp_id = f"{prefix}{exp_prefix}_s{seed}{id_suffix}"
             if args.skip_existing and experiment_exists(exp_id):
                 print(f"  [{i}/{total}] SKIP: {exp_id}")
                 skipped += 1
@@ -264,7 +276,7 @@ def run_experiments(args) -> list[str]:
                 futures = {}
                 for i, prefix, policy, seed, extra, exp_id in to_run:
                     future = executor.submit(
-                        run_single_experiment, policy, seed, args.rounds, args.agents, prefix, extra
+                        run_single_experiment, policy, seed, args.rounds, args.agents, prefix, extra, id_suffix
                     )
                     futures[future] = (i, exp_id, policy)
 
@@ -297,17 +309,17 @@ def run_experiments(args) -> list[str]:
     _first_llm = True
     for i, prefix, policy, seed, extra in llm_exps:
         exp_prefix = POLICY_PREFIX.get(policy, policy)
-        exp_id = f"{prefix}{exp_prefix}_s{seed}"
+        exp_id = f"{prefix}{exp_prefix}_s{seed}{id_suffix}"
         if extra:
             for o in extra:
                 if "perturbation.mode=" in o:
                     mode = o.split("=")[1]
-                    exp_id = f"pert_{mode}_s{seed}"
+                    exp_id = f"pert_{mode}_s{seed}{id_suffix}"
 
                 # Use ablation prefix if doing the ladder sweep
                 if "llm.ablation_level=" in o and prefix.startswith("abl_v"):
                     lvl = o.split("=")[1]
-                    exp_id = f"abl_v{lvl}_{exp_prefix}_s{seed}"
+                    exp_id = f"abl_v{lvl}_{exp_prefix}_s{seed}{id_suffix}"
 
         if args.skip_existing and experiment_exists(exp_id):
             print(f"  [{i}/{total}] SKIP: {exp_id}")
@@ -327,7 +339,7 @@ def run_experiments(args) -> list[str]:
         print(f"  [{i}/{total}] Running: {exp_id} (LLM)...", end="", flush=True)
 
         try:
-            run_single_experiment(policy, seed, args.rounds, args.agents, prefix, extra)
+            run_single_experiment(policy, seed, args.rounds, args.agents, prefix, extra, id_suffix)
             # Register sequentially
             subprocess.run(
                 [
@@ -346,7 +358,9 @@ def run_experiments(args) -> list[str]:
             completed += 1
 
             remaining_llm = sum(
-                1 for (_, _, p, s, _) in llm_exps if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}")
+                1
+                for (_, _, p, s, _) in llm_exps
+                if not experiment_exists(f"cmp_{POLICY_PREFIX.get(p, p)}_s{s}{id_suffix}")
             )
             if remaining_llm > 0:
                 avg = np.mean(run_times) if run_times else elapsed
@@ -371,32 +385,40 @@ def run_plots(args):
     print(f"{'─' * 60}")
 
     seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
-    subprocess.run([sys.executable, "scripts/plot_policy_comparison_full.py", "--seeds", seeds_arg], check=True)
+    cond_suffix = f"_cond{args.condition}" if getattr(args, "condition", None) else ""
+    suffix_args = ["--id-suffix", cond_suffix] if cond_suffix else []
+    subprocess.run(
+        [sys.executable, "scripts/plot_policy_comparison_full.py", "--seeds", seeds_arg] + suffix_args,
+        check=True,
+    )
 
     # Publication analytics plots
     subprocess.run([sys.executable, "scripts/plot_all_analytics.py"] + ["--seeds", args.seeds], check=True)
 
     # Advanced Trajectory Plots (Phase 13)
     seeds_arg = args.seeds if args.seeds else "42,123,7,1,2"
-    subprocess.run([sys.executable, "scripts/plot_trajectories_full.py", "--seeds", seeds_arg], check=True)
+    subprocess.run(
+        [sys.executable, "scripts/plot_trajectories_full.py", "--seeds", seeds_arg] + suffix_args,
+        check=True,
+    )
 
     # Also run the empirical analysis plots
     subprocess.run([sys.executable, "scripts/plot_empirical_analysis.py"], check=True, capture_output=True, text=True)
     print("  ✓ All plot suites generated")
 
 
-def _infer_cmp_ids(seeds: list[int], include_llm: bool) -> list[str]:
+def _infer_cmp_ids(seeds: list[int], include_llm: bool, id_suffix: str = "") -> list[str]:
     cmp_ids = []
     for s in seeds:
         cmp_ids.extend(
             [
-                f"cmp_template_s{s}",
-                f"cmp_rule_s{s}",
-                f"cmp_random_s{s}",
+                f"cmp_template_s{s}{id_suffix}",
+                f"cmp_rule_s{s}{id_suffix}",
+                f"cmp_random_s{s}{id_suffix}",
             ]
         )
         if include_llm:
-            cmp_ids.append(f"cmp_llm_s{s}")
+            cmp_ids.append(f"cmp_llm_s{s}{id_suffix}")
     return cmp_ids
 
 
@@ -416,8 +438,11 @@ def run_analytics(args, exp_ids: list[str]):
     if args.analytics_scope == "run":
         seeds = parse_seed_list(args.seeds)
         policies = ["template", "rule_based", "random"] + (["llm"] if args.include_llm else [])
+        _cond_suffix = f"_cond{args.condition}" if getattr(args, "condition", None) else ""
         cmp_ids = (
-            sorted({x for x in exp_ids if x.startswith("cmp_")}) if exp_ids else _infer_cmp_ids(seeds, args.include_llm)
+            sorted({x for x in exp_ids if x.startswith("cmp_")})
+            if exp_ids
+            else _infer_cmp_ids(seeds, args.include_llm, _cond_suffix)
         )
         if cmp_ids:
             cmd += ["--experiment-ids", ",".join(cmp_ids)]
@@ -614,7 +639,8 @@ def main():
         exp_ids = run_experiments(args)
     else:
         print("\n  Skipping experiments (--plots-only)")
-        exp_ids = _infer_cmp_ids(parse_seed_list(args.seeds), args.include_llm)
+        _cond_suffix = f"_cond{args.condition}" if getattr(args, "condition", None) else ""
+        exp_ids = _infer_cmp_ids(parse_seed_list(args.seeds), args.include_llm, _cond_suffix)
 
     run_plots(args)
 

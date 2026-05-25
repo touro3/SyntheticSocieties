@@ -79,6 +79,9 @@ POLICY_EXP_PREFIX = {
     "rule_based": "rule",
     "random": "random",
 }
+# Optional suffix appended after the seed (e.g. "_condA"). Set by --id-suffix
+# CLI flag in main() so callers can target condition-specific runs.
+ID_SUFFIX = ""
 
 
 # ── Gini (canonical) ─────────────────────────────────────────────────────────
@@ -125,7 +128,7 @@ def gather_policy_data(policy: str) -> dict:
     per_seed_events = {}
 
     for seed in SEEDS:
-        exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}"
+        exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}{ID_SUFFIX}"
 
         # Load events
         events = load_experiment_events(exp_id)
@@ -357,7 +360,7 @@ def plot_behavior_comparison(policy_data: dict):
     for policy in policies:
         seed_coop = []
         for seed in SEEDS:
-            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}"
+            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}{ID_SUFFIX}"
             summary = load_experiment_summary(exp_id)
             if summary:
                 eac = summary.get("event_action_counts", {})
@@ -427,7 +430,7 @@ def plot_dynamics_comparison(policy_data: dict):
         # Average across seeds
         seed_metrics = []
         for seed in SEEDS:
-            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}"
+            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}{ID_SUFFIX}"
             events = load_experiment_events(exp_id)
             if events:
                 seed_metrics.append(extract_round_metrics(events))
@@ -553,7 +556,7 @@ def plot_radar_summary(policy_data: dict):
         # 5. Stability (low variance in per-seed cooperation rates)
         seed_coop = []
         for seed in SEEDS:
-            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}"
+            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}{ID_SUFFIX}"
             summary = load_experiment_summary(exp_id)
             if summary:
                 eac = summary.get("event_action_counts", {})
@@ -594,7 +597,16 @@ def main():
     global SEEDS
     parser = argparse.ArgumentParser()
     parser.add_argument("--seeds", type=str, default="42,123,7,1,2", help="Comma-sep seeds or count")
+    parser.add_argument(
+        "--id-suffix",
+        type=str,
+        default="",
+        help="Optional suffix appended to experiment IDs (e.g. '_condA').",
+    )
     args = parser.parse_args()
+
+    global ID_SUFFIX
+    ID_SUFFIX = args.id_suffix
 
     if "," in args.seeds:
         SEEDS = [int(s.strip()) for s in args.seeds.split(",")]
@@ -615,7 +627,7 @@ def main():
     missing = []
     for policy in policies:
         for seed in SEEDS:
-            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}"
+            exp_id = f"cmp_{POLICY_EXP_PREFIX[policy]}_s{seed}{ID_SUFFIX}"
             exp_dir = EXPERIMENTS_DIR / exp_id
             if exp_dir.exists() and (exp_dir / "events.jsonl").exists():
                 available[exp_id] = True

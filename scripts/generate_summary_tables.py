@@ -63,8 +63,10 @@ def load_experiment_summaries() -> list[dict]:
 
 def generate_condition_comparison(df: pd.DataFrame) -> pd.DataFrame:
     """Compare Condition A (ablated/pure LLM) vs Condition B (grounded LLM)."""
-    condition_a = df[df["experiment_id"].str.contains("ablat|pure_llm", case=False, na=False)]
-    condition_b = df[df["experiment_id"].str.contains("grounded", case=False, na=False)]
+    # Match both legacy naming (ablat/pure_llm/grounded) and the new
+    # `_cond{A,B}` suffix produced by run_full_pipeline.py --condition.
+    condition_a = df[df["experiment_id"].str.contains("ablat|pure_llm|_condA$", case=False, na=False, regex=True)]
+    condition_b = df[df["experiment_id"].str.contains("grounded|_condB$", case=False, na=False, regex=True)]
 
     rows = []
     numeric_cols = df.select_dtypes(include="number").columns.tolist()

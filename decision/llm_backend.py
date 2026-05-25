@@ -144,7 +144,19 @@ class LLMBackend:
         # Safe default batch size for generate_batch().  With 4-bit quant the
         # model occupies ~4 GB, leaving ~12 GB for KV cache — batch 16 fits
         # comfortably.  In fp16 (~14.5 GB) only 1–2 GB remain, so default to 4.
-        self._max_batch_size: int = 16 if quantization else 4
+        # Override via BGF_MAX_BATCH_SIZE for memory-constrained GPUs.
+        _env_batch = os.environ.get("BGF_MAX_BATCH_SIZE")
+        if _env_batch and _env_batch.isdigit() and int(_env_batch) > 0:
+            self._max_batch_size: int = int(_env_batch)
+        else:
+            self._max_batch_size = 16 if quantization else 4
+
+        # Sticky effective batch size — remembers the last successful chunk
+        # size across generate_batch() calls so we don't re-enter the
+        # OOM-halve-retry loop on every round.  None = use VRAM probe on
+        # first call.  After OOM, this is persisted to the smaller size; after
+        # a fully-successful round we try growing it back by 1.
+        self._effective_batch_size: int | None = None
 
         # Exponential backoff parameters (MiroFish retry_with_backoff pattern)
         self._backoff_initial_delay: float = 1.0
@@ -581,9 +593,16 @@ class LLMBackend:
         max_tokens = max_new_tokens if max_new_tokens is not None else self.max_new_tokens
 
         all_results: list[tuple[str, float]] = []
-        # Clamp to VRAM-safe size before the first chunk attempt.
-        effective_batch_size = self._vram_safe_batch_size(max_batch_size)
+        # Start from the sticky last-successful size if we have one; otherwise
+        # clamp to VRAM-safe size for the first call.  The sticky value
+        # prevents re-entering the OOM-halve-retry loop on every round once
+        # we've discovered the safe size for this population.
+        if self._effective_batch_size is not None:
+            effective_batch_size = min(self._effective_batch_size, max_batch_size)
+        else:
+            effective_batch_size = self._vram_safe_batch_size(max_batch_size)
 
+        had_oom_this_call = False
         offset = 0
         while offset < len(messages_list):
             sub_messages = messages_list[offset : offset + effective_batch_size]
@@ -599,6 +618,7 @@ class LLMBackend:
                 offset += len(sub_messages)
             else:
                 # OOM or timeout — halve batch size and retry from same offset
+                had_oom_this_call = True
                 if effective_batch_size > 1:
                     new_size = max(1, effective_batch_size // 2)
                     logger.warning(
@@ -607,6 +627,9 @@ class LLMBackend:
                         new_size,
                     )
                     effective_batch_size = new_size
+                    # Persist the smaller size across calls so next round
+                    # doesn't restart at max_batch_size and re-OOM.
+                    self._effective_batch_size = effective_batch_size
                     # Don't advance offset — retry same chunk with smaller size
                 else:
                     # batch_size == 1 failed → fall back to sequential generate()
@@ -636,6 +659,14 @@ class LLMBackend:
                 max_batch_size,
                 effective_batch_size,
             )
+
+        # Adaptive grow-back: if the whole call succeeded without OOM, try
+        # one bigger next time (capped at max_batch_size).  This recovers
+        # throughput if early rounds had transient memory pressure that
+        # later releases.
+        if not had_oom_this_call:
+            grown = min(effective_batch_size + 1, max_batch_size)
+            self._effective_batch_size = grown
 
         return all_results
 

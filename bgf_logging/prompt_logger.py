@@ -130,7 +130,11 @@ class PromptLogger:
         self._total_calls += 1
 
         # Round-robin sampling: skip records not on the sample cadence.
-        if self._total_calls % self._sample_every != 1:
+        # sample_rate==1.0 ⇒ sample_every==1 ⇒ log every call; otherwise keep
+        # one in every `_sample_every` records (round-robin). Without the
+        # _sample_every > 1 guard, the modulo silently drops every record
+        # when sample_every == 1 (since N % 1 == 0 ≠ 1 for all N).
+        if self._sample_every > 1 and self._total_calls % self._sample_every != 1:
             return
 
         record = {

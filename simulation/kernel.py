@@ -338,6 +338,10 @@ class SimulationKernel:
                     parsed_action=action.model_dump() if action else None,
                     latency_ms=latency * 1000,
                     parse_metadata=parse_meta,
+                    rag_context={
+                        "sql_rag_present": bool(agent_data[i].get("pop_context")),
+                        "graph_rag_present": bool(agent_data[i].get("social_context")),
+                    },
                 )
 
             self._processor.process_agent_action(

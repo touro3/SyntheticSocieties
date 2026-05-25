@@ -1,40 +1,37 @@
 {
-  "generated_at_utc": "2026-05-16T22:50:43.767142+00:00",
+  "generated_at_utc": "2026-05-23T09:30:29.377906+00:00",
   "args": {
     "seeds": [
-      42,
-      123,
-      7
+      43
     ],
     "rounds": 30,
-    "agents": 500,
-    "include_llm": false,
+    "agents": 50,
+    "include_llm": true,
     "include_perturbation": false,
     "plots_only": false,
     "analytics_scope": "run",
     "analytics_output_dir": "analysis/tables",
     "integrity_level": "basic",
-    "skip_integrity_audit": false
+    "skip_integrity_audit": true
   },
   "experiment_ids": [
-    "cmp_rbe_s7",
-    "cmp_rbe_s42",
-    "cmp_rbe_s123"
+    "cmp_rbe_s43_condB",
+    "cmp_rule_s43_condB",
+    "cmp_random_s43_condB",
+    "cmp_template_s43_condB",
+    "cmp_llm_s43_condB"
   ],
   "summary_paths": [
-    "experiments/cmp_rbe_s7/summary.json",
-    "experiments/cmp_rbe_s42/summary.json",
-    "experiments/cmp_rbe_s123/summary.json"
+    "experiments/cmp_rbe_s43_condB/summary.json",
+    "experiments/cmp_rule_s43_condB/summary.json",
+    "experiments/cmp_random_s43_condB/summary.json",
+    "experiments/cmp_template_s43_condB/summary.json",
+    "experiments/cmp_llm_s43_condB/summary.json"
   ],
   "analysis_outputs_modified_since_run_start": {
     "figures": [
       "analysis/figures/ablation_effect.png",
-      "analysis/figures/action_area_llm.png",
-      "analysis/figures/action_area_random.png",
-      "analysis/figures/action_area_rule_based.png",
-      "analysis/figures/action_area_template.png",
       "analysis/figures/calibration_gap.png",
-      "analysis/figures/distribution_divergences.png",
       "analysis/figures/diversity_collapse.png",
       "analysis/figures/empirical_simulation_results.png",
       "analysis/figures/empirical_vs_synthetic.png",
@@ -42,14 +39,12 @@
       "analysis/figures/ess_demographics.png",
       "analysis/figures/ess_population_heatmap.png",
       "analysis/figures/ess_trust_politics.png",
-      "analysis/figures/ladder_ablation.png",
       "analysis/figures/llm_grounding_comparison.png",
       "analysis/figures/lorenz_curves_all.png",
       "analysis/figures/per_agent_ci_llm.png",
       "analysis/figures/per_agent_ci_random.png",
       "analysis/figures/per_agent_ci_rule_based.png",
       "analysis/figures/per_agent_ci_template.png",
-      "analysis/figures/perturbation_robustness.png",
       "analysis/figures/policy_behavior_comparison.png",
       "analysis/figures/policy_dynamics_comparison.png",
       "analysis/figures/policy_heatmap.png",

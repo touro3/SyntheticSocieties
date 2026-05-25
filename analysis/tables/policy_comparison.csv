@@ -1,1 +1,5 @@
 policy_type,n_experiments,avg_wealth_mean,std_wealth_mean,avg_gini,avg_stress_mean
+llm,1,457.665,,0.35614630788895796,-0.7239999999999999
+template,1,420.0,,0.17978571428571422,-0.85
+random,1,418.6,,0.2016149068322981,-0.7509999999999999
+rule_based,1,360.35,,0.5479644789787705,-1.0

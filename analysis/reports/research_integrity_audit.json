@@ -1,9 +1,7 @@
 {
   "level": "basic",
-  "status": "FAIL",
-  "blockers": [
-    "llm_vs_baselines.csv is empty."
-  ],
+  "status": "PASS_WITH_WARNINGS",
+  "blockers": [],
   "warnings": [
     "Human baseline is flagged as synthetic/demo-like."
   ],

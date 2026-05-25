@@ -1,10 +1,10 @@
 # Research Integrity Audit
 
-- Status: **FAIL**
+- Status: **PASS_WITH_WARNINGS**
 - Level: `basic`
 
 ## Blockers
-- llm_vs_baselines.csv is empty.
+- None
 
 ## Warnings
 - Human baseline is flagged as synthetic/demo-like.

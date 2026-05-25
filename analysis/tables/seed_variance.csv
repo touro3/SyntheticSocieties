@@ -1,1 +1,5 @@
 policy_type,cv_wealth,cv_gini
+llm,,
+random,,
+template,,
+rule_based,,

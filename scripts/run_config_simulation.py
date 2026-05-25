@@ -32,13 +32,25 @@ from utils.config import load_config
 from utils.io import ensure_dir, redact_secrets, save_json, save_yaml, set_global_seed
 
 
-def _attach_metrics_block(summary: dict, events: list[dict], config: dict) -> None:
-    """Populate summary['metrics'] with BRM composite and Gini.
+def _attach_metrics_block(
+    summary: dict,
+    events: list[dict],
+    config: dict,
+    agents: list | None = None,
+) -> None:
+    """Populate summary['metrics'] with BRM composite, Gini, and persona_fidelity.
 
     Empirical reference targets match analysis/ten_seed_report.py:
     Gini 0.31 (Eurostat EU median), wealth lognormal(mean=110, σ=0.35),
     cooperation 0.40 (grounded) vs 0.33 (ungrounded uniform baseline).
     Grounded-vs-ungrounded inferred from llm.ablation_level (>0 → grounded).
+
+    Persona fidelity is computed per agent via metrics.persona_decay and
+    aggregated to a scalar mean + per-agent series. Required for §8.5 / H8
+    (memory ablation) — without it, summary.json is missing the metric that
+    Table 7's monotonicity claim depends on. If agents is None or the metric
+    raises (e.g. profile missing required attributes), persona_fidelity is
+    set to None and a warning is logged.
     """
     import math
 
@@ -104,6 +116,50 @@ def _attach_metrics_block(summary: dict, events: list[dict], config: dict) -> No
         "cooperation_rate": coop_rate,
         "mean_wealth": sum(wealth_vals) / len(wealth_vals),
     })
+
+    # Per-agent persona fidelity (H8). Skip silently if agents not provided
+    # (back-compat for any caller using the pre-2026-05-25 signature).
+    if agents:
+        try:
+            from metrics.persona_decay import compute_per_round_persona_fidelity
+
+            per_agent_fidelity: dict[str, dict] = {}
+            agent_mean_fidelity: list[float] = []
+            agent_mean_decay: list[float] = []
+            for agent in agents:
+                profile = getattr(agent, "profile", None)
+                if profile is None:
+                    continue
+                series = compute_per_round_persona_fidelity(events, profile)
+                aid = getattr(profile, "agent_id", None)
+                if aid is not None:
+                    per_agent_fidelity[aid] = {
+                        "rounds": series["rounds"],
+                        "fidelity": [float(f) for f in series["fidelity"]],
+                        "decay_rate": float(series["decay_rate"]),
+                        "half_life": series["half_life"],
+                    }
+                if series["fidelity"]:
+                    agent_mean_fidelity.append(
+                        sum(series["fidelity"]) / len(series["fidelity"])
+                    )
+                    agent_mean_decay.append(float(series["decay_rate"]))
+
+            if agent_mean_fidelity:
+                pf_scalar = sum(agent_mean_fidelity) / len(agent_mean_fidelity)
+                decay_scalar = sum(agent_mean_decay) / len(agent_mean_decay)
+                summary["metrics"]["persona_fidelity"] = float(pf_scalar)
+                summary["metrics"]["persona_fidelity_decay_rate"] = float(decay_scalar)
+                summary["persona_fidelity_per_agent"] = per_agent_fidelity
+            else:
+                summary["metrics"]["persona_fidelity"] = None
+                logger.warning(
+                    "persona_fidelity: no per-agent series produced "
+                    "(no agent had cooperation events in the windowed range)."
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            summary["metrics"]["persona_fidelity"] = None
+            logger.warning("persona_fidelity attachment skipped: %s", exc)
 
 
 def _resolve_experiment_id(config: dict) -> str:
@@ -663,7 +719,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     # Persist BRM and Gini so downstream aggregators (run_experiment_matrix,
     # tracker queries) don't have to recompute from raw events.
     try:
-        _attach_metrics_block(summary, events, config)
+        _attach_metrics_block(summary, events, config, agents=agents)
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning("BRM/Gini attachment skipped: %s", exc)
 

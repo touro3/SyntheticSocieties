@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
@@ -24,9 +25,9 @@ class InstitutionManager:
     def validate(
         self,
         action: ProposedAction,
-        agent: "Agent",
-        world_state: "WorldState",
-        agent_lookup: Mapping[str, "Agent"],
+        agent: Agent,
+        world_state: WorldState,
+        agent_lookup: Mapping[str, Agent],
     ) -> ValidationResult:
         if action.amount is not None and action.amount < 0:
             return ValidationResult(valid=False, reason="negative_amount")
@@ -86,9 +87,9 @@ class InstitutionManager:
     def execute(
         self,
         action: ProposedAction,
-        agent: "Agent",
-        world_state: "WorldState",
-        agent_lookup: Mapping[str, "Agent"],
+        agent: Agent,
+        world_state: WorldState,
+        agent_lookup: Mapping[str, Agent],
     ) -> dict[str, Any]:
         event: dict[str, Any] = {
             "agent_id": agent.profile.agent_id,

@@ -86,9 +86,9 @@ def _try_autoload_tokenizer() -> None:
         return
     _autoload_attempted = True
     try:
-        from transformers import AutoTokenizer  # type: ignore
-
         import os as _os
+
+        from transformers import AutoTokenizer  # type: ignore
 
         # See decision/llm_backend.py for the BGF_MODEL_REVISION + witness
         # rationale. Token-budget tokenizer is a CPU-side metering helper.

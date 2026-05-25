@@ -7,7 +7,8 @@ that were duplicated between generator.py and persona_synthesizer.py.
 from __future__ import annotations
 
 import math
-from typing import Any, Mapping, Optional
+from collections.abc import Mapping
+from typing import Any, Optional
 
 
 def safe_float(val: Any, default: Optional[float] = None) -> Optional[float]:

@@ -22,9 +22,9 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from metrics.behavioral_realism import (
     _ACTIONS,
@@ -32,7 +32,6 @@ from metrics.behavioral_realism import (
     compute_rlhf_bias_index,
 )
 from metrics.inequality import gini_coefficient
-
 
 # ── B_RLHF ────────────────────────────────────────────────────────────────────
 

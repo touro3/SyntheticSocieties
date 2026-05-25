@@ -69,6 +69,52 @@ def test_kernel_runs(tmp_path):
     assert (tmp_path / "events.jsonl").exists()
 
 
+def test_kernel_writes_validation_manifest(tmp_path):
+    """Kernel must emit validation.json so downstream tooling can detect a
+    Condition B run that silently degraded to Condition A (audit A1.5)."""
+    import json
+
+    agents = build_test_agents()
+    world = _make_world()
+    logger = EventLogger(tmp_path / "events.jsonl", overwrite=True)
+
+    kernel = SimulationKernel(agents=agents, world=world, logger=logger, heartbeat_path=tmp_path / "heartbeat.json")
+    kernel.run(num_rounds=1)
+
+    manifest_path = tmp_path / "validation.json"
+    assert manifest_path.exists(), "validation.json not written"
+    payload = json.loads(manifest_path.read_text())
+    # MockPolicy has neither sql_rag nor graph_rag — both should be absent.
+    assert payload["sql_rag_status"] == "absent"
+    assert payload["sql_rag_active"] is False
+    assert payload["graph_rag_active"] is False
+    assert payload["n_agents"] == 2
+    assert payload["policy_type"] == "MockPolicy"
+
+
+def test_kernel_validation_manifest_reports_rag_active(tmp_path):
+    """When the policy has a working SQLRAG handle, the manifest must report
+    sql_rag_active=True."""
+    import json
+
+    from decision.sql_rag import SQLRAG
+
+    agents = build_test_agents()
+    # Attach a working SQLRAG (real ess_clean.parquet) to each agent's policy.
+    rag = SQLRAG(data_path="data/ess_clean.parquet")
+    for agent in agents:
+        agent.policy.sql_rag = rag  # MockPolicy is a permissive container
+
+    world = _make_world()
+    logger = EventLogger(tmp_path / "events.jsonl", overwrite=True)
+    kernel = SimulationKernel(agents=agents, world=world, logger=logger, heartbeat_path=tmp_path / "heartbeat.json")
+    kernel.run(num_rounds=1)
+
+    payload = json.loads((tmp_path / "validation.json").read_text())
+    assert payload["sql_rag_status"] == "ok"
+    assert payload["sql_rag_active"] is True
+
+
 def test_batched_mode_respects_ablation_level(tmp_path):
     """run_round_batched must pass policy.ablation_level to build_prompt, not silently default to 5."""
     agents = build_test_agents()

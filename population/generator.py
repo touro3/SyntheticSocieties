@@ -5,6 +5,8 @@ import logging
 import random
 from typing import Optional
 
+import numpy as np
+
 from agents.agent import Agent
 from agents.memory import HierarchicalMemory
 from agents.profile import AgentProfile
@@ -33,7 +35,13 @@ from population._helpers import (
 from population._helpers import (
     safe_normalized_float as _safe_normalized_float,
 )
-from population.sampling import sample_age, sample_empirical_rows, sample_income
+from population.sampling import (
+    build_marginal_samplers,
+    sample_age,
+    sample_empirical_rows,
+    sample_from_marginal,
+    sample_income,
+)
 from population.schemas import PopulationSpec
 
 logger = logging.getLogger(__name__)
@@ -153,6 +161,19 @@ def generate_empirical_population(
         seed=seed,
     )
 
+    # Deterministic RNG for NaN→marginal substitutions (audit A1.2).
+    # Replaces the historical fixed-default behaviour (which spiked the
+    # median bin) with a draw from the column's own non-NaN marginal,
+    # weighted by ESS survey weights when present.
+    import random as _random_mod
+
+    nan_rng = _random_mod.Random(seed)
+    marginal_rng = np.random.default_rng(seed)
+    marginals = build_marginal_samplers(
+        parquet_path=data_source,
+        columns=["age", "income_decile", "left_right"],
+    )
+
     agents: list[Agent] = []
 
     # Count NaN→default substitutions so distortions to marginals are visible.
@@ -163,11 +184,27 @@ def generate_empirical_population(
         raw_age = row.get("age")
         if raw_age is None or (isinstance(raw_age, float) and raw_age != raw_age):
             nan_counts["age"] += 1
-        age = _safe_int(raw_age, default=sample_age(defaults.get("min_age", 25), defaults.get("max_age", 60)))
+        if (raw_age is None or (isinstance(raw_age, float) and raw_age != raw_age)) and "age" in marginals:
+            age = int(sample_from_marginal(marginals["age"], marginal_rng))
+        else:
+            age = _safe_int(
+                raw_age,
+                default=sample_age(defaults.get("min_age", 25), defaults.get("max_age", 60), rng=nan_rng),
+            )
         raw_decile = row.get("income_decile")
         if raw_decile is None or (isinstance(raw_decile, float) and raw_decile != raw_decile):
             nan_counts["income_decile"] += 1
-        income = _safe_float(raw_decile, default=0.5) * defaults.get("base_income", 1000.0) * 2
+        # Routed through population._helpers.income_from_decile for a single
+        # source of truth (audit A1.3). ``legacy_generator`` preserves the
+        # historical ``decile * base_income * 2`` scale so already-published
+        # experiment numbers are bit-stable.
+        from population._helpers import income_from_decile as _income_from_decile
+
+        income = _income_from_decile(
+            raw_decile,
+            base_income=defaults.get("base_income", 1000.0),
+            formula="legacy_generator",
+        )
 
         # Map education level to string
         education = _map_education(row.get("education_level"), defaults.get("education", "unknown"))
@@ -222,10 +259,13 @@ def generate_empirical_population(
             else None,
         )
 
-        # Initial wealth based on income decile
-        wealth = (
-            defaults.get("initial_wealth", 50.0)
-            + (_safe_float(row.get("income_decile"), 5) / 10.0) * defaults.get("wealth_step", 10.0) * 10
+        # Initial wealth based on income decile — canonicalised in _helpers.
+        from population._helpers import wealth_from_decile as _wealth_from_decile
+
+        wealth = _wealth_from_decile(
+            row.get("income_decile"),
+            initial_wealth=defaults.get("initial_wealth", 50.0),
+            wealth_step=defaults.get("wealth_step", 10.0),
         )
 
         state = AgentState(wealth=wealth)

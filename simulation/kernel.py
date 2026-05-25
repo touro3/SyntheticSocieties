@@ -519,6 +519,14 @@ class SimulationKernel:
             )
         # Evaluate once — the policy type and backend never change mid-run.
         use_batched = self._can_use_batched_mode()
+
+        # Probe RAG handles once and dump a validation manifest so cloud
+        # deploys missing data/ess_clean.parquet cannot silently collapse
+        # Condition B → Condition A without leaving a paper trail. See
+        # docs/AUDIT_DATA_METRICS_LOGGING.md A1.5.
+        if start_round == 0:
+            self._write_validation_manifest()
+
         completed = 0
         for _ in range(remaining):
             if stop_flag is not None and getattr(stop_flag, "requested", False):
@@ -543,6 +551,45 @@ class SimulationKernel:
             self._flush_round_metrics()
 
         return completed
+
+    # ── Validation manifest ──────────────────────────────────────────────────
+
+    def _write_validation_manifest(self) -> None:
+        """Emit validation.json alongside heartbeat so downstream tooling can
+        detect a Condition B run that silently degraded to Condition A
+        because data/ess_clean.parquet was missing or the parquet lacked
+        the peer-group columns.
+        """
+        if self.heartbeat_path is None:
+            return
+        policy = getattr(self.agents[0], "policy", None) if self.agents else None
+        sql_rag = getattr(policy, "sql_rag", None)
+        graph_rag = getattr(policy, "graph_rag", None)
+
+        sql_status = "absent"
+        if sql_rag is not None:
+            try:
+                sql_rag._connect()  # idempotent; sets last_status
+                sql_status = getattr(sql_rag, "last_status", "ok")
+            except Exception as exc:  # pragma: no cover - defensive
+                sql_status = f"probe_error:{type(exc).__name__}"
+
+        graph_status = "absent" if graph_rag is None else "present"
+
+        manifest = {
+            "sql_rag_status": sql_status,
+            "sql_rag_active": sql_status == "ok",
+            "graph_rag_status": graph_status,
+            "graph_rag_active": graph_rag is not None,
+            "ablation_level": getattr(policy, "ablation_level", None),
+            "policy_type": type(policy).__name__ if policy is not None else None,
+            "n_agents": len(self.agents),
+        }
+        path = self.heartbeat_path.parent / "validation.json"
+        try:
+            _atomic_write_json(path, manifest)
+        except Exception:  # pragma: no cover
+            logger.exception("Failed to write validation.json at %s", path)
 
     # ── Heartbeat ────────────────────────────────────────────────────────────
 

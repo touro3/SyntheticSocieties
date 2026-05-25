@@ -31,17 +31,23 @@ concurrency:
 jobs:
   # ---------- Merged test + coverage (was 2 separate jobs running the same suite) ----------
   test:
-    name: "Tests + Coverage (≥70%)"
+    name: "Tests + Coverage (≥70%, py${{ matrix.python-version }})"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 = minimum supported (pyproject `requires-python = ">=3.10"`),
+        # 3.12 = primary dev/CI target. 3.11 catches the middle.
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements-ci.txt
 
@@ -59,7 +65,10 @@ jobs:
       # test_brm_certificate_emission.py guard runs against current code
       # rather than a possibly stale on-disk JSON. The Dirichlet sweep is
       # kept small (200 samples) since the certificate itself is exact.
+      # Only on primary Python (3.12) — the cert is platform-independent
+      # and is re-emitted every CI run.
       - name: Emit BRM Proposition 3 certificate (§6.1)
+        if: matrix.python-version == '3.12'
         run: |
           python analysis/brm_sensitivity.py --emit-certificate \
             --n-samples 200 \
@@ -82,7 +91,11 @@ jobs:
           OPENAI_API_KEY: "sk-test-ci-placeholder"
           BGF_CI: "true"
 
+      # Heavy pipeline smoke-tests only on the primary Python — they do not
+      # exercise version-specific bytecode and tripling them on 3.10/3.11
+      # would burn Actions minutes for no signal.
       - name: Verify one-command baseline pipeline
+        if: matrix.python-version == '3.12'
         run: |
           python scripts/run_full_pipeline.py \
             --rounds 3 \
@@ -91,6 +104,7 @@ jobs:
             2>&1 | tail -20
 
       - name: Run feature importance (no GPU)
+        if: matrix.python-version == '3.12'
         run: |
           python scripts/run_feature_importance.py \
             --n-agents 50 \
@@ -98,6 +112,7 @@ jobs:
             --seed 42
 
       - name: Run policy intervention sweep (no GPU)
+        if: matrix.python-version == '3.12'
         run: |
           python scripts/run_policy_intervention.py \
             --n-agents 50 \
@@ -105,6 +120,7 @@ jobs:
             --n-seeds 2
 
       - name: Run long-horizon persona drift (no GPU)
+        if: matrix.python-version == '3.12'
         run: |
           python scripts/run_long_horizon.py \
             --n-agents 30 \
@@ -118,7 +134,7 @@ jobs:
       #   * Exclude the 4 largest network/resilience PNGs (~3.9 MB combined).
       #   * compression-level 9 (default 6) shrinks PNG bundles a further ~10%.
       - name: Upload figures artifact
-        if: failure() || github.event_name == 'pull_request'
+        if: (failure() || github.event_name == 'pull_request') && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: bgf-figures-${{ github.sha }}
@@ -135,7 +151,7 @@ jobs:
       # for a report nobody reads, eventually exhausting the Actions artifact
       # quota and red-failing the job on the upload step (#118 / #119).
       - name: Upload coverage report
-        if: failure() || github.event_name == 'pull_request'
+        if: (failure() || github.event_name == 'pull_request') && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ github.sha }}
@@ -172,9 +188,27 @@ jobs:
         run: |
           pip install mypy pydantic>=2.8 types-PyYAML numpy pandas networkx
           pip install -e . --no-deps
-      - name: Run mypy
+      - name: Run mypy (whole-repo, non-blocking until annotations are complete)
         run: mypy . --ignore-missing-imports --exclude tests/ --exclude llama.cpp/ --exclude venv/
-        continue-on-error: true  # non-blocking until type annotations are complete
+        continue-on-error: true
+
+      # The formal-framework core is held to a stricter contract via the
+      # pyproject [[tool.mypy.overrides]] block. This step IS blocking — a
+      # regression in agents.profile / agents.state / environment.payoffs /
+      # environment.institutions / metrics.behavioral_realism /
+      # metrics.distribution / population._helpers / population.sampling
+      # must fail the build.
+      - name: Run mypy (strict subset, blocking)
+        run: |
+          mypy --follow-imports=silent \
+            agents/profile.py \
+            agents/state.py \
+            environment/payoffs.py \
+            environment/institutions.py \
+            metrics/behavioral_realism.py \
+            metrics/distribution.py \
+            population/_helpers.py \
+            population/sampling.py
 
   frontend:
     name: "Frontend build (Vue + Vite)"

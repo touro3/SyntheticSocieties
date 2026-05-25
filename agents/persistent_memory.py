@@ -86,7 +86,13 @@ class _Embedder:
         vec = [0.0] * _EMBED_DIM
         tokens = text.lower().split()
         for tok in tokens:
-            h = int.from_bytes(hashlib.md5(tok.encode()).digest()[:8], "little")
+            # MD5 used only as a deterministic feature hash for a bag-of-tokens
+            # embedding — no secrecy or integrity claim. `usedforsecurity=False`
+            # tells Bandit / FIPS this is not a security context.
+            h = int.from_bytes(
+                hashlib.md5(tok.encode(), usedforsecurity=False).digest()[:8],
+                "little",
+            )
             idx = h % _EMBED_DIM
             sign = 1.0 if (h >> 63) & 1 else -1.0
             vec[idx] += sign

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -45,7 +45,7 @@ def sample_empirical_rows(
     country_filter: Optional[list[str]] = None,
     exclude_countries: Optional[list[str]] = None,
     weight_column: Optional[str] = "auto",
-):
+) -> list[dict[str, Any]]:
     """
     Sample rows from a cleaned ESS Parquet file.
 
@@ -141,3 +141,67 @@ def sample_empirical_rows(
 
     sampled = df.iloc[indices].reset_index(drop=True)
     return sampled.to_dict(orient="records")
+
+
+# ── Marginal resampling for NaN substitution (audit A1.2) ────────────────────
+
+
+def build_marginal_samplers(
+    parquet_path: str,
+    columns: list[str],
+    weight_column: Optional[str] = "auto",
+) -> dict[str, tuple[np.ndarray, Optional[np.ndarray]]]:
+    """Return per-column (values, probs) tables for sampling-from-marginal.
+
+    For each requested column, NaN rows are dropped and the empirical
+    distribution is summarised as a value array and a matching probability
+    array (weighted by the survey weight column if available, else uniform).
+    Use the returned tables with ``sample_from_marginal`` to replace NaN
+    cells with a draw from the column's own marginal — strictly better than
+    the historical fixed-default behaviour (which spiked the median bin).
+
+    Returns a dict ``{col: (values, probs)}``. Missing columns are skipped
+    silently (caller checks ``col in result``).
+    """
+    import pandas as pd
+
+    df = pd.read_parquet(parquet_path)
+    chosen_weight: Optional[str] = None
+    if weight_column == "auto":
+        for cand in _WEIGHT_CANDIDATES:
+            if cand in df.columns:
+                chosen_weight = cand
+                break
+    elif weight_column is not None and weight_column in df.columns:
+        chosen_weight = weight_column
+
+    out: dict[str, tuple[np.ndarray, Optional[np.ndarray]]] = {}
+    for col in columns:
+        if col not in df.columns:
+            continue
+        if chosen_weight is not None:
+            sub = df[[col, chosen_weight]].dropna(subset=[col])
+            w = sub[chosen_weight].to_numpy(dtype=float)
+            w = np.where(np.isfinite(w) & (w >= 0), w, 0.0)
+            total = float(w.sum())
+            probs = (w / total) if total > 0 else None
+        else:
+            sub = df[[col]].dropna(subset=[col])
+            probs = None
+        values = sub[col].to_numpy()
+        if len(values) == 0:
+            continue
+        out[col] = (values, probs)
+    return out
+
+
+def sample_from_marginal(
+    marginal: tuple[np.ndarray, Optional[np.ndarray]],
+    rng: np.random.Generator,
+) -> Any:
+    """Draw a single value from a (values, probs) table returned by
+    ``build_marginal_samplers``. ``rng`` must be a numpy Generator for
+    reproducibility (use ``np.random.default_rng(seed)``)."""
+    values, probs = marginal
+    idx = rng.choice(len(values), p=probs)
+    return values[idx]

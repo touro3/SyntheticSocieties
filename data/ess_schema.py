@@ -131,6 +131,18 @@ CRIME_SAFETY = [
     ("aesfdrk", "feel_safe_dark", "Feel safe walking alone after dark (1-4)"),
 ]
 
+# Survey weights (from ESS11MD_e01_2.csv). Carrying these through to
+# data/ess_clean.parquet lets population/sampling.py do weighted draws
+# instead of uniform; without them every "empirical" sample is an
+# unweighted draw from a stratified survey.
+SURVEY_WEIGHTS = [
+    ("anweight", "anweight", "Analysis weight (design × post-strat × population)"),
+    ("pspwght", "pspwght", "Post-stratification weight"),
+    ("pweight", "pweight", "Population weight"),
+    ("dweight", "dweight", "Design weight"),
+]
+
+
 # Interview metadata (from ESS11INTe04_1.csv)
 INTERVIEW_META = [
     ("idno", "respondent_id", "Respondent ID"),
@@ -154,6 +166,7 @@ ALL_VARIABLE_GROUPS = {
     "health_wellbeing": HEALTH_WELLBEING,
     "risk_personality": RISK_PERSONALITY,
     "crime_safety": CRIME_SAFETY,
+    "survey_weights": SURVEY_WEIGHTS,
 }
 
 

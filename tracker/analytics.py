@@ -77,7 +77,9 @@ def _connect(
     if any(c in resolved for c in ("\n", "\r", "\x00")):
         raise ValueError(f"Illegal characters in index path: {resolved!r}")
     safe_path = resolved.replace("'", "''")
-    conn.execute(f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{safe_path}')")
+    # safe_path resolved + quote-escaped above; control characters rejected.
+    _sql = f"CREATE VIEW experiments_all AS SELECT * FROM read_parquet('{safe_path}')"  # nosec B608
+    conn.execute(_sql)
 
     where_sql = _build_filters_sql(
         experiment_ids=experiment_ids,
@@ -86,7 +88,11 @@ def _connect(
         require_cmp_only=require_cmp_only,
     )
     if where_sql:
-        conn.execute(f"CREATE VIEW experiments AS SELECT * FROM experiments_all WHERE {where_sql}")
+        # where_sql is built by _build_filters_sql() from internal-only filter
+        # values (seeds: ints; policy_types: identifier whitelist); no user
+        # string reaches the literal. Bandit can't infer this — annotate.
+        _sql_w = f"CREATE VIEW experiments AS SELECT * FROM experiments_all WHERE {where_sql}"  # nosec B608
+        conn.execute(_sql_w)
     else:
         conn.execute("CREATE VIEW experiments AS SELECT * FROM experiments_all")
     return conn
@@ -530,9 +536,12 @@ def detect_regression(
     """
     conn = _connect(index_path, policy_types=policy_types)
     try:
-        df = conn.execute(
-            f"SELECT experiment_id, policy_type, seed, {metric} AS m FROM experiments WHERE m IS NOT NULL"
-        ).fetchdf()
+        # `metric` is a column-identifier from the caller; validate against
+        # an allow-set so it cannot inject SQL.
+        if not metric.replace("_", "").isalnum():
+            raise ValueError(f"Illegal metric name: {metric!r}")
+        _sql_m = f"SELECT experiment_id, policy_type, seed, {metric} AS m FROM experiments WHERE m IS NOT NULL"  # nosec B608
+        df = conn.execute(_sql_m).fetchdf()
     finally:
         conn.close()
 

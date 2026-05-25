@@ -136,3 +136,111 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+# ── Ruff (lint + format) ─────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+    "experiments",
+    "analysis/figures",
+    "analysis/tables",
+    "data",
+    "venv",
+    ".venv",
+    "build",
+    "dist",
+    "logs",
+    "uploads",
+    "graphify-out",
+    "api/static",
+    "notebooks",
+]
+
+[tool.ruff.lint]
+# Rule families chosen to mirror what a CS-degree code review would catch:
+#   E/W   pycodestyle (PEP 8)
+#   F     pyflakes (unused imports, undefined names)
+#   I     isort (import ordering)
+#   B     flake8-bugbear (likely-bug idioms)
+#   UP    pyupgrade (modernise legacy syntax)
+#   SIM   flake8-simplify (refactor opportunities)
+#   C4    flake8-comprehensions
+#   PIE   misc cleanups
+#   PL    pylint port (errors only — full PL is too noisy)
+#   RUF   ruff-native
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "PIE", "PLE", "RUF"]
+ignore = [
+    "E501",     # line-length handled by formatter
+    "B008",     # function calls in argument defaults — common in FastAPI / typer
+    "UP007",    # `Optional[X]` is still ergonomic for older runtimes
+    "SIM108",   # ternary-vs-if/else is taste
+    "RUF012",   # mutable class attributes — Pydantic / dataclass false positives
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011", "PLE"]
+"scripts/*" = ["B008", "PIE"]
+"analysis/*" = ["B008", "PIE"]
+
+# ── Mypy ─────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+exclude = [
+    "tests/",
+    "venv/",
+    "experiments/",
+    "graphify-out/",
+    "analysis/figures/",
+    "logs/",
+    "uploads/",
+    "build/",
+    "dist/",
+    "notebooks/",
+]
+# Not full --strict (the codebase has too many third-party untyped boundaries),
+# but tighter than ignore-missing-imports alone:
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+# Tighter rules on the formal-framework core where types matter most.
+[[tool.mypy.overrides]]
+module = [
+    "agents.profile",
+    "agents.state",
+    "environment.payoffs",
+    "environment.institutions",
+    "metrics.behavioral_realism",
+    "metrics.distribution",
+    "population._helpers",
+    "population.sampling",
+]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+# ── Bandit (Python SAST) ─────────────────────────────────────────────────────
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "venv",
+    ".venv",
+    "experiments",
+    "analysis/figures",
+    "build",
+    "dist",
+    "logs",
+    "uploads",
+    "graphify-out",
+    "notebooks",
+]
+skips = [
+    # Subprocess use is intentional in pipeline scripts; we control the input.
+    # Bandit can't tell, and we don't shell out untrusted user data anywhere.
+    "B404",
+    "B603",
+    "B607",
+]

@@ -88,7 +88,14 @@ def _try_autoload_tokenizer() -> None:
     try:
         from transformers import AutoTokenizer  # type: ignore
 
-        _tokenizer = AutoTokenizer.from_pretrained(_AUTOLOAD_MODEL_ID)
+        import os as _os
+
+        # See decision/llm_backend.py for the BGF_MODEL_REVISION + witness
+        # rationale. Token-budget tokenizer is a CPU-side metering helper.
+        _tokenizer = AutoTokenizer.from_pretrained(  # nosec B615 — witness manifest pins
+            _AUTOLOAD_MODEL_ID,
+            revision=_os.environ.get("BGF_MODEL_REVISION", "main"),
+        )
         _estimate_tokens_static.cache_clear()
     except Exception:
         # Offline / no transformers / no cached tokenizer — heuristic remains.

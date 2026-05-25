@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Mapping
+
 from pydantic import BaseModel
 
 from decision.schemas import ProposedAction
 from environment.payoffs import DEFAULT_PAYOFFS, GamePayoffs
+
+if TYPE_CHECKING:
+    from agents.agent import Agent
+    from environment.world_state import WorldState
 
 
 class ValidationResult(BaseModel):
@@ -13,7 +21,13 @@ class InstitutionManager:
     def __init__(self, payoffs: GamePayoffs | None = None) -> None:
         self.payoffs = payoffs or DEFAULT_PAYOFFS
 
-    def validate(self, action: ProposedAction, agent, world_state, agent_lookup) -> ValidationResult:
+    def validate(
+        self,
+        action: ProposedAction,
+        agent: "Agent",
+        world_state: "WorldState",
+        agent_lookup: Mapping[str, "Agent"],
+    ) -> ValidationResult:
         if action.amount is not None and action.amount < 0:
             return ValidationResult(valid=False, reason="negative_amount")
 
@@ -69,8 +83,14 @@ class InstitutionManager:
 
         return ValidationResult(valid=True)
 
-    def execute(self, action: ProposedAction, agent, world_state, agent_lookup) -> dict:
-        event = {
+    def execute(
+        self,
+        action: ProposedAction,
+        agent: "Agent",
+        world_state: "WorldState",
+        agent_lookup: Mapping[str, "Agent"],
+    ) -> dict[str, Any]:
+        event: dict[str, Any] = {
             "agent_id": agent.profile.agent_id,
             "action_type": action.action_type,
             "target_agent_id": action.target_agent_id,
@@ -117,7 +137,11 @@ class InstitutionManager:
             # target, bounded by what the target actually holds (no wealth is
             # created from nothing, and the target cannot go negative).
             requested = float(action.amount or 0.0)
-            target = agent_lookup.get(action.target_agent_id)
+            target = (
+                agent_lookup.get(action.target_agent_id)
+                if action.target_agent_id is not None
+                else None
+            )
             target_wealth = float(target.state.wealth) if target is not None else 0.0
             stolen = max(0.0, min(requested, target_wealth))
             event["wealth_delta"] = stolen

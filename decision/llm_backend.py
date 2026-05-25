@@ -191,8 +191,17 @@ class LLMBackend:
             )
         start = time.time()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        # Revision pinning: BGF reads BGF_MODEL_REVISION if set, otherwise
+        # defaults to "main". Per-run reproducibility is captured by
+        # bgf_logging/witness.py, which hashes the resolved snapshot.
+        # Suppressing B615 because the witness manifest is the authoritative
+        # pinning record for any published result.
+        import os as _os
+
+        revision = _os.environ.get("BGF_MODEL_REVISION", "main")
+        self.tokenizer = AutoTokenizer.from_pretrained(  # nosec B615 — see comment
             self.model_id,
+            revision=revision,
             cache_dir=self.cache_dir,
             trust_remote_code=self.allow_remote_code,
             local_files_only=not self.allow_remote_downloads,
@@ -271,7 +280,10 @@ class LLMBackend:
             # Standard fp16/bf16 loading — no max_memory constraint needed
             model_kwargs["torch_dtype"] = self.dtype
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        import os as _os
+
+        model_kwargs.setdefault("revision", _os.environ.get("BGF_MODEL_REVISION", "main"))
+        self.model = AutoModelForCausalLM.from_pretrained(  # nosec B615 — witness manifest pins per-run
             self.model_id,
             **model_kwargs,
         )

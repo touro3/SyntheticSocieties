@@ -1,0 +1,61 @@
+name: Feature request
+description: Propose a new feature, condition, metric, or experimental sweep.
+title: "[feat] "
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: What problem does this solve?
+      description: |
+        Frame in terms of a scientific or engineering gap. "Reviewer X
+        will object that …", "we can't currently measure …", "scale at
+        N=500 needs …" — concrete is better than aspirational.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: What you'd build. Reference existing files / classes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: At least one. Helps reviewers see the design space.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Metric (metrics/*)
+        - Policy (decision/*)
+        - Population / grounding (population/*)
+        - Environment / institutions (environment/*)
+        - Simulation kernel / IPC (simulation/*)
+        - Logging / observability (bgf_logging/*)
+        - API / frontend (api/*)
+        - DevOps / CI (.github/, Dockerfile, Makefile)
+        - Paper / docs only
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: blocking
+    attributes:
+      label: Is this blocking a submission?
+      options: [no, "yes — AAMAS", "yes — NeurIPS", "yes — other venue", "yes — internal milestone"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: References / context
+      description: Papers, prior issues, ADRs, links to upstream.

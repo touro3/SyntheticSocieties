@@ -6,6 +6,7 @@ import random
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from pydantic import BaseModel
 
@@ -101,28 +102,64 @@ def synthesize_ess_personas(df: pd.DataFrame, spec: SocietySpec, n: int, seed: i
 
     nan_counts = {"age": 0, "income_decile": 0}
 
+    # Build per-column marginal tables for NaN substitution (audit A1.2):
+    # draw replacement values from the column's own non-NaN distribution
+    # weighted by ESS survey weights when available, instead of collapsing
+    # NaNs to a fixed median / uniform default.
+    weight_col = next((c for c in ("anweight", "pspwght", "pweight", "dweight") if c in df.columns), None)
+    marginals: dict[str, tuple[np.ndarray, np.ndarray | None]] = {}
+    for col in ("age", "income_decile"):
+        if col not in df.columns:
+            continue
+        if weight_col is not None:
+            sub = df[[col, weight_col]].dropna(subset=[col])
+            w = sub[weight_col].to_numpy(dtype=float)
+            w = np.where(np.isfinite(w) & (w >= 0), w, 0.0)
+            probs = (w / w.sum()) if w.sum() > 0 else None
+        else:
+            sub = df[[col]].dropna(subset=[col])
+            probs = None
+        vals = sub[col].to_numpy()
+        if len(vals):
+            marginals[col] = (vals, probs)
+    marginal_rng = np.random.default_rng(seed)
+
+    def _draw(col: str, fallback: int) -> int:
+        if col in marginals:
+            vals, probs = marginals[col]
+            return int(vals[marginal_rng.choice(len(vals), p=probs)])
+        return fallback
+
     for i in range(n):
         row = df.sample(n=1, replace=True, random_state=rng.randint(0, 10_000_000)).iloc[0]
 
         raw_decile = row.get("income_decile")
         if pd.isna(raw_decile):
             nan_counts["income_decile"] += 1
-        income_decile = _safe_int(raw_decile, 5)
+            income_decile = _draw("income_decile", 5)
+        else:
+            income_decile = _safe_int(raw_decile, 5)
         raw_age = row.get("age")
         if pd.isna(raw_age):
             nan_counts["age"] += 1
-        age = _safe_int(raw_age, 40) or 40
-        # Wealth formula matches generate_empirical_population:
-        # base=50 + (decile/10) * wealth_step(10) * 10 → range 50-150.
-        # The old formula (50 + decile/10 * 50 → 55-100) underestimated
-        # wealth dispersion and created a hidden confound across generators.
-        wealth = 50.0 + (income_decile / 10.0) * 100.0
+            age = _draw("age", 40)
+        else:
+            age = _safe_int(raw_age, 40) or 40
+        # Wealth + income canonicalised in population._helpers (audit A1.3).
+        # Persona path uses formula="canonical" (decile * 400); generator
+        # path uses formula="legacy_generator" to preserve published numbers.
+        # See population/_helpers.income_from_decile docstring.
+        from population._helpers import income_from_decile as _income_from_decile
+        from population._helpers import wealth_from_decile as _wealth_from_decile
+
+        wealth = _wealth_from_decile(income_decile)
+        persona_income = _income_from_decile(income_decile, base_income=400.0, formula="canonical")
 
         records.append(
             PersonaRecord(
                 agent_id=f"agent_{i}",
                 age=age,
-                income=(income_decile or 5) * 400.0,
+                income=persona_income,
                 education=_map_education(_safe_int(row.get("education_level"))),
                 occupation="worker",
                 location=_map_location(_safe_int(row.get("urbanization"))),

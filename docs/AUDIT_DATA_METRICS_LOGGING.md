@@ -8,10 +8,10 @@ Severity legend: 🔴 high (alters reported numbers / silently breaks a conditio
 
 ## Area 1 — Empirical data flow (ESS → agents → RAG)
 
-### 🔴 A1.1 ESS survey weights silently dropped
-- **Evidence:** raw `data/ESS11MD_e01_2.csv` ships `dweight, pspwght, pweight, anweight` (design / post-stratification / population / analysis). `data/ess_clean.parquet` schema (866 rows, 60 cols) contains **none** of these. `population/sampling.py:79` calls `rng.choice(len(df), size=n, replace=True)` with no `p=`.
-- **Impact:** every "empirical" condition treats ESS respondents as i.i.d. draws from the target population, but ESS is a stratified weighted survey. Marginal moments (esp. trust, income decile) are biased by whichever country/age strata are over-represented in the unweighted parquet.
-- **Where it leaks:** `generator.generate_empirical_population`, `persona_synthesizer.synthesize_ess_personas`, and the `sql_rag` peer-group baseline all consume this same unweighted frame.
+### ✅ A1.1 ESS survey weights silently dropped — **FIXED 2026-05-25**
+- **Original evidence:** raw `data/ESS11MD_e01_2.csv` ships `dweight, pspwght, pweight, anweight` (design / post-stratification / population / analysis). `data/ess_clean.parquet` schema (866 rows, 60 cols) contained **none** of these. `population/sampling.py:79` called `rng.choice(len(df), size=n, replace=True)` with no `p=`.
+- **Original impact:** every "empirical" condition treated ESS respondents as i.i.d. draws from the target population, but ESS is a stratified weighted survey. Marginal moments (esp. trust, income decile) were biased by whichever country/age strata were over-represented in the unweighted parquet.
+- **Fix:** added a `SURVEY_WEIGHTS` group (`anweight, pspwght, pweight, dweight`) to `data/ess_schema.py`, re-ran `scripts/ingest_ess.py` → `data/ess_clean.parquet` now ships all four weights. `population/sampling.py:96` auto-detects and applies `anweight` for the weighted draw. Verified: `sample_empirical_rows` logs `applying ESS survey weights from 'anweight'`. Also fixed a latent non-determinism in `generator.py` where the NaN→age fallback used the module-level `random` (caused reproducibility test to fail once weighted sampling pulled rows with NaN ages); now uses a seeded `Random(seed)`.
 
 ### 🔴 A1.2 NaN→fixed-default substitution distorts marginals
 - `population/generator.py:160` — `age = _safe_int(row.get("age"), default=sample_age(min,max))` replaces NaN ages with a **uniform draw**, smearing the age distribution.
@@ -19,7 +19,12 @@ Severity legend: 🔴 high (alters reported numbers / silently breaks a conditio
 - `persona_synthesizer.py:113` — `(income_decile or 5) * 400.0` repeats the collapse via Python truthiness (also collapses `decile==0` if it ever appears).
 - **Evidence of scale:** in `ess_clean.parquet`, `left_right` has 88/866 NaN (10%), `trust_eu_parliament` 33, `trust_un` 48, `satisfaction_education` 46 — non-trivial. Any column read with `_safe_float(... , default=X)` is silently re-injected with X.
 
-### 🔴 A1.3 Two divergent empirical paths producing the same agent
+### 🟠 A1.3 Two divergent empirical paths producing the same agent — **PARTIALLY ADDRESSED 2026-05-25**
+- **Original symptom:** `population/generator.py` and `population/persona_synthesizer.py` computed income (and historically also wealth) from the same ESS row with different formulas. Generator: ``decile * base_income(1000) * 2``; persona: ``(decile or 5) * 400`` — a 5× divergence at the same decile.
+- **Fix:** both formulas are now routed through a single ``income_from_decile(decile, base_income, formula=...)`` and ``wealth_from_decile(decile, ...)`` in ``population/_helpers.py``. The two historical formulas are exposed as named ``formula="canonical"`` (persona, ``decile * base_income``) and ``formula="legacy_generator"`` (generator, ``decile * base_income * 2``) so a future unification sweep can flip the generator to canonical in a single deliberate change.
+- **What remains:** flipping ``generator.py`` to ``formula="canonical"`` changes headline wealth/income numbers — deferred until after the in-flight N=500 LLM sweep finishes so reported pilot numbers stay bit-stable. Until then the divergence is documented and reviewable, not silent.
+
+### 🔴 (original) A1.3 Two divergent empirical paths producing the same agent
 The codebase has **two** generators that should agree but don't:
 
 | Field | `generator.py:117` (empirical) | `persona_synthesizer.py:91` (ESS personas) |
@@ -41,14 +46,10 @@ Same conceptual variable, different numerical result depending on which entry po
 
 ## Area 2 — Macro-metric mathematical correctness
 
-### 🔴 A2.1 JSD log-base mismatch (BRM, calibration, stability all affected)
-`metrics/distribution.py:66` — `stats.entropy((p+q)/2) - (entropy(p)+entropy(q))/2`. `scipy.stats.entropy` defaults to **natural log**, so JSD is returned in **nats**, but the docstring (L45) claims "JSD value in [0, 1] (base-2 logarithm)". JSD-nats ranges in [0, ln 2 ≈ 0.693], so:
-- `compute_brm_jsd` (`behavioral_realism.py:66`) → `max(0, min(1, 1 - jsd))` floors at `1 - 0.693 = 0.307`, never at 0. Two completely-disjoint distributions score BRM ≈ 0.307 instead of 0, **compressing the metric's discrimination range to [0.307, 1.0]**.
-- `composite_brm.jsd_component` same compression.
-- `metrics/calibration.py:255 calibration_jsd` same — reported "JSD" is in nats.
-- `temporal_stability_jsd` same.
-
-**Fix direction (do not apply here):** pass `base=2` to both `stats.entropy` calls. Any cached/published BRM numbers were computed under the wrong base and should be regenerated.
+### ✅ A2.1 JSD log-base mismatch — **FIXED** (commit f682af5, 2026-05-20)
+- **Original symptom:** `metrics/distribution.py:66` called `stats.entropy(...)` with the scipy default (natural log), so JSD was reported in nats. `compute_brm_jsd` did `1 - jsd` and clamped to [0,1] → BRM compressed to [0.307, 1.0].
+- **Fix in code:** `metrics/distribution.py:67` and `:108` now pass `base=2` to both `stats.entropy` calls; comment on L66 documents the rationale. JSD now in bits, BRM in [0, 1].
+- **Caveat:** BRM/calibration_jsd numbers reported in pre-2026-05-20 runs are on the compressed scale and should be regenerated before any new paper figure ships.
 
 ### 🟠 A2.2 `calibration_jsd` double-normalizes (scale information destroyed)
 `metrics/calibration.py:253–254` — `sim_n = _minmax01(sim_wealth)`, `ess_n = _minmax01(ess_ref)`. Each array is independently min-max scaled, so calibration_jsd is **only a shape divergence**, not a calibration in the absolute sense. A simulation where wealth saturates around 100k will calibrate identically to one stuck at 0–10 if their *shapes* match. Documented in the docstring (good) but readers will still interpret it as calibration in the standard sense. Either rename to `calibration_shape_jsd` or use Wasserstein on the raw scale.
@@ -89,23 +90,10 @@ Reported "std" is therefore biased downward by √((n-1)/n). For n=100, that's ~
 - `scripts/run_config_simulation.py:564–577` recomputes `summary.json` from `events.jsonl` via `load_events` (not from in-memory `round_metrics`). Single source-of-truth pattern is honored at this layer.
 - `events.jsonl` payload carries `round_id`, `agent_id`, `action`, `validation`, `result`, `state_after`, plus a `harness_substitutions` field — clean schema for downstream replay.
 
-### 🔴 A3.1 Rotation hazard — bulk of long runs silently dropped
-`bgf_logging/event_logger.py:65–80` rotates `events.jsonl` → `events.0001.jsonl` etc. when a shard exceeds 200 MB. But **no consumer is rotation-aware**:
-
-| Reader | File | Reads |
-|---|---|---|
-| `metrics/event_metrics.py:10 load_events` | summary builder | single path |
-| `metrics/trajectories.py:27` | trajectories | `exp_path / "events.jsonl"` |
-| `metrics/cross_model.py:90,115,156` | cross-model | single path |
-| `metrics/llm_diagnostics.py:20` | LLM diag | single path |
-| `analysis/mediation_summary.py:49` | mediation | single path |
-| `analysis/mechanism_analysis.py:148` | mechanism | single path |
-| `scripts/plot_network_evolution.py:181` | network replay | single path |
-| `scripts/analyze_padded_vs_grounded.py:46` | padded ablation | single path |
-
-A 500-agent × 10 000-round run is documented in `event_logger.py:8` as producing ~2.5 GB → ~13 shards. The active `events.jsonl` after rotation contains **only the tail (~200 MB ≈ 8 %)** of the events. `summary.json` for any such run is computed from ~8 % of the data, with no warning. **Severity: critical for Phase D (500-agent) and `pipeline_phase_c.sh`.**
-
-**Fix direction:** every reader should glob `events*.jsonl`, sort by suffix, and concatenate. `load_events` is the single chokepoint — fix there.
+### ✅ A3.1 Rotation hazard — **FIXED** (commit f682af5, 2026-05-20)
+- **Original symptom:** rotated shards `events.0001.jsonl`, `events.0002.jsonl`, … were not read by any consumer; long runs were summarised from only the ~8% tail.
+- **Fix in code:** `metrics/event_metrics.py:11 load_events` is now the rotation-aware chokepoint — globs `events.[0-9]*.jsonl`, sorts by shard index, concatenates with the active `events.jsonl`. All downstream readers (`trajectories.py`, `cross_model.py`, `llm_diagnostics.py`, `mediation_summary.py`, `mechanism_analysis.py`, network/padded plotters) go through it. Tested against synthetic multi-shard fixtures.
+- **Caveat:** any `summary.json` written for a >200 MB run before 2026-05-20 is on a truncated event log; re-run `python scripts/build_summary.py <exp_id>` to refresh.
 
 ### 🟠 A3.2 Witness manifest likely shares the rotation blind spot
 `bgf_logging/witness.py` (referenced from `scripts/run_config_simulation.py:579`) — likely hashes only `events.jsonl`, so any rotated content is **not covered by the reproducibility hash**. Verify and extend.
@@ -126,4 +114,4 @@ The audit found **three failure modes** where simulated behavior is misaligned w
 2. **Path divergence (A1.3, A1.5):** Two ESS-to-agent paths exist with different formulas; RAG can silently fall through to a static narrative. Two runs nominally in "Condition B" can be operating on different empirical signals — or none.
 3. **Metric compression (A2.1, A2.4, A3.1):** The headline realism metrics (BRM_JSD, composite_brm, calibration_jsd) are computed in the wrong log base and silently clamped; B_RLHF and trajectory action_freqs ignore `steal`; long-run summaries are computed from ~8 % of events after the first rotation. Even a perfectly aligned simulation cannot score above ~0.69 in BRM under the current implementation.
 
-Recommended fix order: **A3.1 → A2.1 → A1.1 → A1.5 → A1.3 → A1.2 → A2.4 → A2.2/A2.3 → rest.** A3.1 and A2.1 silently corrupt the headline numbers in *all* published runs; A1.* changes are scientific, not bug fixes.
+Recommended fix order: **A3.1 ✅ → A2.1 ✅ → A1.1 ✅ → A1.5 → A1.3 → A1.2 → A2.4 → A2.2/A2.3 → rest.** A3.1 and A2.1 silently corrupted the headline numbers in *all* published runs — both fixed 2026-05-20. A1.1 (ESS weights) fixed 2026-05-25. A1.* remaining changes are scientific, not bug fixes.

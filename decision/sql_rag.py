@@ -80,7 +80,15 @@ class SQLRAG:
             self._emit_fallback("no_data_file")
             return
         self.conn = duckdb.connect()
-        self.conn.execute(f"CREATE VIEW population AS SELECT * FROM read_parquet('{self.data_path}')")
+        # data_path is a server-controlled config value (default
+        # data/ess_clean.parquet, optionally overridden via SQLRAG(data_path=...)).
+        # We resolve to absolute and reject newline/null/quote so the literal
+        # cannot break out — same guard as tracker/analytics.py:_connect.
+        resolved = str(self.data_path.resolve())
+        if any(c in resolved for c in ("\n", "\r", "\x00", "'")):
+            raise ValueError(f"Illegal characters in SQLRAG data_path: {resolved!r}")
+        sql = f"CREATE VIEW population AS SELECT * FROM read_parquet('{resolved}')"  # nosec B608
+        self.conn.execute(sql)
         try:
             cols_df = self.conn.execute("DESCRIBE population").fetchdf()
             self._available_cols = set(cols_df["column_name"].tolist())

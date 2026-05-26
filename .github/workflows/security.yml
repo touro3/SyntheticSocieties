@@ -110,6 +110,13 @@ jobs:
   secret-scan:
     name: "Secret scan (gitleaks)"
     runs-on: ubuntu-latest
+    # Dependabot PRs run with read-only GITHUB_TOKEN that lacks pull_requests
+    # scope, so gitleaks-action's PR-commit listing 403s. Skip — dependabot
+    # diffs only touch dependency files and can't introduce secrets.
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:

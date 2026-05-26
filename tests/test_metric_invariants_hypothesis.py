@@ -120,9 +120,7 @@ def test_brm_self_comparison_is_one(values: list[float]) -> None:
 @settings(deadline=None, max_examples=50)
 def test_brm_is_symmetric(a: list[float], b: list[float]) -> None:
     """JSD is symmetric; therefore so is BRM_JSD = 1 - JSD."""
-    assert compute_brm_jsd(a, b, bins=30) == pytest.approx(
-        compute_brm_jsd(b, a, bins=30), abs=1e-9
-    )
+    assert compute_brm_jsd(a, b, bins=30) == pytest.approx(compute_brm_jsd(b, a, bins=30), abs=1e-9)
 
 
 # ── Gini ──────────────────────────────────────────────────────────────────────

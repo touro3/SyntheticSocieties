@@ -22,18 +22,16 @@ SPEC_PATH = ROOT / "docs" / "api" / "openapi.yaml"
 # Routes that exist in Flask but intentionally aren't in the spec.
 EXCLUDE_FROM_SPEC = {
     "/",
-    "/<path:path>",                     # SPA fallback
-    "/assets/<path:filename>",          # Static bundle
-    "/configs",                         # Dev helper, not user-facing
-    "/human-game/",                     # Static HTML root
-    "/human-game",                      # Static HTML root
+    "/<path:path>",  # SPA fallback
+    "/assets/<path:filename>",  # Static bundle
+    "/configs",  # Dev helper, not user-facing
+    "/human-game/",  # Static HTML root
+    "/human-game",  # Static HTML root
     "/human-game/static/<path:filename>",
 }
 
 
-FLASK_ROUTE_RE = re.compile(
-    r"@app\.(?:get|post|put|delete|patch)\([\"']([^\"']+)[\"']\)"
-)
+FLASK_ROUTE_RE = re.compile(r"@app\.(?:get|post|put|delete|patch)\([\"']([^\"']+)[\"']\)")
 SPEC_PATH_RE = re.compile(r"^  (/[^\s:]+):\s*$", re.MULTILINE)
 
 
@@ -82,9 +80,8 @@ def test_every_flask_post_route_is_documented(flask_routes: set[str], spec_paths
 def test_every_spec_path_exists_in_flask(flask_routes: set[str], spec_paths: set[str]) -> None:
     """Reverse direction: the spec must not document routes that don't exist."""
     extra = spec_paths - flask_routes
-    assert not extra, (
-        f"{len(extra)} OpenAPI paths have no Flask route:\n"
-        + "\n".join(f"  - {p}" for p in sorted(extra))
+    assert not extra, f"{len(extra)} OpenAPI paths have no Flask route:\n" + "\n".join(
+        f"  - {p}" for p in sorted(extra)
     )
 
 
@@ -97,7 +94,9 @@ def _verbs_for_route(route: str) -> set[str]:
     flask_form_typed = re.sub(r"\{([^}]+)\}", r"<path:\1>", route)
     verbs: set[str] = set()
     for verb in ("get", "post", "put", "delete", "patch"):
-        pattern = rf"@app\.{verb}\([\"'](?:{re.escape(flask_form)}|{re.escape(route)}|{re.escape(flask_form_typed)})[\"']\)"
+        pattern = (
+            rf"@app\.{verb}\([\"'](?:{re.escape(flask_form)}|{re.escape(route)}|{re.escape(flask_form_typed)})[\"']\)"
+        )
         if re.search(pattern, raw):
             verbs.add(verb)
     return verbs

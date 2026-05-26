@@ -138,11 +138,7 @@ class InstitutionManager:
             # target, bounded by what the target actually holds (no wealth is
             # created from nothing, and the target cannot go negative).
             requested = float(action.amount or 0.0)
-            target = (
-                agent_lookup.get(action.target_agent_id)
-                if action.target_agent_id is not None
-                else None
-            )
+            target = agent_lookup.get(action.target_agent_id) if action.target_agent_id is not None else None
             target_wealth = float(target.state.wealth) if target is not None else 0.0
             stolen = max(0.0, min(requested, target_wealth))
             event["wealth_delta"] = stolen

@@ -96,8 +96,14 @@ def test_kernel_validation_manifest_reports_rag_active(tmp_path):
     """When the policy has a working SQLRAG handle, the manifest must report
     sql_rag_active=True."""
     import json
+    from pathlib import Path
+
+    import pytest
 
     from decision.sql_rag import SQLRAG
+
+    if not Path("data/ess_clean.parquet").exists():
+        pytest.skip("data/ess_clean.parquet not available (gitignored); skipping RAG-active integration check")
 
     agents = build_test_agents()
     # Attach a working SQLRAG (real ess_clean.parquet) to each agent's policy.

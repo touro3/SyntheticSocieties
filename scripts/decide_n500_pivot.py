@@ -215,9 +215,7 @@ def main() -> int:
 
     while True:
         df = collect()
-        ready = (
-            (df.condition == "A").sum() >= args.min_cells and (df.condition == "B").sum() >= args.min_cells
-        )
+        ready = (df.condition == "A").sum() >= args.min_cells and (df.condition == "B").sum() >= args.min_cells
         if ready:
             n100 = load_n100_b_rlhf()
             write_report(df, verdict_h1(df), verdict_h_alt(df, n100))

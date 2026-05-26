@@ -93,7 +93,7 @@ jobs:
       - name: Upload bandit JSON report
         if: always()
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bandit-report-${{ github.sha }}
           path: bandit-report.json

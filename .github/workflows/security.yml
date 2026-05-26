@@ -52,6 +52,7 @@ jobs:
           pip-audit --requirement requirements-ci.txt \
             --strict \
             --disable-pip \
+            --no-deps \
             --ignore-vuln GHSA-w596-4wvx-j9j6 \
             || (echo "::warning::pip-audit found vulnerabilities — review and pin upgrades" && exit 1)
 
@@ -59,7 +60,7 @@ jobs:
         if: github.event_name == 'schedule'
         continue-on-error: true
         run: |
-          pip-audit --requirement requirements-api.txt --disable-pip || true
+          pip-audit --requirement requirements-api.txt --disable-pip --no-deps || true
 
   bandit:
     name: "Bandit (Python SAST)"
@@ -91,6 +92,7 @@ jobs:
 
       - name: Upload bandit JSON report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: bandit-report-${{ github.sha }}
@@ -109,4 +111,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Disable artifact upload — Actions storage quota is hit and gitleaks
+          # treats the upload failure as a fatal error even when no leaks found.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
           # No GITLEAKS_LICENSE required for public repos / OSS use.

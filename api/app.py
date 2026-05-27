@@ -1918,6 +1918,38 @@ def create_app(
             if len(w) > 3 and w.lower() not in _stop
         }
 
+        # ── Load prompt corpus from prompts.jsonl (for LLM anchor synthesis) ──
+        # Agents share a template that only differs by persona substitution, so a
+        # single example carries the structure. Pull the first prompt + a few
+        # diverse raw_outputs (different agents) so the anchor can talk about
+        # what agents were actually asked and what they actually returned.
+        sample_prompt: str = ""
+        sample_raw_outputs: list[tuple[str, str]] = []  # (agent_id, raw_output)
+        prompts_path = exp_dir / "prompts.jsonl"
+        if prompts_path.exists():
+            try:
+                with prompts_path.open() as _pf:
+                    _seen_agents: set = set()
+                    for _i, _line in enumerate(_pf):
+                        if _i > 200:
+                            break  # bound work for very long runs
+                        _line = _line.strip()
+                        if not _line:
+                            continue
+                        try:
+                            _rec = json.loads(_line)
+                        except json.JSONDecodeError:
+                            continue
+                        if not sample_prompt:
+                            sample_prompt = str(_rec.get("prompt", ""))[:2500]
+                        _ag = _rec.get("agent_id", "")
+                        _raw = str(_rec.get("raw_output", "")).strip()
+                        if _raw and _ag and _ag not in _seen_agents and len(sample_raw_outputs) < 5:
+                            _seen_agents.add(_ag)
+                            sample_raw_outputs.append((_ag, _raw[:400]))
+            except OSError:
+                pass
+
         # ── Opinion mining: tally keyword mentions across all reasoning texts ──
         combined_reasoning = " ".join(all_reasoning_texts).lower()
 
@@ -2145,6 +2177,90 @@ def create_app(
                 f"every interview answer is added to my knowledge base.{progress_note}"
             )
             return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
+
+        # ── LLM synthesis path ────────────────────────────────────────────────
+        # Free-form anchor that can reason about scenario prompts, reasoning text,
+        # and interview content — not just the four economic actions. Gated on
+        # OPENAI_API_KEY; on any failure we fall through to the rule-based
+        # handlers below so the endpoint never 500s.
+        _anchor_oai_key = os.environ.get("OPENAI_API_KEY", "")
+        if _anchor_oai_key:
+            try:
+                import time as _time
+
+                from openai import OpenAI as _OAI
+                from openai import RateLimitError as _RLE
+
+                _oai_prefix = _anchor_oai_key[:8]
+                if _oai_prefix not in _OAI_CLIENTS:
+                    _oai_clients_put(_oai_prefix, _OAI(api_key=_anchor_oai_key))
+                oai = _OAI_CLIENTS[_oai_prefix]
+
+                # Build a per-agent reasoning excerpt (cap text length per agent)
+                reasoning_lines: list[str] = []
+                for _ag, _txt in list(per_agent_last_reasoning.items())[:20]:
+                    reasoning_lines.append(f"- {_ag}: {_txt[:240]}")
+                reasoning_block = "\n".join(reasoning_lines) if reasoning_lines else "(no reasoning text recorded)"
+
+                # Interview Q&A excerpt
+                interview_lines: list[str] = []
+                for _rec in interview_log[-15:]:
+                    _q = str(_rec.get("question", ""))[:160]
+                    _r = str(_rec.get("response", ""))[:240]
+                    _ag = _rec.get("agent_id", "?")
+                    interview_lines.append(f"- {_ag} | Q: {_q} | A: {_r}")
+                interview_block = "\n".join(interview_lines) if interview_lines else "(no interviews collected yet)"
+
+                # Raw-output sample (shows what agents actually emitted)
+                raw_lines = [f"- {_ag}: {_raw}" for _ag, _raw in sample_raw_outputs]
+                raw_block = "\n".join(raw_lines) if raw_lines else "(no raw outputs sampled)"
+
+                prompt_excerpt = sample_prompt if sample_prompt else "(no prompts.jsonl available)"
+                scenario_block = (
+                    f"Scenario title: {scenario_title}\nScenario description: {scenario_description}\n"
+                    if scenario_title or scenario_description
+                    else "(no scenario design context)"
+                )
+
+                system_prompt = (
+                    "You are the omniscient ANCHOR of a completed agent-based simulation. "
+                    "You can see every agent's decisions, reasoning, and the prompt template "
+                    "that drove them. Answer the operator's question precisely and concretely, "
+                    "drawing on the materials below. Do NOT limit yourself to the four economic "
+                    "actions (work/save/cooperate/steal) — engage with the scenario narrative, "
+                    "the prompt content, and what agents actually said. If the question is about "
+                    "the prompt, quote the relevant portion. If about opinions or themes, "
+                    "synthesize across the reasoning excerpts. Cite agent ids when helpful. "
+                    "Be factual; if the evidence is thin, say so. 3-6 sentences.\n\n"
+                    f"=== SCENARIO ===\n{scenario_block}\n"
+                    f"=== AGGREGATE STATS ===\n{json.dumps(stats, default=str)}\n\n"
+                    f"=== AGENT DECISION PROMPT (shared template) ===\n{prompt_excerpt}\n\n"
+                    f"=== SAMPLE RAW OUTPUTS ===\n{raw_block}\n\n"
+                    f"=== PER-AGENT LATEST REASONING ===\n{reasoning_block}\n\n"
+                    f"=== INTERVIEW Q&A LOG ===\n{interview_block}\n"
+                )
+
+                _call_kwargs = dict(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question},
+                    ],
+                    max_tokens=400,
+                    temperature=0.4,
+                )
+                _resp = None
+                for _att in range(3):
+                    try:
+                        _resp = oai.chat.completions.create(**_call_kwargs)
+                        break
+                    except _RLE:
+                        _time.sleep(2**_att)
+                if _resp is not None:
+                    answer = _resp.choices[0].message.content.strip()
+                    return jsonify({"response": answer, "source": "anchor_llm", "stats": stats})
+            except Exception as exc:
+                logger.warning("Anchor LLM failed, using rule-based fallback: %s", exc)
 
         # ── Economic / structural question handlers ───────────────────────────
         if any(w in q_low for w in ("majority", "most", "common", "dominant", "popular", "did they")):

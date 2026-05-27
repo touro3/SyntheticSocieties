@@ -1,13 +1,14 @@
 # Research Integrity Audit
 
-- Status: **PASS_WITH_WARNINGS**
-- Level: `basic`
+- Status: **FAIL**
+- Level: `publication`
 
 ## Blockers
-- None
+- Human baseline is flagged as synthetic/demo-like.
+- Human baseline analysis mode is 'pilot_or_demo', expected 'publication'.
 
 ## Warnings
-- Human baseline is flagged as synthetic/demo-like.
+- None
 
 ## Info
 - None

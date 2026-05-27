@@ -105,7 +105,7 @@ jobs:
         with:
           name: bandit-report-${{ github.sha }}
           path: bandit-report.json
-          retention-days: 14
+          retention-days: 3
 
   secret-scan:
     name: "Secret scan (gitleaks)"

@@ -179,6 +179,7 @@ def run_matrix(args) -> list[dict]:
                 pass
 
         overrides = _build_overrides(cond, seed, args.rounds, args.agents, abl, temp, exp_id)
+        overrides.extend(args.extra_override)
 
         t0 = time.time()
         print(f"  [{i:3d}/{total}] RUN   {exp_id} ...", end="", flush=True)
@@ -387,6 +388,12 @@ def parse_args():
     p.add_argument("--skip-existing", action="store_true", help="Skip cells with existing summary.json")
     p.add_argument("--dry-run", action="store_true", help="Print matrix without running")
     p.add_argument("--output-csv", type=str, default="analysis/tables/experiment_matrix_results.csv")
+    p.add_argument(
+        "--extra-override",
+        action="append",
+        default=[],
+        help="Extra Hydra override (repeatable), e.g. --extra-override llm.backend_type=openai --extra-override llm.model_id=gpt-4o-mini",
+    )
     p.add_argument(
         "--id-suffix",
         type=str,

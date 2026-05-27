@@ -7,6 +7,7 @@ import os
 import random
 import time
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -29,8 +30,9 @@ class OpenAIBackend:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: float = 30.0,
-        max_retries: int = 2,
+        max_retries: int = 8,
         min_delay: float = 0.2,
+        max_batch_size: int = 4,
     ):
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
@@ -41,6 +43,9 @@ class OpenAIBackend:
         self.timeout = timeout
         self.max_retries = max_retries
         self.min_delay = min_delay
+        # Consumed by simulation.kernel via getattr(backend, "_max_batch_size", 16).
+        # Default 4 stays well under OpenAI Tier-1 200K TPM for N≤200.
+        self._max_batch_size = int(os.environ.get("BGF_OPENAI_BATCH_SIZE", max_batch_size))
 
         self._client = None
         # Bounded LRU cache: OrderedDict with move-to-end on hit, pop-from-front on overflow.
@@ -135,17 +140,71 @@ class OpenAIBackend:
                 last_error = exc
                 if attempt == self.max_retries:
                     break
-                sleep_s = (2**attempt) + random.random()
+
+                # 429 rate-limit: honor the server's retry-after hint.
+                exc_str = str(exc)
+                wait_s: Optional[float] = None
+                if "429" in exc_str or "rate_limit" in exc_str.lower():
+                    import re
+
+                    m = re.search(r"try again in ([\d.]+)\s*(ms|s|m)", exc_str)
+                    if m:
+                        val, unit = float(m.group(1)), m.group(2)
+                        wait_s = {"ms": val / 1000.0, "s": val, "m": val * 60.0}[unit]
+                        wait_s += 0.5  # margin
+                    else:
+                        wait_s = 5.0 + random.random() * 5.0
+
+                if wait_s is None:
+                    wait_s = (2**attempt) + random.random()
+
                 logger.warning(
                     "OpenAI generate() attempt %d/%d failed (%s); retrying in %.1fs",
                     attempt + 1,
                     self.max_retries + 1,
-                    exc,
-                    sleep_s,
+                    exc_str[:120],
+                    wait_s,
                 )
-                time.sleep(sleep_s)
+                time.sleep(wait_s)
 
         raise last_error  # type: ignore[misc]
+
+    def generate_batch(
+        self,
+        messages_list: list[list[dict]],
+        max_batch_size: int = 32,
+        temperature: Optional[float] = None,
+        max_new_tokens: Optional[int] = None,
+    ) -> list[tuple[str, float]]:
+        """Concurrent batched generation via ThreadPoolExecutor.
+
+        Issues up to ``max_batch_size`` OpenAI chat-completion calls in
+        parallel.  Required by ``simulation.kernel`` to take the batched
+        execution path (otherwise it falls back to serial per-agent calls,
+        which at N=300 agents × 30 rounds is ~10h per cell).
+
+        Returns:
+            List of (text, latency) tuples in the same order as ``messages_list``.
+        """
+        if not messages_list:
+            return []
+        if self._client is None:
+            self.load()
+
+        results: list[Optional[tuple[str, float]]] = [None] * len(messages_list)
+
+        def _one(idx: int) -> None:
+            results[idx] = self.generate(
+                messages_list[idx],
+                temperature=temperature,
+                max_new_tokens=max_new_tokens,
+            )
+
+        with ThreadPoolExecutor(max_workers=max_batch_size) as ex:
+            list(ex.map(_one, range(len(messages_list))))
+
+        # mypy: all slots now filled
+        return [r for r in results if r is not None]
 
     def usage_report(self, model_id: Optional[str] = None) -> dict:
         """Return cumulative token usage and estimated cost.

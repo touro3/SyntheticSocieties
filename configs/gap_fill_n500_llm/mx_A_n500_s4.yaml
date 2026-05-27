@@ -1,0 +1,58 @@
+project:
+  name: bgf
+  experiment_id: mx_A_n500_s4
+  seed: 4
+simulation:
+  rounds: 30
+  population_size: 500
+policy:
+  type: llm
+population:
+  source: empirical
+data:
+  ess_interview_path: data/ESS11INTe04_1.csv
+  ess_main_path: data/ESS11MD_e01_2.csv
+  ess_clean_path: data/ess_clean.parquet
+  distributions_path: data/empirical_distributions.json
+  sample_mode: resample
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  cache_dir: null
+  dtype: float16
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+  inference_timeout: 120
+  quantization: 4bit
+  max_batch_size: 2
+  ablation_level: 0
+network:
+  type: random
+  edge_prob: 0.5
+  k: 2
+  rewiring_prob: 0.3
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10
+  memory_persistent: false
+  embedding_model: all-MiniLM-L6-v2

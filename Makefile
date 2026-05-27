@@ -1,5 +1,6 @@
-.PHONY: all test reproduce reproduce-fast plots install format lint type-check coverage clean help \
-        security bandit pip-audit openapi-lint adr-new pre-commit-install verify-deps \
+.PHONY: all test reproduce reproduce-fast reproduce-figures reproduce-tables reproduce-docker \
+        plots install format lint type-check coverage coverage-fast clean help \
+        security bandit pip-audit openapi-lint adr-new pre-commit-install verify-deps lock \
         docs docs-serve docs-build
 
 PYTHON := python
@@ -35,6 +36,52 @@ reproduce-full:
 		--agents 100 \
 		--seeds $(SEEDS)
 
+# Figure-only regen from on-disk experiments — no simulations are run.
+reproduce-figures:
+	bash scripts/reproduce_paper.sh --figures
+
+# Re-aggregate every analysis table/JSON from on-disk experiment dirs without
+# re-running any simulation. Idempotent — safe to invoke on every commit.
+# Covers: §8.1 modularity, §8.1 experiment-matrix CSV, §8.2 Condition-D N=500
+# 10-seed JSON, the BRM Proposition 3 certificate, and the §6.0 forest plot.
+reproduce-tables:
+	@echo "[tables] Re-aggregating analysis tables from on-disk experiments..."
+	@if compgen -G "experiments/mx_A_s*" > /dev/null 2>&1; then \
+		$(PYTHON) scripts/extract_modularity_from_cells.py \
+			--out analysis/tables/network_modularity_8_1.csv; \
+		$(PYTHON) scripts/run_experiment_matrix.py --conditions A B \
+			--seeds 1,2,3,4,5,6,7,8,9,10 --rounds 30 --agents 100 --skip-existing \
+			--output-csv analysis/tables/experiment_matrix_results.csv | tail -5; \
+	else \
+		echo "        (no mx_A_s* cells on disk — skipping §8.1 re-aggregation)"; \
+	fi
+	@if compgen -G "experiments/mx_D_n500_s*" > /dev/null 2>&1; then \
+		$(PYTHON) scripts/build_condition_d_table.py \
+			--seeds 1,2,3,4,5,6,7,8,9,10 --prefix mx_D_n500_s \
+			--out-json analysis/condition_d_results_n500_10seed.json | tail -3; \
+	else \
+		echo "        (no mx_D_n500_s* cells on disk — skipping §8.2 N=500 D)"; \
+	fi
+	$(PYTHON) analysis/brm_sensitivity.py --emit-certificate --n-samples 500 \
+		--out-json analysis/tables/brm_sensitivity.json
+	@if [ -f analysis/tables/forest_plot.json ]; then \
+		$(PYTHON) analysis/forest_plot.py | tail -3 || true; \
+	fi
+	@echo "[tables] Done."
+
+# Build + run the CPU-only reproducibility container. Asserts pytest passes
+# inside the container at build time, then regenerates figures on run.
+reproduce-docker:
+	docker build -f Dockerfile.repro -t bgf-repro:1.0.0 .
+	docker run --rm -v "$$(pwd)/analysis:/app/analysis" bgf-repro:1.0.0
+
+# Pin the full dependency closure from the validated venv. Run only when
+# requirements*.txt has been intentionally changed and the env reinstalled.
+lock:
+	@test -d venv || (echo "venv/ not present — create it first"; exit 1)
+	. venv/bin/activate && pip freeze --exclude-editable > requirements.lock.txt
+	@echo "Wrote requirements.lock.txt ($$(wc -l < requirements.lock.txt) lines)"
+
 # ── Plots only ────────────────────────────────────────────────────────────────
 plots:
 	$(PYTHON) scripts/run_full_pipeline.py --plots-only
@@ -61,6 +108,13 @@ type-check:
 
 coverage:
 	$(PYTEST) tests/ -q -k "not llm" --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70
+
+# Fast coverage subset for capstone defense — excludes slow tests, short summary.
+coverage-fast:
+	$(PYTEST) tests/ -q -k "not llm and not slow" --cov=agents --cov=decision \
+		--cov=environment --cov=metrics --cov=population --cov=simulation \
+		--cov=tracker --cov=utils \
+		--cov-report=term --no-header --tb=no -p no:cacheprovider
 
 # ── Security ──────────────────────────────────────────────────────────────────
 pip-audit:
@@ -121,6 +175,11 @@ help:
 	@echo "  reproduce         Full reproduction via reproduce_paper.sh"
 	@echo "  reproduce-fast    Quick 5-round/10-agent baseline run"
 	@echo "  reproduce-full    Full 30-round/100-agent run (CPU baselines only)"
+	@echo "  reproduce-figures Regenerate every figure from on-disk experiments (no sim)"
+	@echo "  reproduce-tables  Re-aggregate analysis tables/JSON from on-disk experiments"
+	@echo "  reproduce-docker  Build + run CPU-only repro container (asserts tests pass)"
+	@echo "  lock              Re-freeze requirements.lock.txt from the active venv"
+	@echo "  coverage-fast     Coverage on non-LLM core modules (capstone defense subset)"
 	@echo "  plots             Regenerate all figures from existing experiments"
 	@echo "  trust-gradient    Run trust-gradient sub-population analysis"
 	@echo "  phase-transitions Analyze phase transitions from existing runs"

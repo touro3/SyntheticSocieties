@@ -1,0 +1,44 @@
+{
+  "title": "Behavioral Grounding Framework (BGF): LLM-Grounded Multi-Agent Economic Simulation",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "version": "1.0.0",
+  "publication_date": "2026-05-26",
+  "description": "BGF is an open-source multi-agent economic simulation framework that grounds LLM-based agents in empirical socio-economic microdata from the European Social Survey (ESS Round 11). It provides: (i) a formal framework with closed-form bounds on RLHF cooperative bias (Proposition 1: B_RLHF <= 1 - 1/|A|); (ii) the Behavioral Realism Metric (BRM) and RLHF Bias Index (B_RLHF) as evaluation primitives; (iii) a deterministic rule-based ESS policy (Condition D) that reproduces Eurostat-range Gini (0.325, BCa 95% CI [0.324, 0.325] at N=500, T=30, 10 seeds) and a perfect cross-cultural cooperation gradient (Spearman rho = +1.000 vs ESS-11 trust, replicated against WVS Wave 7 r = +0.977 and Herrmann-Thoeni-Gaechter 2008 PGG contributions rho = +0.886, p = 0.033); (iv) an LLM policy stack with dual SQL/Graph RAG, hierarchical memory, and anti-hallucination output parsing; (v) a Flask + Vue deployment of the simulation as an interactive research tool. The pre-registered 10-seed N=100 confirmatory extension finds the within-Mistral-7B grounded vs ungrounded contrast statistically null on cooperation, Gini, and mean wealth (MWU p > 0.85); the N=500 LLM-scale disambiguator is in progress at time of release. The Phi/P_LLM dissociation is reported as the central empirical finding.",
+  "creators": [
+    {
+      "name": "Tourinho, Lucas",
+      "affiliation": "Universidade Catolica Portuguesa"
+    }
+  ],
+  "keywords": [
+    "agent-based modeling",
+    "large language models",
+    "RLHF bias",
+    "synthetic populations",
+    "European Social Survey",
+    "computational social science",
+    "behavioral economics",
+    "multi-agent simulation",
+    "cooperation",
+    "inequality",
+    "retrieval-augmented generation",
+    "policy evaluation",
+    "reproducibility"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/touro3/SyntheticSocieties",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://huggingface.co/spaces/touro3/synthetic-societies",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "language": "eng",
+  "notes": "Reproduces with `make reproduce` (CPU-only baselines, ~30 min) or `bash reproduce_paper.sh --figures` (figure-regen only). GPU-dependent LLM experiments require a 16 GB CUDA device (Mistral-7B-Instruct-v0.3 at 4-bit quantization) and are documented in scripts/pipeline_*.sh. Includes 636+ unit and integration tests. Pinned dependencies in requirements.txt (numpy/scipy/torch) and requirements-api.txt (Flask + Vue serving). Container build: see Dockerfile (multi-stage)."
+}

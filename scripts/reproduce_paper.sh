@@ -243,6 +243,25 @@ else
     echo "        Missing — emitted by run_full_pipeline.py; re-run --full to populate."
 fi
 
+# 9e. §8.2 Condition-D N=500 10-seed extension result (added 2026-05-26).
+# Re-aggregates analysis/condition_d_results_n500_10seed.json from the
+# on-disk mx_D_n500_s{1..10} cells (no LLM, no GPU). Skipped silently if
+# the cells aren't on disk so a fresh checkout doesn't fail this step.
+echo ""
+echo "[D500]  Regenerating §8.2 Condition-D N=500 10-seed aggregate..."
+if compgen -G "experiments/mx_D_n500_s*" > /dev/null 2>&1; then
+    python scripts/build_condition_d_table.py \
+        --seeds 1,2,3,4,5,6,7,8,9,10 \
+        --prefix mx_D_n500_s \
+        --out-json analysis/condition_d_results_n500_10seed.json 2>&1 | tail -3
+    test -f analysis/condition_d_results_n500_10seed.json || (
+        echo "ERROR: condition_d_results_n500_10seed.json not produced"; exit 1
+    )
+    echo "        Wrote analysis/condition_d_results_n500_10seed.json"
+else
+    echo "        Skipped — no mx_D_n500_s* cells on disk (run §8.2 first)."
+fi
+
 echo ""
 echo "=== Zenodo metadata check ==="
 python -c "import json; d=json.load(open('zenodo.json')); assert 'title' in d; print('zenodo.json OK')" || true

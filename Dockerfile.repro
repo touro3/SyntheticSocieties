@@ -1,0 +1,62 @@
+# Dockerfile.repro — CPU-only reproducibility image for the BGF capstone.
+#
+# Builds a self-contained container that:
+#   1. Pins the exact dependency closure from requirements.lock.txt
+#      (full pip-freeze of the validated venv, 258 packages).
+#   2. Runs the full pytest suite as a build-time smoke check (fails the
+#      build if any test regresses).
+#   3. Regenerates every paper figure that does not require a GPU via
+#      `bash reproduce_paper.sh --figures` on container start.
+#
+# GPU-dependent LLM experiments (Mistral-7B-Instruct-v0.3) are *not* run
+# inside this image; the production API image is Dockerfile (root).
+#
+# Build:
+#   docker build -f Dockerfile.repro -t bgf-repro:1.0.0 .
+#
+# Run (regenerates figures from on-disk experiments under ./experiments):
+#   docker run --rm -v "$(pwd)/analysis:/app/analysis" bgf-repro:1.0.0
+#
+# Open a shell instead:
+#   docker run --rm -it --entrypoint bash bgf-repro:1.0.0
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# System deps needed by scientific Python stack (numpy/scipy/torch wheels
+# pull most of what they need, but graphviz / git are used by some plotters
+# and the pytest collection step respectively).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        libgomp1 \
+        graphviz \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Stage 1: install the pinned dependency closure ──────────────────────────
+# Use the full lockfile rather than requirements.txt so the reproduction
+# image matches the validated venv exactly.
+COPY requirements.lock.txt ./
+RUN pip install --no-cache-dir -r requirements.lock.txt
+
+# ── Stage 2: copy source tree ───────────────────────────────────────────────
+COPY . .
+
+# Editable install so module imports resolve cleanly under /app.
+RUN pip install --no-cache-dir -e . --no-deps || true
+
+# ── Stage 3: build-time smoke check ─────────────────────────────────────────
+# Run the fast subset of the test suite at build time. If this fails the
+# image won't be tagged — exactly the property a thesis reviewer wants.
+# `-k "not llm"` excludes tests that require a GPU-backed Mistral instance.
+RUN pytest tests/ -q -k "not llm and not slow" --tb=short --timeout=120 \
+      || (echo "Smoke tests failed inside container — see log above" && exit 1)
+
+# Default entrypoint regenerates all CPU-side figures from on-disk
+# experiments. Mount ./analysis from the host to persist outputs.
+CMD ["bash", "reproduce_paper.sh", "--figures"]

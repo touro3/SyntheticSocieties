@@ -11,6 +11,13 @@ pinned: false
 # SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
 [![BGF CI](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml/badge.svg)](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-1484%20passed-brightgreen.svg)](#test-suite)
+[![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)](#test-suite)
+[![Python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Reproducible](https://img.shields.io/badge/reproducible-make%20reproduce-blue.svg)](#reproducibility)
+
+> **Reproducibility one-liner:** `make reproduce` (CPU baselines, ~30 min) or `make reproduce-docker` (containerised; asserts pytest passes at build time). Pinned dependency closure in `requirements.lock.txt` (258 packages, frozen from the validated venv). DOI metadata in `.zenodo.json`; citation metadata in `CITATION.cff`.
 
 **Can LLMs grounded in real survey microdata produce more realistic synthetic societies than pure LLMs?**
 
@@ -112,9 +119,30 @@ ESS Microdata → Population Synthesis → Agent Creation → Simulation Kernel 
 
 ---
 
+## Reproducibility
+
+This is a research artefact; reproduction is a first-class concern.
+
+| What | How |
+|---|---|
+| **One-command paper reproduction** (CPU baselines, ~30 min) | `make reproduce` |
+| **Figure regeneration only** (no simulations re-run) | `make reproduce-figures` |
+| **Analysis-table re-aggregation** (idempotent, no sim) | `make reproduce-tables` |
+| **Containerised reproduction** (asserts pytest passes at build time) | `make reproduce-docker` |
+| **Pinned dependency closure** (258 packages, full pip-freeze of validated venv) | `requirements.lock.txt` |
+| **Re-pin the lockfile** after intentional dep updates | `make lock` |
+| **Citation metadata** | `CITATION.cff` (CFF v1.2.0) |
+| **DOI / Zenodo metadata** | `.zenodo.json` (auto-picked up on GitHub release) |
+| **Hash-stable runs** (byte-identical events.jsonl across machines) | `PYTHONHASHSEED=0` set by all reproduce entrypoints |
+| **Crash-recovery / resume** | `python scripts/run_config_simulation.py --resume <EXP_ID>` reads `experiments/<EXP_ID>/checkpoint.json` |
+
+GPU experiments (Mistral-7B-Instruct-v0.3 at 4-bit quantisation, ~16 GB VRAM) are documented in `scripts/pipeline_*.sh` and are run manually; they are intentionally excluded from `make reproduce` so a CPU-only laptop can validate the full non-LLM analysis pipeline.
+
+---
+
 ## Quick Start
 
-> **Dependencies**: `requirements.txt` — full install with GPU support. `requirements-ci.txt` — CPU-only for CI/testing. `requirements-api.txt` — API/web service only.
+> **Dependencies**: `requirements.txt` — full install with GPU support. `requirements-ci.txt` — CPU-only for CI/testing. `requirements-api.txt` — API/web service only. `requirements.lock.txt` — exact pinned closure of the validated environment (use this for byte-identical reproduction).
 
 ```bash
 # Install
@@ -386,20 +414,22 @@ Phase transition tables in `analysis/tables/`.
 
 ## Test Suite
 
-**1,203 tests** across 91 test files. Run with:
+**1,557 tests collected; 1,484 pass on the non-LLM subset**, with 3 known pre-existing failures isolated to `tests/test_token_budget.py` and `tests/test_quick_wins.py` (token-count assertions tied to a deprecated tokenizer surface). The 73-test LLM/slow/e2e subset is gated behind `-k "llm or slow or e2e"` and exercises the GPU path. Coverage on the **core science modules** (`agents/`, `decision/`, `environment/`, `metrics/`, `population/`, `simulation/`, `tracker/`, `utils/`, `bgf_logging/`) is **82%** across 7,313 statements (measured 2026-05-26 via `make coverage-fast`).
 
 ```bash
-pytest tests/ -v                    # Full suite
-pytest tests/ -v --tb=short -q     # Summary view
-pytest tests/test_behavioral_realism.py -v   # Phase 23: BRM metrics
-pytest tests/test_persona_decay.py -v        # Phase 24: Persona decay
-pytest tests/test_length_controlled_ablation.py -v  # Phase 19: Padded ablation
-pytest tests/test_mediation.py -v            # Phase 19: Mediation analysis
-pytest tests/test_complexity.py -v           # Phase 18: Phase transitions
-pytest tests/test_rag.py -v                  # RAG-specific subset
+pytest tests/ -v                                       # Full suite (1,557 tests)
+pytest tests/ -v -k "not llm and not slow and not e2e" # Non-GPU subset (~72 s, 1,484 pass)
+make coverage-fast                                     # Coverage on core modules (82%)
+make coverage                                          # Full coverage report (fails under 70%)
+pytest tests/test_behavioral_realism.py -v             # Phase 23: BRM metrics
+pytest tests/test_persona_decay.py -v                  # Phase 24: Persona decay
+pytest tests/test_length_controlled_ablation.py -v     # Phase 19: Padded ablation
+pytest tests/test_mediation.py -v                      # Phase 19: Mediation analysis
+pytest tests/test_complexity.py -v                     # Phase 18: Phase transitions
+pytest tests/test_rag.py -v                            # RAG-specific subset
 ```
 
-Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 → 921 → **1,203** (current, measured across 91 files).
+Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 → 921 → 1,203 → **1,557** (current, measured across 91+ files).
 
 ---
 

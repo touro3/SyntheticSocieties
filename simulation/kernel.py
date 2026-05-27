@@ -435,9 +435,25 @@ class SimulationKernel:
         if self.collective_memory is not None:
             data["collective_memory"] = [asdict(f) for f in self.collective_memory.snapshot()]
 
+        # LLM adaptive batch size: after an OOM cascade the backend shrinks
+        # _effective_batch_size; persist it so a resume doesn't re-enter the
+        # halve-retry loop (which leaks ~6 GB of fragmented allocator state
+        # and can OOM the next process on a memory-tight GPU).
+        backend = self._llm_backend()
+        if backend is not None:
+            eff = getattr(backend, "_effective_batch_size", None)
+            if eff is not None:
+                data["llm_effective_batch_size"] = int(eff)
+
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         _atomic_write_json(path, data)
+
+    def _llm_backend(self):
+        if not self.agents:
+            return None
+        policy = getattr(self.agents[0], "policy", None)
+        return getattr(policy, "backend", None) if policy is not None else None
 
     def load_checkpoint(self, path: Path) -> int:
         """Restore full simulation state from a checkpoint. Returns round_id."""
@@ -483,6 +499,14 @@ class SimulationKernel:
 
             with self.collective_memory._lock:
                 self.collective_memory._facts = [WorldFact(**f) for f in cm]
+
+        # Restore adaptive batch size so the resumed run starts at the
+        # shrunk size that worked pre-checkpoint, not the optimistic default.
+        eff = data.get("llm_effective_batch_size")
+        if eff is not None:
+            backend = self._llm_backend()
+            if backend is not None and hasattr(backend, "_effective_batch_size"):
+                backend._effective_batch_size = int(eff)
 
         round_id = int(data.get("round_id", 0))
         self.world.state.round_id = round_id

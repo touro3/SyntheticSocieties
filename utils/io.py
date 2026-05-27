@@ -27,8 +27,20 @@ def save_yaml(data: dict[str, Any], path: str | Path) -> None:
         yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
 
 
-_SECRET_KEY_HINTS = ("api_key", "apikey", "token", "secret", "password", "passwd")
 _REDACTED = "***REDACTED***"
+_SECRET_EXACT_NAMES = frozenset({"token", "secret", "password", "passwd", "apikey", "api_key"})
+_SECRET_SUFFIXES = ("_api_key", "_apikey", "_token", "_secret", "_password", "_passwd")
+
+
+def _is_secret_key(key: str) -> bool:
+    # Match credential-shaped key names only. Earlier substring match treated
+    # `max_new_tokens` as a secret because "token" is a substring — that turned
+    # the int 256 into the string "***REDACTED***" on the resume snapshot and
+    # crashed transformers' generate() on every resumed LLM run.
+    k = key.lower()
+    if k in _SECRET_EXACT_NAMES:
+        return True
+    return any(k.endswith(suf) for suf in _SECRET_SUFFIXES)
 
 
 def redact_secrets(data: Any) -> Any:
@@ -43,7 +55,7 @@ def redact_secrets(data: Any) -> Any:
     if isinstance(data, dict):
         out: dict[Any, Any] = {}
         for k, v in data.items():
-            if isinstance(k, str) and any(h in k.lower() for h in _SECRET_KEY_HINTS):
+            if isinstance(k, str) and _is_secret_key(k):
                 out[k] = _REDACTED if v not in (None, "") else v
             else:
                 out[k] = redact_secrets(v)

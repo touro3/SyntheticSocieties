@@ -169,7 +169,7 @@ You MUST respond with ONLY a JSON object in the following format:
 You can do anything you want. Respond with ONLY the JSON."""
 
 
-# ── Persona-locked prompt (Phase 4: alignment-bias / identity-leakage) ────────
+# ── Persona-locked prompt (alignment-bias / identity-leakage audit) ────────
 # Audit finding: the existing prompts are already mechanically neutral (no
 # "helpful assistant" language). This variant goes further by *explicitly*
 # forbidding assistant/meta framing and forcing the model to act strictly from

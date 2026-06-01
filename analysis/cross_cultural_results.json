@@ -1,0 +1,35 @@
+{
+  "cluster_results": [
+    {
+      "cluster_name": "nordic",
+      "ess_mean_trust": 0.673,
+      "simulated_cooperation_rate": 0.0283,
+      "simulated_gini": 0.183,
+      "n_agents": 20,
+      "n_rounds": 10
+    },
+    {
+      "cluster_name": "southern",
+      "ess_mean_trust": 0.463,
+      "simulated_cooperation_rate": 0.0033,
+      "simulated_gini": 0.1472,
+      "n_agents": 20,
+      "n_rounds": 10
+    },
+    {
+      "cluster_name": "eastern",
+      "ess_mean_trust": 0.421,
+      "simulated_cooperation_rate": 0.0,
+      "simulated_gini": 0.1755,
+      "n_agents": 20,
+      "n_rounds": 10
+    }
+  ],
+  "correlation": {
+    "pearson_r": 0.9988,
+    "pearson_p": 0.0314,
+    "spearman_rho": 1.0,
+    "spearman_p": 0.0,
+    "gradient_recovered": true
+  }
+}

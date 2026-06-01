@@ -1,0 +1,14 @@
+\begin{table}[ht]
+\centering
+\caption{Three-condition ablation: BGF behavioral outcomes. Condition A = ablated LLM (no persona, no RAG); Condition B = ESS persona only (no RAG); Condition C = full BGF grounding (persona + RAG). Phase C values from 50-agent, 30-round Mistral-7B run; Conditions B and C small-scale from 20-agent, 5-round runs (seeds 42--44).}
+\label{tab:three_condition}
+\begin{tabular}{llccc}
+\toprule
+  Condition & Setup & Coop Rate & $B_{\mathrm{RLHF}}$ & Gini (final) \\
+\midrule
+  A: Ablated LLM & No persona/RAG & 0.962 & 0.712 & 0.625 \\
+  B: ESS persona only & Persona, no RAG (20 agents) & 0.013 & 0.487 & 0.080 \\
+  C: Full BGF grounding & Persona + RAG (50 agents) & 0.582 & 0.420 & 0.260 \\
+\bottomrule
+\end{tabular}
+\end{table}

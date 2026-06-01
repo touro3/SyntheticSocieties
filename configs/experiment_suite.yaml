@@ -1,0 +1,56 @@
+base_config_path: configs/base_config.yaml
+
+experiments:
+  - experiment_id: mock_fc_seed_42
+    policy: mock
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: mock_random_seed_42
+    policy: mock
+    seed: 42
+    network: random
+    edge_prob: 0.3
+
+  - experiment_id: mock_small_world_seed_42
+    policy: mock
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3
+
+  - experiment_id: random_fc_seed_42
+    policy: random
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: random_random_seed_42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+
+  - experiment_id: random_small_world_seed_42
+    policy: random
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3
+
+  - experiment_id: rule_fc_seed_42
+    policy: rule_based
+    seed: 42
+    network: fully_connected
+
+  - experiment_id: rule_random_seed_42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3
+
+  - experiment_id: rule_small_world_seed_42
+    policy: rule_based
+    seed: 42
+    network: small_world
+    k: 2
+    rewiring_prob: 0.3

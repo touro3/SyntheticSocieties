@@ -1,0 +1,67 @@
+{
+  "rule": "redistribute_top_pct",
+  "sensitivity_index_gini": -0.35,
+  "sensitivity_index_coop": 0.1,
+  "sweep_points": [
+    {
+      "parameter": 0.05,
+      "label": "redistribute_top_pct_0.05",
+      "pre_gini": 0.4,
+      "post_gini": 0.3825,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.305,
+      "delta_gini": -0.0175,
+      "delta_coop": 0.005
+    },
+    {
+      "parameter": 0.1,
+      "label": "redistribute_top_pct_0.10",
+      "pre_gini": 0.4,
+      "post_gini": 0.365,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.31,
+      "delta_gini": -0.035,
+      "delta_coop": 0.01
+    },
+    {
+      "parameter": 0.15,
+      "label": "redistribute_top_pct_0.15",
+      "pre_gini": 0.4,
+      "post_gini": 0.3475,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.315,
+      "delta_gini": -0.0525,
+      "delta_coop": 0.015
+    },
+    {
+      "parameter": 0.2,
+      "label": "redistribute_top_pct_0.20",
+      "pre_gini": 0.4,
+      "post_gini": 0.33,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.32,
+      "delta_gini": -0.07,
+      "delta_coop": 0.02
+    },
+    {
+      "parameter": 0.25,
+      "label": "redistribute_top_pct_0.25",
+      "pre_gini": 0.4,
+      "post_gini": 0.3125,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.325,
+      "delta_gini": -0.0875,
+      "delta_coop": 0.025
+    },
+    {
+      "parameter": 0.3,
+      "label": "redistribute_top_pct_0.30",
+      "pre_gini": 0.4,
+      "post_gini": 0.295,
+      "pre_coop_rate": 0.3,
+      "post_coop_rate": 0.33,
+      "delta_gini": -0.105,
+      "delta_coop": 0.03
+    }
+  ]
+}

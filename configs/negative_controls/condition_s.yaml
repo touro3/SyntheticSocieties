@@ -1,0 +1,4 @@
+policy_type: "scrambled_rag"
+negative_control:
+  scramble_seed: 42
+  condition: "S"

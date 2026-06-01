@@ -1,0 +1,132 @@
+name: Security
+
+on:
+  push:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - 'paper/**'
+      - 'notebooks/**'
+      - '*.md'
+      - 'LICENSE'
+      - 'CITATION.cff'
+      - 'zenodo.json'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - 'paper/**'
+      - 'notebooks/**'
+      - '*.md'
+      - 'LICENSE'
+      - 'CITATION.cff'
+      - 'zenodo.json'
+  schedule:
+    # Weekly Monday 06:00 UTC — picks up newly disclosed CVEs even if no PR lands.
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-audit:
+    name: "pip-audit (PyPI CVEs)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+
+      # Audit the CI requirement set (subset actually installed in CI). The
+      # full requirements-api.txt is audited weekly via the cron schedule.
+      - name: Audit requirements-ci.txt
+        run: |
+          pip-audit --requirement requirements-ci.txt \
+            --strict \
+            --disable-pip \
+            --no-deps \
+            --ignore-vuln GHSA-w596-4wvx-j9j6 \
+            || (echo "::warning::pip-audit found vulnerabilities — review and pin upgrades" && exit 1)
+
+      - name: Audit requirements-api.txt (weekly only, non-blocking)
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        run: |
+          pip-audit --requirement requirements-api.txt --disable-pip --no-deps || true
+
+  bandit:
+    name: "Bandit (Python SAST)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bandit
+        run: pip install "bandit[toml]>=1.7"
+
+      # -ll = medium-severity floor; -ii = medium-confidence floor.
+      # Tests/scripts directories are noisy on purpose (assert, subprocess
+      # for local pipelines). Production paths get the strict pass.
+      - name: Bandit on production code (strict)
+        run: |
+          bandit -r agents bgf_logging decision environment metrics population simulation tracker utils \
+            -ll -ii \
+            --format json \
+            --output bandit-report.json
+          bandit -r agents bgf_logging decision environment metrics population simulation tracker utils \
+            -ll -ii
+
+      - name: Bandit on api (medium, network-facing)
+        # Skips, with justification:
+        #   B104 — Flask binds 0.0.0.0 in dev runner (intentional for HF Space).
+        #   B310 — urlopen is to a hard-coded http://localhost:11434 ollama probe
+        #          and a server-controlled callback; no user-supplied URLs.
+        #   B608 — single f-string interpolates _TRACKER_INDEX (a server-owned
+        #          Path constant, not request data); single-quote-escaped above
+        #          the call. All actual query params go through parameterised
+        #          conn.execute() with placeholders.
+        run: bandit -r api -ll -ii --skip B104,B310,B608
+
+      - name: Upload bandit JSON report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report-${{ github.sha }}
+          path: bandit-report.json
+          retention-days: 3
+
+  secret-scan:
+    name: "Secret scan (gitleaks)"
+    runs-on: ubuntu-latest
+    # Dependabot PRs run with read-only GITHUB_TOKEN that lacks pull_requests
+    # scope, so gitleaks-action's PR-commit listing 403s. Skip — dependabot
+    # diffs only touch dependency files and can't introduce secrets.
+    if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Disable artifact upload — Actions storage quota is hit and gitleaks
+          # treats the upload failure as a fatal error even when no leaks found.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+          # No GITLEAKS_LICENSE required for public repos / OSS use.

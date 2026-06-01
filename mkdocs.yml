@@ -1,0 +1,97 @@
+site_name: Behavioral Grounding Framework
+site_description: BGF — LLM-based agent simulations grounded in empirical socio-economic data (European Social Survey Round 11).
+site_url: https://lucastourinho.github.io/SyntheticSocieties/
+repo_url: https://github.com/lucastourinho/SyntheticSocieties
+repo_name: lucastourinho/SyntheticSocieties
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - content.action.view
+    - toc.follow
+    - search.highlight
+    - search.share
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: amber
+      toggle: { icon: material/brightness-7, name: Switch to dark }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: amber
+      toggle: { icon: material/brightness-4, name: Switch to light }
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            show_if_no_docstring: false
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Paper: paper.md
+  - Architecture:
+      - Overview: adr/README.md
+      - "ADR 0001 — Policy pluggability": adr/0001-policy-pluggability-via-protocol.md
+      - "ADR 0002 — Rule-based baseline (Condition D)": adr/0002-rule-based-grounding-as-baseline.md
+      - "ADR 0003 — BRM as paired realism metric": adr/0003-brm-as-paired-realism-metric.md
+      - "ADR 0004 — SQL/Graph RAG split": adr/0004-sql-rag-and-graph-rag-split.md
+      - "ADR 0005 — DuckDB for tracker": adr/0005-duckdb-for-experiment-tracking.md
+  - Data & models:
+      - "ESS synthetic-population datasheet": datasheet_ess_synthetic.md
+      - "BGF model card": model_card_bgf.md
+  - Audit:
+      - "Audit log": AUDIT_DATA_METRICS_LOGGING.md
+  - API:
+      - "OpenAPI spec": api/openapi.yaml
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/lucastourinho/SyntheticSocieties
+
+copyright: |
+  &copy; 2026 Lucas Tourinho — MIT licence.

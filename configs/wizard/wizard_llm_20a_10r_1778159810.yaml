@@ -1,0 +1,16 @@
+llm:
+  backend_type: openai
+  model_id: gpt-4o-mini
+network:
+  type: small_world
+policy:
+  type: llm
+population:
+  source: synthetic
+project:
+  experiment_id: wizard_llm_20a_10r_1778159810
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 20
+  rounds: 10

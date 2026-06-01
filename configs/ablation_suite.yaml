@@ -1,0 +1,126 @@
+# Ablation Experiment Suite
+# Runs 6 ablation conditions × 3 seeds = 18 experiments
+# Requires Tesla P100 GPUs (LLM inference)
+
+base_config_path: configs/base_config.yaml
+
+experiments:
+  # ── Rich persona (control) ──
+  - experiment_id: ablation_rich_persona_s42
+    policy: ablated_llm
+    ablation: rich_persona
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_rich_persona_s123
+    policy: ablated_llm
+    ablation: rich_persona
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_rich_persona_s7
+    policy: ablated_llm
+    ablation: rich_persona
+    seed: 7
+    network: random
+    edge_prob: 0.3
+
+  # ── No persona ──
+  - experiment_id: ablation_no_persona_s42
+    policy: ablated_llm
+    ablation: no_persona
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_persona_s123
+    policy: ablated_llm
+    ablation: no_persona
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_persona_s7
+    policy: ablated_llm
+    ablation: no_persona
+    seed: 7
+    network: random
+    edge_prob: 0.3
+
+  # ── Minimal persona ──
+  - experiment_id: ablation_minimal_persona_s42
+    policy: ablated_llm
+    ablation: minimal_persona
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_minimal_persona_s123
+    policy: ablated_llm
+    ablation: minimal_persona
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_minimal_persona_s7
+    policy: ablated_llm
+    ablation: minimal_persona
+    seed: 7
+    network: random
+    edge_prob: 0.3
+
+  # ── No memory ──
+  - experiment_id: ablation_no_memory_s42
+    policy: ablated_llm
+    ablation: no_memory
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_memory_s123
+    policy: ablated_llm
+    ablation: no_memory
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_memory_s7
+    policy: ablated_llm
+    ablation: no_memory
+    seed: 7
+    network: random
+    edge_prob: 0.3
+
+  # ── No network ──
+  - experiment_id: ablation_no_network_s42
+    policy: ablated_llm
+    ablation: no_network
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_network_s123
+    policy: ablated_llm
+    ablation: no_network
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_network_s7
+    policy: ablated_llm
+    ablation: no_network
+    seed: 7
+    network: random
+    edge_prob: 0.3
+
+  # ── No institutions ──
+  - experiment_id: ablation_no_institutions_s42
+    policy: ablated_llm
+    ablation: no_institutions
+    seed: 42
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_institutions_s123
+    policy: ablated_llm
+    ablation: no_institutions
+    seed: 123
+    network: random
+    edge_prob: 0.3
+  - experiment_id: ablation_no_institutions_s7
+    policy: ablated_llm
+    ablation: no_institutions
+    seed: 7
+    network: random
+    edge_prob: 0.3

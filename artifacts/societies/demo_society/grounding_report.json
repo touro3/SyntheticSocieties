@@ -1,0 +1,44 @@
+{
+  "dataset_name": "ESS11",
+  "selected_datasets": [
+    "ESS11"
+  ],
+  "matched_rows": 825,
+  "base_rows": 866,
+  "min_cohort_size": 30,
+  "requested_filters": {},
+  "active_filters": {},
+  "variable_summaries": {
+    "age_mean": 53.97212121212121,
+    "trust_people_mean": 0.5980606060606061,
+    "trust_institutions_mean": 0.634304207119741,
+    "social_activity_mean": 0.6585760517799354,
+    "risk_tolerance_mean": 0.2997979797979798,
+    "competitiveness_mean": 0.81010101010101,
+    "life_satisfaction_mean": 0.7826666666666667,
+    "happiness_mean": 0.783616504854369,
+    "income_decile_mean": 5.036697247706422,
+    "country_mode": "AT"
+  },
+  "evidence_snippets": [
+    "ESS cohort size: 825 respondents.",
+    "Strict cohort matching was sufficient.",
+    "Average age is 54.0.",
+    "Average interpersonal trust is 6.0/10.",
+    "Average institutional trust is 6.3/10.",
+    "Average social activity is 6.6/10.",
+    "Average risk tolerance is 3.0/10.",
+    "Average income decile is 5.0."
+  ],
+  "relaxation_trace": [
+    {
+      "step": "strict",
+      "matched_rows": 825,
+      "numeric_padding": 0.0,
+      "urban_slack": 0,
+      "age_slack": 0,
+      "drop_filters": []
+    }
+  ],
+  "warnings": []
+}

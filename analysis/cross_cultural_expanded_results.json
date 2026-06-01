@@ -1,0 +1,388 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-04-07T19:24:42.734218+00:00",
+    "n_clusters": 6,
+    "n_seeds": 3,
+    "seeds": [
+      11,
+      12,
+      13
+    ],
+    "n_rounds": 3,
+    "agent_sizes_tested": [
+      5
+    ],
+    "primary_agent_size": 5,
+    "contains_ungrounded_control": true,
+    "policy_type": "rule_based",
+    "dry_run": true,
+    "data_provenance": {
+      "benchmarks_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/data/cross_cultural_benchmarks_expanded.json",
+      "benchmarks_sha256": "1f964d3fc904ee0fe7364496f4812b96234a2f39ed5587886dc79291d9ef85af",
+      "ess_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/data/ess_clean.parquet",
+      "ess_sha256": null,
+      "ess_row_count": null
+    },
+    "leakage_controls": {
+      "grounding_data_source": "ESS only (data/ess_clean.parquet)",
+      "evaluation_benchmarks": [
+        "ESS (in-sample)",
+        "WVS (holdout)"
+      ],
+      "wvs_used_for_agent_grounding": false,
+      "wvs_used_only_for_evaluation": true
+    }
+  },
+  "correlation": {
+    "pearson_r": 0.9828,
+    "pearson_p": 0.0004,
+    "spearman_rho": 1.0,
+    "spearman_p": 0.0,
+    "gradient_recovered": true
+  },
+  "benchmark_fit": {
+    "ess": {
+      "benchmark": "ess",
+      "pearson_r": 0.9828,
+      "pearson_p": 0.0004,
+      "spearman_rho": 1.0,
+      "spearman_p": 0.0,
+      "gradient_recovered": true,
+      "mae": 0.0413,
+      "rmse": 0.0681,
+      "n_clusters": 6
+    },
+    "wvs": {
+      "benchmark": "wvs",
+      "pearson_r": 0.9772,
+      "pearson_p": 0.0008,
+      "spearman_rho": 1.0,
+      "spearman_p": 0.0,
+      "gradient_recovered": true,
+      "mae": 0.0673,
+      "rmse": 0.0961,
+      "n_clusters": 6
+    }
+  },
+  "cluster_results": {
+    "eastern": {
+      "ess_mean_trust": 0.418,
+      "wvs_trust_pct": 24.0,
+      "mean_cooperation_rate": 0.1116,
+      "std_cooperation_rate": 0.0034,
+      "ci_lower": 0.1031,
+      "ci_upper": 0.1202,
+      "n_seeds": 3,
+      "mean_gini": 0.1625,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.1096,
+        0.1097,
+        0.1156
+      ]
+    },
+    "southern": {
+      "ess_mean_trust": 0.455,
+      "wvs_trust_pct": 29.0,
+      "mean_cooperation_rate": 0.125,
+      "std_cooperation_rate": 0.0112,
+      "ci_lower": 0.0973,
+      "ci_upper": 0.1527,
+      "n_seeds": 3,
+      "mean_gini": 0.159,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.119,
+        0.1182,
+        0.1379
+      ]
+    },
+    "western": {
+      "ess_mean_trust": 0.504,
+      "wvs_trust_pct": 37.0,
+      "mean_cooperation_rate": 0.1801,
+      "std_cooperation_rate": 0.0217,
+      "ci_lower": 0.1261,
+      "ci_upper": 0.2341,
+      "n_seeds": 3,
+      "mean_gini": 0.1733,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.167,
+        0.2052,
+        0.1681
+      ]
+    },
+    "anglo": {
+      "ess_mean_trust": 0.565,
+      "wvs_trust_pct": 43.0,
+      "mean_cooperation_rate": 0.1932,
+      "std_cooperation_rate": 0.0173,
+      "ci_lower": 0.1503,
+      "ci_upper": 0.236,
+      "n_seeds": 3,
+      "mean_gini": 0.1386,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.1757,
+        0.2102,
+        0.1936
+      ]
+    },
+    "northern": {
+      "ess_mean_trust": 0.634,
+      "wvs_trust_pct": 55.0,
+      "mean_cooperation_rate": 0.2232,
+      "std_cooperation_rate": 0.017,
+      "ci_lower": 0.181,
+      "ci_upper": 0.2654,
+      "n_seeds": 3,
+      "mean_gini": 0.1595,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.2284,
+        0.2042,
+        0.237
+      ]
+    },
+    "nordic": {
+      "ess_mean_trust": 0.689,
+      "wvs_trust_pct": 68.0,
+      "mean_cooperation_rate": 0.2558,
+      "std_cooperation_rate": 0.0067,
+      "ci_lower": 0.2392,
+      "ci_upper": 0.2723,
+      "n_seeds": 3,
+      "mean_gini": 0.1627,
+      "n_agents": 5,
+      "n_rounds": 3,
+      "seed_cooperation_rates": [
+        0.2486,
+        0.2618,
+        0.2569
+      ]
+    }
+  },
+  "robustness": {
+    "5": {
+      "pearson_r": 0.9828,
+      "spearman_rho": 1.0,
+      "gradient_recovered": true,
+      "ess_fit": {
+        "benchmark": "ess",
+        "pearson_r": 0.9828,
+        "pearson_p": 0.0004,
+        "spearman_rho": 1.0,
+        "spearman_p": 0.0,
+        "gradient_recovered": true,
+        "mae": 0.0413,
+        "rmse": 0.0681,
+        "n_clusters": 6
+      },
+      "wvs_fit": {
+        "benchmark": "wvs",
+        "pearson_r": 0.9772,
+        "pearson_p": 0.0008,
+        "spearman_rho": 1.0,
+        "spearman_p": 0.0,
+        "gradient_recovered": true,
+        "mae": 0.0673,
+        "rmse": 0.0961,
+        "n_clusters": 6
+      },
+      "cluster_mean_coops": {
+        "eastern": 0.1116,
+        "southern": 0.125,
+        "western": 0.1801,
+        "anglo": 0.1932,
+        "northern": 0.2232,
+        "nordic": 0.2558
+      }
+    }
+  },
+  "ungrounded_control": {
+    "benchmark_fit": {
+      "ess": {
+        "benchmark": "ess",
+        "pearson_r": -0.2795,
+        "pearson_p": 0.5916,
+        "spearman_rho": -0.2571,
+        "spearman_p": 0.6228,
+        "gradient_recovered": false,
+        "mae": 0.5077,
+        "rmse": 0.5912,
+        "n_clusters": 6
+      },
+      "wvs": {
+        "benchmark": "wvs",
+        "pearson_r": -0.2684,
+        "pearson_p": 0.607,
+        "spearman_rho": -0.2571,
+        "spearman_p": 0.6228,
+        "gradient_recovered": false,
+        "mae": 0.4736,
+        "rmse": 0.5681,
+        "n_clusters": 6
+      }
+    },
+    "cluster_results": {
+      "eastern": {
+        "ess_mean_trust": 0.418,
+        "wvs_trust_pct": 24.0,
+        "mean_cooperation_rate": 0.1617,
+        "std_cooperation_rate": 0.0034,
+        "ci_lower": 0.1532,
+        "ci_upper": 0.1703,
+        "n_seeds": 3,
+        "mean_gini": 0.1625,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1597,
+          0.1598,
+          0.1657
+        ]
+      },
+      "southern": {
+        "ess_mean_trust": 0.455,
+        "wvs_trust_pct": 29.0,
+        "mean_cooperation_rate": 0.1547,
+        "std_cooperation_rate": 0.0112,
+        "ci_lower": 0.127,
+        "ci_upper": 0.1824,
+        "n_seeds": 3,
+        "mean_gini": 0.159,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1487,
+          0.1479,
+          0.1676
+        ]
+      },
+      "western": {
+        "ess_mean_trust": 0.504,
+        "wvs_trust_pct": 37.0,
+        "mean_cooperation_rate": 0.1829,
+        "std_cooperation_rate": 0.0217,
+        "ci_lower": 0.1289,
+        "ci_upper": 0.2369,
+        "n_seeds": 3,
+        "mean_gini": 0.1733,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1698,
+          0.208,
+          0.1709
+        ]
+      },
+      "anglo": {
+        "ess_mean_trust": 0.565,
+        "wvs_trust_pct": 43.0,
+        "mean_cooperation_rate": 0.1624,
+        "std_cooperation_rate": 0.0173,
+        "ci_lower": 0.1194,
+        "ci_upper": 0.2054,
+        "n_seeds": 3,
+        "mean_gini": 0.1386,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1449,
+          0.1795,
+          0.1628
+        ]
+      },
+      "northern": {
+        "ess_mean_trust": 0.634,
+        "wvs_trust_pct": 55.0,
+        "mean_cooperation_rate": 0.1545,
+        "std_cooperation_rate": 0.017,
+        "ci_lower": 0.1123,
+        "ci_upper": 0.1967,
+        "n_seeds": 3,
+        "mean_gini": 0.1595,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1597,
+          0.1355,
+          0.1683
+        ]
+      },
+      "nordic": {
+        "ess_mean_trust": 0.689,
+        "wvs_trust_pct": 68.0,
+        "mean_cooperation_rate": 0.1568,
+        "std_cooperation_rate": 0.0066,
+        "ci_lower": 0.1404,
+        "ci_upper": 0.1733,
+        "n_seeds": 3,
+        "mean_gini": 0.1627,
+        "n_agents": 5,
+        "n_rounds": 3,
+        "seed_cooperation_rates": [
+          0.1497,
+          0.1628,
+          0.158
+        ]
+      }
+    },
+    "robustness": {
+      "5": {
+        "ess_fit": {
+          "benchmark": "ess",
+          "pearson_r": -0.2795,
+          "pearson_p": 0.5916,
+          "spearman_rho": -0.2571,
+          "spearman_p": 0.6228,
+          "gradient_recovered": false,
+          "mae": 0.5077,
+          "rmse": 0.5912,
+          "n_clusters": 6
+        },
+        "wvs_fit": {
+          "benchmark": "wvs",
+          "pearson_r": -0.2684,
+          "pearson_p": 0.607,
+          "spearman_rho": -0.2571,
+          "spearman_p": 0.6228,
+          "gradient_recovered": false,
+          "mae": 0.4736,
+          "rmse": 0.5681,
+          "n_clusters": 6
+        },
+        "cluster_mean_coops": {
+          "eastern": 0.1617,
+          "southern": 0.1547,
+          "western": 0.1829,
+          "anglo": 0.1624,
+          "northern": 0.1545,
+          "nordic": 0.1568
+        }
+      }
+    }
+  },
+  "condition_comparison": {
+    "wvs": {
+      "delta_pearson_r": 1.2456,
+      "delta_spearman_rho": 1.2571,
+      "delta_mae": 0.4063,
+      "delta_rmse": 0.472,
+      "grounded_better": true
+    },
+    "ess": {
+      "delta_pearson_r": 1.2623,
+      "delta_spearman_rho": 1.2571,
+      "delta_mae": 0.4664,
+      "delta_rmse": 0.5231,
+      "grounded_better": true
+    }
+  }
+}

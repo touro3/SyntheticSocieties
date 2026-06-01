@@ -1,0 +1,204 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# Editable install artifacts
+src/*.egg-info/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+ENV/
+.python-version
+.pyenv
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.dev
+
+# =========================
+# =========================
+# IDEs & Editors
+# =========================
+.vscode/
+.vscode-server/
+*.code-workspace
+.idea/
+.vim/
+.emacs.d/
+.sublime-project
+.sublime-workspace
+*.swp
+*.swo
+*~
+
+# =========================
+# Claude Code / AI assistants
+# =========================
+.codeium/
+.codesum/
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Testing & Coverage
+# =========================
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# =========================
+# Runtime-generated upload / wizard artifacts
+# =========================
+uploads/
+configs/wizard/
+
+# =========================
+# Logs / outputs
+# =========================
+*.log
+logs/
+outputs/
+/log_bad_apple.txt
+results/
+# run output logs dumped in root (e.g. condition_d_log.txt, safe_run.txt)
+*_log.txt
+safe_run.txt
+
+# =========================
+# Models (IMPORTANT)
+# =========================
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+
+# =========================
+# HuggingFace cache
+# =========================
+hf_cache/
+.huggingface/
+.cache/
+transformers_cache/
+
+# =========================
+# Large datasets
+# =========================
+data/*.csv
+data/*.parquet
+data/*.json
+!data/cross_cultural_benchmarks.json
+data/behavior/
+data/raw/
+data/processed/
+data/synthetic/
+datasets/
+
+# =========================
+# llama.cpp build
+# =========================
+llama.cpp/build/
+llama.cpp/models/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Llamma.cpp artifacts
+# =========================
+llama.cpp/
+
+# =========================
+# Experiment outputs
+# =========================
+experiments/
+tracker/*.parquet
+tracker/*.db
+
+# =========================
+# Build artifacts
+# =========================
+paper/build/
+
+# =========================
+# Misc
+# =========================
+nohup.out
+*.out
+*.pid
+
+# Do NOT ignore:
+# - configs/*.yaml (should be committed, just with no absolute paths)
+# - pyproject.toml (package definition, must be committed)
+# - CLAUDE.md (project instructions, must be committed)
+# - tests/ (test suite, must be committed)
+# - *.md docs (documentation, should be committed)
+
+# =========================
+# Temporary & Development
+# =========================
+tmp/
+temp/
+.tmp/
+*.tmp
+*.bak
+*.backup
+*.undo
+
+# Plan mode & task artifacts
+.claude/plans/
+.claude/memories/
+.claude/projects/
+
+# Local experiment directories
+local_exp/
+scratch/
+debug/
+notes/
+
+# Debug / session log files that may appear in root
+debug_log.txt
+CEST.log
+
+# =========================
+# Paper
+# =========================
+paper/  
+CITATION.cff
+MASTERS_ELEVATION_PLAN.md
+CLAUDE.md
+TOP_TIER_RESEARCH.md
+graphify-out/
+
+
+
+frontend/node_modules/

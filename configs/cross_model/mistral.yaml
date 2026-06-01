@@ -1,0 +1,34 @@
+# Cross-model comparison — Mistral-7B-Instruct-v0.3 (primary BGF model)
+# Phase 16: Run both Condition A (ungrounded) and Condition B (grounded) with this model.
+#
+# This is the baseline model used throughout the paper. Its results anchor
+# the cross-model comparison table.
+
+project:
+  name: cross_model_mistral
+  seed: 42
+
+simulation:
+  rounds: 20
+  population_size: 50
+
+policy:
+  type: llm
+
+population:
+  source: empirical
+
+llm:
+  model_id: mistralai/Mistral-7B-Instruct-v0.3
+  cache_dir: ${oc.env:BGF_MODEL_CACHE_DIR,${oc.env:HF_HOME,~/.cache/huggingface}}
+  dtype: float16
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+
+network:
+  type: small_world
+  k: 4
+  rewiring_prob: 0.1

@@ -1,0 +1,16 @@
+# Gitleaks configuration for SyntheticSocieties / BGF
+
+title = "BGF Gitleaks Config"
+
+[allowlist]
+  description = "Global false-positive suppressions"
+
+  # agents/persistent_memory.py: _hashing_embed() uses hashlib.md5 as a
+  # deterministic bag-of-tokens feature hash for a text embedding fallback.
+  # The function carries no secret material; usedforsecurity=False is set
+  # explicitly and a comment documents this is not a security context.
+  # Gitleaks' generic-api-key entropy rule triggers on hash-related tokens
+  # in the function body — this is a confirmed false positive.
+  paths = [
+    '''agents/persistent_memory\.py''',
+  ]

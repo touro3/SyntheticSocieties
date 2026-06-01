@@ -1,0 +1,9 @@
+{
+  "society_spec_path": "artifacts/societies/demo_society/society_spec.json",
+  "grounding_report_path": "artifacts/societies/demo_society/grounding_report.json",
+  "population_context_path": "artifacts/societies/demo_society/population_context.txt",
+  "ess_personas_path": "artifacts/societies/demo_society/ess_personas.jsonl",
+  "synthetic_personas_path": "artifacts/societies/demo_society/synthetic_personas.jsonl",
+  "grounding_sample_path": "artifacts/societies/demo_society/grounding_sample.csv",
+  "min_cohort_size": 30
+}

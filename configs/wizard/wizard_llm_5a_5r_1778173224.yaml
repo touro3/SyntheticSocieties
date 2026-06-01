@@ -1,0 +1,16 @@
+llm:
+  backend_type: ollama
+  model_id: mistral
+network:
+  type: small_world
+policy:
+  type: llm
+population:
+  source: empirical
+project:
+  experiment_id: wizard_llm_5a_5r_1778173224
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 5
+  rounds: 5

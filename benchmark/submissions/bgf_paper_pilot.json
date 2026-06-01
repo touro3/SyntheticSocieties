@@ -1,0 +1,198 @@
+{
+  "schema_version": "1.0",
+  "submission": {
+    "name": "bgf_paper_pilot",
+    "team": "BGF authors (reference)",
+    "date": "2026-05-15T02:01:20Z",
+    "tier": "pilot",
+    "llm": {
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "hf-revision-pinned-in-config",
+      "temperature": 0.5,
+      "top_p": 1.0
+    },
+    "grounding_config": {
+      "persona": "ess",
+      "rag": [
+        "sql",
+        "graph"
+      ],
+      "memory": "M3",
+      "notes": "Reference submission constructed from the canonical pilot experiments pure_llm_ess_persona_s{42,43,44} (Condition A) and grounded_llm_ess_persona_s{42,43,44} (Condition B). Per-seed audit retained in audit.condition_*.per_seed."
+    },
+    "seeds": [
+      42,
+      43,
+      44
+    ]
+  },
+  "scores": {
+    "condition_A": {
+      "B_RLHF": 0.3236,
+      "BRM_composite": 0.8033,
+      "coop_rate": 0.112,
+      "final_gini": 0.1113
+    },
+    "condition_B": {
+      "B_RLHF": 0.2898,
+      "BRM_composite": 0.8754,
+      "coop_rate": 0.3747,
+      "final_gini": 0.1133
+    },
+    "delta_B_RLHF_relative": -0.1044,
+    "delta_BRM_composite": 0.0721
+  },
+  "audit": {
+    "condition_A": {
+      "per_seed": [
+        {
+          "seed": 42,
+          "B_RLHF": 0.3007,
+          "BRM_composite": 0.911,
+          "coop_rate": 0.306,
+          "final_gini": 0.1707,
+          "_audit": {
+            "n_events": 500,
+            "n_rounds": 10,
+            "n_agents_terminal_wealth": 50,
+            "action_counts": {
+              "work": 317,
+              "cooperate": 153,
+              "save": 30
+            },
+            "events_sha256": "a8415b524a1e7d97b676303cecc8b07076dbbcae1f720f7e3f74ef3d13b47ef0",
+            "config_sha256": "b4b3a5e86a37c0a2b921f5abc62a7ca091c048e94143af3c703990aa3200b1a2",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/pure_llm_ess_persona_s42/config.yaml"
+          }
+        },
+        {
+          "seed": 43,
+          "B_RLHF": 0.3367,
+          "BRM_composite": 0.7606,
+          "coop_rate": 0.03,
+          "final_gini": 0.0854,
+          "_audit": {
+            "n_events": 100,
+            "n_rounds": 5,
+            "n_agents_terminal_wealth": 20,
+            "action_counts": {
+              "work": 30,
+              "save": 67,
+              "cooperate": 3
+            },
+            "events_sha256": "5b5a337d2bd4d51a4e792d654e41fa9977060743cc7c69028742a09ff3a44e75",
+            "config_sha256": "ce3e4afe3deff23cff6eec25a7a1132fbb7678943866851c9273dc4bbe799b4a",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/pure_llm_ess_persona_s43/config.yaml"
+          }
+        },
+        {
+          "seed": 44,
+          "B_RLHF": 0.3333,
+          "BRM_composite": 0.7384,
+          "coop_rate": 0.0,
+          "final_gini": 0.0779,
+          "_audit": {
+            "n_events": 100,
+            "n_rounds": 5,
+            "n_agents_terminal_wealth": 20,
+            "action_counts": {
+              "work": 34,
+              "save": 66,
+              "cooperate": 0
+            },
+            "events_sha256": "1c29587bc1017694246e5f721eaa15291e789ec57c1e70924e0d570b7c8ee7c6",
+            "config_sha256": "6e3a9d2b93a652c2ec2720b72c2e35b32996ecf35ca027bf00f37235a59aa86b",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/pure_llm_ess_persona_s44/config.yaml"
+          }
+        }
+      ],
+      "action_counts": {
+        "work": 381,
+        "save": 163,
+        "cooperate": 156
+      }
+    },
+    "condition_B": {
+      "per_seed": [
+        {
+          "seed": 42,
+          "B_RLHF": 0.4959,
+          "BRM_composite": 0.8324,
+          "coop_rate": 0.084,
+          "final_gini": 0.0891,
+          "_audit": {
+            "n_events": 369,
+            "n_rounds": 8,
+            "n_agents_terminal_wealth": 50,
+            "action_counts": {
+              "work": 306,
+              "save": 32,
+              "cooperate": 31
+            },
+            "events_sha256": "ac2a9864ab817cef1fd4a731408d783c01557834f36c593d84a3462fa9693ac3",
+            "config_sha256": "1200104656cbc5d2b2ec4933e1c2cfc1f334f1d0d29a06bb5b900f49021e6e1b",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/grounded_llm_ess_persona_s42/config.yaml"
+          }
+        },
+        {
+          "seed": 43,
+          "B_RLHF": 0.2267,
+          "BRM_composite": 0.8941,
+          "coop_rate": 0.56,
+          "final_gini": 0.133,
+          "_audit": {
+            "n_events": 100,
+            "n_rounds": 5,
+            "n_agents_terminal_wealth": 20,
+            "action_counts": {
+              "work": 25,
+              "save": 19,
+              "cooperate": 56
+            },
+            "events_sha256": "2b3764bb640eb99e77da2af0afd0f532a34c389a6e2d007ff80b2c93ea280fac",
+            "config_sha256": "832d1970f7c40be6a4a0d34568ec2492c40076600d78e96b714a1e40c969190a",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/grounded_llm_ess_persona_s43/config.yaml"
+          }
+        },
+        {
+          "seed": 44,
+          "B_RLHF": 0.1467,
+          "BRM_composite": 0.8996,
+          "coop_rate": 0.48,
+          "final_gini": 0.1177,
+          "_audit": {
+            "n_events": 100,
+            "n_rounds": 5,
+            "n_agents_terminal_wealth": 20,
+            "action_counts": {
+              "work": 33,
+              "save": 19,
+              "cooperate": 48
+            },
+            "events_sha256": "6b717eabaffc1b48f84fae243f9728bf1a50cd4b2f4236988473f1cc2e7849b0",
+            "config_sha256": "f6c98625391f679d77b5e1c3287d36f67dea6bf79a1abbe743e4ed0ff3dbfe30",
+            "config_path": "/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties/experiments/grounded_llm_ess_persona_s44/config.yaml"
+          }
+        }
+      ],
+      "action_counts": {
+        "work": 364,
+        "save": 70,
+        "cooperate": 135
+      }
+    },
+    "brm_components_A": {
+      "jsd_component": 1.0,
+      "gini_component": 0.8013,
+      "coop_component": 0.612,
+      "stability_component": 0.75
+    },
+    "brm_components_B": {
+      "jsd_component": 1.0,
+      "gini_component": 0.8033,
+      "coop_component": 0.8347,
+      "stability_component": 0.8294
+    },
+    "reproduction_command": "python benchmark/build_bgf_reference.py"
+  }
+}

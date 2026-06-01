@@ -1,0 +1,85 @@
+{
+  "n_observations": 9000,
+  "n_cooperate": 3713,
+  "cooperation_rate": 0.41255555555555556,
+  "train_accuracy": 0.6083333333333333,
+  "coefficients": [
+    {
+      "rank": 1,
+      "feature": "trust_people",
+      "coefficient": 0.287,
+      "odds_ratio": 1.3324
+    },
+    {
+      "rank": 2,
+      "feature": "risk_tolerance",
+      "coefficient": -0.1873,
+      "odds_ratio": 0.8292
+    },
+    {
+      "rank": 3,
+      "feature": "social_activity",
+      "coefficient": 0.146,
+      "odds_ratio": 1.1572
+    },
+    {
+      "rank": 4,
+      "feature": "political_orientation",
+      "coefficient": 0.0288,
+      "odds_ratio": 1.0292
+    },
+    {
+      "rank": 5,
+      "feature": "leadership_preference",
+      "coefficient": 0.021,
+      "odds_ratio": 1.0212
+    },
+    {
+      "rank": 6,
+      "feature": "immigration_attitude",
+      "coefficient": -0.0187,
+      "odds_ratio": 0.9814
+    },
+    {
+      "rank": 7,
+      "feature": "trust_institutions",
+      "coefficient": -0.0174,
+      "odds_ratio": 0.9827
+    },
+    {
+      "rank": 8,
+      "feature": "health_status",
+      "coefficient": -0.017,
+      "odds_ratio": 0.9832
+    },
+    {
+      "rank": 9,
+      "feature": "life_satisfaction",
+      "coefficient": 0.0131,
+      "odds_ratio": 1.0132
+    },
+    {
+      "rank": 10,
+      "feature": "religiosity",
+      "coefficient": -0.0088,
+      "odds_ratio": 0.9912
+    },
+    {
+      "rank": 11,
+      "feature": "happiness",
+      "coefficient": -0.0059,
+      "odds_ratio": 0.9942
+    },
+    {
+      "rank": 12,
+      "feature": "competitiveness",
+      "coefficient": -0.0048,
+      "odds_ratio": 0.9952
+    }
+  ],
+  "ablation_table": {
+    "minimal": 0.601,
+    "medium": 0.6072222222222222,
+    "full": 0.6083333333333333
+  }
+}

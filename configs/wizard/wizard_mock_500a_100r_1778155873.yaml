@@ -1,0 +1,13 @@
+network:
+  type: random
+policy:
+  type: mock
+population:
+  source: synthetic
+project:
+  experiment_id: wizard_mock_500a_100r_1778155873
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 500
+  rounds: 100

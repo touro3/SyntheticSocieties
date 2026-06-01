@@ -1,0 +1,160 @@
+"""Regression: /design-simulation is a public, rate-limited demo endpoint.
+
+When BGF_API_TOKEN is configured, ordinary POST routes require the bearer
+token, but /design-simulation must stay reachable without one (the token
+would otherwise have to be shipped in client-side JS). Cost/DoS on this
+endpoint is bounded by the per-IP rate limiter, not by the token.
+"""
+
+import api.app as app_module
+from api.app import create_app
+
+
+def _client(monkeypatch):
+    monkeypatch.setattr(app_module, "_AUTH_TOKEN", "secret-token")
+    app = create_app()
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def test_design_simulation_does_not_require_token(monkeypatch):
+    client = _client(monkeypatch)
+
+    resp = client.post("/design-simulation", json={})
+
+    # Must NOT be blocked by the auth gate. It may 400 (missing prompt) or
+    # 5xx (no LLM key in test env) — anything but the auth rejection.
+    assert resp.status_code != 401
+    body = resp.get_json(silent=True) or {}
+    assert body.get("error") != "Authorization header required"
+
+
+def test_other_post_still_requires_token(monkeypatch):
+    client = _client(monkeypatch)
+
+    resp = client.post("/simulate", json={})
+
+    assert resp.status_code == 401
+    assert resp.get_json()["error"] == "Authorization header required"
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "path,payload",
+    [
+        ("/simulate-wizard", {}),
+        ("/human-eval/rating", {}),
+        ("/human-game/session", {}),
+        ("/human-game/action", {}),
+        ("/human-game/complete", {}),
+        # Dynamic-path prefixes (Interact page Send / Broadcast / Inject).
+        ("/interview/some_exp/agent_0", {"question": "hi"}),
+        ("/anchor/some_exp", {"question": "hi"}),
+        ("/inject/some_exp", {"event_type": "wealth_shock", "payload": {"factor": 0.5}}),
+    ],
+)
+def test_public_demo_posts_not_token_gated(monkeypatch, path, payload):
+    """H1/H2: participant/demo POSTs stay reachable without a bearer token."""
+    client = _client(monkeypatch)
+
+    resp = client.post(path, json=payload)
+
+    assert resp.status_code != 401
+    body = resp.get_json(silent=True) or {}
+    assert body.get("error") != "Authorization header required"
+
+
+def test_human_game_session_table_is_bounded(monkeypatch):
+    """H2: /human-game/session is rate-limited under a burst (DoS bound)."""
+    import api.app as m
+
+    client = _client(monkeypatch)
+    statuses = {client.post("/human-game/session", json={"pre_trust": 5, "pre_risk": 5}).status_code for _ in range(50)}
+    # Never an auth/500 failure: only created (201) or rate-limited (429).
+    assert statuses <= {201, 429}
+    # The limiter must engage under a burst — but only when flask-limiter is
+    # actually installed. CI minimal envs run without it (limiter is a no-op
+    # by design), so the 429 expectation is conditional on availability.
+    if m._LIMITER_AVAILABLE:
+        assert 429 in statuses
+
+
+def test_simulation_config_bounds():
+    """H3: oversized rounds/population_size are rejected, not silently run."""
+    from pydantic import ValidationError
+
+    from configs.schema import SimulationConfig
+
+    with pytest.raises(ValidationError):
+        SimulationConfig(rounds=10**9)
+    with pytest.raises(ValidationError):
+        SimulationConfig(population_size=10**9)
+    # Mid-range values still validate.
+    ok = SimulationConfig(rounds=100, population_size=500)
+    assert ok.rounds == 100 and ok.population_size == 500
+
+
+def test_redact_secrets_masks_credentials():
+    """H4: redact_secrets scrubs api_key/token before snapshot persistence."""
+    from utils.io import redact_secrets
+
+    # Fake values chosen to be clearly non-real while still exercising the
+    # scrubber logic.  Values intentionally do NOT look like live API keys so
+    # that secret-scanning tools (gitleaks) do not flag this test file.
+    _FAKE_KEY = "bgf-test-key-placeholder"  # noqa: S105
+    _FAKE_TOKEN = "bgf-test-token-placeholder"  # noqa: S105
+    _FAKE_PASS = "bgf-test-password-placeholder"  # noqa: S105
+
+    cfg = {
+        "llm": {"model_id": "x", "api_key": _FAKE_KEY, "temperature": 0.7},
+        "project": {"name": "bgf", "auth_token": _FAKE_TOKEN},
+        "nested": [{"password": _FAKE_PASS}],
+    }
+    red = redact_secrets(cfg)
+
+    assert red["llm"]["api_key"] == "***REDACTED***"
+    assert red["project"]["auth_token"] == "***REDACTED***"
+    assert red["nested"][0]["password"] == "***REDACTED***"
+    # Non-secret values and the original dict are untouched.
+    assert red["llm"]["model_id"] == "x"
+    assert cfg["llm"]["api_key"] == _FAKE_KEY
+
+
+def test_scrub_secrets_masks_env_keys(monkeypatch):
+    """M2: subprocess log scrubber masks live key values and token shapes."""
+    # Constructed at runtime via concatenation so no literal secret-shaped string
+    # is stored in source, while still exercising the scrubber's sk-/gsk_ regexes.
+    _SK = "sk-" + "t" * 20  # matches sk-[A-Za-z0-9_-]{8,}
+    _GSK = "gsk_" + "a" * 12  # matches gsk_[A-Za-z0-9]{8,}
+    monkeypatch.setenv("OPENAI_API_KEY", _SK)
+    import api.app as m
+
+    out = m._scrub_secrets(f"traceback: key={_SK} and {_GSK}")
+    assert _SK not in out
+    assert _GSK not in out
+    assert "***REDACTED***" in out
+
+
+def test_untrusted_caller_cannot_supply_api_key(monkeypatch):
+    """Public (tokenless) callers must not inject provider credentials."""
+    import api.app as m
+
+    app = m.create_app()
+
+    # Token configured: anonymous request is NOT trusted; valid bearer is.
+    monkeypatch.setattr(m, "_AUTH_TOKEN", "secret-token")
+    with app.test_request_context("/design-simulation", method="POST"):
+        assert m._is_trusted_caller() is False
+    with app.test_request_context(
+        "/design-simulation", method="POST", headers={"Authorization": "Bearer secret-token"}
+    ):
+        assert m._is_trusted_caller() is True
+    with app.test_request_context("/design-simulation", method="POST", headers={"Authorization": "Bearer wrong"}):
+        assert m._is_trusted_caller() is False
+
+    # Open mode (no token): local/LAN use is trusted.
+    monkeypatch.setattr(m, "_AUTH_TOKEN", None)
+    with app.test_request_context("/design-simulation", method="POST"):
+        assert m._is_trusted_caller() is True

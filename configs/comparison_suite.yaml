@@ -1,0 +1,98 @@
+# Full Policy Comparison Suite
+# Runs all key policies with 20 agents, 10 rounds, 3 seeds
+# Produces the experiment data needed for comparison diagrams
+
+base_config_path: configs/base_config.yaml
+
+experiments:
+  # ── Template (ESS archetypes) ──
+  - experiment_id: cmp_template_s42
+    policy: template
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_template_s123
+    policy: template
+    seed: 123
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_template_s7
+    policy: template
+    seed: 7
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+
+  # ── Rule-based ──
+  - experiment_id: cmp_rule_s42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_rule_s123
+    policy: rule_based
+    seed: 123
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_rule_s7
+    policy: rule_based
+    seed: 7
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+
+  # ── Random ──
+  - experiment_id: cmp_random_s42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_random_s123
+    policy: random
+    seed: 123
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_random_s7
+    policy: random
+    seed: 7
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+
+  # ── LLM (full persona) ──
+  - experiment_id: cmp_llm_s42
+    policy: llm
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_llm_s123
+    policy: llm
+    seed: 123
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10
+  - experiment_id: cmp_llm_s7
+    policy: llm
+    seed: 7
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+    rounds: 10

@@ -1,0 +1,38 @@
+# Cross-model comparison — Qwen2.5-7B-Instruct
+# Phase 16: Second open-weights model for generalizability validation.
+#
+# Replaces meta-llama/Llama-3.1-8B-Instruct (gated, requires HF approval).
+# Qwen2.5-7B-Instruct is freely accessible and comparable in scale/RLHF training.
+#
+# If the RLHF cooperative bias is a general phenomenon (not a Mistral artifact),
+# it should also appear here in Condition A and be reduced in Condition B.
+
+project:
+  name: cross_model_qwen25_7b
+  seed: 42
+
+simulation:
+  rounds: 20
+  population_size: 50
+
+policy:
+  type: llm
+
+population:
+  source: empirical
+
+llm:
+  model_id: Qwen/Qwen2.5-7B-Instruct
+  cache_dir: ${oc.env:BGF_MODEL_CACHE_DIR,${oc.env:HF_HOME,~/.cache/huggingface}}
+  quantization: 4bit  # NF4 4-bit — ~4 GB; avoids CPU offload on P100 (CC 6.0, no hw bfloat16)
+  dtype: float16      # compute dtype for 4-bit dequant; bfloat16 offloads to CPU on P100
+  device_map: auto
+  temperature: 0.7
+  max_new_tokens: 256
+  memory_window: 5
+  max_retries: 2
+
+network:
+  type: small_world
+  k: 4
+  rewiring_prob: 0.1

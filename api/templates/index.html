@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synthetic Societies — BGF API</title>
+    <meta name="description" content="REST API for the Behavioral Grounding Framework (BGF) — LLM-based agent simulations grounded in empirical socio-economic data from the European Social Survey.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a1f35;
+            --bg-card-hover: #222845;
+            --border: #2a3050;
+            --border-glow: #6366f1;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #6366f1;
+            --accent-purple: #8b5cf6;
+            --accent-teal: #14b8a6;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-green: #10b981;
+            --gradient-hero: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+            --gradient-card: linear-gradient(145deg, rgba(99,102,241,0.08), rgba(139,92,246,0.04));
+            --shadow-glow: 0 0 30px rgba(99,102,241,0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Animated background mesh */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background:
+                radial-gradient(ellipse 600px 600px at 20% 20%, rgba(99,102,241,0.06), transparent),
+                radial-gradient(ellipse 800px 800px at 80% 80%, rgba(139,92,246,0.04), transparent),
+                radial-gradient(ellipse 400px 400px at 60% 30%, rgba(20,184,166,0.03), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Header ─────────────────────────────── */
+        header {
+            padding: 48px 0 20px;
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99,102,241,0.12);
+            border: 1px solid rgba(99,102,241,0.25);
+            color: var(--accent-blue);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            margin-bottom: 20px;
+        }
+
+        .badge::before {
+            content: '';
+            width: 6px; height: 6px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            background: var(--gradient-hero);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto 32px;
+            line-height: 1.7;
+        }
+
+        .links {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .links a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5558e6;
+            box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+            background: rgba(99,102,241,0.06);
+        }
+
+        /* ── Stats row ──────────────────────────── */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin: 40px 0;
+        }
+
+        .stat {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        .stat:hover { border-color: var(--border-glow); }
+
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+        .stat-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* ── Quick start ────────────────────────── */
+        .quick-start {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+            margin: 32px 0;
+        }
+
+        .quick-start h2 {
+            font-size: 1.1rem;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 3px;
+            width: fit-content;
+        }
+
+        .tab {
+            padding: 7px 16px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .tab.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+        .tab:hover:not(.active) {
+            color: var(--text-secondary);
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        pre {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 18px 20px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+
+        pre .comment { color: var(--text-muted); }
+        pre .cmd { color: var(--accent-teal); }
+        pre .flag { color: var(--accent-purple); }
+        pre .url { color: var(--accent-amber); }
+
+        /* ── Endpoints ──────────────────────────── */
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin: 48px 0 20px;
+        }
+
+        .endpoints {
+            display: grid;
+            gap: 12px;
+        }
+
+        .endpoint {
+            background: var(--gradient-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px 22px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 14px;
+            transition: all 0.2s;
+        }
+        .endpoint:hover {
+            border-color: rgba(99,102,241,0.3);
+            box-shadow: var(--shadow-glow);
+            transform: translateX(3px);
+        }
+
+        .method {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            min-width: 52px;
+            text-align: center;
+        }
+        .method-get { background: rgba(16,185,129,0.15); color: var(--accent-green); }
+        .method-post { background: rgba(99,102,241,0.15); color: var(--accent-blue); }
+
+        .endpoint-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .endpoint-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .endpoint-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .endpoint-tag {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .tag-sim { background: rgba(245,158,11,0.12); color: var(--accent-amber); }
+        .tag-data { background: rgba(20,184,166,0.12); color: var(--accent-teal); }
+        .tag-live { background: rgba(244,63,94,0.12); color: var(--accent-rose); }
+
+        /* ── Architecture ───────────────────────── */
+        .arch-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .arch-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .arch-card h3 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .arch-card p {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .arch-card ul {
+            list-style: none;
+            margin-top: 10px;
+        }
+        .arch-card li {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            padding: 3px 0;
+        }
+        .arch-card li::before {
+            content: '→ ';
+            color: var(--accent-blue);
+        }
+
+        /* ── Footer ─────────────────────────────── */
+        footer {
+            text-align: center;
+            padding: 48px 0 32px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+        footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        footer a:hover { text-decoration: underline; }
+
+        /* ── Responsive ─────────────────────────── */
+        @media (max-width: 640px) {
+            h1 { font-size: 2rem; }
+            .endpoint { grid-template-columns: auto 1fr; }
+            .endpoint-tag { display: none; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="badge">LIVE API</div>
+            <h1>Synthetic Societies</h1>
+            <p class="subtitle">
+                REST API for the <strong>Behavioral Grounding Framework</strong> —
+                LLM-based agent simulations grounded in empirical data
+                from the European Social Survey.
+            </p>
+            <div class="links">
+                <a href="https://github.com/touro3/SyntheticSocieties" class="btn-primary" target="_blank">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
+                <a href="/health" class="btn-outline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                    Health Check
+                </a>
+                <a href="/experiments" class="btn-outline">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    Experiments
+                </a>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats" id="stats">
+            <div class="stat">
+                <div class="stat-value" id="stat-status">●</div>
+                <div class="stat-label">Status</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">6</div>
+                <div class="stat-label">Policies</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">100</div>
+                <div class="stat-label">Agents / Run</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">ESS R11</div>
+                <div class="stat-label">Data Source</div>
+            </div>
+        </div>
+
+        <!-- Quick Start -->
+        <div class="quick-start">
+            <h2>⚡ Quick Start</h2>
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('cloud')">☁️ Cloud API</button>
+                <button class="tab" onclick="switchTab('docker')">🐳 Docker</button>
+                <button class="tab" onclick="switchTab('local')">💻 Local</button>
+            </div>
+
+            <div class="tab-panel active" id="panel-cloud">
+<pre><span class="comment"># Check the API is live</span>
+<span class="cmd">curl</span> <span class="url">{{ base_url }}/health</span>
+
+<span class="comment"># List all experiments</span>
+<span class="cmd">curl</span> <span class="url">{{ base_url }}/experiments</span>
+
+<span class="comment"># Trigger a simulation (CPU policies: random, rule_based, mock)</span>
+<span class="cmd">curl</span> <span class="flag">-X POST</span> <span class="url">{{ base_url }}/simulate</span> \
+  <span class="flag">-H</span> "Content-Type: application/json" \
+  <span class="flag">-d</span> '{"config_path": "configs/base_config.yaml"}'</pre>
+            </div>
+
+            <div class="tab-panel" id="panel-docker">
+<pre><span class="comment"># Clone and run with Docker Compose</span>
+<span class="cmd">git clone</span> https://github.com/touro3/SyntheticSocieties.git
+<span class="cmd">cd</span> SyntheticSocieties
+<span class="cmd">docker compose up</span> <span class="flag">--build</span>
+
+<span class="comment"># API is live at http://localhost:5050</span>
+<span class="cmd">curl</span> <span class="url">http://localhost:5050/health</span>
+
+<span class="comment"># Run a simulation (results persist to ./experiments/)</span>
+<span class="cmd">curl</span> <span class="flag">-X POST</span> <span class="url">http://localhost:5050/simulate</span> \
+  <span class="flag">-H</span> "Content-Type: application/json" \
+  <span class="flag">-d</span> '{"config_path": "configs/base_config.yaml"}'</pre>
+            </div>
+
+            <div class="tab-panel" id="panel-local">
+<pre><span class="comment"># Clone and install</span>
+<span class="cmd">git clone</span> https://github.com/touro3/SyntheticSocieties.git
+<span class="cmd">cd</span> SyntheticSocieties
+<span class="cmd">pip install</span> <span class="flag">-r</span> requirements.txt   <span class="comment"># full deps (includes torch)</span>
+<span class="cmd">pip install</span> <span class="flag">-e</span> .
+
+<span class="comment"># Run the full pipeline (CPU baselines, no GPU needed)</span>
+<span class="cmd">python</span> scripts/run_full_pipeline.py <span class="flag">--rounds 10 --agents 20 --seeds 42</span>
+
+<span class="comment"># Or start the API server locally</span>
+<span class="cmd">python</span> api/app.py
+
+<span class="comment"># With GPU (LLM policies)</span>
+<span class="cmd">python</span> scripts/run_full_pipeline.py <span class="flag">--include-llm --rounds 30 --agents 100</span></pre>
+            </div>
+        </div>
+
+        <!-- Endpoints -->
+        <h2 class="section-title">API Endpoints</h2>
+        <div class="endpoints">
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/health</span>
+                    <span class="endpoint-desc">Liveness probe — returns API status</span>
+                </div>
+                <span class="endpoint-tag tag-data">system</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-post">POST</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/simulate</span>
+                    <span class="endpoint-desc">Trigger a new simulation run (async) — returns experiment ID</span>
+                </div>
+                <span class="endpoint-tag tag-sim">simulation</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/status/{exp_id}</span>
+                    <span class="endpoint-desc">Poll run progress — round, heartbeat, completion state</span>
+                </div>
+                <span class="endpoint-tag tag-data">data</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/results/{exp_id}</span>
+                    <span class="endpoint-desc">Experiment summary — wealth distribution, Gini, action counts</span>
+                </div>
+                <span class="endpoint-tag tag-data">data</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/experiments</span>
+                    <span class="endpoint-desc">List all experiments from the DuckDB tracker index</span>
+                </div>
+                <span class="endpoint-tag tag-data">data</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-post">POST</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/interview/{exp_id}/{agent_id}</span>
+                    <span class="endpoint-desc">Interview a live agent via IPC bridge (requires running sim)</span>
+                </div>
+                <span class="endpoint-tag tag-live">live</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-post">POST</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/inject/{exp_id}</span>
+                    <span class="endpoint-desc">Inject exogenous events into a running simulation</span>
+                </div>
+                <span class="endpoint-tag tag-live">live</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/report?q={query}</span>
+                    <span class="endpoint-desc">Run ReACT research agent on experiment data (needs OpenAI key)</span>
+                </div>
+                <span class="endpoint-tag tag-sim">analysis</span>
+            </div>
+            <div class="endpoint">
+                <span class="method method-get">GET</span>
+                <div class="endpoint-info">
+                    <span class="endpoint-path">/incomplete</span>
+                    <span class="endpoint-desc">List resumable (non-complete) experiment runs</span>
+                </div>
+                <span class="endpoint-tag tag-data">data</span>
+            </div>
+        </div>
+
+        <!-- Architecture -->
+        <h2 class="section-title">Architecture</h2>
+        <div class="arch-cards">
+            <div class="arch-card">
+                <h3>☁️ Cloud (Render Free Tier)</h3>
+                <p>API deployed on Render.com — zero cost, auto-deploys from GitHub.</p>
+                <ul>
+                    <li>CPU-only policies (random, rule_based, template, mock)</li>
+                    <li>512 MB RAM — lightweight, no GPU deps</li>
+                    <li>Spins down after 15 min idle (cold start ~30s)</li>
+                    <li>Runs real simulations with non-LLM policies</li>
+                </ul>
+            </div>
+            <div class="arch-card">
+                <h3>💻 Local (Docker / Bare Metal)</h3>
+                <p>Full simulation engine on your machine — GPU support for LLM policies.</p>
+                <ul>
+                    <li>All policies including LLM (Mistral-7B, GPT, etc.)</li>
+                    <li>GPU acceleration via CUDA / bitsandbytes 4-bit</li>
+                    <li>Persistent experiment data in ./experiments/</li>
+                    <li>docker compose up or pip install + python api/app.py</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>
+                <strong>Synthetic Societies</strong> — Behavioral Grounding Framework v1.0
+                · <a href="https://github.com/touro3/SyntheticSocieties">Source</a>
+                · MIT License
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(name) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('panel-' + name).classList.add('active');
+        }
+
+        // Live health check
+        fetch('/health')
+            .then(r => r.json())
+            .then(d => {
+                const el = document.getElementById('stat-status');
+                el.textContent = '● Online';
+                el.style.color = '#10b981';
+            })
+            .catch(() => {
+                const el = document.getElementById('stat-status');
+                el.textContent = '○ Offline';
+                el.style.color = '#f43f5e';
+            });
+    </script>
+</body>
+</html>

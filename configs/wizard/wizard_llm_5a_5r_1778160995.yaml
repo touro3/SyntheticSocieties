@@ -1,0 +1,18 @@
+bad_apple:
+  fraction: 0.05
+llm:
+  backend_type: openai
+  model_id: gpt-4o-mini
+network:
+  type: small_world
+policy:
+  type: llm
+population:
+  source: synthetic
+project:
+  experiment_id: wizard_llm_5a_5r_1778160995
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 5
+  rounds: 5

@@ -1,0 +1,276 @@
+{
+  "_generated_by": "scripts/compute_paper_numbers.py",
+  "_note": "All values from actual LLM experiments. phase_c_comparison = 50 agents x 30 rounds.",
+  "condition_a_ablated": null,
+  "condition_b_grounded": null,
+  "pure_llm_ess_persona": {
+    "per_seed": [
+      {
+        "coop_rate_overall": 0.306,
+        "coop_rate_per_round": {
+          "mean": 0.306,
+          "std": 0.107722,
+          "min": 0.06,
+          "max": 0.4,
+          "n": 10
+        },
+        "gini_per_round": {
+          "mean": 0.123452,
+          "std": 0.030066,
+          "min": 0.078602,
+          "max": 0.170715,
+          "n": 10
+        },
+        "gini_final": 0.170715,
+        "brlhf": 0.44,
+        "action_counts": {
+          "work": 317,
+          "cooperate": 153,
+          "save": 30
+        },
+        "n_agents": 50,
+        "n_rounds": 10,
+        "n_events": 500,
+        "seed": 42
+      },
+      {
+        "coop_rate_overall": 0.03,
+        "coop_rate_per_round": {
+          "mean": 0.03,
+          "std": 0.04,
+          "min": 0.0,
+          "max": 0.1,
+          "n": 5
+        },
+        "gini_per_round": {
+          "mean": 0.072442,
+          "std": 0.009671,
+          "min": 0.061838,
+          "max": 0.085411,
+          "n": 5
+        },
+        "gini_final": 0.085411,
+        "brlhf": 0.47,
+        "action_counts": {
+          "work": 30,
+          "save": 67,
+          "cooperate": 3
+        },
+        "n_agents": 20,
+        "n_rounds": 5,
+        "n_events": 100,
+        "seed": 43
+      },
+      {
+        "coop_rate_overall": 0.0,
+        "coop_rate_per_round": {
+          "mean": 0.0,
+          "std": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "n": 5
+        },
+        "gini_per_round": {
+          "mean": 0.074382,
+          "std": 0.002037,
+          "min": 0.07284,
+          "max": 0.077901,
+          "n": 5
+        },
+        "gini_final": 0.077901,
+        "brlhf": 0.5,
+        "action_counts": {
+          "work": 34,
+          "save": 66
+        },
+        "n_agents": 20,
+        "n_rounds": 5,
+        "n_events": 100,
+        "seed": 44
+      }
+    ],
+    "pooled": {
+      "coop_rate": {
+        "mean": 0.112,
+        "std": 0.137724,
+        "min": 0.0,
+        "max": 0.306,
+        "n": 3
+      },
+      "brlhf": {
+        "mean": 0.47,
+        "std": 0.024495,
+        "min": 0.44,
+        "max": 0.5,
+        "n": 3
+      },
+      "gini_final": {
+        "mean": 0.111342,
+        "std": 0.042095,
+        "min": 0.077901,
+        "max": 0.170715,
+        "n": 3
+      },
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_agents": 50,
+      "n_rounds": 10
+    }
+  },
+  "grounded_llm_ess_persona": {
+    "per_seed": [
+      {
+        "coop_rate_overall": 0.084011,
+        "coop_rate_per_round": {
+          "mean": 0.097895,
+          "std": 0.079832,
+          "min": 0.02,
+          "max": 0.263158,
+          "n": 8
+        },
+        "gini_per_round": {
+          "mean": 0.083385,
+          "std": 0.004518,
+          "min": 0.078594,
+          "max": 0.090245,
+          "n": 8
+        },
+        "gini_final": 0.09012,
+        "brlhf": 0.579268,
+        "action_counts": {
+          "work": 306,
+          "save": 32,
+          "cooperate": 31
+        },
+        "n_agents": 50,
+        "n_rounds": 8,
+        "n_events": 369,
+        "seed": 42
+      },
+      {
+        "coop_rate_overall": 0.56,
+        "coop_rate_per_round": {
+          "mean": 0.56,
+          "std": 0.411582,
+          "min": 0.0,
+          "max": 1.0,
+          "n": 5
+        },
+        "gini_per_round": {
+          "mean": 0.088367,
+          "std": 0.023007,
+          "min": 0.069077,
+          "max": 0.133025,
+          "n": 5
+        },
+        "gini_final": 0.133025,
+        "brlhf": 0.31,
+        "action_counts": {
+          "work": 25,
+          "save": 19,
+          "cooperate": 56
+        },
+        "n_agents": 20,
+        "n_rounds": 5,
+        "n_events": 100,
+        "seed": 43
+      },
+      {
+        "coop_rate_overall": 0.48,
+        "coop_rate_per_round": {
+          "mean": 0.48,
+          "std": 0.36,
+          "min": 0.0,
+          "max": 0.9,
+          "n": 5
+        },
+        "gini_per_round": {
+          "mean": 0.077051,
+          "std": 0.021199,
+          "min": 0.059032,
+          "max": 0.117714,
+          "n": 5
+        },
+        "gini_final": 0.117714,
+        "brlhf": 0.31,
+        "action_counts": {
+          "work": 33,
+          "save": 19,
+          "cooperate": 48
+        },
+        "n_agents": 20,
+        "n_rounds": 5,
+        "n_events": 100,
+        "seed": 44
+      }
+    ],
+    "pooled": {
+      "coop_rate": {
+        "mean": 0.37467,
+        "std": 0.208106,
+        "min": 0.084011,
+        "max": 0.56,
+        "n": 3
+      },
+      "brlhf": {
+        "mean": 0.399756,
+        "std": 0.126934,
+        "min": 0.31,
+        "max": 0.579268,
+        "n": 3
+      },
+      "gini_final": {
+        "mean": 0.11362,
+        "std": 0.017754,
+        "min": 0.09012,
+        "max": 0.133025,
+        "n": 3
+      },
+      "n_seeds": 3,
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "n_agents": 50,
+      "n_rounds": 8
+    }
+  },
+  "brlhf_reduction_pct": null,
+  "behavioral_ground_truth": {},
+  "paper_corrections": {
+    "coop_rate_condition_a": {
+      "paper_claims": "\u22480.74",
+      "actual": null
+    },
+    "coop_rate_condition_b": {
+      "paper_claims": "\u22480.31\u20130.38",
+      "actual": null
+    },
+    "brlhf_condition_a": {
+      "paper_claims": "\u22480.52",
+      "actual": null
+    },
+    "brlhf_condition_b": {
+      "paper_claims": "\u22480.21",
+      "actual": null
+    },
+    "gini_condition_a": {
+      "paper_claims": "\u22480.08 (near-zero, egalitarian)",
+      "actual": null,
+      "note": "WRONG DIRECTION: actual Gini A escalates, not stays low"
+    },
+    "gini_condition_b": {
+      "paper_claims": "\u22480.28\u20130.34",
+      "actual": null
+    },
+    "brlhf_reduction_pct": {
+      "paper_claims": "\u224860%",
+      "actual": null
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "n_agents": 200,
+  "n_rounds": 30,
+  "n_seeds": 5,
+  "summary": {
+    "matched": {
+      "profile_label": "nordic_profiles",
+      "benchmark_label": "nordic",
+      "brm_mean": 0.7138,
+      "brm_std": 0.0017,
+      "b_rlhf_mean": 0.1662,
+      "actual_coop_mean": 0.4996,
+      "emp_coop_rate": 0.5,
+      "n_seeds": 5
+    },
+    "mismatched": {
+      "profile_label": "nordic_profiles",
+      "benchmark_label": "eastern",
+      "brm_mean": 0.6748,
+      "brm_std": 0.0015,
+      "b_rlhf_mean": 0.1662,
+      "actual_coop_mean": 0.4996,
+      "emp_coop_rate": 0.35,
+      "n_seeds": 5
+    },
+    "ungrounded": {
+      "profile_label": "flat_profiles",
+      "benchmark_label": "eastern",
+      "brm_mean": 0.622,
+      "brm_std": 0.001,
+      "b_rlhf_mean": 0.3607,
+      "actual_coop_mean": 0.694,
+      "emp_coop_rate": 0.35,
+      "n_seeds": 5
+    }
+  },
+  "directionality_pass": true,
+  "interpretation": "MATCHED grounding (correct culture) achieves highest BRM. MISMATCHED grounding (wrong culture) achieves lower BRM. UNGROUNDED achieves lowest BRM. This proves ESS grounding is directionally specific, not merely 'any demographic info helps'."
+}

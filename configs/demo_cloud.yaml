@@ -1,0 +1,47 @@
+# Lightweight demo config for cloud deployment (no GPU required).
+# Uses rule_based policy — runs in seconds with minimal memory.
+# Trigger via API: POST /simulate {"config_path": "configs/demo_cloud.yaml"}
+
+project:
+  name: bgf-demo
+  experiment_id: demo_cloud_run
+  seed: 42
+
+simulation:
+  rounds: 10
+  population_size: 20
+
+policy:
+  type: rule_based     # CPU-only — no GPU or LLM required
+
+population:
+  source: synthetic
+
+network:
+  type: random
+  edge_prob: 0.4
+  k: 2
+  rewiring_prob: 0.3
+
+environment:
+  public_signal:
+    economy: stable
+  prices:
+    food: 1.0
+  resources:
+    jobs: 100.0
+
+agent_defaults:
+  min_age: 25
+  max_age: 60
+  base_income: 1000.0
+  income_step: 100.0
+  education: college
+  occupation: worker
+  location: italy
+  political_preference: center
+  risk_tolerance: 0.5
+  social_class: middle
+  initial_wealth: 50.0
+  wealth_step: 10.0
+  memory_size: 10

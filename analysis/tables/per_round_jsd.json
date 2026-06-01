@@ -1,0 +1,28 @@
+{
+  "jsd_vs_uniform": {
+    "A_ungrounded": {
+      "1": 0.24864098534750592,
+      "2": 0.027713519775723387,
+      "3": 0.06840888203218558,
+      "4": 0.09483885091572843,
+      "5": 0.00959308092326934,
+      "6": 0.029953543728774228,
+      "7": 0.11812969025394242,
+      "8": 0.1265694293055401,
+      "9": 0.04180536498104713,
+      "10": 0.08151571217701462
+    },
+    "B_grounded": {
+      "1": 0.21274500325128692,
+      "2": 0.08971794145763409,
+      "3": 0.13983807058120679,
+      "4": 0.10952826982506705,
+      "5": 0.15689346671036114,
+      "6": 0.044911068845855565,
+      "7": 0.16441806625232652,
+      "8": 0.006842821585163389
+    }
+  },
+  "interpretation": "JSD(\u03c0_round, \u03c0_uniform) per round. Higher JSD = larger deviation from uniform (more biased). A flat trajectory means the action distribution is stable; a rising trajectory means mode collapse intensifies over time.",
+  "audit_row": "C.jsd (new)"
+}

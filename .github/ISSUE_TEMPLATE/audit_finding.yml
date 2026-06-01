@@ -1,0 +1,53 @@
+name: Audit / correctness finding
+description: A silent-corruption or methodological bug that would change a published number.
+title: "[audit] "
+labels: [audit, correctness, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for bugs that **silently corrupt published numbers** —
+        the class tracked in `docs/AUDIT_DATA_METRICS_LOGGING.md`.
+        Crash bugs go in the regular bug template.
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: What metric / table / figure does this affect, and in which direction?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (file:line and a worked example)
+      description: |
+        Quote the exact lines. If you have numbers under the buggy and
+        the fixed paths, include both.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "🔴 critical — silently corrupts published numbers"
+        - "🟠 medium — methodological or latent"
+        - "🟡 low — reproducibility nit / sentinel overload"
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix_direction
+    attributes:
+      label: Suggested fix direction
+      description: Optional — what the patch would look like. Not required.
+
+  - type: input
+    id: audit_id
+    attributes:
+      label: Proposed audit ID (Ax.y)
+      placeholder: "e.g. A2.5 (next free A2 slot)"

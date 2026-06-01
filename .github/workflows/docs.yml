@@ -1,0 +1,81 @@
+name: Docs
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+      - "ABOUT.md"
+      - "CHANGELOG.md"
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: docs
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: "Build MkDocs site"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required by mkdocs-material git-revision plugin
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install MkDocs + Material + plugins
+        run: |
+          pip install --upgrade pip
+          pip install \
+            mkdocs>=1.6 \
+            mkdocs-material>=9.5 \
+            mkdocs-autorefs>=1.0 \
+            "mkdocstrings[python]>=0.25" \
+            pymdown-extensions>=10.7
+
+      - name: Stage analysis assets into docs tree
+        # paper.md links figures via ../analysis/figures/... which renders fine
+        # on GitHub but resolves outside docs_dir and trips mkdocs --strict.
+        # Copy them under docs/ and drop the ../ prefix at build time only;
+        # source files stay unchanged so GitHub rendering keeps working.
+        run: |
+          mkdir -p docs/analysis
+          cp -r analysis/figures docs/analysis/figures
+          cp -r analysis/tables  docs/analysis/tables
+          sed -i 's|\.\./analysis/|analysis/|g' docs/paper.md
+
+      - name: Build site (strict)
+        run: mkdocs build --strict --site-dir site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: "Deploy to GitHub Pages"
+    needs: build
+    runs-on: ubuntu-latest
+    # Pages deployment requires "Source: GitHub Actions" to be enabled in
+    # Settings → Pages.  Until that is configured the deploy step returns 404;
+    # continue-on-error prevents the docs workflow from blocking main CI.
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

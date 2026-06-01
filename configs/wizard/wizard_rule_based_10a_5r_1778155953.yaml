@@ -1,0 +1,13 @@
+network:
+  type: random
+policy:
+  type: rule_based
+population:
+  source: synthetic
+project:
+  experiment_id: wizard_rule_based_10a_5r_1778155953
+  name: bgf-wizard
+  seed: 42
+simulation:
+  population_size: 10
+  rounds: 5

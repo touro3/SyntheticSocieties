@@ -1,0 +1,30 @@
+# Cross-cultural validation — Eastern European cluster (PL, CZ, HU, SK)
+# Phase 17: Uses trust_people_band=low to approximate Eastern European
+# lower-trust profile.
+# ESS-11 reference mean trust: 0.421 (normalized 0-1).
+# Only AT microdata in local parquet; trust band used as cluster proxy.
+
+project:
+  name: cross_cultural_eastern
+  seed: 42
+
+simulation:
+  rounds: 10
+  population_size: 20
+
+policy:
+  type: mock
+
+population:
+  source: empirical
+
+society_spec:
+  trust_people_band: low
+  age_profile: mixed
+  urbanization: mixed
+  narrative: "Eastern European lower-trust community"
+
+network:
+  type: small_world
+  k: 4
+  rewiring_prob: 0.1

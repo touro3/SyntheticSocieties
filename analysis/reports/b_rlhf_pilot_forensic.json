@@ -1,0 +1,46 @@
+{
+  "_purpose": "Forensic recompute of pilot B_RLHF values to resolve audit rows A.13 / A.14 (paper §6.1).",
+  "_generated_by": "scripts/run_config_simulation re-runs of seed=42, N=50, T=30 (cmp_llm_s42_condA and cmp_llm_s42_condB) under post-patch code (L-1, L-2, C-1 fixes).",
+  "_date_utc": "2026-05-24",
+  "original_pilot_claim": {
+    "source": "phase_c_comparison (canonical pre-patch single-seed N=50 T=30 run)",
+    "B_RLHF(A)": 0.712,
+    "B_RLHF(B)": 0.420,
+    "status": "withdrawn",
+    "reason": "Both values exceed the theoretical bounds derivable from TV(pi, pi_uniform) for a 3-action distribution. 0.712 > 2/3; 0.420 > maximum achievable TV given cooperation = 0.582. Canonical phase_c_comparison directory is not present on the current host, so a direct recompute on the original event log is not possible."
+  },
+  "post_patch_recompute": {
+    "code_state": "post commit c73554e (L-1, L-2, C-1 patches in effect)",
+    "runs": {
+      "cmp_llm_s42_condA": {
+        "ablation_level": 0,
+        "n_agents": 50,
+        "n_rounds": 30,
+        "action_triplet": {"work": 0.362, "save": 0.0987, "cooperate": 0.5393},
+        "action_counts": {"work": 543, "save": 148, "cooperate": 809},
+        "cooperation_rate": 0.5393,
+        "B_RLHF": 0.2347,
+        "B_RLHF_in_bounds": true,
+        "B_RLHF_consistent_with_coop_rate": true
+      },
+      "cmp_llm_s42_condB": {
+        "ablation_level": 5,
+        "n_agents": 50,
+        "n_rounds": 30,
+        "action_triplet": {"work": 0.362, "save": 0.0987, "cooperate": 0.5393},
+        "action_counts": {"work": 543, "save": 148, "cooperate": 809},
+        "cooperation_rate": 0.5393,
+        "B_RLHF": 0.2347,
+        "B_RLHF_in_bounds": true,
+        "B_RLHF_consistent_with_coop_rate": true
+      }
+    },
+    "forensic_finding": "Under the patched code at seed=42, ablation_level=0 (Condition A) and ablation_level=5 (Condition B) produce BYTE-IDENTICAL events.jsonl streams. Configs differ only on experiment_id and llm.ablation_level. Action triplets and B_RLHF values are therefore identical across conditions for this seed (0.2347 each). This single-seed observation is consistent with the §8.1 N=100 10-seed non-replication: at this scale of pilot run, the ESS grounding context does not perturb the Mistral-7B action distribution relative to the no-grounding baseline.",
+    "caveat": "Single seed and a single (N, T) configuration. The byte-identity result may be an artifact of deterministic generation with a fixed seed when the grounded prompt-context delta is small enough not to alter argmax sampling at temperature ~0. It does not establish that grounding has no effect under all sampling settings; it does establish that for seed 42 on the patched code, no per-action divergence appears between A and B."
+  },
+  "audit_resolution": {
+    "A.13": "RESOLVED-BY-WITHDRAWAL: B_RLHF(A) = 0.712 is withdrawn (mathematically impossible under TV; original event log unavailable on current host). Post-patch single-seed value for the same seed is 0.2347.",
+    "A.14": "RESOLVED-BY-WITHDRAWAL: B_RLHF(B) = 0.420 is withdrawn (mathematically impossible under TV given coop=0.582; original event log unavailable on current host). Post-patch single-seed value is 0.2347.",
+    "supersedes_original_pilot_B_RLHF_claim": true
+  }
+}

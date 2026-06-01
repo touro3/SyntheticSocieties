@@ -1,0 +1,548 @@
+openapi: 3.1.0
+info:
+  title: Behavioral Grounding Framework API
+  version: 1.0.0
+  summary: REST API for the BGF synthetic-society simulation engine.
+  description: |
+    HTTP surface served by `api/app.py` (Flask). Covers liveness probes,
+    simulation launch, status polling, agent interviews, anchor (omniscient)
+    queries, AI-designed scenario generation, the human-evaluation pipeline,
+    and the cross-model benchmark spec.
+
+    **Auth model.** `GET`/`HEAD`/`OPTIONS` are always public. All
+    `POST`/`PUT`/`DELETE` require `Authorization: Bearer <BGF_API_TOKEN>`
+    when the environment variable is set. A small set of write endpoints
+    is exempted (see `_PUBLIC_POST_PATHS` in `api/app.py`).
+
+    **Source of truth.** This spec is hand-maintained alongside the Flask
+    routes. Drift is caught by `make openapi-lint` and the
+    `tests/test_openapi_spec.py` route-coverage check.
+  contact:
+    name: BGF Maintainer
+    url: https://github.com/lucastourinho/SyntheticSocieties
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://touro3-synthetic-societies.hf.space
+    description: HuggingFace Space (production)
+  - url: http://localhost:5050
+    description: Local Flask dev server
+
+tags:
+  - name: liveness
+    description: Health probes.
+  - name: capabilities
+    description: What this deployment can do.
+  - name: simulation
+    description: Launching and managing simulation runs.
+  - name: results
+    description: Reading completed-run artefacts.
+  - name: interview
+    description: Live-or-replay agent interviews.
+  - name: anchor
+    description: Omniscient macro-view summarizer.
+  - name: scenario
+    description: AI-designed scenario generation.
+  - name: human-eval
+    description: Prolific-style human evaluation pipeline.
+  - name: human-game
+    description: Standalone human baseline game.
+  - name: benchmark
+    description: B_RLHF cross-model benchmark spec + leaderboard.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: Set via `BGF_API_TOKEN` env var on the server.
+
+  parameters:
+    ExperimentId:
+      name: exp_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Experiment directory name under `experiments/`.
+    AgentId:
+      name: agent_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Agent identifier (e.g. `agent_42`).
+
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        uptime_seconds: { type: number }
+        version: { type: string }
+      required: [status]
+    Capabilities:
+      type: object
+      properties:
+        providers_configured:
+          type: array
+          items: { type: string, enum: [openai, groq, ollama, huggingface] }
+        preferred_provider: { type: string }
+        gpu_available: { type: boolean }
+    SimulateRequest:
+      type: object
+      properties:
+        config_path: { type: string, description: Server-side YAML config path. }
+        seed: { type: integer, default: 42 }
+      required: [config_path]
+    SimulateWizardRequest:
+      type: object
+      properties:
+        n_agents: { type: integer, minimum: 5, maximum: 1000 }
+        n_rounds: { type: integer, minimum: 1, maximum: 100 }
+        condition: { type: string, enum: [A, B, C, D] }
+        seed: { type: integer }
+      required: [n_agents, n_rounds, condition]
+    SimulateResponse:
+      type: object
+      properties:
+        experiment_id: { type: string }
+        status_url: { type: string }
+    RunStatus:
+      type: object
+      properties:
+        experiment_id: { type: string }
+        status: { type: string, enum: [running, complete, failed] }
+        total_rounds: { type: integer }
+        completed_rounds: { type: integer }
+        started_at: { type: number }
+        updated_at: { type: number }
+        finished_at: { type: number, nullable: true }
+        error_message: { type: string, nullable: true }
+        stale: { type: boolean }
+        gpu_wait: { type: boolean }
+    Results:
+      type: object
+      properties:
+        experiment_id: { type: string }
+        metrics:
+          type: object
+          additionalProperties: true
+        summary:
+          type: object
+          additionalProperties: true
+    InterviewRequest:
+      type: object
+      properties:
+        question: { type: string, minLength: 1 }
+      required: [question]
+    InterviewResponse:
+      type: object
+      properties:
+        agent_id: { type: string }
+        mode: { type: string, enum: [live_llm, replay_llm, replay_data, rule_based] }
+        answer: { type: string }
+        evidence:
+          type: array
+          items: { type: string }
+    AnchorRequest:
+      type: object
+      properties:
+        question: { type: string, minLength: 1 }
+        scope: { type: string, enum: [macro, social, economic, opinion] }
+      required: [question]
+    AnchorResponse:
+      type: object
+      properties:
+        answer: { type: string }
+        evidence:
+          type: object
+          additionalProperties: true
+    DesignRequest:
+      type: object
+      properties:
+        prompt: { type: string }
+        provider: { type: string, enum: [auto, openai, groq, ollama] }
+      required: [prompt]
+    DesignResponse:
+      type: object
+      properties:
+        scenario:
+          type: object
+          additionalProperties: true
+        provider_used: { type: string }
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+        details: { type: string, nullable: true }
+
+paths:
+  /health:
+    get:
+      tags: [liveness]
+      summary: Liveness probe + capability flags.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /ping:
+    get:
+      tags: [liveness]
+      summary: Minimal liveness echo.
+      security: []
+      responses:
+        "200": { description: pong }
+
+  /api/capabilities:
+    get:
+      tags: [capabilities]
+      summary: Which LLM providers are configured on this deployment.
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Capabilities" }
+
+  /simulate:
+    post:
+      tags: [simulation]
+      summary: Launch a simulation from a server-side YAML config.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SimulateRequest" }
+      responses:
+        "202":
+          description: Accepted; run scheduled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SimulateResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /simulate-wizard:
+    post:
+      tags: [simulation]
+      summary: Launch a simulation from wizard form parameters (no YAML).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SimulateWizardRequest" }
+      responses:
+        "202":
+          description: Accepted; YAML auto-generated under `configs/wizard/`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SimulateResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /status/{exp_id}:
+    get:
+      tags: [simulation]
+      summary: Poll progress + freshness for a running or completed run.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunStatus" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /results/{exp_id}:
+    get:
+      tags: [results]
+      summary: Metrics and summary for a completed run.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Results" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /replay/{exp_id}:
+    get:
+      tags: [results]
+      summary: Per-round interaction network reconstructed from `events.jsonl`.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /experiments:
+    get:
+      tags: [results]
+      summary: List all experiments in the DuckDB tracker.
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /interview/{exp_id}/{agent_id}:
+    post:
+      tags: [interview]
+      summary: Interview a specific agent. Falls back to data-replay when the run is finished.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+        - $ref: "#/components/parameters/AgentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InterviewRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InterviewResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /anchor/{exp_id}:
+    post:
+      tags: [anchor]
+      summary: Omniscient macro-view query. Aggregates accumulated interview opinions.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnchorRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AnchorResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /inject/{exp_id}:
+    post:
+      tags: [simulation]
+      summary: Inject a live exogenous event into a running simulation via IPC.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ExperimentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_type: { type: string }
+                magnitude: { type: number }
+                target: { type: string }
+      responses:
+        "202": { description: Accepted; injected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /design-simulation:
+    post:
+      tags: [scenario]
+      summary: AI-designed scenario generation (routes to Groq/OpenAI/Ollama).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DesignRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DesignResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /upload-ess-data:
+    post:
+      tags: [simulation]
+      summary: Upload a custom ESS parquet for sampling. Stored under `uploads/ess_data/<uuid>.parquet`.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200": { description: OK; uuid returned. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /report:
+    get:
+      tags: [results]
+      summary: ReACT-style research report (LLM-generated).
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /regression:
+    get:
+      tags: [results]
+      summary: Cross-experiment regression detection (DuckDB analytics).
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /incomplete:
+    get:
+      tags: [results]
+      summary: List runs that the crash-recovery scanner can resume.
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /human-eval/scenarios:
+    get:
+      tags: [human-eval]
+      summary: Vignette pairs (Condition A vs B) for the Prolific study.
+      security: []
+      responses:
+        "200": { description: OK }
+  /human-eval/rating:
+    post:
+      tags: [human-eval]
+      summary: Submit a single rating.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [participant_id, scenario_id, rating]
+              properties:
+                participant_id: { type: string }
+                scenario_id: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 7 }
+      responses:
+        "201": { description: Stored. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /human-eval/results:
+    get:
+      tags: [human-eval]
+      summary: Aggregated ratings.
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /human-game/session:
+    post:
+      tags: [human-game]
+      summary: Start a new human-baseline game session.
+      security: []
+      responses:
+        "201": { description: Session id returned. }
+  /human-game/action:
+    post:
+      tags: [human-game]
+      summary: Submit a single action.
+      security: []
+      responses:
+        "200": { description: OK }
+  /human-game/status/{session_id}:
+    get:
+      tags: [human-game]
+      summary: Poll session progress.
+      security: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+  /human-game/complete:
+    post:
+      tags: [human-game]
+      summary: Finalise a session.
+      security: []
+      responses:
+        "200": { description: OK }
+
+  /benchmark/spec:
+    get:
+      tags: [benchmark]
+      summary: B_RLHF benchmark specification (markdown).
+      security: []
+      responses:
+        "200": { description: OK }
+  /benchmark/leaderboard:
+    get:
+      tags: [benchmark]
+      summary: Current cross-model leaderboard.
+      security: []
+      responses:
+        "200": { description: OK }
+  /benchmark/submissions:
+    get:
+      tags: [benchmark]
+      summary: List submissions.
+      security: []
+      responses:
+        "200": { description: OK }
+  /benchmark/submissions/{name}:
+    get:
+      tags: [benchmark]
+      summary: Fetch one submission record.
+      security: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  responses:
+    Unauthorized:
+      description: Missing or invalid Bearer token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }
+    BadRequest:
+      description: Validation error on request body.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorResponse" }

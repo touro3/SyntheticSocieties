@@ -1,0 +1,90 @@
+name: Bug report
+description: Something in BGF is producing wrong, surprising, or crashing behaviour.
+title: "[bug] "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Before submitting, please:
+        1. Search [existing issues](https://github.com/lucastourinho/SyntheticSocieties/issues?q=is%3Aissue) to avoid duplicates.
+        2. Reproduce on `main` if at all possible — the audit log
+           (`docs/AUDIT_DATA_METRICS_LOGGING.md`) tracks recently-fixed
+           silent-corruption bugs.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: One paragraph: what did you expect, what did you see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: |
+        The exact command + config that triggers it. Prefer the smallest
+        seed/agent/round count that still reproduces.
+      render: bash
+      placeholder: |
+        python scripts/run_full_pipeline.py --rounds 3 --agents 5 --seeds 42
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / events / witness
+      description: |
+        Relevant snippet from `experiments/<exp_id>/events.jsonl`,
+        `summary.json`, or stderr. If reproducing a numeric drift,
+        include the `witness.json` from both runs.
+      render: text
+
+  - type: input
+    id: revision
+    attributes:
+      label: BGF commit / version
+      placeholder: "git rev-parse --short HEAD"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: env
+    attributes:
+      label: Environment
+      multiple: true
+      options:
+        - Local Linux (workstation)
+        - Local macOS
+        - Local Windows / WSL
+        - HuggingFace Space
+        - Docker container
+        - GitHub Actions CI
+        - Other (specify in 'extras')
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "python --version → 3.12.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: gpu
+    attributes:
+      label: GPU?
+      options: [none (CPU only), single GPU, multi-GPU, "not sure"]
+    validations:
+      required: true
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Anything else?
+      description: Stack traces, screenshots, related issues, IRB context, etc.

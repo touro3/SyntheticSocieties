@@ -1,0 +1,34 @@
+# Cross-model comparison — GPT-4o-mini (OpenAI API)
+# Phase 16: External validation beyond open-weights models.
+#
+# Smaller scale (20 agents, 10 rounds) to control API costs.
+# Requires: OPENAI_API_KEY environment variable.
+#
+# Expected cost: ~$0.05–0.10 per run (gpt-4o-mini pricing).
+
+project:
+  name: cross_model_gpt4o_mini
+  seed: 42
+
+simulation:
+  rounds: 20
+  population_size: 50
+
+policy:
+  type: llm
+
+population:
+  source: empirical
+
+llm:
+  model_id: gpt-4o-mini
+  backend_type: openai
+  temperature: 0.2
+  max_new_tokens: 80
+  memory_window: 5
+  max_retries: 1
+
+network:
+  type: small_world
+  k: 4
+  rewiring_prob: 0.1

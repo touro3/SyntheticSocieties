@@ -1,0 +1,51 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = ["E", "F", "I", "UP"]
+ignore = [
+    "E203",   # whitespace before ':'  (black-compatible)
+    "E501",   # line too long         (handled by formatter)
+    "UP007",  # Use X | Y for union          (keep Optional[] for readability)
+    "UP006",  # Use built-in type            (keep Optional for readability)
+    "UP045",  # Non-PEP604 Optional[]        (same — keep Optional syntax)
+]
+
+[lint.isort]
+known-first-party = [
+    "agents",
+    "bgf_logging",
+    "configs",
+    "decision",
+    "environment",
+    "metrics",
+    "population",
+    "scripts",
+    "simulation",
+    "tracker",
+    "utils",
+]
+
+[lint.per-file-ignores]
+# Tests: fixtures and inline imports are common; relaxed hygiene is OK.
+"tests/*" = [
+    "F811",  # redefined-unused — pytest fixtures
+    "F841",  # unused variable — often intentional in assertion scaffolding
+    "E402",  # module-level imports after sys.path patching
+    "E701",  # multi-statement lines
+    "E712",  # `== True` / `== False` idiomatic in pandas assertions
+    "E741",  # single-letter names in math/stat tests
+]
+# Research scripts: exploratory code; tolerate common research-script idioms.
+"scripts/*" = [
+    "E402",  # sys.path hacks before imports
+    "E701",  # multi-statement lines
+    "E702",  # semicolon-joined statements
+    "E712",  # pandas-style True/False comparisons
+    "E731",  # lambda assignments
+    "E741",  # ambiguous variable names (l, I, O)
+    "F841",  # unused variables in exploratory plotting scripts
+]
+# Notebooks: cells frequently run sys.path patching before importing project code.
+"notebooks/*" = ["E402", "E701", "E702", "F841"]
+"decision/fast_batched_backend.py" = ["E402"]  # deprecation warning issued before imports by design

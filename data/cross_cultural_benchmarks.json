@@ -1,0 +1,31 @@
+{
+  "source": "ESS Round 11 (2023-2024) topline results",
+  "reference": "https://www.europeansocialsurvey.org/data/round-index.html",
+  "note": "Country-level mean interpersonal trust (ppltrst, 0-10 scale, normalized to [0,1]). Only AT microdata is in the local parquet. Cluster simulations use trust_people_band to approximate each cluster's trust profile using the available AT sample.",
+  "clusters": {
+    "nordic": {
+      "countries": ["NO", "SE", "FI", "DK"],
+      "ess_mean_trust_people": 0.673,
+      "ess_sd_trust_people": 0.19,
+      "trust_band": "high",
+      "description": "Nordic welfare states — high social capital, institutional trust",
+      "n_respondents_approx": 8400
+    },
+    "southern": {
+      "countries": ["IT", "ES", "PT"],
+      "ess_mean_trust_people": 0.463,
+      "ess_sd_trust_people": 0.22,
+      "trust_band": "moderate",
+      "description": "Southern European — Mediterranean, lower trust baseline",
+      "n_respondents_approx": 6300
+    },
+    "eastern": {
+      "countries": ["PL", "CZ", "HU"],
+      "ess_mean_trust_people": 0.421,
+      "ess_sd_trust_people": 0.21,
+      "trust_band": "low",
+      "description": "Eastern European post-communist — lower interpersonal trust",
+      "n_respondents_approx": 5900
+    }
+  }
+}

@@ -1,0 +1,299 @@
+name: BGF CI
+
+on:
+  push:
+    branches: [ "main" ]
+    # Skip CI for docs/paper-only changes to save Actions minutes & storage
+    paths-ignore:
+      - 'docs/**'
+      - 'paper/**'
+      - 'notebooks/**'
+      - '*.md'
+      - 'CITATION.cff'
+      - 'zenodo.json'
+      - 'LICENSE'
+  pull_request:
+    branches: [ "main" ]
+    paths-ignore:
+      - 'docs/**'
+      - 'paper/**'
+      - 'notebooks/**'
+      - '*.md'
+      - 'CITATION.cff'
+      - 'zenodo.json'
+      - 'LICENSE'
+
+# Cancel in-progress runs on new push to same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------- Merged test + coverage (was 2 separate jobs running the same suite) ----------
+  test:
+    name: "Tests + Coverage (≥70%, py${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 = minimum supported (pyproject `requires-python = ">=3.10"`),
+        # 3.12 = primary dev/CI target. 3.11 catches the middle.
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      # NOTE: HuggingFace cache removed — CI skips all LLM/GPU tests so it was
+      # stored (~200 MB) but never actually used.
+
+      - name: Install dependencies (CPU-only, no GPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci.txt
+          # Install project in editable mode (no torch required for most modules)
+          pip install -e . --no-deps
+
+      # Emit a fresh BRM Proposition 3 certificate so the
+      # test_brm_certificate_emission.py guard runs against current code
+      # rather than a possibly stale on-disk JSON. The Dirichlet sweep is
+      # kept small (200 samples) since the certificate itself is exact.
+      # Only on primary Python (3.12) — the cert is platform-independent
+      # and is re-emitted every CI run.
+      - name: Emit BRM Proposition 3 certificate (§6.1)
+        if: matrix.python-version == '3.12'
+        run: |
+          python analysis/brm_sensitivity.py --emit-certificate \
+            --n-samples 200 \
+            --out-json analysis/tables/brm_sensitivity.json
+          test -f analysis/tables/brm_sensitivity.json
+
+      - name: Run non-GPU tests with coverage
+        run: |
+          python -m pytest tests/ \
+            --ignore=tests/test_llm_policy.py \
+            -k "not (llm_backend or huggingface or gpu or cuda)" \
+            --cov=. \
+            --cov-report=xml \
+            --cov-fail-under=70 \
+            --tb=short \
+            -q \
+            --timeout=120
+        env:
+          # Prevent accidental LLM API calls in CI
+          OPENAI_API_KEY: "sk-test-ci-placeholder"
+          BGF_CI: "true"
+
+      # Heavy pipeline smoke-tests only on the primary Python — they do not
+      # exercise version-specific bytecode and tripling them on 3.10/3.11
+      # would burn Actions minutes for no signal.
+      - name: Verify one-command baseline pipeline
+        if: matrix.python-version == '3.12'
+        run: |
+          python scripts/run_full_pipeline.py \
+            --rounds 3 \
+            --agents 5 \
+            --seeds 42 \
+            2>&1 | tail -20
+
+      - name: Run feature importance (no GPU)
+        if: matrix.python-version == '3.12'
+        run: |
+          python scripts/run_feature_importance.py \
+            --n-agents 50 \
+            --n-rounds 5 \
+            --seed 42
+
+      - name: Run policy intervention sweep (no GPU)
+        if: matrix.python-version == '3.12'
+        run: |
+          python scripts/run_policy_intervention.py \
+            --n-agents 50 \
+            --n-rounds 10 \
+            --n-seeds 2
+
+      - name: Run long-horizon persona drift (no GPU)
+        if: matrix.python-version == '3.12'
+        run: |
+          python scripts/run_long_horizon.py \
+            --n-agents 30 \
+            --n-rounds 30 \
+            --n-seeds 2
+
+      # Storage savings:
+      #   * Upload figures only on PRs or when tests fail (push-to-main passes
+      #     don't need debug artifacts — saves ~17 MB per passing main build).
+      #   * Retention 1 day (was 3) — 3x reduction on long-tail artifact storage.
+      #   * Exclude the 4 largest network/resilience PNGs (~3.9 MB combined).
+      #   * compression-level 9 (default 6) shrinks PNG bundles a further ~10%.
+      - name: Upload figures artifact
+        if: (failure() || github.event_name == 'pull_request') && matrix.python-version == '3.12'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: bgf-figures-${{ github.sha }}
+          path: |
+            analysis/figures/
+            !analysis/figures/grafo_*.png
+            !analysis/figures/bad_apple_resilience.png
+            !analysis/figures/macro_shock_resilience.png
+          retention-days: 1
+          compression-level: 9
+
+      # Storage savings: only upload coverage when something failed (or for PR
+      # review). Passing main builds had been consuming storage every commit
+      # for a report nobody reads, eventually exhausting the Actions artifact
+      # quota and red-failing the job on the upload step (#118 / #119).
+      # If quota is hit, continue-on-error allows the job to finish.
+      - name: Upload coverage report
+        if: (failure() || github.event_name == 'pull_request') && matrix.python-version == '3.12'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage.xml
+          retention-days: 1
+          compression-level: 9
+
+  lint:
+    name: "Lint (ruff)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff check
+        run: ruff check .
+      - name: Run ruff format check
+        run: ruff format --check .
+
+  type-check:
+    name: "Type check (mypy)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install mypy pydantic>=2.8 types-PyYAML numpy pandas networkx
+          pip install -e . --no-deps
+      - name: Run mypy (whole-repo, non-blocking until annotations are complete)
+        run: mypy . --ignore-missing-imports --exclude tests/ --exclude llama.cpp/ --exclude venv/
+        continue-on-error: true
+
+      # The formal-framework core is held to a stricter contract via the
+      # pyproject [[tool.mypy.overrides]] block. This step IS blocking — a
+      # regression in agents.profile / agents.state / environment.payoffs /
+      # environment.institutions / metrics.behavioral_realism /
+      # metrics.distribution / population._helpers / population.sampling
+      # must fail the build.
+      - name: Run mypy (strict subset, blocking)
+        run: |
+          mypy --follow-imports=silent \
+            agents/profile.py \
+            agents/state.py \
+            environment/payoffs.py \
+            environment/institutions.py \
+            metrics/behavioral_realism.py \
+            metrics/distribution.py \
+            population/_helpers.py \
+            population/sampling.py
+
+  frontend:
+    name: "Frontend build (Vue + Vite)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend deps
+        run: npm --prefix frontend install
+      - name: Build Vue app
+        run: npm --prefix frontend run build
+      - name: Verify build output
+        run: test -f api/static/index.html && echo "Build OK" || (echo "Build missing index.html" && exit 1)
+
+  # ---------- Docker: only on version tags (e.g. v1.0.0) to save storage ----------
+  # Previously ran on every push to main, consuming 300-500 MB per image in GHCR.
+  # To trigger: git tag v1.x.x && git push --tags
+  docker:
+    name: "Build & push Docker image to GHCR"
+    runs-on: ubuntu-latest
+    needs: [test, lint, frontend]
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/synthetic-societies
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  deploy:
+    name: "Deploy to Hugging Face Space"
+    runs-on: ubuntu-latest
+    needs: [test, lint, frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Uploads the slim build context (no experiments/ or figures binaries);
+      # huggingface_hub stores the few parquet files via Xet automatically.
+      # HF then rebuilds the Docker image. Secrets required (repo Settings →
+      # Secrets and variables → Actions):
+      #   HF_TOKEN    — a Hugging Face write token
+      #   HF_SPACE_ID — "<username>/<space-name>", e.g. touro3/synthetic-societies
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+        run: |
+          pip install "huggingface_hub>=0.25"
+          python scripts/deploy_hf_space.py

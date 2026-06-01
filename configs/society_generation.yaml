@@ -1,0 +1,5 @@
+prompt: "Uma sociedade envelhecida, urbana, desconfiada e com baixa confiança institucional"
+population_size: 20
+seed: 42
+ess_path: data/ess_clean.parquet
+output_dir: artifacts/societies/demo_society

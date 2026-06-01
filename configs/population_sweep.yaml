@@ -1,0 +1,65 @@
+base_config_path: configs/base_config.yaml
+
+experiments:
+  - experiment_id: mock_pop_20_seed_42
+    policy: mock
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+
+  - experiment_id: mock_pop_50_seed_42
+    policy: mock
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 50
+
+  - experiment_id: mock_pop_100_seed_42
+    policy: mock
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 100
+
+  - experiment_id: random_pop_20_seed_42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+
+  - experiment_id: random_pop_50_seed_42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 50
+
+  - experiment_id: random_pop_100_seed_42
+    policy: random
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 100
+
+  - experiment_id: rule_pop_20_seed_42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 20
+
+  - experiment_id: rule_pop_50_seed_42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 50
+
+  - experiment_id: rule_pop_100_seed_42
+    policy: rule_based
+    seed: 42
+    network: random
+    edge_prob: 0.3
+    population_size: 100

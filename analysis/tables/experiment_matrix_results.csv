@@ -1,0 +1,2 @@
+exp_id,condition,seed,ablation,temperature,status,cooperation_rate,gini,mean_wealth,brm,fidelity,error
+mx_A_smoketest_s1,A,1,,,ok,0.752,0.3666166471277843,127.95,0.8345095467623699,0.42124207265365066,

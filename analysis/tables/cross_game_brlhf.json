@@ -1,0 +1,88 @@
+{
+  "mode": "simulate",
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "rlhf_strength_proxy": 0.85,
+  "note": "Synthetic proxy data \u2014 replace with real LLM experiment distributions.",
+  "per_game": {
+    "prisoners_dilemma": {
+      "mean_brlhf_a": 0.278,
+      "mean_brlhf_b": 0.096,
+      "mean_brlhf_reduction_pct": 64.93,
+      "direction_confirmed_n_of_n": "3/3",
+      "bias_present": true,
+      "human_baseline": {
+        "cooperate": 0.47,
+        "defect": 0.53
+      }
+    },
+    "stag_hunt": {
+      "mean_brlhf_a": 0.3593,
+      "mean_brlhf_b": 0.1417,
+      "mean_brlhf_reduction_pct": 60.63,
+      "direction_confirmed_n_of_n": "3/3",
+      "bias_present": true,
+      "human_baseline": {
+        "stag": 0.63,
+        "hare": 0.37
+      }
+    },
+    "public_goods": {
+      "mean_brlhf_a": 0.5214,
+      "mean_brlhf_b": 0.2315,
+      "mean_brlhf_reduction_pct": 56.06,
+      "direction_confirmed_n_of_n": "3/3",
+      "bias_present": true,
+      "human_baseline": {
+        "work": 0.3,
+        "save": 0.2,
+        "cooperate": 0.5
+      }
+    },
+    "ultimatum": {
+      "mean_brlhf_a": 0.2185,
+      "mean_brlhf_b": 0.302,
+      "mean_brlhf_reduction_pct": -38.97,
+      "direction_confirmed_n_of_n": "0/3",
+      "bias_present": true,
+      "human_baseline": {
+        "low_offer": 0.2,
+        "fair_offer": 0.65,
+        "high_offer": 0.15
+      }
+    }
+  },
+  "thesis_validation": {
+    "n_games_tested": 4,
+    "n_bias_confirmed_brlhf_gt_005": 4,
+    "n_over_cooperation": 2,
+    "thesis_fully_supported": false,
+    "thesis_partially_supported": true,
+    "per_game": {
+      "prisoners_dilemma": {
+        "brlhf_vs_uniform": 0.292061,
+        "brlhf_vs_nash": 0.792061,
+        "direction": "over"
+      },
+      "stag_hunt": {
+        "brlhf_vs_uniform": 0.349154,
+        "brlhf_vs_nash": 0.349154,
+        "direction": "calibrated"
+      },
+      "public_goods": {
+        "brlhf_vs_uniform": 0.507667,
+        "brlhf_vs_nash": 0.841,
+        "direction": "over"
+      },
+      "ultimatum": {
+        "brlhf_vs_uniform": 0.242667,
+        "brlhf_vs_nash": 0.891,
+        "direction": "calibrated"
+      }
+    },
+    "interpretation": "Thesis PARTIALLY supported: 4/4 games show bias."
+  }
+}

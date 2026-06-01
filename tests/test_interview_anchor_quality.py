@@ -30,17 +30,19 @@ def _write_exp(tmp_path, exp_id, *, snapshot=None, config_yaml=None):
 def _mk_events(n_rounds, action_pattern, *, neighbors=("agent_5",), target="agent_5"):
     events = []
     for r in range(1, n_rounds + 1):
-        events.append({
-            "round_id": r,
-            "agent_id": "agent_0",
-            "action": {
-                "action_type": action_pattern(r),
-                "target_agent_id": target if action_pattern(r) in {"cooperate", "steal"} else None,
-                "reasoning_summary": f"r{r} reasoning",
-            },
-            "state_after": {"wealth": 50 + r, "stress": min(1.0, 0.1 + r * 0.01)},
-            "perception": {"network": {"neighbors": list(neighbors)}},
-        })
+        events.append(
+            {
+                "round_id": r,
+                "agent_id": "agent_0",
+                "action": {
+                    "action_type": action_pattern(r),
+                    "target_agent_id": target if action_pattern(r) in {"cooperate", "steal"} else None,
+                    "reasoning_summary": f"r{r} reasoning",
+                },
+                "state_after": {"wealth": 50 + r, "stress": min(1.0, 0.1 + r * 0.01)},
+                "perception": {"network": {"neighbors": list(neighbors)}},
+            }
+        )
     return events
 
 
@@ -49,17 +51,19 @@ def test_interview_helper_renders_persona_block(monkeypatch, tmp_path):
     exp_dir = _write_exp(
         tmp_path,
         "exp1",
-        snapshot=[{
-            "agent_id": "agent_0",
-            "age": 42,
-            "gender": 1,
-            "country": "AT",
-            "trust_people": 0.7,
-            "trust_institutions": 0.3,
-            "risk_tolerance": 0.45,
-            "competitiveness": 0.65,
-            "left_right": 0.55,
-        }],
+        snapshot=[
+            {
+                "agent_id": "agent_0",
+                "age": 42,
+                "gender": 1,
+                "country": "AT",
+                "trust_people": 0.7,
+                "trust_institutions": 0.3,
+                "risk_tolerance": 0.45,
+                "competitiveness": 0.65,
+                "left_right": 0.55,
+            }
+        ],
         config_yaml=(
             "simulation:\n  rounds: 10\n  population_size: 5\n"
             "policy:\n  type: rule_based\n"
@@ -183,7 +187,5 @@ def test_stance_extractor_cache_dedup(monkeypatch, tmp_path):
 def test_semantic_stance_tally_falls_back_without_key(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "")
     app_mod = _reload_app(monkeypatch, tmp_path)
-    out = app_mod._semantic_stance_tally(
-        {"agent_0": "I prefer paper"}, "paper or monograph?", ["paper", "monograph"]
-    )
+    out = app_mod._semantic_stance_tally({"agent_0": "I prefer paper"}, "paper or monograph?", ["paper", "monograph"])
     assert out is None  # Caller falls back to substring tally

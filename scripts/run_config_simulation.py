@@ -588,6 +588,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         policy = build_policy(config)
     except Exception as exc:
         import traceback as _tb
+
         _early_run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
 
@@ -608,6 +609,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             logger.info("Generated synthetic population: %d agents", len(agents))
     except Exception as exc:
         import traceback as _tb
+
         _early_run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
 
@@ -644,11 +646,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
                 _p = getattr(_agent, "profile", None)
                 if _p is None:
                     continue
-                _rec = {
-                    k: getattr(_p, k)
-                    for k in _PROFILE_FIELDS
-                    if getattr(_p, k, None) is not None
-                }
+                _rec = {k: getattr(_p, k) for k in _PROFILE_FIELDS if getattr(_p, k, None) is not None}
                 _f.write(_json.dumps(_rec, default=str) + "\n")
     except Exception as _snap_exc:
         logger.warning("Could not write population_snapshot.jsonl: %s", _snap_exc)
@@ -750,6 +748,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             run_mgr.complete()
     except Exception as exc:
         import traceback as _tb
+
         run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
     finally:

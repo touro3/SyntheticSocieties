@@ -348,9 +348,7 @@ def _extract_stance_via_llm(
     if not text or not options:
         return None
 
-    cache_key = _hashlib.sha256(
-        (text + "||" + question + "||" + "|".join(options)).encode("utf-8")
-    ).hexdigest()
+    cache_key = _hashlib.sha256((text + "||" + question + "||" + "|".join(options)).encode("utf-8")).hexdigest()
     cached = _STANCE_CACHE.get(cache_key)
     if cached is not None:
         _STANCE_CACHE.move_to_end(cache_key)
@@ -369,9 +367,7 @@ def _extract_stance_via_llm(
             "Do not infer beyond what is in the text."
         )
         user_prompt = (
-            f"Question put to the agent: {question}\n"
-            f"Allowed stance options: {options}\n"
-            f"Agent text:\n{text[:1200]}"
+            f"Question put to the agent: {question}\nAllowed stance options: {options}\nAgent text:\n{text[:1200]}"
         )
         resp = oai.chat.completions.create(
             model=model,
@@ -457,16 +453,18 @@ def _synthesize_live_interview_answer(
     # Build a faux events list so we can reuse the replay-path helper.
     faux_events = []
     for item in recent_events:
-        faux_events.append({
-            "round_id": item.get("round_id"),
-            "action": {
-                "action_type": item.get("event_type"),
-                "target_agent_id": item.get("partner_id"),
-                "reasoning_summary": "",
-            },
-            "state_after": state,
-            "perception": {"network": {"neighbors": []}},
-        })
+        faux_events.append(
+            {
+                "round_id": item.get("round_id"),
+                "action": {
+                    "action_type": item.get("event_type"),
+                    "target_agent_id": item.get("partner_id"),
+                    "reasoning_summary": "",
+                },
+                "state_after": state,
+                "perception": {"network": {"neighbors": []}},
+            }
+        )
 
     # If we know the agent profile but no population snapshot exists yet
     # (snapshot is written at run start, so it should exist), seed one in
@@ -702,20 +700,12 @@ def _interview_prompt_context(
     social_lines: list[str] = []
     if coop_targets:
         top_coop = sorted(coop_targets.items(), key=lambda kv: -kv[1])[:3]
-        social_lines.append(
-            "Repeated cooperation partners: "
-            + ", ".join(f"{aid} (×{n})" for aid, n in top_coop)
-        )
+        social_lines.append("Repeated cooperation partners: " + ", ".join(f"{aid} (×{n})" for aid, n in top_coop))
     if steal_targets:
         top_steal = sorted(steal_targets.items(), key=lambda kv: -kv[1])[:3]
-        social_lines.append(
-            "Stole from: " + ", ".join(f"{aid} (×{n})" for aid, n in top_steal)
-        )
+        social_lines.append("Stole from: " + ", ".join(f"{aid} (×{n})" for aid, n in top_steal))
     if all_neighbors and not coop_targets:
-        social_lines.append(
-            "Neighbors never cooperated with: "
-            + ", ".join(sorted(all_neighbors)[:4])
-        )
+        social_lines.append("Neighbors never cooperated with: " + ", ".join(sorted(all_neighbors)[:4]))
     social_block = "\n".join(social_lines)
 
     # ── Memory block ──────────────────────────────────────────────────────
@@ -901,9 +891,7 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
     else:
         # Reuse singleton to avoid TCP reconnect on every call
         key_prefix = api_key[:8]
-        client = _oai_clients_get_or_create(
-            key_prefix, lambda: openai.OpenAI(api_key=api_key)
-        )
+        client = _oai_clients_get_or_create(key_prefix, lambda: openai.OpenAI(api_key=api_key))
         model = "gpt-4o-mini"
 
     kwargs: dict = dict(
@@ -1391,7 +1379,7 @@ def create_app(
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
             return jsonify({"error": "Authorization header required"}), 401
-        if not hmac.compare_digest(auth_header[len("Bearer "):].encode(), configured_token.encode()):
+        if not hmac.compare_digest(auth_header[len("Bearer ") :].encode(), configured_token.encode()):
             logger.warning("Failed /admin/health auth from %s", request.remote_addr)
             return jsonify({"error": "Invalid token"}), 401
         checks = {
@@ -1981,9 +1969,7 @@ def create_app(
                         live_context=live_ctx,
                     )
                     if synth is not None:
-                        _append_interview_response(
-                            exp_dir, agent_id, question, synth["response"], extra=synth
-                        )
+                        _append_interview_response(exp_dir, agent_id, question, synth["response"], extra=synth)
                         return jsonify(synth)
 
                 # Backward-compatible fallback: ship the static answer.
@@ -1996,9 +1982,7 @@ def create_app(
                         "model": "rule_based",
                         "source": "ipc_live_static",
                     }
-                    _append_interview_response(
-                        exp_dir, agent_id, question, static_answer, extra=extra
-                    )
+                    _append_interview_response(exp_dir, agent_id, question, static_answer, extra=extra)
                     return jsonify({"response": static_answer, **extra})
 
                 return jsonify(reply)
@@ -2099,17 +2083,14 @@ def create_app(
 
                 # Reuse singleton — avoids TCP reconnect on every interview call
                 _oai_prefix = oai_key[:8]
-                oai = _oai_clients_get_or_create(
-                    _oai_prefix, lambda: _OAI(api_key=oai_key)
-                )
+                oai = _oai_clients_get_or_create(_oai_prefix, lambda: _OAI(api_key=oai_key))
 
                 # Compose the system prompt from the structured context blocks.
                 # Order them so the largest static portion (scenario + persona)
                 # sits at the front of the prompt where gpt-4o-mini's automatic
                 # prefix cache can reuse it across questions for the same run.
                 persona_section = (
-                    f"You are {agent_id}, a synthetic agent in BGF simulation ({exp_id}).\n"
-                    f"{ctx['persona_block']}\n"
+                    f"You are {agent_id}, a synthetic agent in BGF simulation ({exp_id}).\n{ctx['persona_block']}\n"
                     if ctx["persona_block"]
                     else f"You are {agent_id}, a synthetic agent in BGF simulation ({exp_id}).\n"
                 )
@@ -2854,9 +2835,7 @@ def create_app(
                 from openai import RateLimitError as _RLE
 
                 _oai_prefix = _anchor_oai_key[:8]
-                oai = _oai_clients_get_or_create(
-                    _oai_prefix, lambda: _OAI(api_key=_anchor_oai_key)
-                )
+                oai = _oai_clients_get_or_create(_oai_prefix, lambda: _OAI(api_key=_anchor_oai_key))
 
                 # Build a per-agent reasoning excerpt. Scale the sample window
                 # with population size (capped at 200 to keep the prompt under
@@ -3167,12 +3146,14 @@ def create_app(
         fname_lower = f.filename.lower()
         _SUPPORTED_EXT = (".csv", ".parquet", ".sav", ".dta")
         if not fname_lower.endswith(_SUPPORTED_EXT):
-            return jsonify({
-                "error": (
-                    f"Unsupported file type. Accepted extensions: {', '.join(_SUPPORTED_EXT)}. "
-                    "ESS distributes microdata as .sav (SPSS); upload it directly without converting."
-                )
-            }), 400
+            return jsonify(
+                {
+                    "error": (
+                        f"Unsupported file type. Accepted extensions: {', '.join(_SUPPORTED_EXT)}. "
+                        "ESS distributes microdata as .sav (SPSS); upload it directly without converting."
+                    )
+                }
+            ), 400
 
         raw = f.read()
         if len(raw) > _UPLOAD_MAX_BYTES:
@@ -3229,25 +3210,25 @@ def create_app(
         missing_required = [c for c in _REQUIRED_COLUMNS if c not in df.columns]
         if missing_required:
             aliases_for_missing = {
-                col: sorted({k for k, v in _ALIASES.items() if v == col})
-                for col in missing_required
+                col: sorted({k for k, v in _ALIASES.items() if v == col}) for col in missing_required
             }
-            return jsonify({
-                "error": (
-                    f"Missing required column(s): {', '.join(missing_required)}. "
-                    "The grounder needs at least an integer age per respondent."
-                ),
-                "missing_required": missing_required,
-                "aliases_tried": aliases_for_missing,
-                "received_columns": sorted(map(str, df.columns)),
-            }), 422
+            return jsonify(
+                {
+                    "error": (
+                        f"Missing required column(s): {', '.join(missing_required)}. "
+                        "The grounder needs at least an integer age per respondent."
+                    ),
+                    "missing_required": missing_required,
+                    "aliases_tried": aliases_for_missing,
+                    "received_columns": sorted(map(str, df.columns)),
+                }
+            ), 422
 
         warnings: list[str] = []
         missing_recommended = [c for c in _RECOMMENDED_COLUMNS if c not in df.columns]
         if missing_recommended:
             warnings.append(
-                "Recommended columns missing — config defaults will be used for: "
-                + ", ".join(missing_recommended)
+                "Recommended columns missing — config defaults will be used for: " + ", ".join(missing_recommended)
             )
 
         # Derive trust_institutions if absent (mirrors ESSGrounder.load)
@@ -3276,10 +3257,12 @@ def create_app(
                 except OSError:
                     pass
         except Exception as exc:  # noqa: BLE001 — message surfaced to user
-            return jsonify({
-                "error": f"Uploaded data failed sample validation: {exc}",
-                "warnings": warnings,
-            }), 422
+            return jsonify(
+                {
+                    "error": f"Uploaded data failed sample validation: {exc}",
+                    "warnings": warnings,
+                }
+            ), 422
 
         # ── Dimension analysis ────────────────────────────────────────────
         def _col_stats(col: str) -> dict:

@@ -55,11 +55,7 @@ def test_csv_semicolon_delimited(client):
 
 
 def test_ess_short_codes_aliased(client):
-    csv = (
-        "agea,gndr,cntry,trstprl,ppltrst,stflife,lrscale\n"
-        "42,1,AT,5,6,7,3\n"
-        "50,2,DE,6,5,8,5\n"
-    )
+    csv = "agea,gndr,cntry,trstprl,ppltrst,stflife,lrscale\n42,1,AT,5,6,7,3\n50,2,DE,6,5,8,5\n"
     resp = client.post(
         "/upload-ess-data",
         data={"file": (io.BytesIO(csv.encode()), "ess_round11.csv")},

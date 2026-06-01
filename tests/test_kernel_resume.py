@@ -64,11 +64,15 @@ def _make_kernel(
     n_agents: int = 2,
     heartbeat_path: Path | None = None,
     tmp_path: Path | None = None,
+    overwrite: bool = True,
 ) -> tuple[SimulationKernel, list[Agent]]:
     if agents is None:
         agents = [_make_agent(f"agent_{i}") for i in range(n_agents)]
     world = _make_world()
-    event_logger = EventLogger((tmp_path or Path("/tmp")) / "events.jsonl", overwrite=True)
+    event_logger = EventLogger(
+        (tmp_path or Path("/tmp")) / "events.jsonl",
+        overwrite=overwrite,
+    )
     kernel = SimulationKernel(
         agents=agents,
         world=world,
@@ -493,9 +497,17 @@ class TestRunResume:
         ckpt = tmp_path / "checkpoint.json"
         assert ckpt.exists()
 
-        # New kernel picks up from checkpoint
+        # New kernel picks up from checkpoint — must append to events.jsonl
+        # rather than wipe it (matches real resume semantics; the new
+        # EventLogger guard would otherwise reject overwrite=True on a
+        # populated log without an explicit force=True).
         agents2 = [_make_agent(f"agent_{i}") for i in range(2)]
-        kernel_b, _ = _make_kernel(agents=agents2, heartbeat_path=hb_path, tmp_path=tmp_path)
+        kernel_b, _ = _make_kernel(
+            agents=agents2,
+            heartbeat_path=hb_path,
+            tmp_path=tmp_path,
+            overwrite=False,
+        )
         saved_round = kernel_b.load_checkpoint(ckpt)
         assert saved_round == 2
 

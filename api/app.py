@@ -2749,10 +2749,13 @@ def create_app(
                 # Prefer LLM-based semantic stance extraction over substring
                 # counting — "I dislike paper" was previously counted as a
                 # vote for paper. Falls back to substring tally when no
-                # OpenAI key is available.
+                # OpenAI key is available OR when the LLM extracted no usable
+                # stances (e.g. fake key returns errors, prompt returned
+                # `stance: null` for every agent). Empty semantic output must
+                # not block the substring path or we lose the answer.
                 semantic = _semantic_stance_tally(per_agent_interview, question, scenario_options)
                 method = "substring"
-                if semantic is not None:
+                if semantic is not None and semantic[0]:
                     counts, by_agent, _details = semantic
                     method = "semantic_llm"
                 else:
@@ -2769,7 +2772,7 @@ def create_app(
             if all_reasoning_texts:
                 semantic = _semantic_stance_tally(per_agent_last_reasoning, question, scenario_options)
                 method = "substring"
-                if semantic is not None:
+                if semantic is not None and semantic[0]:
                     counts, by_agent, _details = semantic
                     method = "semantic_llm"
                 else:

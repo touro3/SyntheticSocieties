@@ -7,8 +7,6 @@ and human-eval outputs onto persistent storage.
 
 import importlib
 
-import pytest
-
 
 def _reload_app_module():
     import api.app as app_mod

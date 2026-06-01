@@ -326,7 +326,7 @@ def _load_population_snapshot(exp_dir: Path) -> dict[str, dict]:
 import hashlib as _hashlib  # noqa: E402 — keeps the import next to the cache it owns
 from collections import OrderedDict as _OrderedDict  # noqa: E402
 
-_STANCE_CACHE: "_OrderedDict[str, dict]" = _OrderedDict()
+_STANCE_CACHE: _OrderedDict[str, dict] = _OrderedDict()
 _STANCE_CACHE_MAX = 1024
 
 
@@ -565,7 +565,6 @@ def _interview_prompt_context(
     the same prompt structure and answer quality, rather than the live path
     being a thin memory dump as it was historically.
     """
-    import json as _json
 
     # ── Persona block ─────────────────────────────────────────────────────
     snapshot = _load_population_snapshot(exp_dir)
@@ -2045,26 +2044,6 @@ def create_app(
         most_coop_neighbor = max(coop_targets, key=coop_targets.get) if coop_targets else None
         most_stolen_from = max(steal_targets, key=steal_targets.get) if steal_targets else None
 
-        # Build a history block for the OpenAI prompt (last 10 rounds)
-        history_lines = []
-        for ev in agent_events[-10:]:
-            r = ev.get("round_id", "?")
-            act = ev.get("action", {}).get("action_type", "?")
-            w = ev.get("state_after", {}).get("wealth")
-            s = ev.get("state_after", {}).get("stress")
-            rsn = ev.get("action", {}).get("reasoning_summary", "")
-            # Strip LLM-fallback markers to present clean data
-            rsn = rsn.replace("[LLM fallback: ", "").rstrip("]")
-            entry = f"Round {r}: {act}"
-            if w is not None:
-                entry += f", wealth {w:.0f}"
-            if s is not None:
-                entry += f", stress {s:.2f}"
-            if rsn:
-                entry += f" — {rsn}"
-            history_lines.append(entry)
-        history_text = "\n".join(history_lines)
-
         # ── Build structured context (persona, scenario, memory, history) ───
         ctx = _interview_prompt_context(exp_dir, agent_id, agent_events)
         scenario_ctx = _safe_json_file(exp_dir / "scenario.json") or {}
@@ -3126,7 +3105,6 @@ def create_app(
 
         The returned file_id can be passed to /simulate-wizard as ess_data_file_id.
         """
-        import io
         import uuid as _uuid
 
         import numpy as np
@@ -3243,8 +3221,9 @@ def create_app(
         # instead of mid-simulation. Use a tempfile because sample_empirical_rows
         # reads from disk; this is cheap (<100 ms for a 50 MB parquet).
         try:
-            from population.sampling import sample_empirical_rows as _sample_rows
             import tempfile
+
+            from population.sampling import sample_empirical_rows as _sample_rows
 
             with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as _tmp:
                 _tmp_path = _tmp.name

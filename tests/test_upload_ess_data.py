@@ -1,16 +1,12 @@
 """Upload-endpoint hardening: format support + schema validation."""
 
 import io
-import json
-import os
-import tempfile
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from api.app import _load_uploaded_dataframe, create_app
-from population.column_aliases import COLUMN_ALIASES, normalize_columns
+from api.app import _load_uploaded_dataframe
+from population.column_aliases import normalize_columns
 
 
 @pytest.fixture

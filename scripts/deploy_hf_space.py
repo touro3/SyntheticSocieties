@@ -45,7 +45,9 @@ IGNORE = [
     # Space. The running app recreates these dirs on demand.
     "experiments/**",
     "uploads/**",
-    "tracker/**",
+    # NB: tracker/ also contains analytics.py (imported by api/app.py for
+    # /regressions), so ignore only the data file, not the whole dir.
+    "tracker/*.parquet",
     "human_outputs/**",
     "data/human/**",
     "data/bgf_human_responses*",

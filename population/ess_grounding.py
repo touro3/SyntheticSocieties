@@ -281,6 +281,16 @@ class ESSGrounder:
                 f"{spec.political_orientation_band}(padding={numeric_padding:.2f})"
             )
 
+        # Guard against uploaded datasets that lack an `age` column entirely.
+        # The downstream grounder needs ages to compute cohort priors; we
+        # surface this as a structured ValueError so the upload endpoint can
+        # convert it into a 422 with a helpful message rather than crashing.
+        if "age" not in df.columns:
+            raise ValueError(
+                "Uploaded data has no usable 'age' column — grounding requires "
+                "an integer age per row. Accepted aliases: agea, yrbrn (see "
+                "population/column_aliases.py)."
+            )
         return df.dropna(subset=["age"]).copy(), active_filters
 
     def _apply_band(

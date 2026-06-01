@@ -5,6 +5,8 @@ colorFrom: indigo
 colorTo: blue
 sdk: docker
 app_port: 5050
+suggested_hardware: cpu-basic
+suggested_storage: small
 pinned: false
 ---
 
@@ -137,6 +139,27 @@ This is a research artefact; reproduction is a first-class concern.
 | **Crash-recovery / resume** | `python scripts/run_config_simulation.py --resume <EXP_ID>` reads `experiments/<EXP_ID>/checkpoint.json` |
 
 GPU experiments (Mistral-7B-Instruct-v0.3 at 4-bit quantisation, ~16 GB VRAM) are documented in `scripts/pipeline_*.sh` and are run manually; they are intentionally excluded from `make reproduce` so a CPU-only laptop can validate the full non-LLM analysis pipeline.
+
+---
+
+## HuggingFace Space Setup
+
+The public demo runs on a Docker Space at `huggingface.co/spaces/<user>/<space>`. To deploy your own copy:
+
+**1. Secrets to configure** (Settings → Variables and secrets):
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `BGF_API_TOKEN` | Recommended | Bearer token gating all POST endpoints. Unset = open mode. |
+| `OPENAI_API_KEY` | For LLM features | `/design-simulation`, interview synthesis, anchor stance extraction, `/report`. |
+| `GROQ_API_KEY` | Optional fallback | Cheaper LLM provider; used when OpenAI is unavailable. |
+| `BGF_DATA_ROOT` | For persistence | Point at `/data` if you enable persistent storage. Without it, all uploads + experiment results are lost on every Space restart. |
+| `BGF_CORS_ORIGINS` | Optional | Comma-separated allowed origins. Defaults to auto-derived Space URL + localhost. |
+| `BGF_DEMO_MODE` | Public demos | `true` clamps wizard sims to small N/T so a visitor cannot OOM the Space. |
+
+**2. Enable persistent storage** (Settings → Storage → Small / 5 GB) and set `BGF_DATA_ROOT=/data` so `experiments/`, `uploads/`, `tracker/`, and human-eval responses survive restarts.
+
+**3. Push from a local clone** with `python scripts/deploy_hf_space.py` (requires `HF_TOKEN` and `HF_SPACE_ID=<user>/<space>` in your local env).
 
 ---
 

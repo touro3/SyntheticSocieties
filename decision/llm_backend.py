@@ -123,7 +123,10 @@ class LLMBackend:
         self.device_map = device_map
         # Agent decisions are short JSON (~40 tokens).  128 gives ample
         # headroom while halving KV-cache allocation vs the old 256.
-        self.max_new_tokens = max_new_tokens
+        # Coerce to int: YAML/JSON configs sometimes round-trip numeric fields
+        # as strings, which trips transformers' GenerationConfig.validate()
+        # with `TypeError: '<=' not supported between instances of 'str' and 'int'`.
+        self.max_new_tokens = int(max_new_tokens)
         self.temperature = temperature
         # Honour BGF_MODEL_CACHE env var so generated configs can use null
         # and still find a custom model directory without hardcoding paths.
@@ -723,10 +726,10 @@ class LLMBackend:
             _lp = None
 
         gen_kwargs = dict(
-            max_new_tokens=max_tokens,
-            temperature=temp if temp > 0 else 1.0,
-            do_sample=temp > 0,
-            top_p=0.9 if temp > 0 else 1.0,
+            max_new_tokens=int(max_tokens),
+            temperature=float(temp) if float(temp) > 0 else 1.0,
+            do_sample=float(temp) > 0,
+            top_p=0.9 if float(temp) > 0 else 1.0,
             pad_token_id=self.tokenizer.pad_token_id,
         )
         if _lp is not None:

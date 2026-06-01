@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import fcntl
 import json
+import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -53,23 +56,40 @@ def build_experiment_record(run_dir: str | Path) -> dict[str, Any]:
     }
 
 
+@contextmanager
+def _tracker_lock(tracker_path: Path):
+    """Exclusive cross-process lock for the tracker parquet RMW window."""
+    lock_path = tracker_path.with_suffix(tracker_path.suffix + ".lock")
+    ensure_dir(lock_path.parent)
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
 def append_record(record: dict[str, Any], tracker_path: str | Path = TRACKER_PATH) -> None:
     tracker_path = Path(tracker_path)
     ensure_dir(tracker_path.parent)
 
     new_df = pl.DataFrame([record])
 
-    if tracker_path.exists():
-        existing = pl.read_parquet(tracker_path)
+    with _tracker_lock(tracker_path):
+        if tracker_path.exists():
+            existing = pl.read_parquet(tracker_path)
 
-        if "experiment_id" in existing.columns and record["experiment_id"] in existing["experiment_id"].to_list():
-            existing = existing.filter(pl.col("experiment_id") != record["experiment_id"])
+            if "experiment_id" in existing.columns and record["experiment_id"] in existing["experiment_id"].to_list():
+                existing = existing.filter(pl.col("experiment_id") != record["experiment_id"])
 
-        updated = pl.concat([existing, new_df], how="diagonal")
-    else:
-        updated = new_df
+            updated = pl.concat([existing, new_df], how="diagonal")
+        else:
+            updated = new_df
 
-    updated.write_parquet(tracker_path)
+        tmp_path = tracker_path.with_suffix(tracker_path.suffix + ".tmp")
+        updated.write_parquet(tmp_path)
+        os.replace(tmp_path, tracker_path)
 
 
 def rebuild_tracker(experiments_dir: str | Path = "experiments", tracker_path: str | Path = TRACKER_PATH) -> None:

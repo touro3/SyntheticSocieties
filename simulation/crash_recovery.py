@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -203,7 +204,9 @@ class RunStateManager:
         if self._state is None:
             return
         try:
-            self._path.write_text(json.dumps(self._state.to_dict(), indent=2), encoding="utf-8")
+            tmp_path = self._path.with_suffix(self._path.suffix + ".tmp")
+            tmp_path.write_text(json.dumps(self._state.to_dict(), indent=2), encoding="utf-8")
+            os.replace(tmp_path, self._path)
         except Exception as exc:
             logger.warning("Failed to write run_state.json: %s", exc)
 

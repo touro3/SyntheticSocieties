@@ -29,8 +29,13 @@ class InstitutionManager:
         world_state: WorldState,
         agent_lookup: Mapping[str, Agent],
     ) -> ValidationResult:
-        if action.amount is not None and action.amount < 0:
-            return ValidationResult(valid=False, reason="negative_amount")
+        if action.amount is not None:
+            try:
+                action.amount = float(action.amount)
+            except (TypeError, ValueError):
+                return ValidationResult(valid=False, reason="non_numeric_amount")
+            if action.amount < 0:
+                return ValidationResult(valid=False, reason="negative_amount")
 
         # ── Adversarial hard-constraint ──────────────────────────────────
         # A bad-apple agent is physically incapable of any action other than

@@ -39,6 +39,7 @@ class EventLogger:
         overwrite: bool = False,
         max_bytes: int = _DEFAULT_MAX_BYTES,
         fsync_each: bool = False,
+        force: bool = False,
     ) -> None:
         self.output_path = Path(output_path)
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +55,15 @@ class EventLogger:
         self._fsync_each = fsync_each
 
         if overwrite and self.output_path.exists():
+            # Guard against accidental truncation of a populated event log
+            # (e.g. a bare launch run against an existing exp_id without
+            # --resume). Require an explicit force=True to wipe non-empty data.
+            if self.output_path.stat().st_size > 0 and not force:
+                raise FileExistsError(
+                    f"Refusing to overwrite non-empty event log {self.output_path} "
+                    f"(size={self.output_path.stat().st_size} bytes). "
+                    "Pass force=True to wipe, or use overwrite=False to append."
+                )
             self.output_path.unlink()
 
         # Resume byte tracking if the file already exists (e.g., after restart).

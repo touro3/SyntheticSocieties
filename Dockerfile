@@ -43,7 +43,10 @@ COPY --from=builder /app/configs /app/configs
 COPY --from=builder /app/scripts /app/scripts
 COPY --from=builder /app/data /app/data
 
-# Default port (overridden by Render via $PORT)
+# Default port. HF Spaces honours the `app_port: 5050` README frontmatter
+# and routes traffic accordingly — do not change to 7860 unless you also
+# update README.md. Render and similar platforms inject $PORT at runtime
+# and that override is respected by the gunicorn invocation below.
 ENV PORT=5050
 EXPOSE 5050
 

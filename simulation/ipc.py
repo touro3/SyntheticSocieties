@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -147,7 +148,9 @@ class SimulationIPCServer:
             "result": result,
         }
         resp_path = self._resp_dir / f"resp_{request_id}.json"
-        resp_path.write_text(json.dumps(response, indent=2), encoding="utf-8")
+        tmp_path = resp_path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(response, indent=2), encoding="utf-8")
+        os.replace(tmp_path, resp_path)
 
         # Remove the command file after processing.
         path.unlink(missing_ok=True)
@@ -178,8 +181,17 @@ class SimulationIPCServer:
         if agent is None:
             return {"error": f"Agent '{agent_id}' not found."}
 
+        # Static fallback so existing clients still receive `answer`. Newer
+        # clients (api/app.py) prefer the structured context fields and do
+        # LLM synthesis on their side — the subprocess hosting this server
+        # has no OpenAI key, so we cannot synthesize here.
         answer = self._build_agent_answer(agent, question)
-        return {"agent_id": agent_id, "question": question, "answer": answer}
+        return {
+            "agent_id": agent_id,
+            "question": question,
+            "answer": answer,
+            "live_context": self._collect_live_context(agent),
+        }
 
     def _cmd_interview_batch(self, payload: dict) -> dict:
         agent_ids = payload.get("agent_ids", [])
@@ -235,6 +247,70 @@ class SimulationIPCServer:
                 return "world_state does not expose pending_injections."
             pending.append(event)
         return None
+
+    # ── Live context collector ────────────────────────────────────────────────
+
+    @staticmethod
+    def _collect_live_context(agent: Any) -> dict:
+        """Return a JSON-safe snapshot of the live agent's state + memory.
+
+        The API consumes this to drive an LLM synthesis pass on its own
+        side (the subprocess hosting this IPC server has no OpenAI key).
+        """
+        ctx: dict[str, Any] = {}
+
+        state = getattr(agent, "state", None)
+        if state is not None:
+            ctx["state"] = {
+                "wealth": getattr(state, "wealth", None),
+                "stress": getattr(state, "stress", None),
+                "satisfaction": getattr(state, "satisfaction", None),
+            }
+
+        profile = getattr(agent, "profile", None)
+        if profile is not None:
+            ctx["profile"] = {
+                k: getattr(profile, k, None)
+                for k in (
+                    "agent_id",
+                    "age",
+                    "gender",
+                    "country",
+                    "education_level",
+                    "income_decile",
+                    "trust_people",
+                    "trust_institutions",
+                    "risk_tolerance",
+                    "competitiveness",
+                    "left_right",
+                    "political_orientation",
+                    "life_satisfaction",
+                    "is_adversarial",
+                )
+                if getattr(profile, k, None) is not None
+            }
+
+        mem = getattr(agent, "memory", None)
+        if mem is not None:
+            if hasattr(mem, "generate_reflection"):
+                try:
+                    ctx["memory_reflection"] = mem.generate_reflection() or ""
+                except Exception:
+                    ctx["memory_reflection"] = ""
+            if hasattr(mem, "get_recent"):
+                try:
+                    recent = mem.get_recent(8) or []
+                    ctx["recent_events"] = [
+                        {
+                            "round_id": getattr(item, "round_id", None),
+                            "event_type": getattr(item, "event_type", None),
+                            "partner_id": getattr(item, "partner_id", None),
+                        }
+                        for item in recent
+                    ]
+                except Exception:
+                    ctx["recent_events"] = []
+        return ctx
 
     # ── Answer builder ────────────────────────────────────────────────────────
 
@@ -318,7 +394,9 @@ class SimulationIPCClient:
         }
         self._cmd_dir.mkdir(parents=True, exist_ok=True)
         cmd_path = self._cmd_dir / f"cmd_{request_id}.json"
-        cmd_path.write_text(json.dumps(cmd_obj, indent=2), encoding="utf-8")
+        tmp_path = cmd_path.with_suffix(".json.tmp")
+        tmp_path.write_text(json.dumps(cmd_obj, indent=2), encoding="utf-8")
+        os.replace(tmp_path, cmd_path)
 
         # Poll for response
         resp_path = self._resp_dir / f"resp_{request_id}.json"

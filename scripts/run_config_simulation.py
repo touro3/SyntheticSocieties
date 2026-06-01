@@ -32,6 +32,12 @@ from utils.config import load_config
 from utils.io import ensure_dir, redact_secrets, save_json, save_yaml, set_global_seed
 
 
+def _experiments_root() -> Path:
+    """Return the experiments root, honoring BGF_DATA_ROOT for HF persistence."""
+    root = os.environ.get("BGF_DATA_ROOT", "").strip()
+    return (Path(root).resolve() / "experiments") if root else Path("experiments")
+
+
 def _attach_metrics_block(
     summary: dict,
     events: list[dict],
@@ -374,7 +380,7 @@ def _build_llm_backend(llm_cfg: dict):
 def _build_prompt_logger(experiment_id: str):
     from bgf_logging.prompt_logger import PromptLogger
 
-    return PromptLogger(output_path=Path("experiments") / experiment_id / "prompts.jsonl")
+    return PromptLogger(output_path=_experiments_root() / experiment_id / "prompts.jsonl")
 
 
 def _build_rag_components(config: dict):
@@ -549,7 +555,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
 
     set_global_seed(seed)
 
-    run_dir = ensure_dir(Path("experiments") / experiment_id)
+    run_dir = ensure_dir(_experiments_root() / experiment_id)
 
     # Redact credentials: this snapshot is world-readable and exposed via the
     # public GET /results and /status endpoints.
@@ -581,7 +587,8 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     try:
         policy = build_policy(config)
     except Exception as exc:
-        _early_run_mgr.fail(str(exc))
+        import traceback as _tb
+        _early_run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
 
     pop_source = config.get("population", {}).get("source", "synthetic")
@@ -600,14 +607,59 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
             agents = generate_population(config, policy, persistent_dir=str(run_dir))
             logger.info("Generated synthetic population: %d agents", len(agents))
     except Exception as exc:
-        _early_run_mgr.fail(str(exc))
+        import traceback as _tb
+        _early_run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
+
+    # Snapshot each agent's profile to disk so the /interview endpoint can
+    # ground answers in the actual persona (trust, risk, demographics) rather
+    # than a wealth/cooperation fingerprint reconstructed from events. The
+    # file is small (one line per agent) and overwritten on resume so it
+    # always reflects the current run's population.
+    try:
+        snapshot_path = run_dir / "population_snapshot.jsonl"
+        with snapshot_path.open("w", encoding="utf-8") as _f:
+            _PROFILE_FIELDS = (
+                "agent_id",
+                "age",
+                "gender",
+                "country",
+                "education_level",
+                "income_decile",
+                "trust_people",
+                "trust_institutions",
+                "risk_tolerance",
+                "competitiveness",
+                "left_right",
+                "political_orientation",
+                "life_satisfaction",
+                "happiness",
+                "self_rated_health",
+                "social_class",
+                "is_adversarial",
+            )
+            import json as _json
+
+            for _agent in agents:
+                _p = getattr(_agent, "profile", None)
+                if _p is None:
+                    continue
+                _rec = {
+                    k: getattr(_p, k)
+                    for k in _PROFILE_FIELDS
+                    if getattr(_p, k, None) is not None
+                }
+                _f.write(_json.dumps(_rec, default=str) + "\n")
+    except Exception as _snap_exc:
+        logger.warning("Could not write population_snapshot.jsonl: %s", _snap_exc)
 
     network_manager = build_network(config, agents)
     world = build_world(config, network_manager)
     # Local variable renamed from `logger` to `event_logger` so it no longer
     # shadows the module-level logging.Logger used by status messages below.
-    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=True)
+    # On resume, append to events.jsonl so the rounds completed before the
+    # checkpoint stay on disk. Only wipe on a fresh start.
+    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=(resume_exp_id is None))
     from agents.collective_memory import CollectiveMemory
     from environment.social_env import SocialEnvironment
 
@@ -627,7 +679,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     start_round = 0
 
     if resume_exp_id:
-        checkpoint_path = Path("experiments") / resume_exp_id / "checkpoint.json"
+        checkpoint_path = _experiments_root() / resume_exp_id / "checkpoint.json"
         if checkpoint_path.exists():
             start_round = kernel.load_checkpoint(checkpoint_path)
             logger.info("Resumed from checkpoint: round %d / %d", start_round, num_rounds)
@@ -697,7 +749,8 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
         else:
             run_mgr.complete()
     except Exception as exc:
-        run_mgr.fail(str(exc))
+        import traceback as _tb
+        run_mgr.fail(f"{type(exc).__name__}: {exc}\n{_tb.format_exc()}")
         raise
     finally:
         ipc_server.stop()

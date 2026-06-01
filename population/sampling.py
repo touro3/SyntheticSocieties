@@ -72,10 +72,23 @@ def sample_empirical_rows(
 
     df = pd.read_parquet(parquet_path)
 
-    if country_filter is not None:
-        df = df[df["country"].isin(country_filter)]
-    if exclude_countries is not None:
-        df = df[~df["country"].isin(exclude_countries)]
+    # Uploaded datasets may not carry a country column. Skip the filter with
+    # a warning rather than KeyError-ing — the caller's run was implicitly
+    # requesting a global sample anyway when no country column exists.
+    if country_filter is not None or exclude_countries is not None:
+        if "country" not in df.columns:
+            logger.warning(
+                "country_filter/exclude_countries requested but uploaded data has "
+                "no 'country' column — applying no country filter. "
+                "filter=%r exclude=%r",
+                country_filter,
+                exclude_countries,
+            )
+        else:
+            if country_filter is not None:
+                df = df[df["country"].isin(country_filter)]
+            if exclude_countries is not None:
+                df = df[~df["country"].isin(exclude_countries)]
 
     if len(df) == 0:
         raise ValueError(

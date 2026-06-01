@@ -76,11 +76,28 @@ try:
 except ImportError:
     _LIMITER_AVAILABLE = False
 
-_EXPERIMENTS_ROOT = Path("experiments")
 _CONFIGS_ROOT = Path("configs")
-_TRACKER_INDEX = Path("tracker/experiment_index.parquet")
 _STATIC_DIR = Path(__file__).parent / "static"
-_UPLOADS_DIR = Path("uploads") / "ess_data"
+
+# ── Writable filesystem roots ────────────────────────────────────────────────
+# When BGF_DATA_ROOT is set (e.g. HF Space with persistent storage mounted
+# at /data) all four user-generated content paths are rerooted under it so a
+# container restart does not wipe experiments, uploads, the tracker index, or
+# human-eval responses. When unset, paths match the historical layout under
+# the repository root, so local development is unaffected.
+_BGF_DATA_ROOT_ENV = os.environ.get("BGF_DATA_ROOT", "").strip()
+if _BGF_DATA_ROOT_ENV:
+    _DATA_ROOT = Path(_BGF_DATA_ROOT_ENV).resolve()
+    _EXPERIMENTS_ROOT = _DATA_ROOT / "experiments"
+    _TRACKER_INDEX = _DATA_ROOT / "tracker" / "experiment_index.parquet"
+    _UPLOADS_DIR = _DATA_ROOT / "uploads" / "ess_data"
+    _HUMAN_OUTPUTS_DIR = _DATA_ROOT / "human_outputs"
+else:
+    _DATA_ROOT = Path(".").resolve()
+    _EXPERIMENTS_ROOT = Path("experiments")
+    _TRACKER_INDEX = Path("tracker/experiment_index.parquet")
+    _UPLOADS_DIR = Path("uploads") / "ess_data"
+    _HUMAN_OUTPUTS_DIR = Path("data/human")
 
 # Bearer-token auth.  Set BGF_API_TOKEN env var to enable.
 # If unset, auth is disabled — intended for local / trusted-network use only.
@@ -157,13 +174,25 @@ _DESIGN_CACHE_LOCK = threading.Lock()  # guards the check-evict-insert sequence
 # tenant deploys) cannot leak client objects.
 _OAI_CLIENTS: dict[str, Any] = {}
 _OAI_CLIENTS_MAX = 16
+_OAI_CLIENTS_LOCK = threading.Lock()  # guards check-evict-insert sequence
 
 
 def _oai_clients_put(prefix: str, client: Any) -> None:
-    """Insert into _OAI_CLIENTS, evicting oldest if over cap."""
+    """Insert into _OAI_CLIENTS, evicting oldest if over cap. Caller holds lock."""
     _OAI_CLIENTS[prefix] = client
     while len(_OAI_CLIENTS) > _OAI_CLIENTS_MAX:
         _OAI_CLIENTS.pop(next(iter(_OAI_CLIENTS)))
+
+
+def _oai_clients_get_or_create(prefix: str, factory):
+    """Atomic check-then-insert. factory() is called at most once per prefix
+    even under concurrent access."""
+    with _OAI_CLIENTS_LOCK:
+        client = _OAI_CLIENTS.get(prefix)
+        if client is None:
+            client = factory()
+            _oai_clients_put(prefix, client)
+        return client
 
 
 # ── Ollama warmup throttle ────────────────────────────────────────────────
@@ -228,8 +257,19 @@ _EVENTS_CACHE_MAX = 32
 _EVENTS_CACHE_LOCK = threading.Lock()
 
 
-def _append_interview_response(exp_dir: Path, agent_id: str, question: str, response: str) -> None:
-    """Append a Q&A pair to interview_responses.jsonl so the anchor can tally opinions."""
+def _append_interview_response(
+    exp_dir: Path,
+    agent_id: str,
+    question: str,
+    response: str,
+    extra: dict | None = None,
+) -> None:
+    """Append a Q&A pair to interview_responses.jsonl so the anchor can tally opinions.
+
+    Extra fields (persona summary, memory provenance, history window) get
+    folded into the record so downstream consumers can filter or re-weight
+    answers without re-deriving the context.
+    """
     import json as _json
     import time as _time
 
@@ -239,11 +279,465 @@ def _append_interview_response(exp_dir: Path, agent_id: str, question: str, resp
         "response": response,
         "ts": _time.time(),
     }
+    if extra:
+        record.update(extra)
     try:
         with (exp_dir / "interview_responses.jsonl").open("a") as fh:
             fh.write(_json.dumps(record) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
     except OSError:
         pass  # non-critical; anchor works without it
+
+
+def _load_population_snapshot(exp_dir: Path) -> dict[str, dict]:
+    """Load population_snapshot.jsonl into an {agent_id → profile} mapping.
+
+    Returns an empty dict when the snapshot is missing (older runs predating
+    the snapshot write or runs where it failed to serialize).
+    """
+    import json as _json
+
+    snap = exp_dir / "population_snapshot.jsonl"
+    if not snap.exists():
+        return {}
+    out: dict[str, dict] = {}
+    try:
+        with snap.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = _json.loads(line)
+                except Exception:
+                    continue
+                aid = rec.get("agent_id")
+                if aid:
+                    out[str(aid)] = rec
+    except OSError:
+        return {}
+    return out
+
+
+# ── Anchor stance extraction (semantic clustering) ─────────────────────────
+# Cache keyed by sha256(text+options) so re-running the same anchor question
+# does not re-burn OpenAI tokens. Bounded LRU to keep memory predictable.
+import hashlib as _hashlib  # noqa: E402 — keeps the import next to the cache it owns
+from collections import OrderedDict as _OrderedDict  # noqa: E402
+
+_STANCE_CACHE: "_OrderedDict[str, dict]" = _OrderedDict()
+_STANCE_CACHE_MAX = 1024
+
+
+def _extract_stance_via_llm(
+    text: str,
+    question: str,
+    options: list[str],
+    *,
+    api_key: str,
+    model: str = "gpt-4o-mini",
+) -> dict | None:
+    """Use gpt-4o-mini to extract a structured stance from a single response.
+
+    Returns ``{"stance", "rationale", "topic_tags"}`` or None on failure.
+    Replaces the historical substring-tally that double-counted agents whose
+    response mentioned both option words and missed nuance ("paper" appearing
+    in a negative clause still counted as a vote for paper).
+    """
+    if not text or not options:
+        return None
+
+    cache_key = _hashlib.sha256(
+        (text + "||" + question + "||" + "|".join(options)).encode("utf-8")
+    ).hexdigest()
+    cached = _STANCE_CACHE.get(cache_key)
+    if cached is not None:
+        _STANCE_CACHE.move_to_end(cache_key)
+        return cached
+
+    try:
+        from openai import OpenAI as _OAI
+
+        oai = _oai_clients_get_or_create(api_key[:8], lambda: _OAI(api_key=api_key))
+        system_prompt = (
+            "You are extracting a structured stance from a single agent's text. "
+            "Return JSON with exactly these keys: "
+            "`stance` (one of the provided options or null if the text expresses "
+            "no preference), `rationale` (one-sentence summary of why), "
+            "`topic_tags` (array of 1-3 short topic tags). "
+            "Do not infer beyond what is in the text."
+        )
+        user_prompt = (
+            f"Question put to the agent: {question}\n"
+            f"Allowed stance options: {options}\n"
+            f"Agent text:\n{text[:1200]}"
+        )
+        resp = oai.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=180,
+            temperature=0.0,
+        )
+        raw = resp.choices[0].message.content or "{}"
+        parsed = json.loads(raw)
+        if not isinstance(parsed, dict):
+            return None
+        # Normalize: stance must be one of options (case-insensitive) or null.
+        stance = parsed.get("stance")
+        if stance is not None and isinstance(stance, str):
+            stance_low = stance.strip().lower()
+            normalized = next((o for o in options if o.lower() == stance_low), None)
+            parsed["stance"] = normalized
+        else:
+            parsed["stance"] = None
+        _STANCE_CACHE[cache_key] = parsed
+        if len(_STANCE_CACHE) > _STANCE_CACHE_MAX:
+            _STANCE_CACHE.popitem(last=False)
+        return parsed
+    except Exception as exc:  # noqa: BLE001 — graceful degradation
+        logger.warning("Stance extraction failed: %s", exc)
+        return None
+
+
+def _semantic_stance_tally(
+    texts_by_agent: dict[str, str],
+    question: str,
+    options: list[str],
+) -> tuple[dict, dict, list[dict]] | None:
+    """Aggregate per-agent stances via LLM extraction.
+
+    Returns ``(counts, by_agent, per_agent_details)`` or None if no API key
+    is available (caller falls back to substring counting).
+    """
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return None
+    counts: dict[str, int] = {}
+    by_agent: dict[str, list[str]] = {}
+    details: list[dict] = []
+    for ag, txt in texts_by_agent.items():
+        result = _extract_stance_via_llm(txt, question, options, api_key=api_key)
+        if not result:
+            continue
+        stance = result.get("stance")
+        details.append({"agent_id": ag, **result})
+        if stance:
+            counts[stance] = counts.get(stance, 0) + 1
+            by_agent.setdefault(stance, []).append(ag)
+    return counts, by_agent, details
+
+
+def _synthesize_live_interview_answer(
+    *,
+    exp_id: str,
+    exp_dir: Path,
+    agent_id: str,
+    question: str,
+    live_context: dict,
+) -> dict | None:
+    """LLM-synthesize an interview answer for a still-running agent.
+
+    Combines the live state/memory reflection delivered by the IPC server
+    with the same persona/scenario context the replay path uses. Returns
+    None when OpenAI is unreachable so the caller can fall back to the
+    static IPC answer.
+    """
+    import time as _time
+
+    profile = live_context.get("profile") or {}
+    state = live_context.get("state") or {}
+    memory_reflection = (live_context.get("memory_reflection") or "").strip()
+    recent_events = live_context.get("recent_events") or []
+
+    # Build a faux events list so we can reuse the replay-path helper.
+    faux_events = []
+    for item in recent_events:
+        faux_events.append({
+            "round_id": item.get("round_id"),
+            "action": {
+                "action_type": item.get("event_type"),
+                "target_agent_id": item.get("partner_id"),
+                "reasoning_summary": "",
+            },
+            "state_after": state,
+            "perception": {"network": {"neighbors": []}},
+        })
+
+    # If we know the agent profile but no population snapshot exists yet
+    # (snapshot is written at run start, so it should exist), seed one in
+    # memory by writing a stub to a temp dict and constructing the context
+    # manually.
+    snapshot = _load_population_snapshot(exp_dir)
+    if profile and not snapshot.get(agent_id):
+        # Write the live profile snapshot opportunistically so subsequent
+        # replays inherit the persona block too.
+        try:
+            snap_path = exp_dir / "population_snapshot.jsonl"
+            with snap_path.open("a", encoding="utf-8") as fh:
+                rec = {"agent_id": agent_id, **{k: v for k, v in profile.items() if k != "agent_id"}}
+                fh.write(json.dumps(rec, default=str) + "\n")
+        except Exception:
+            pass
+
+    ctx = _interview_prompt_context(
+        exp_dir,
+        agent_id,
+        faux_events,
+        live_memory_reflection=memory_reflection or None,
+    )
+
+    oai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not oai_key:
+        return None
+
+    try:
+        from openai import OpenAI as _OAI
+        from openai import RateLimitError as _RLE
+
+        oai = _oai_clients_get_or_create(oai_key[:8], lambda: _OAI(api_key=oai_key))
+
+        blocks = [
+            (
+                f"You are {agent_id}, a synthetic agent partway through a live BGF "
+                f"simulation ({exp_id}). The simulation is still running; describe "
+                f"your perspective in the present tense.\n{ctx['persona_block']}"
+            ),
+            ctx["scenario_block"],
+            (
+                f"Live state: wealth {state.get('wealth')}, stress {state.get('stress')}, "
+                f"satisfaction {state.get('satisfaction')}."
+            ),
+            ctx["memory_block"],
+            ctx["social_block"],
+            (
+                "Answer the user's question in first-person, drawing on your "
+                "demographics, dispositions, and recent memory. Be natural and "
+                "concise (2-4 sentences). Do not mention simulation internals."
+            ),
+        ]
+        system_prompt = "\n\n".join(b for b in blocks if b)
+
+        resp = None
+        for att in range(3):
+            try:
+                resp = oai.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": question},
+                    ],
+                    max_tokens=220,
+                    temperature=0.7,
+                )
+                break
+            except _RLE:
+                _time.sleep(2**att)
+        if resp is None:
+            return None
+        answer = resp.choices[0].message.content.strip()
+        return {
+            "response": answer,
+            "persona_used": bool(ctx["persona_block"]),
+            "history_window": len(faux_events),
+            "memory_source": "live",
+            "model": "gpt-4o-mini",
+            "source": "ipc_live_llm",
+        }
+    except Exception as exc:  # noqa: BLE001 — graceful degradation
+        logger.warning("Live IPC LLM synthesis failed (exp=%s agent=%s): %s", exp_id, agent_id, exc)
+        return None
+
+
+def _interview_prompt_context(
+    exp_dir: Path,
+    agent_id: str,
+    agent_events: list[dict],
+    *,
+    live_memory_reflection: str | None = None,
+) -> dict:
+    """Build the structured context dict for an /interview LLM call.
+
+    The helper is used by both the data-replay path (events on disk) and the
+    live IPC path (running simulation) so live and replayed interviews share
+    the same prompt structure and answer quality, rather than the live path
+    being a thin memory dump as it was historically.
+    """
+    import json as _json
+
+    # ── Persona block ─────────────────────────────────────────────────────
+    snapshot = _load_population_snapshot(exp_dir)
+    profile = snapshot.get(agent_id, {})
+
+    def _fmt(value, fmt: str = "{}") -> str:
+        if value is None or value == "":
+            return ""
+        try:
+            return fmt.format(value)
+        except Exception:
+            return str(value)
+
+    persona_lines: list[str] = []
+    demo_bits: list[str] = []
+    if profile.get("age") is not None:
+        demo_bits.append(_fmt(profile.get("age"), "{:.0f}-year-old"))
+    if profile.get("gender") is not None:
+        _g = {1: "man", 2: "woman"}.get(int(profile["gender"]) if str(profile["gender"]).isdigit() else -1)
+        if _g:
+            demo_bits.append(_g)
+    if profile.get("country"):
+        demo_bits.append(f"from {profile['country']}")
+    if demo_bits:
+        persona_lines.append("Demographics: " + ", ".join(demo_bits) + ".")
+
+    def _band(name: str, val) -> str | None:
+        try:
+            v = float(val)
+        except (TypeError, ValueError):
+            return None
+        if v >= 0.65:
+            return f"high {name}"
+        if v <= 0.35:
+            return f"low {name}"
+        return f"moderate {name}"
+
+    trait_bands = [
+        _band("interpersonal trust", profile.get("trust_people")),
+        _band("institutional trust", profile.get("trust_institutions")),
+        _band("risk tolerance", profile.get("risk_tolerance")),
+        _band("competitiveness", profile.get("competitiveness")),
+        _band("life satisfaction", profile.get("life_satisfaction")),
+    ]
+    trait_bands = [t for t in trait_bands if t]
+    if trait_bands:
+        persona_lines.append("Dispositions: " + "; ".join(trait_bands) + ".")
+    if profile.get("left_right") is not None or profile.get("political_orientation") is not None:
+        pol = profile.get("political_orientation") or profile.get("left_right")
+        try:
+            pol_v = float(pol)
+            pol_label = "left-leaning" if pol_v < 0.4 else "right-leaning" if pol_v > 0.6 else "centrist"
+            persona_lines.append(f"Political orientation: {pol_label} ({pol_v:.2f}/1.0).")
+        except (TypeError, ValueError):
+            pass
+    if profile.get("is_adversarial"):
+        persona_lines.append("Behavioral type: adversarial (constrained to predatory actions).")
+
+    persona_block = "\n".join(persona_lines) if persona_lines else ""
+
+    # ── Scenario block (always rendered, falls back to config-derived) ────
+    scenario_json = _safe_json_file(exp_dir / "scenario.json") or {}
+    config_yaml: dict = {}
+    try:
+        import yaml as _yaml  # noqa: WPS433 — used opportunistically
+
+        config_path = exp_dir / "config.yaml"
+        if config_path.exists():
+            config_yaml = _yaml.safe_load(config_path.read_text()) or {}
+    except Exception:
+        config_yaml = {}
+
+    if scenario_json.get("scenario_title"):
+        scenario_block = (
+            f"Scenario: {scenario_json['scenario_title']}\n"
+            f"Context: {scenario_json.get('scenario_description', '')}\n"
+            f"Population backdrop: {scenario_json.get('population_narrative', '')}"
+        ).strip()
+    else:
+        sim = config_yaml.get("simulation") or {}
+        net = config_yaml.get("network") or {}
+        pop = config_yaml.get("population") or {}
+        data = config_yaml.get("data") or {}
+        scenario_block = (
+            f"Scenario: a {sim.get('rounds', '?')}-round economic simulation with "
+            f"{sim.get('population_size', '?')} agents, "
+            f"policy={config_yaml.get('policy', {}).get('type', '?')}, "
+            f"network={net.get('type', '?')}, "
+            f"population_source={pop.get('source', '?')}."
+        )
+        if data.get("population_context"):
+            scenario_block += f"\nPopulation backdrop: {data['population_context']}"
+
+    # ── Adaptive history window ──────────────────────────────────────────
+    total_rounds = len(agent_events)
+    window = min(30, max(10, total_rounds // 3 or 10))
+    history_events = agent_events[-window:]
+
+    history_lines: list[str] = []
+    for ev in history_events:
+        r = ev.get("round_id", "?")
+        act = ev.get("action", {}).get("action_type", "?")
+        w = ev.get("state_after", {}).get("wealth")
+        s = ev.get("state_after", {}).get("stress")
+        rsn = ev.get("action", {}).get("reasoning_summary", "") or ""
+        rsn = rsn.replace("[LLM fallback: ", "").rstrip("]")
+        entry = f"Round {r}: {act}"
+        if w is not None:
+            entry += f", wealth {w:.0f}"
+        if s is not None:
+            entry += f", stress {s:.2f}"
+        if rsn:
+            entry += f" — {rsn}"
+        history_lines.append(entry)
+    history_text = "\n".join(history_lines)
+
+    # ── Full-run social graph (not just last 10) ──────────────────────────
+    all_neighbors: set[str] = set()
+    coop_targets: dict[str, int] = {}
+    steal_targets: dict[str, int] = {}
+    for ev in agent_events:
+        for nb in ev.get("perception", {}).get("network", {}).get("neighbors", []) or []:
+            all_neighbors.add(str(nb))
+        act_type = ev.get("action", {}).get("action_type", "")
+        tgt = ev.get("action", {}).get("target_agent_id")
+        if tgt:
+            if act_type == "cooperate":
+                coop_targets[str(tgt)] = coop_targets.get(str(tgt), 0) + 1
+            elif act_type == "steal":
+                steal_targets[str(tgt)] = steal_targets.get(str(tgt), 0) + 1
+
+    social_lines: list[str] = []
+    if coop_targets:
+        top_coop = sorted(coop_targets.items(), key=lambda kv: -kv[1])[:3]
+        social_lines.append(
+            "Repeated cooperation partners: "
+            + ", ".join(f"{aid} (×{n})" for aid, n in top_coop)
+        )
+    if steal_targets:
+        top_steal = sorted(steal_targets.items(), key=lambda kv: -kv[1])[:3]
+        social_lines.append(
+            "Stole from: " + ", ".join(f"{aid} (×{n})" for aid, n in top_steal)
+        )
+    if all_neighbors and not coop_targets:
+        social_lines.append(
+            "Neighbors never cooperated with: "
+            + ", ".join(sorted(all_neighbors)[:4])
+        )
+    social_block = "\n".join(social_lines)
+
+    # ── Memory block ──────────────────────────────────────────────────────
+    memory_block = ""
+    memory_source = "events_only"
+    if live_memory_reflection:
+        memory_block = f"Recent memory reflection: {live_memory_reflection.strip()}"
+        memory_source = "live"
+
+    return {
+        "persona": profile,
+        "persona_block": persona_block,
+        "scenario_block": scenario_block,
+        "history_text": history_text,
+        "history_window": window,
+        "social_block": social_block,
+        "memory_block": memory_block,
+        "memory_source": memory_source,
+        "all_neighbors": all_neighbors,
+        "coop_targets": coop_targets,
+        "steal_targets": steal_targets,
+    }
 
 
 def _read_events_cached(events_path: Path) -> list[dict]:
@@ -407,9 +901,9 @@ def _call_design_llm(provider: str, api_key: str, user_msg: str, ollama_model: s
     else:
         # Reuse singleton to avoid TCP reconnect on every call
         key_prefix = api_key[:8]
-        if key_prefix not in _OAI_CLIENTS:
-            _oai_clients_put(key_prefix, openai.OpenAI(api_key=api_key))
-        client = _OAI_CLIENTS[key_prefix]
+        client = _oai_clients_get_or_create(
+            key_prefix, lambda: openai.OpenAI(api_key=api_key)
+        )
         model = "gpt-4o-mini"
 
     kwargs: dict = dict(
@@ -620,6 +1114,67 @@ def _safe_json_file(path: Path) -> Any:
         return None
 
 
+def _load_uploaded_dataframe(filename: str, raw: bytes):
+    """Decode an uploaded population file into a pandas DataFrame.
+
+    Handles CSV (with delimiter sniffing), Parquet, SPSS ``.sav`` (ESS-native),
+    and Stata ``.dta``. Returns ``(df, error_message)`` — exactly one is None.
+    Reading is best-effort; any decoder exception is converted into a clear
+    user-facing message rather than a 500.
+    """
+    import csv as _csv
+    import io as _io
+
+    import pandas as _pd
+
+    fname = filename.lower()
+    buf = _io.BytesIO(raw)
+
+    try:
+        if fname.endswith(".csv"):
+            # Sniff delimiter from a head sample — European exports often use
+            # ';' or tab, and silently misparsing them is worse than failing.
+            sample = raw[:8192].decode("utf-8", errors="replace")
+            sep = ","
+            try:
+                dialect = _csv.Sniffer().sniff(sample, delimiters=",;\t|")
+                sep = dialect.delimiter
+            except _csv.Error:
+                pass
+            df = _pd.read_csv(buf, sep=sep)
+        elif fname.endswith(".parquet"):
+            df = _pd.read_parquet(buf)
+        elif fname.endswith(".sav"):
+            try:
+                import pyreadstat  # noqa: WPS433 — optional dep, surfaced below
+            except ImportError:
+                return None, (
+                    "SPSS .sav support requires the 'pyreadstat' package. "
+                    "On the server, install it via `pip install pyreadstat` and redeploy."
+                )
+            # pyreadstat needs a filesystem path — write to a temp file.
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(suffix=".sav", delete=False) as tmp:
+                tmp.write(raw)
+                tmp_path = tmp.name
+            try:
+                df, _meta = pyreadstat.read_sav(tmp_path, apply_value_formats=False)
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        elif fname.endswith(".dta"):
+            df = _pd.read_stata(buf, convert_categoricals=False)
+        else:
+            return None, f"Unsupported file extension: {fname}"
+    except Exception as exc:  # noqa: BLE001 — surface the parser error verbatim
+        return None, f"Could not parse file: {exc}"
+
+    return df, None
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
 
@@ -641,10 +1196,15 @@ def create_app(
         raise ImportError("Flask and flask-cors are required for the API. Install with: pip install flask flask-cors")
 
     global _EXPERIMENTS_ROOT, _CONFIGS_ROOT
-    _EXPERIMENTS_ROOT = Path(experiments_root)
+    # Honour the `experiments_root` arg only when it differs from the default,
+    # so that BGF_DATA_ROOT-rerouted paths win over the historical default.
+    if experiments_root != "experiments":
+        _EXPERIMENTS_ROOT = Path(experiments_root)
     _CONFIGS_ROOT = Path(configs_root)
     _EXPERIMENTS_ROOT.mkdir(parents=True, exist_ok=True)
-    Path("tracker").mkdir(parents=True, exist_ok=True)
+    _TRACKER_INDEX.parent.mkdir(parents=True, exist_ok=True)
+    _UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    _HUMAN_OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
     app = Flask(__name__, template_folder=Path(__file__).parent / "templates", static_folder=None)
 
@@ -653,20 +1213,30 @@ def create_app(
     # its own 50 MB cap after reading.
     app.config["MAX_CONTENT_LENGTH"] = 52 * 1024 * 1024  # 52 MB
 
-    # CORS — prefer explicit origins for production; fall back to env var, then open.
-    # CORS — prefer explicit origins. When neither the `allowed_origins` arg nor
-    # BGF_CORS_ORIGINS is set, fall back to the known public Space + localhost
-    # dev origins rather than "*", so a public deploy does not allow arbitrary
-    # cross-origin reads of the (auth-exempt) GET endpoints by default.
-    _DEFAULT_ORIGINS = [
-        "https://touro3-synthetic-societies.hf.space",
+    # CORS origin resolution, in priority order:
+    #   1. `allowed_origins` arg (programmatic override, e.g. tests).
+    #   2. BGF_CORS_ORIGINS env var (comma-separated list).
+    #   3. Auto-derived HF Space origin from SPACE_ID + localhost dev origins.
+    # This avoids hardcoding a specific username so the repo is portable; HF
+    # Spaces always sets SPACE_ID=<user>/<space>, which maps to
+    # https://<user>-<space>.hf.space.
+    _LOCALHOST_ORIGINS = [
         "http://localhost:5050",
         "http://localhost:5173",
         "http://127.0.0.1:5050",
         "http://127.0.0.1:5173",
     ]
+    _hf_space_id = os.environ.get("SPACE_ID", "").strip()
+    _hf_origin: list[str] = []
+    if _hf_space_id and "/" in _hf_space_id:
+        _hf_user, _hf_name = _hf_space_id.split("/", 1)
+        _hf_origin = [f"https://{_hf_user}-{_hf_name}.hf.space".lower()]
     _env_origins = os.environ.get("BGF_CORS_ORIGINS", "").strip()
-    _resolved_origins = allowed_origins or (_env_origins.split(",") if _env_origins else None) or _DEFAULT_ORIGINS
+    _resolved_origins = (
+        allowed_origins
+        or ([o.strip() for o in _env_origins.split(",") if o.strip()] if _env_origins else None)
+        or (_hf_origin + _LOCALHOST_ORIGINS)
+    )
     CORS(app, origins=_resolved_origins)
 
     # ── Rate limiting (optional — requires flask-limiter) ────────────────────
@@ -793,6 +1363,37 @@ def create_app(
 
     @app.get("/health")
     def health():
+        # Public liveness probe — never report credential presence here.
+        # For provider availability, use /api/capabilities. For full
+        # diagnostics (including key presence), use /admin/health with
+        # the BGF_API_TOKEN bearer.
+        checks = {
+            "experiments_dir": _EXPERIMENTS_ROOT.exists(),
+            "tracker_index": _TRACKER_INDEX.exists(),
+            "ollama": _ollama_available(),
+        }
+        status = "ok" if checks["experiments_dir"] else "degraded"
+        return jsonify({"status": status, "service": "bgf-api", "checks": checks})
+
+    @app.get("/admin/health")
+    def admin_health():
+        """Authenticated diagnostics, including provider key presence.
+
+        Requires BGF_API_TOKEN to be set and a matching bearer token. When
+        BGF_API_TOKEN is unset (open dev mode), this endpoint is disabled
+        rather than open — so we never leak key presence in open mode.
+        Bypasses the GET-method auth exemption because this is the one read
+        path that does expose credential metadata.
+        """
+        configured_token = os.environ.get("BGF_API_TOKEN", "").strip()
+        if not configured_token:
+            return jsonify({"error": "Admin endpoint disabled (BGF_API_TOKEN not configured)"}), 404
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Authorization header required"}), 401
+        if not hmac.compare_digest(auth_header[len("Bearer "):].encode(), configured_token.encode()):
+            logger.warning("Failed /admin/health auth from %s", request.remote_addr)
+            return jsonify({"error": "Invalid token"}), 401
         checks = {
             "experiments_dir": _EXPERIMENTS_ROOT.exists(),
             "tracker_index": _TRACKER_INDEX.exists(),
@@ -1363,7 +1964,43 @@ def create_app(
                         _ipc_clients[exp_id] = SimulationIPCClient(base_dir=str(exp_dir), timeout=15.0)
                     client = _ipc_clients[exp_id]
 
-                reply = client.interview_agent(agent_id, question)
+                reply = client.interview_agent(agent_id, question) or {}
+
+                # If the running simulation surfaced live context (state +
+                # hierarchical memory reflection), do an LLM synthesis pass
+                # here so the live interview reaches the same quality as the
+                # data-replay path. Otherwise return the static answer the
+                # IPC server already built.
+                live_ctx = reply.get("live_context") if isinstance(reply, dict) else None
+                if live_ctx and os.environ.get("OPENAI_API_KEY"):
+                    synth = _synthesize_live_interview_answer(
+                        exp_id=exp_id,
+                        exp_dir=exp_dir,
+                        agent_id=agent_id,
+                        question=question,
+                        live_context=live_ctx,
+                    )
+                    if synth is not None:
+                        _append_interview_response(
+                            exp_dir, agent_id, question, synth["response"], extra=synth
+                        )
+                        return jsonify(synth)
+
+                # Backward-compatible fallback: ship the static answer.
+                static_answer = reply.get("answer") if isinstance(reply, dict) else None
+                if static_answer:
+                    extra = {
+                        "persona_used": bool(live_ctx and live_ctx.get("profile")),
+                        "history_window": 0,
+                        "memory_source": "live_static",
+                        "model": "rule_based",
+                        "source": "ipc_live_static",
+                    }
+                    _append_interview_response(
+                        exp_dir, agent_id, question, static_answer, extra=extra
+                    )
+                    return jsonify({"response": static_answer, **extra})
+
                 return jsonify(reply)
 
             except TimeoutError:
@@ -1444,15 +2081,15 @@ def create_app(
             history_lines.append(entry)
         history_text = "\n".join(history_lines)
 
-        # ── Load scenario context if this run was created via AI design ────────
+        # ── Build structured context (persona, scenario, memory, history) ───
+        ctx = _interview_prompt_context(exp_dir, agent_id, agent_events)
         scenario_ctx = _safe_json_file(exp_dir / "scenario.json") or {}
         scenario_title = scenario_ctx.get("scenario_title", "")
-        scenario_description = scenario_ctx.get("scenario_description", "")
-        population_narrative = scenario_ctx.get("population_narrative", "")
         population_traits = scenario_ctx.get("population_traits", {})
 
         # ── Try OpenAI for natural-language answer ────────────────────────────
         oai_key = os.environ.get("OPENAI_API_KEY", "")
+        fallback_reason = "no_openai_key"
         if oai_key:
             try:
                 import time as _time
@@ -1462,54 +2099,45 @@ def create_app(
 
                 # Reuse singleton — avoids TCP reconnect on every interview call
                 _oai_prefix = oai_key[:8]
-                if _oai_prefix not in _OAI_CLIENTS:
-                    _oai_clients_put(_oai_prefix, _OAI(api_key=oai_key))
-                oai = _OAI_CLIENTS[_oai_prefix]
-
-                # Build scenario persona block (empty string if no design context)
-                if scenario_title:
-                    trait_lines = (
-                        "\n".join(f"  {k}: {v}" for k, v in population_traits.items()) if population_traits else ""
-                    )
-                    scenario_block = (
-                        f"\nScenario: {scenario_title}\n"
-                        f"Context: {scenario_description}\n"
-                        f"Your population background: {population_narrative}\n"
-                        + (f"Your trait profile:\n{trait_lines}\n" if trait_lines else "")
-                        + "\nAnswer questions in-character for this scenario. "
-                        "If asked about opinions, predictions, or scenario-specific topics, "
-                        "answer from your character's perspective shaped by the traits above. "
-                        "Connect your answers to your behavioral history where relevant.\n"
-                    )
-                else:
-                    scenario_block = ""
-
-                # Derive a personality fingerprint unique to this agent's stats
-                _wealth_pct = "high" if final_wealth > 100 else ("low" if final_wealth < 50 else "moderate")
-                _coop_tend = "collaborative" if coop_count > total_rounds // 3 else "independent"
-                _stress_tend = "risk-averse" if final_stress > 0.3 else ("bold" if final_stress < 0.1 else "cautious")
-                agent_fingerprint = (
-                    f"Your personal disposition: {_coop_tend} ({coop_count}/{total_rounds} cooperative rounds), "
-                    f"{_stress_tend} (stress {final_stress:.2f}), "
-                    f"wealth trajectory {wealth_delta:+.0f} → final {final_wealth:.0f} ({_wealth_pct} relative to peers). "
-                    f"Let these traits make your answer genuinely distinct from other agents in this simulation."
+                oai = _oai_clients_get_or_create(
+                    _oai_prefix, lambda: _OAI(api_key=oai_key)
                 )
-                system_prompt = (
-                    f"You are {agent_id}, a synthetic agent in a completed BGF simulation ({exp_id})."
-                    f"{scenario_block}\n"
-                    f"{agent_fingerprint}\n"
-                    f"You played {total_rounds} rounds. Your dominant strategy was '{dominant}' "
+
+                # Compose the system prompt from the structured context blocks.
+                # Order them so the largest static portion (scenario + persona)
+                # sits at the front of the prompt where gpt-4o-mini's automatic
+                # prefix cache can reuse it across questions for the same run.
+                persona_section = (
+                    f"You are {agent_id}, a synthetic agent in BGF simulation ({exp_id}).\n"
+                    f"{ctx['persona_block']}\n"
+                    if ctx["persona_block"]
+                    else f"You are {agent_id}, a synthetic agent in BGF simulation ({exp_id}).\n"
+                )
+                behavioral_summary = (
+                    f"Across {total_rounds} rounds your dominant action was '{dominant}' "
                     f"({', '.join(f'{v}× {k}' for k, v in sorted(action_counts.items(), key=lambda x: -x[1]))}). "
                     f"Final wealth: {final_wealth:.1f} (started at {first_wealth:.1f}, delta {wealth_delta:+.1f}). "
-                    f"Final stress: {final_stress:.2f}. Cooperation rounds: {coop_count}.\n\n"
-                    f"Recent round history:\n{history_text}\n\n"
-                    "Answer the user's question in first-person as this agent, "
-                    "drawing from your personal disposition and behavioral history above. "
-                    "Be natural and concise (2-4 sentences). "
-                    "Do not repeat phrasing used by 'typical' agents — express your individual perspective. "
-                    "Do not mention 'LLM fallback', simulation internals, or action names like 'cooperate/work/save' "
-                    "unless directly asked about strategy."
+                    f"Final stress: {final_stress:.2f}. Cooperation rounds: {coop_count}."
                 )
+                blocks = [
+                    persona_section,
+                    ctx["scenario_block"],
+                    behavioral_summary,
+                    f"Recent history (last {ctx['history_window']} rounds):\n{ctx['history_text']}"
+                    if ctx["history_text"]
+                    else "",
+                    ctx["social_block"],
+                    ctx["memory_block"],
+                    (
+                        "Answer the user's question in first-person as this agent, "
+                        "drawing from your demographics, dispositions, and behavioral history above. "
+                        "Be natural and concise (2-4 sentences). "
+                        "Do not repeat phrasing used by 'typical' agents — express your individual perspective. "
+                        "Do not mention 'LLM fallback', simulation internals, or action names like "
+                        "'cooperate/work/save' unless directly asked about strategy."
+                    ),
+                ]
+                system_prompt = "\n\n".join(b for b in blocks if b)
                 _call_kwargs = dict(
                     model="gpt-4o-mini",
                     messages=[
@@ -1529,10 +2157,18 @@ def create_app(
                 if _resp is None:
                     raise RuntimeError("OpenAI rate limit — all retries exhausted")
                 answer = _resp.choices[0].message.content.strip()
-                _append_interview_response(exp_dir, agent_id, question, answer)
-                return jsonify({"response": answer, "source": "replay_llm"})
+                extra = {
+                    "persona_used": bool(ctx["persona_block"]),
+                    "history_window": ctx["history_window"],
+                    "memory_source": ctx["memory_source"],
+                    "model": "gpt-4o-mini",
+                    "source": "replay_llm",
+                }
+                _append_interview_response(exp_dir, agent_id, question, answer, extra=extra)
+                return jsonify({"response": answer, **extra})
             except Exception as exc:
                 logger.warning("Replay LLM failed, using rule-based fallback: %s", exc)
+                fallback_reason = str(exc)[:200]
 
         # ── Rule-based natural-language fallback (no LLM key needed) ─────────
         q_low = question.lower()
@@ -1757,8 +2393,16 @@ def create_app(
                 f"feeling {_wealth_feel(final_wealth)} overall."
             )
 
-        _append_interview_response(exp_dir, agent_id, question, answer)
-        return jsonify({"response": answer, "source": "replay_data"})
+        extra = {
+            "persona_used": bool(ctx["persona_block"]),
+            "history_window": ctx["history_window"],
+            "memory_source": ctx["memory_source"],
+            "model": "rule_based",
+            "source": "replay_data",
+            "fallback_reason": fallback_reason,
+        }
+        _append_interview_response(exp_dir, agent_id, question, answer, extra=extra)
+        return jsonify({"response": answer, **extra})
 
     # ── Anchor (macro broadcast view) ────────────────────────────────────────
 
@@ -2142,23 +2786,41 @@ def create_app(
 
             # 1. Collected interview responses (built automatically by /interview calls)
             if per_agent_interview:
-                counts, by_agent = _tally_from_texts(per_agent_interview)
+                # Prefer LLM-based semantic stance extraction over substring
+                # counting — "I dislike paper" was previously counted as a
+                # vote for paper. Falls back to substring tally when no
+                # OpenAI key is available.
+                semantic = _semantic_stance_tally(per_agent_interview, question, scenario_options)
+                method = "substring"
+                if semantic is not None:
+                    counts, by_agent, _details = semantic
+                    method = "semantic_llm"
+                else:
+                    counts, by_agent = _tally_from_texts(per_agent_interview)
                 counts = {k: v for k, v in counts.items() if v > 0}
                 if counts:
                     answer = _format_opinion_answer(counts, by_agent, len(per_agent_interview), "from agent interviews")
                     stats["interviewed_agents"] = len(per_agent_interview)
                     stats["opinion_tally"] = counts
+                    stats["tally_method"] = method
                     return jsonify({"response": answer, "source": "anchor_interviews", "stats": stats})
 
             # 2. Event reasoning summaries (works when real LLM content exists)
             if all_reasoning_texts:
-                counts, by_agent = _tally_from_texts(per_agent_last_reasoning)
+                semantic = _semantic_stance_tally(per_agent_last_reasoning, question, scenario_options)
+                method = "substring"
+                if semantic is not None:
+                    counts, by_agent, _details = semantic
+                    method = "semantic_llm"
+                else:
+                    counts, by_agent = _tally_from_texts(per_agent_last_reasoning)
                 counts = {k: v for k, v in counts.items() if v > 0}
                 if counts:
                     answer = _format_opinion_answer(
                         counts, by_agent, len(per_agent_last_reasoning), "from event reasoning"
                     )
                     stats["opinion_tally"] = counts
+                    stats["tally_method"] = method
                     return jsonify({"response": answer, "source": "anchor_data", "stats": stats})
 
             # 3. No opinion data yet — tell the user what to do
@@ -2192,14 +2854,19 @@ def create_app(
                 from openai import RateLimitError as _RLE
 
                 _oai_prefix = _anchor_oai_key[:8]
-                if _oai_prefix not in _OAI_CLIENTS:
-                    _oai_clients_put(_oai_prefix, _OAI(api_key=_anchor_oai_key))
-                oai = _OAI_CLIENTS[_oai_prefix]
+                oai = _oai_clients_get_or_create(
+                    _oai_prefix, lambda: _OAI(api_key=_anchor_oai_key)
+                )
 
-                # Build a per-agent reasoning excerpt (cap text length per agent)
+                # Build a per-agent reasoning excerpt. Scale the sample window
+                # with population size (capped at 200 to keep the prompt under
+                # the context-window comfort zone), and bump the per-agent
+                # quote cap to 400 chars so nuance isn't truncated away.
+                _sample_cap = min(200, max(20, len(per_agent_last_reasoning)))
+                _sampled = list(per_agent_last_reasoning.items())[:_sample_cap]
                 reasoning_lines: list[str] = []
-                for _ag, _txt in list(per_agent_last_reasoning.items())[:20]:
-                    reasoning_lines.append(f"- {_ag}: {_txt[:240]}")
+                for _ag, _txt in _sampled:
+                    reasoning_lines.append(f"- {_ag}: {_txt[:400]}")
                 reasoning_block = "\n".join(reasoning_lines) if reasoning_lines else "(no reasoning text recorded)"
 
                 # Interview Q&A excerpt
@@ -2466,12 +3133,17 @@ def create_app(
     @app.post("/upload-ess-data")
     @_write_limit
     def upload_ess_data():
-        """Upload a population data file (.csv or .parquet) for empirical grounding.
+        """Upload a population data file for empirical grounding.
 
-        No required columns — accepts any tabular file.  Returns a structured
-        analysis of which BGF simulation dimensions the file covers (directly,
-        via derivation, or via config fallback), mirroring the column mapping
-        in population/generator.py.
+        Accepts ``.csv``, ``.parquet``, ``.sav`` (SPSS — ESS native format),
+        and ``.dta`` (Stata). CSV uploads have their delimiter sniffed
+        automatically. ESS short codes (``agea``, ``gndr``, ``cntry`` …) are
+        normalized to the canonical schema used by the generator/grounder.
+
+        Returns a structured analysis of which BGF simulation dimensions the
+        file covers (directly, via derivation, or via config fallback),
+        plus the list of aliases that were auto-applied so the UI can show
+        provenance.
 
         The returned file_id can be passed to /simulate-wizard as ess_data_file_id.
         """
@@ -2493,23 +3165,90 @@ def create_app(
             return jsonify({"error": "Empty filename"}), 400
 
         fname_lower = f.filename.lower()
-        if not (fname_lower.endswith(".csv") or fname_lower.endswith(".parquet")):
-            return jsonify({"error": "Only .csv and .parquet files are accepted"}), 400
+        _SUPPORTED_EXT = (".csv", ".parquet", ".sav", ".dta")
+        if not fname_lower.endswith(_SUPPORTED_EXT):
+            return jsonify({
+                "error": (
+                    f"Unsupported file type. Accepted extensions: {', '.join(_SUPPORTED_EXT)}. "
+                    "ESS distributes microdata as .sav (SPSS); upload it directly without converting."
+                )
+            }), 400
 
         raw = f.read()
         if len(raw) > _UPLOAD_MAX_BYTES:
             return jsonify({"error": "File too large — maximum is 50 MB"}), 413
 
-        try:
-            if fname_lower.endswith(".csv"):
-                df = pd.read_csv(io.BytesIO(raw))
-            else:
-                df = pd.read_parquet(io.BytesIO(raw))
-        except Exception as exc:
-            return jsonify({"error": f"Could not parse file: {exc}"}), 422
+        df, load_error = _load_uploaded_dataframe(f.filename, raw)
+        if load_error is not None:
+            return jsonify({"error": load_error}), 422
+        # Inform mypy/downstream code that df is non-None past this point.
+        assert df is not None  # noqa: S101 — runtime invariant, not an assertion-disabled path
 
         if df.empty:
             return jsonify({"error": "File contains no rows"}), 422
+
+        # ── Normalize column names (ESS short codes → canonical schema) ───
+        from population.column_aliases import normalize_columns as _normalize_cols
+
+        original_columns = [str(c) for c in df.columns]
+        rename_map, alias_hits = _normalize_cols(df.columns)
+        if rename_map:
+            df = df.rename(columns=rename_map)
+        renamed_columns = [str(c) for c in df.columns]
+
+        # ── Treat known ESS missing-value sentinels as NaN ────────────────
+        # ESS uses -77/-88/-99 (refused/don't know/no answer) and Stata
+        # frequently emits 9999. String columns may carry "NA"/"" placeholders
+        # from CSV exports that pandas read as objects rather than NaN.
+        _NUMERIC_MISSING = (-77, -88, -99, 9999)
+        for col in df.select_dtypes(include=[np.number]).columns:
+            df[col] = df[col].mask(df[col].isin(_NUMERIC_MISSING))
+        for col in df.select_dtypes(include=["object"]).columns:
+            df[col] = df[col].replace({"NA": np.nan, "na": np.nan, "": np.nan, ".": np.nan})
+
+        # Decay pandas Categorical columns to plain types — downstream code
+        # uses .get()/.isin() and Categorical wrappers trip up both.
+        for col in df.select_dtypes(include=["category"]).columns:
+            df[col] = df[col].astype(object)
+
+        # ── Schema validation ─────────────────────────────────────────────
+        # ``age`` is the one column the grounder cannot work without —
+        # cohort priors are computed off it. Recommended columns improve the
+        # quality of the simulation but are not required.
+        _REQUIRED_COLUMNS = ("age",)
+        _RECOMMENDED_COLUMNS = (
+            "country",
+            "gender",
+            "income_decile",
+            "trust_people",
+            "trust_parliament",
+            "left_right",
+        )
+        from population.column_aliases import COLUMN_ALIASES as _ALIASES
+
+        missing_required = [c for c in _REQUIRED_COLUMNS if c not in df.columns]
+        if missing_required:
+            aliases_for_missing = {
+                col: sorted({k for k, v in _ALIASES.items() if v == col})
+                for col in missing_required
+            }
+            return jsonify({
+                "error": (
+                    f"Missing required column(s): {', '.join(missing_required)}. "
+                    "The grounder needs at least an integer age per respondent."
+                ),
+                "missing_required": missing_required,
+                "aliases_tried": aliases_for_missing,
+                "received_columns": sorted(map(str, df.columns)),
+            }), 422
+
+        warnings: list[str] = []
+        missing_recommended = [c for c in _RECOMMENDED_COLUMNS if c not in df.columns]
+        if missing_recommended:
+            warnings.append(
+                "Recommended columns missing — config defaults will be used for: "
+                + ", ".join(missing_recommended)
+            )
 
         # Derive trust_institutions if absent (mirrors ESSGrounder.load)
         cols = set(df.columns)
@@ -2518,6 +3257,29 @@ def create_app(
             if src:
                 df["trust_institutions"] = df[src].mean(axis=1)
                 cols.add("trust_institutions")
+
+        # ── Dry-run sample so config-incompatible data fails at upload time
+        # instead of mid-simulation. Use a tempfile because sample_empirical_rows
+        # reads from disk; this is cheap (<100 ms for a 50 MB parquet).
+        try:
+            from population.sampling import sample_empirical_rows as _sample_rows
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as _tmp:
+                _tmp_path = _tmp.name
+            try:
+                df.to_parquet(_tmp_path, index=False)
+                _sample_rows(_tmp_path, n=min(10, len(df)), seed=0)
+            finally:
+                try:
+                    os.unlink(_tmp_path)
+                except OSError:
+                    pass
+        except Exception as exc:  # noqa: BLE001 — message surfaced to user
+            return jsonify({
+                "error": f"Uploaded data failed sample validation: {exc}",
+                "warnings": warnings,
+            }), 422
 
         # ── Dimension analysis ────────────────────────────────────────────
         def _col_stats(col: str) -> dict:
@@ -2659,6 +3421,12 @@ def create_app(
                 "total_rows": len(df),
                 "total_columns": len(df.columns),
             },
+            "normalization": {
+                "original_columns": original_columns,
+                "renamed_columns": renamed_columns,
+                "alias_hits": alias_hits,
+            },
+            "warnings": warnings,
             "summary": (
                 f"{len(df):,} rows · {len(df.columns)} columns · "
                 f"{covered}/{total_dims} BGF dimensions covered ({coverage_pct}%)"
@@ -2892,9 +3660,19 @@ def create_app(
         if policy not in _VALID_POLICIES:
             return jsonify({"error": f"Invalid policy. Choose from: {sorted(_VALID_POLICIES)}"}), 400
 
+        # Demo mode shrinks the headroom so an anonymous visitor on a tiny
+        # public Space cannot queue a 500-agent / 100-round job that would
+        # OOM or wedge the worker pool. Authenticated callers bypass the
+        # demo cap so research traffic with a token retains full range.
+        _demo_mode = os.environ.get("BGF_DEMO_MODE", "").strip().lower() in {"1", "true", "yes"}
+        if _demo_mode and not _is_trusted_caller():
+            _agents_cap, _rounds_cap = 30, 20
+        else:
+            _agents_cap, _rounds_cap = 500, 100
+
         try:
-            agents = max(5, min(500, int(body.get("agents", 20))))
-            rounds = max(5, min(100, int(body.get("rounds", 10))))
+            agents = max(5, min(_agents_cap, int(body.get("agents", 20))))
+            rounds = max(5, min(_rounds_cap, int(body.get("rounds", 10))))
             seed = int(body.get("seed", 42))
         except (TypeError, ValueError):
             return jsonify({"error": "agents, rounds, seed must be integers"}), 400
@@ -2910,6 +3688,7 @@ def create_app(
         # Optional custom data file (only meaningful when pop_source == "empirical")
         ess_data_path: str | None = None
         ess_population_context: str | None = None
+        ess_uploaded_coverage: dict | None = None
         raw_file_id = str(body.get("ess_data_file_id", "")).strip()
         if raw_file_id:
             if not _FILE_ID_RE.match(raw_file_id):
@@ -2923,12 +3702,29 @@ def create_app(
             if not candidate.exists():
                 return jsonify({"error": "Uploaded data file not found — please re-upload"}), 404
             ess_data_path = str(candidate)
-            # Load analysis sidecar for the population narrative
+            # Load analysis sidecar for the population narrative and an honest
+            # record of which BGF dimensions actually came from the data (so
+            # the run's config.yaml does not claim "100% coverage" when half
+            # the columns silently fell back to defaults).
             analysis_sidecar = _UPLOADS_DIR / f"{raw_file_id}_analysis.json"
             if analysis_sidecar.exists():
                 try:
                     sidecar = json.loads(analysis_sidecar.read_text())
                     ess_population_context = sidecar.get("narrative")
+                    coverage = sidecar.get("coverage") or {}
+                    normalization = sidecar.get("normalization") or {}
+                    if coverage:
+                        ess_uploaded_coverage = {
+                            "source_filename": sidecar.get("filename"),
+                            "coverage": coverage,
+                            "alias_hits": normalization.get("alias_hits") or {},
+                            "fallback_dimensions": [
+                                d.get("name")
+                                for d in (sidecar.get("dimensions") or [])
+                                if d.get("status") == "fallback"
+                            ],
+                            "warnings": sidecar.get("warnings") or [],
+                        }
                 except Exception:
                     pass
 
@@ -3019,6 +3815,8 @@ def create_app(
             cfg_dict["data"] = {"ess_clean_path": ess_data_path}
             if ess_population_context:
                 cfg_dict["data"]["population_context"] = ess_population_context
+            if ess_uploaded_coverage:
+                cfg_dict["data"]["uploaded_coverage"] = ess_uploaded_coverage
         if bad_apple_frac > 0:
             cfg_dict["bad_apple"] = {"fraction": bad_apple_frac}
         if policy in ("llm", "generative_agents"):
@@ -3056,17 +3854,43 @@ def create_app(
                 cmd.append(f"data.population_context={safe_ctx}")
 
         # Append LLM-specific overrides for GPU/API policies
-        run_env = None
         if policy in ("llm", "generative_agents"):
             cmd += [
                 f"llm.backend_type={llm_backend}",
                 f"llm.model_id={llm_model_id}",
             ]
-            if llm_api_key:
-                import os as _os
 
-                env_var = "GROQ_API_KEY" if llm_backend == "groq" else "OPENAI_API_KEY"
-                run_env = {**_os.environ, env_var: llm_api_key}
+        # Build subprocess env from an explicit allowlist rather than
+        # forwarding the parent process env wholesale. If the subprocess
+        # crashes and the operator dumps logs, only sanctioned variables
+        # can leak — unrelated host secrets (AWS keys, DB URLs, etc.) stay
+        # out of the child's reach.
+        _ALLOWED_ENV_KEYS = {
+            "PATH",
+            "HOME",
+            "USER",
+            "LANG",
+            "LC_ALL",
+            "TMPDIR",
+            "TEMP",
+            "TMP",
+            "LD_LIBRARY_PATH",
+            "PYTHONPATH",
+            "PYTHONHASHSEED",
+            "PYTHONUNBUFFERED",
+            "VIRTUAL_ENV",
+            "OPENAI_API_KEY",
+            "GROQ_API_KEY",
+            "HF_TOKEN",
+            "HF_HOME",
+            "TRANSFORMERS_CACHE",
+            "CUDA_VISIBLE_DEVICES",
+            "TOKENIZERS_PARALLELISM",
+        }
+        run_env = {k: v for k, v in os.environ.items() if k in _ALLOWED_ENV_KEYS or k.startswith("BGF_")}
+        if policy in ("llm", "generative_agents") and llm_api_key:
+            env_var = "GROQ_API_KEY" if llm_backend == "groq" else "OPENAI_API_KEY"
+            run_env[env_var] = llm_api_key
 
         # Snapshot the design context now (before the thread) so the closure is safe.
         _scenario_snapshot: dict | None = None
@@ -3195,7 +4019,7 @@ def create_app(
 
     # ── Human evaluation study ────────────────────────────────────────────────
 
-    _HUMAN_EVAL_DIR = Path("data/human")
+    _HUMAN_EVAL_DIR = _HUMAN_OUTPUTS_DIR
     _HUMAN_EVAL_RATINGS = _HUMAN_EVAL_DIR / "prolific_ratings.jsonl"
     _human_eval_limit = limiter.limit("120 per hour") if _LIMITER_AVAILABLE else _noop
 
@@ -3506,7 +4330,7 @@ def create_app(
     # at /human-game/*, keeping it isolated from the main simulation API.
 
     _HUMAN_GAME_DIR = Path(__file__).resolve().parent.parent / "human_experiment" / "app"
-    _HUMAN_RESPONSES_CSV = Path("data/human/responses.csv")
+    _HUMAN_RESPONSES_CSV = _HUMAN_OUTPUTS_DIR / "responses.csv"
 
     import threading as _threading
     import time as _time

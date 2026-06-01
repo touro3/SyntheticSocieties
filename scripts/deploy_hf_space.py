@@ -39,9 +39,23 @@ IGNORE = [
     "frontend/node_modules/**",
     "**/__pycache__/**",
     "*.pyc",
+    # User-write paths: rerouted at runtime via BGF_DATA_ROOT. The local
+    # copies are dead weight in the build context and may contain
+    # researcher uploads / participant data we don't want in a public
+    # Space. The running app recreates these dirs on demand.
     "experiments/**",
+    "uploads/**",
+    "tracker/**",
+    "human_outputs/**",
+    "data/human/**",
+    "data/bgf_human_responses*",
+    # Analysis outputs: regenerated offline from experiments/, not needed
+    # at serve time.
     "analysis/figures/**",
     "analysis/networks/**",
+    "analysis/tables/**",
+    "analysis/reports/**",
+    # Heavy artifacts and caches.
     "*.pdf",
     "notebooks/**",
     "paper/**",

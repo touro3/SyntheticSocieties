@@ -365,6 +365,8 @@ def _build_llm_backend(llm_cfg: dict):
         inference_timeout=llm_cfg.get("inference_timeout", 120),
         max_retries=llm_cfg.get("max_retries", 2),
         quantization=llm_cfg.get("quantization", None),
+        repetition_penalty=llm_cfg.get("repetition_penalty", 1.0),
+        no_repeat_ngram_size=llm_cfg.get("no_repeat_ngram_size", 0),
     )
     # BGF_MAX_BATCH_SIZE env var (set for OOM-prone GPUs) wins over config —
     # the env var is an explicit opt-in override, the config value is a default.

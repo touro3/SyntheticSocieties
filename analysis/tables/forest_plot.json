@@ -3,7 +3,7 @@
     {
       "hypothesis": "H1: BRM_composite (B \u2212 A)",
       "metric_name": "\u0394 BRM composite",
-      "effect": 0.25237781230491796,
+      "effect": 0.0163,
       "ci_lo": null,
       "ci_hi": null,
       "status": "verified",
@@ -12,37 +12,37 @@
       "note": ""
     },
     {
-      "hypothesis": "H2: B_RLHF reduction (A\u2192B)",
-      "metric_name": "relative \u0394B_RLHF",
-      "effect": 0.8472877358490566,
+      "hypothesis": "H2: B_RLHF reduction (A\u2192B, N=100 10-seed)",
+      "metric_name": "abs \u0394B_RLHF (B\u2212A)",
+      "effect": -0.0030999999999999917,
       "ci_lo": null,
       "ci_hi": null,
-      "status": "verified",
-      "source": "analysis/cross_model_results.json (Mistral-7B)",
-      "audit_row": "A.4",
-      "note": ""
+      "status": "falsified",
+      "source": "analysis/cross_model_results.json (Mistral-7B N=100 confirmatory)",
+      "audit_row": "A.4 / \u00a78.1.1",
+      "note": "A=0.196, B=0.193; MWU p=0.91; N=100 10-seed null. N=20 exploratory: A=0.254,B=0.038 (85% reduction)."
     },
     {
-      "hypothesis": "H3: Gini in empirical range [0.25, 0.40]",
-      "metric_name": "fraction of seeds",
-      "effect": null,
+      "hypothesis": "H3: Gini \u2208 Eurostat range [0.25, 0.40] (LLM N=100)",
+      "metric_name": "fraction of seeds (LLM)",
+      "effect": 0.0,
       "ci_lo": null,
       "ci_hi": null,
-      "status": "pending",
-      "source": "analysis/tables/grounding_comparison_seed_metrics.csv",
+      "status": "falsified",
+      "source": "analysis/paper_numbers.json[h3_gini_fraction_in_eurostat_range]",
       "audit_row": "A.8",
-      "note": "needs canonical key in paper_numbers.json"
+      "note": "0/20 seeds in range. Condition D (rule-based) achieves 0.325 \u00b1 0.001 (in range)."
     },
     {
       "hypothesis": "H4: modularity Q (grounded \u2212 A)",
       "metric_name": "\u0394 modularity",
-      "effect": null,
+      "effect": 0.0048,
       "ci_lo": null,
       "ci_hi": null,
-      "status": "pending",
-      "source": "analysis/paper_numbers.json",
+      "status": "partial",
+      "source": "analysis/paper_numbers.json[modularity_delta]",
       "audit_row": "F.7",
-      "note": "topology ablation lands modularity into paper_numbers"
+      "note": ""
     },
     {
       "hypothesis": "H5: trust gradient (Spearman \u03c1)",
@@ -69,13 +69,13 @@
     {
       "hypothesis": "H7: cross-model B_RLHF generality",
       "metric_name": "mean rel. \u0394B_RLHF",
-      "effect": 0.8472877358490566,
+      "effect": 0.4315682033028514,
       "ci_lo": null,
       "ci_hi": null,
       "status": "verified",
       "source": "analysis/cross_model_results.json",
       "audit_row": "A.4",
-      "note": "per-model: {'mistral-7b': 0.8472877358490566}"
+      "note": "per-model: {'mistral-7b': 0.8472877358490566, 'mistral-7b-n100-confirmatory': 0.015848670756646175}"
     },
     {
       "hypothesis": "H8: persona-fidelity slope (T=30)",
@@ -100,7 +100,7 @@
       "note": "exact two-tailed p = 0.03333333333333333"
     }
   ],
-  "descriptive_pooled_effect": 0.7265335139434633,
+  "descriptive_pooled_effect": 0.3050403555738767,
   "audit_row": "E.6",
   "note": "Effect sizes are heterogeneous (g, \u03c1, \u0394B_RLHF, etc.); pooled value is presentational."
 }

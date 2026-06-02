@@ -109,6 +109,8 @@ class LLMBackend:
         quantization: Optional[str] = None,
         allow_remote_code: bool = False,
         allow_remote_downloads: bool = False,
+        repetition_penalty: float = 1.0,
+        no_repeat_ngram_size: int = 0,
     ):
         self.model_id = model_id
         # Reject bfloat16 before any work: P100 (CC 6.0) has no hardware bfloat16.
@@ -139,6 +141,12 @@ class LLMBackend:
         # repo.  Only enable this when you control the model source.
         self.allow_remote_code = allow_remote_code
         self.allow_remote_downloads = allow_remote_downloads
+        # repetition_penalty > 1.0 discourages re-generating already-seen tokens,
+        # breaking the mode-collapse loop that causes the CUDA generation wedge
+        # at high cooperation rates (N=500).  BGF_REPETITION_PENALTY env var wins.
+        _env_rep = os.environ.get("BGF_REPETITION_PENALTY")
+        self.repetition_penalty: float = float(_env_rep) if _env_rep else repetition_penalty
+        self.no_repeat_ngram_size: int = no_repeat_ngram_size
 
         self.model = None
         self.tokenizer = None
@@ -435,6 +443,10 @@ class LLMBackend:
             max_new_tokens=max_tokens,
             pad_token_id=self.tokenizer.pad_token_id,
         )
+        if self.repetition_penalty != 1.0:
+            gen_kwargs_base["repetition_penalty"] = self.repetition_penalty
+        if self.no_repeat_ngram_size > 0:
+            gen_kwargs_base["no_repeat_ngram_size"] = self.no_repeat_ngram_size
         if _logits_processor is not None:
             gen_kwargs_base["logits_processor"] = _logits_processor
 
@@ -732,6 +744,10 @@ class LLMBackend:
             top_p=0.9 if float(temp) > 0 else 1.0,
             pad_token_id=self.tokenizer.pad_token_id,
         )
+        if self.repetition_penalty != 1.0:
+            gen_kwargs["repetition_penalty"] = self.repetition_penalty
+        if self.no_repeat_ngram_size > 0:
+            gen_kwargs["no_repeat_ngram_size"] = self.no_repeat_ngram_size
         if _lp is not None:
             gen_kwargs["logits_processor"] = _lp
 

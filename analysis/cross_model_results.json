@@ -34,5 +34,27 @@
     "rlhf_bias_index": 0.0314,
     "n_agents": 20,
     "n_rounds": 10
+  },
+  {
+    "model_id": "mistral-7b-n100-confirmatory",
+    "condition": "A",
+    "cooperation_rate": 0.4549,
+    "gini": 0.7147,
+    "rlhf_bias_index": 0.1956,
+    "n_agents": 100,
+    "n_rounds": 30,
+    "n_seeds": 10,
+    "note": "10-seed confirmatory extension (mx_A_s{1..10}); B_RLHF = 0.1956 \u00b1 0.030"
+  },
+  {
+    "model_id": "mistral-7b-n100-confirmatory",
+    "condition": "B",
+    "cooperation_rate": 0.4607,
+    "gini": 0.7184,
+    "rlhf_bias_index": 0.1925,
+    "n_agents": 100,
+    "n_rounds": 30,
+    "n_seeds": 10,
+    "note": "10-seed confirmatory extension (mx_B_s{1..10}); B_RLHF = 0.1925 \u00b1 0.030"
   }
 ]

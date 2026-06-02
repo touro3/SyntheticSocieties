@@ -1,7 +1,7 @@
 project:
   name: bgf
-  experiment_id: mx_A_n500_s3
-  seed: 3
+  experiment_id: mx_A_n500_s6
+  seed: 6
 simulation:
   rounds: 15
   population_size: 500

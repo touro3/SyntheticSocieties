@@ -1,9 +1,9 @@
 project:
   name: bgf
-  experiment_id: mx_A_n500_s3
-  seed: 3
+  experiment_id: mx_A_n500_s1
+  seed: 1
 simulation:
-  rounds: 15
+  rounds: 30
   population_size: 500
 policy:
   type: llm

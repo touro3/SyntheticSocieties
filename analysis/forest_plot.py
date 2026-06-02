@@ -61,23 +61,41 @@ def _h1_h2_h4_from_paper_numbers() -> tuple[HypRow, HypRow, HypRow]:
     blob = _safe_load(REPO_ROOT / "analysis" / "paper_numbers.json") or {}
     cross = _safe_load(REPO_ROOT / "analysis" / "cross_model_results.json") or []
 
-    # H2: ΔB_RLHF across the three cross-model conditions. Use Mistral as the
-    # primary effect (canonical model); other models become heterogeneity.
+    # H2: prefer the N=100 10-seed confirmatory result if available; fall back
+    # to the N=20 cross-model rows which are exploratory.
+    n100_a = [r for r in cross if r.get("model_id") == "mistral-7b-n100-confirmatory" and r.get("condition") == "A"]
+    n100_b = [r for r in cross if r.get("model_id") == "mistral-7b-n100-confirmatory" and r.get("condition") == "B"]
     mistral_a = [r for r in cross if r.get("model_id") == "mistral-7b" and r.get("condition") == "A"]
     mistral_b = [r for r in cross if r.get("model_id") == "mistral-7b" and r.get("condition") == "B"]
-    if mistral_a and mistral_b:
+    if n100_a and n100_b:
+        a_val = float(np.mean([r["rlhf_bias_index"] for r in n100_a]))
+        b_val = float(np.mean([r["rlhf_bias_index"] for r in n100_b]))
+        abs_delta = b_val - a_val  # negative = reduction; ≈ -0.003
+        h2 = HypRow(
+            hypothesis="H2: B_RLHF reduction (A→B, N=100 10-seed)",
+            metric_name="abs ΔB_RLHF (B−A)",
+            effect=abs_delta,
+            ci_lo=None,
+            ci_hi=None,
+            status="falsified",  # no reduction at N=100
+            source="analysis/cross_model_results.json (Mistral-7B N=100 confirmatory)",
+            audit_row="A.4 / §8.1.1",
+            note=f"A={a_val:.3f}, B={b_val:.3f}; MWU p=0.91; N=100 10-seed null. N=20 exploratory: A=0.254,B=0.038 (85% reduction).",
+        )
+    elif mistral_a and mistral_b:
         a_mean = float(np.mean([r["rlhf_bias_index"] for r in mistral_a]))
         b_mean = float(np.mean([r["rlhf_bias_index"] for r in mistral_b]))
         delta = (a_mean - b_mean) / a_mean if a_mean > 0 else float("nan")
         h2 = HypRow(
-            hypothesis="H2: B_RLHF reduction (A→B)",
+            hypothesis="H2: B_RLHF reduction (A→B, N=20 exploratory)",
             metric_name="relative ΔB_RLHF",
             effect=delta,
             ci_lo=None,
             ci_hi=None,
-            status="verified",
-            source="analysis/cross_model_results.json (Mistral-7B)",
+            status="partial",
+            source="analysis/cross_model_results.json (Mistral-7B N=20)",
             audit_row="A.4",
+            note="N=20 T=10 only; N=100 10-seed confirmatory falsifies H2 (p=0.91).",
         )
     else:
         h2 = HypRow(
@@ -150,12 +168,23 @@ def _h1_h2_h4_from_paper_numbers() -> tuple[HypRow, HypRow, HypRow]:
 
 
 def _h3_gini_in_range() -> HypRow:
-    """H3: fraction of seeds whose final Gini lies in the empirical range.
-
-    The seed-level CSV is structured; rather than parse it inline, expose a
-    documented pending state until the consolidated number lands in
-    paper_numbers.json under a clean key (audit row A.8).
-    """
+    """H3: fraction of N=100 LLM seeds with final Gini in Eurostat range."""
+    pn = _safe_load(REPO_ROOT / "analysis" / "paper_numbers.json") or {}
+    frac = pn.get("h3_gini_fraction_in_eurostat_range")
+    n_total = pn.get("h3_n_total_seeds", 0)
+    n_in = pn.get("h3_n_in_range", 0)
+    if frac is not None:
+        return HypRow(
+            "H3: Gini ∈ Eurostat range [0.25, 0.40] (LLM N=100)",
+            "fraction of seeds (LLM)",
+            float(frac),
+            None,
+            None,
+            "falsified",
+            "analysis/paper_numbers.json[h3_gini_fraction_in_eurostat_range]",
+            "A.8",
+            f"{n_in}/{n_total} seeds in range. Condition D (rule-based) achieves 0.325 ± 0.001 (in range).",
+        )
     return HypRow(
         "H3: Gini in empirical range [0.25, 0.40]",
         "fraction of seeds",
@@ -163,9 +192,9 @@ def _h3_gini_in_range() -> HypRow:
         None,
         None,
         "pending",
-        "analysis/tables/grounding_comparison_seed_metrics.csv",
+        "analysis/paper_numbers.json",
         "A.8",
-        "needs canonical key in paper_numbers.json",
+        "compute h3_gini_fraction_in_eurostat_range in paper_numbers.json",
     )
 
 

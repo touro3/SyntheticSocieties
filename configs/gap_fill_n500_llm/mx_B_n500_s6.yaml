@@ -1,7 +1,7 @@
 project:
   name: bgf
-  experiment_id: mx_A_n500_s3
-  seed: 3
+  experiment_id: mx_B_n500_s6
+  seed: 6
 simulation:
   rounds: 15
   population_size: 500
@@ -28,7 +28,7 @@ llm:
   quantization: 4bit
   max_batch_size: 2
   repetition_penalty: 1.3
-  ablation_level: 0
+  ablation_level: 5
 network:
   type: random
   edge_prob: 0.5

@@ -79,6 +79,7 @@ for level_idx in "${!MEMORY_LEVELS[@]}"; do
                 --agents "$N_AGENTS"
                 --rounds "$N_ROUNDS"
                 --include-llm
+                --skip-existing
             )
 
             if $DRY_RUN; then

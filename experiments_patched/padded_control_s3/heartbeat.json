@@ -1,0 +1,1 @@
+{"round_id": 15, "ts": 1780446198.2293243, "n_agents": 50, "mean_wealth": 220.92, "gini": 0.2573, "action_distribution": {"cooperate": 0.44, "work": 0.36, "save": 0.2}, "last_action": "cooperate"}

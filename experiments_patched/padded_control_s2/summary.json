@@ -1,0 +1,555 @@
+{
+  "num_agents": 50,
+  "wealth": {
+    "values": [
+      2466.5,
+      1409.0,
+      792.75,
+      1295.5,
+      422.25,
+      167.0,
+      272.25,
+      42.0,
+      52.0,
+      211.0,
+      958.75,
+      285.0,
+      112.0,
+      282.0,
+      90.0,
+      370.0,
+      0.0,
+      173.0,
+      21.5,
+      136.0,
+      46.0,
+      400.0,
+      2.0,
+      380.0,
+      5.0,
+      32.0,
+      238.0,
+      4.0,
+      0.5,
+      103.0,
+      31.0,
+      183.25,
+      0.0,
+      350.0,
+      1.0,
+      370.0,
+      66.0,
+      44.5,
+      34.0,
+      89.0,
+      7.5,
+      84.0,
+      23.0,
+      166.25,
+      83.0,
+      390.0,
+      0.0,
+      199.0,
+      390.0,
+      380.0
+    ],
+    "mean": 273.21,
+    "median": 124.0,
+    "variance": 189474.60340000002,
+    "min": 0.0,
+    "max": 2466.5,
+    "gini": 0.6500713736686066,
+    "lorenz_curve": {
+      "population_share": [
+        0.0,
+        0.02,
+        0.04,
+        0.06,
+        0.08,
+        0.1,
+        0.12,
+        0.14,
+        0.16,
+        0.18,
+        0.2,
+        0.22,
+        0.24,
+        0.26,
+        0.28,
+        0.3,
+        0.32,
+        0.34,
+        0.36,
+        0.38,
+        0.4,
+        0.42,
+        0.44,
+        0.46,
+        0.48,
+        0.5,
+        0.52,
+        0.54,
+        0.56,
+        0.58,
+        0.6,
+        0.62,
+        0.64,
+        0.66,
+        0.68,
+        0.7,
+        0.72,
+        0.74,
+        0.76,
+        0.78,
+        0.8,
+        0.82,
+        0.84,
+        0.86,
+        0.88,
+        0.9,
+        0.92,
+        0.94,
+        0.96,
+        0.98,
+        1.0
+      ],
+      "value_share": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        3.6601881336700707e-05,
+        0.00010980564401010212,
+        0.00025621316935690495,
+        0.0005490282200505106,
+        0.0009150470334175177,
+        0.0014640752534680283,
+        0.0030379561509461584,
+        0.004721642692434391,
+        0.006990959335309835,
+        0.00933347974085868,
+        0.011822407671754328,
+        0.014896965704037188,
+        0.01815453314300355,
+        0.021521906225980016,
+        0.025328501884996888,
+        0.03015995022144138,
+        0.036235862523333696,
+        0.04238497858789942,
+        0.048900113465832146,
+        0.05548845210643827,
+        0.06302843966179862,
+        0.07122726108121957,
+        0.08118297280480216,
+        0.09335309834925515,
+        0.10557812671571319,
+        0.11824237765821163,
+        0.13165696716811245,
+        0.14622451594011932,
+        0.16167050986420703,
+        0.17909300538047657,
+        0.1990227297683101,
+        0.21966619084220929,
+        0.24052926320412868,
+        0.2661505801398192,
+        0.2932359723289777,
+        0.32032136451813625,
+        0.3481387943340288,
+        0.3759562241499213,
+        0.40450569159254784,
+        0.4330551590351744,
+        0.462336664104535,
+        0.4932469528933787,
+        0.5512792357527176,
+        0.6214633432158413,
+        0.7162988177592329,
+        0.8194429193660554,
+        1.0
+      ]
+    }
+  },
+  "stress": {
+    "values": [
+      -0.8999999999999998,
+      -1.0,
+      1.3877787807814457e-16,
+      1.0,
+      0.3500000000000001,
+      -0.65,
+      -0.6499999999999999,
+      -1.0,
+      -1.0,
+      -0.6499999999999999,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      -0.6499999999999999,
+      -1.0,
+      -1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      -1.0,
+      0.10000000000000003,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -1.0,
+      -0.8999999999999998,
+      -1.0,
+      -1.0,
+      -1.0,
+      1.0,
+      -1.0,
+      -0.6,
+      1.0,
+      1.0
+    ],
+    "mean": -0.531,
+    "median": -1.0,
+    "variance": 0.5940890000000001,
+    "min": -1.0,
+    "max": 1.0
+  },
+  "actions": {
+    "cooperate": 41,
+    "work": 9
+  },
+  "behavior": {
+    "cooperation_rate": 0.82,
+    "defection_rate": 0.0
+  },
+  "final_state": {
+    "agent_0": {
+      "wealth": 2466.5,
+      "stress": -0.8999999999999998,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_1": {
+      "wealth": 1409.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_2": {
+      "wealth": 792.75,
+      "stress": 1.3877787807814457e-16,
+      "satisfaction": 0.88,
+      "last_action": "cooperate"
+    },
+    "agent_3": {
+      "wealth": 1295.5,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_4": {
+      "wealth": 422.25,
+      "stress": 0.3500000000000001,
+      "satisfaction": 0.43,
+      "last_action": "cooperate"
+    },
+    "agent_5": {
+      "wealth": 167.0,
+      "stress": -0.65,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_6": {
+      "wealth": 272.25,
+      "stress": -0.6499999999999999,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_7": {
+      "wealth": 42.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_8": {
+      "wealth": 52.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_9": {
+      "wealth": 211.0,
+      "stress": -0.6499999999999999,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_10": {
+      "wealth": 958.75,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_11": {
+      "wealth": 285.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_12": {
+      "wealth": 112.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_13": {
+      "wealth": 282.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_14": {
+      "wealth": 90.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_15": {
+      "wealth": 370.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_16": {
+      "wealth": 0.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_17": {
+      "wealth": 173.0,
+      "stress": -0.6499999999999999,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_18": {
+      "wealth": 21.5,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_19": {
+      "wealth": 136.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_20": {
+      "wealth": 46.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_21": {
+      "wealth": 400.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_22": {
+      "wealth": 2.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_23": {
+      "wealth": 380.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_24": {
+      "wealth": 5.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_25": {
+      "wealth": 32.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_26": {
+      "wealth": 238.0,
+      "stress": 0.10000000000000003,
+      "satisfaction": 0.9200000000000003,
+      "last_action": "cooperate"
+    },
+    "agent_27": {
+      "wealth": 4.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_28": {
+      "wealth": 0.5,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_29": {
+      "wealth": 103.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_30": {
+      "wealth": 31.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_31": {
+      "wealth": 183.25,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_32": {
+      "wealth": 0.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_33": {
+      "wealth": 350.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_34": {
+      "wealth": 1.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_35": {
+      "wealth": 370.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_36": {
+      "wealth": 66.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_37": {
+      "wealth": 44.5,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_38": {
+      "wealth": 34.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_39": {
+      "wealth": 89.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_40": {
+      "wealth": 7.5,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_41": {
+      "wealth": 84.0,
+      "stress": -0.8999999999999998,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_42": {
+      "wealth": 23.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_43": {
+      "wealth": 166.25,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_44": {
+      "wealth": 83.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_45": {
+      "wealth": 390.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_46": {
+      "wealth": 0.0,
+      "stress": -1.0,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_47": {
+      "wealth": 199.0,
+      "stress": -0.6,
+      "satisfaction": 1.0,
+      "last_action": "cooperate"
+    },
+    "agent_48": {
+      "wealth": 390.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    },
+    "agent_49": {
+      "wealth": 380.0,
+      "stress": 1.0,
+      "satisfaction": 0.0,
+      "last_action": "work"
+    }
+  },
+  "event_action_counts": {
+    "work": 573,
+    "cooperate": 822,
+    "save": 105
+  },
+  "event_behavior": {
+    "work_rate": 0.382,
+    "save_rate": 0.07,
+    "cooperation_rate": 0.548,
+    "rejected_action_rate": 0.024
+  },
+  "validation_summary": {
+    "valid_actions": 1464,
+    "invalid_actions": 36
+  }
+}

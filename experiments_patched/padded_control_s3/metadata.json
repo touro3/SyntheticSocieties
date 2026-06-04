@@ -7,5 +7,7 @@
   "population_size": 50,
   "rounds": 30,
   "target_token_count": null,
-  "started_at": "2026-06-02T22:18:20.850373+00:00"
+  "started_at": "2026-06-02T22:18:20.850373+00:00",
+  "completed_at": "2026-06-03T02:49:12.662016+00:00",
+  "elapsed_seconds": 16251.7
 }

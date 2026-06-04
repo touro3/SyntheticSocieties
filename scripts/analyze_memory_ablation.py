@@ -37,9 +37,9 @@ METRIC_KEYS = [
 ]
 
 
-def _exp_id(level: int, condition: str, seed: int) -> str:
+def _exp_id(level: int, condition: str, seed: int, suffix: str = "") -> str:
     names = {0: "M0_no_memory", 1: "M1_window", 2: "M2_archive", 3: "M3_full"}
-    return f"ablation_{names[level]}_{condition}_s{seed}"
+    return f"ablation_{names[level]}_{condition}_s{seed}{suffix}"
 
 
 def load_run_metrics(exp_dir: Path, exp_id: str) -> dict | None:
@@ -215,6 +215,12 @@ def main() -> None:
         default="analysis/figures/memory_ablation_interaction.png",
         help="Output PNG path for the interaction plot.",
     )
+    parser.add_argument(
+        "--suffix",
+        type=str,
+        default="_v2",
+        help="Experiment ID suffix for versioned runs (default: '_v2' for the bug-patched re-run).",
+    )
     args = parser.parse_args()
 
     exp_dir = Path(args.exp_dir)
@@ -226,7 +232,7 @@ def main() -> None:
         for cond in CONDITIONS:
             data[(level, cond)] = []
             for seed in SEEDS:
-                exp_id = _exp_id(level, cond, seed)
+                exp_id = _exp_id(level, cond, seed, suffix=args.suffix)
                 if args.dry_run:
                     row = generate_synthetic_metrics(level, cond, seed)
                     data[(level, cond)].append(row)

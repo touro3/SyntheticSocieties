@@ -1,22 +1,25 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run_memory_ablation_llm.sh — Re-run memory ablation with REAL LLM policy
+# run_memory_ablation_llm.sh — Memory ablation with REAL LLM policy (v2)
 #
-# This script re-runs all 24 memory ablation experiments (M0–M3 × 2 conditions
-# × 3 seeds) using the actual LLM policy. The existing on-disk experiments used
-# policy=mock and produce no persona fidelity variation.
+# Tests H8: persona fidelity monotonic in memory depth (M0 → M3).
+# Runs 24 cells: M0–M3 × grounded/ungrounded × seeds {42, 123, 7}, N=20, T=10.
 #
-# Paper claim: M0 fidelity=0.609 → M3 fidelity=0.742 (monotonic under grounding)
-# Status: UNVERIFIED — needs this run to substantiate Table 7 and Figure 15
+# BUGS PATCHED (2026-06-03, see §8.5.1 of paper.md):
+#   Bug A: ablation.mode=no_rag was silently ignored in policy.type=llm branch.
+#          Fix: run_config_simulation.py now reads ablation.mode and strips
+#          graph_rag/sql_rag from LLMPolicy when mode=no_rag.
+#   Bug B: memory.level config was not propagated to HierarchicalMemory.__init__.
+#          Fix: population/generator.py now reads config["memory"]["level"] and
+#          passes it to _build_memory(), so M0 agents truly have no memory
+#          context shown to the LLM.
 #
-# Requirements: GPU with ≥4 GB VRAM, Mistral-7B-Instruct-v0.3 cached
-# Estimated runtime: ~2–4 hours on single P100 (4-bit quantization)
+# Output: experiments/ablation_M{0-3}_{grounded,ungrounded}_s{42,123,7}_v2/
+#         (v2 suffix distinguishes from the invalid 2026-06-03 run)
 #
 # Usage:
 #   source venv/bin/activate
-#   bash scripts/run_memory_ablation_llm.sh [--dry-run]
-#
-# Output: experiments/ablation_M{0-3}_{grounded,ungrounded}_s{42,123,7}/
+#   bash scripts/run_memory_ablation_llm.sh [--dry-run] [--skip-existing]
 # =============================================================================
 set -euo pipefail
 
@@ -24,8 +27,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+SKIP_EXISTING=false
+for arg in "$@"; do
+    [[ "$arg" == "--dry-run" ]]      && DRY_RUN=true
+    [[ "$arg" == "--skip-existing" ]] && SKIP_EXISTING=true
+done
 
+PYTHON="${PYTHON:-venv/bin/python}"
 SEEDS=(42 123 7)
 MEMORY_LEVELS=(0 1 2 3)
 MEMORY_CONFIGS=(
@@ -37,13 +45,17 @@ MEMORY_CONFIGS=(
 MEMORY_NAMES=("M0_no_memory" "M1_window" "M2_archive" "M3_full")
 
 N_AGENTS=20
-N_ROUNDS=10   # Short horizon to keep runtime manageable per seed; extend to 30 for final
+N_ROUNDS=10
 
 echo "========================================================"
-echo "  BGF Memory Ablation Re-run — LLM Policy"
+echo "  BGF Memory Ablation — LLM Policy (v2, bugs patched)"
 echo "  Levels: M0–M3 | Seeds: ${SEEDS[*]} | N=${N_AGENTS} T=${N_ROUNDS}"
 echo "  $(date)"
 echo "========================================================"
+
+TOTAL=0
+SKIPPED=0
+FAILED=0
 
 for level_idx in "${!MEMORY_LEVELS[@]}"; do
     level="${MEMORY_LEVELS[$level_idx]}"
@@ -51,43 +63,56 @@ for level_idx in "${!MEMORY_LEVELS[@]}"; do
     name="${MEMORY_NAMES[$level_idx]}"
 
     for condition in grounded ungrounded; do
-        # Map condition to the new A/B/C/D pipeline flags
-        if [[ "$condition" == "grounded" ]]; then
-            condition_flag="B"  # Condition B is Empirical/Grounded
-        else
-            condition_flag="A"  # Condition A is Synthetic/Ungrounded
-        fi
-
         for seed in "${SEEDS[@]}"; do
-            exp_id="ablation_${name}_${condition}_s${seed}"
+            exp_id="ablation_${name}_${condition}_s${seed}_v2"
             out_dir="experiments/${exp_id}"
+            TOTAL=$((TOTAL + 1))
 
             echo ""
             echo "── M${level} | ${condition} | seed=${seed} → ${exp_id}"
 
-            if [[ -d "$out_dir" && -f "$out_dir/metrics.json" ]]; then
-                echo "   SKIP: already complete"
+            # Skip if summary.json already written (previous complete v2 run)
+            if $SKIP_EXISTING && [[ -f "$out_dir/summary.json" ]]; then
+                echo "   SKIP: summary.json exists"
+                SKIPPED=$((SKIPPED + 1))
                 continue
             fi
 
-            # CORRECTED COMMAND BLOCK:
+            # Build override list
+            overrides=(
+                "project.experiment_id=${exp_id}"
+                "project.seed=${seed}"
+                "simulation.population_size=${N_AGENTS}"
+                "simulation.rounds=${N_ROUNDS}"
+                "policy.type=llm"
+            )
+
+            # Bug A fix: pass ablation.mode=no_rag for ungrounded arm.
+            # run_config_simulation.py now routes this to graph_rag=None, sql_rag=None.
+            if [[ "$condition" == "ungrounded" ]]; then
+                overrides+=("ablation.mode=no_rag")
+            fi
+
+            # Bug B fix: memory.level is already in the yaml config (m0=0, m1=1, etc.)
+            # and population/generator.py now reads it — no additional override needed.
+
             cmd=(
-                python scripts/run_full_pipeline.py
-                --condition "$condition_flag"
-                --llm-ablation-level "$level"
-                --seeds "$seed"
-                --agents "$N_AGENTS"
-                --rounds "$N_ROUNDS"
-                --include-llm
-                --skip-existing
+                "$PYTHON" scripts/run_config_simulation.py
+                --config "$cfg"
+                "${overrides[@]}"
             )
 
             if $DRY_RUN; then
                 echo "   DRY-RUN: ${cmd[*]}"
             else
                 echo "   Running: ${cmd[*]}"
-                "${cmd[@]}" 2>&1 | tee "logs/${exp_id}.log"
-                echo "   Done: $(date)"
+                mkdir -p logs
+                if "${cmd[@]}" 2>&1 | tee "logs/${exp_id}.log"; then
+                    echo "   Done: $(date)"
+                else
+                    echo "   FAILED: see logs/${exp_id}.log"
+                    FAILED=$((FAILED + 1))
+                fi
             fi
         done
     done
@@ -95,8 +120,8 @@ done
 
 echo ""
 echo "========================================================"
-echo "  All memory ablation runs complete."
+echo "  Memory ablation v2 complete."
+echo "  Total: ${TOTAL} | Skipped: ${SKIPPED} | Failed: ${FAILED}"
 echo "  Analyze results:"
 echo "    python scripts/analyze_memory_ablation.py"
-echo "    python scripts/plot_memory_ablation_heatmap.py"
 echo "========================================================"

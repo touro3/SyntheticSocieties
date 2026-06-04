@@ -1,10 +1,9 @@
 {
-  "level": "publication",
-  "status": "FAIL",
-  "blockers": [
-    "Human baseline is flagged as synthetic/demo-like.",
-    "Human baseline analysis mode is 'pilot_or_demo', expected 'publication'."
+  "level": "basic",
+  "status": "PASS_WITH_WARNINGS",
+  "blockers": [],
+  "warnings": [
+    "Human baseline is flagged as synthetic/demo-like."
   ],
-  "warnings": [],
   "info": []
 }

@@ -47,22 +47,37 @@ from population.schemas import PopulationSpec
 logger = logging.getLogger(__name__)
 
 
-def _build_memory(defaults: dict, agent_id: str, persistent_dir: str | None) -> HierarchicalMemory:
+def _build_memory(
+    defaults: dict,
+    agent_id: str,
+    persistent_dir: str | None,
+    memory_level: int = 3,
+) -> HierarchicalMemory:
     """Construct an agent memory, opting into the disk-persistent semantic
     store only when ``agent_defaults.memory_persistent`` is set AND a target
     directory is supplied.  Otherwise behavior is byte-identical to before.
+
+    ``memory_level`` maps to the M0–M3 ablation levels defined in
+    ``agents.memory.MemoryLevel`` (0=no memory, 1=window only, 2=window+archive,
+    3=full hierarchical).  Callers should pass
+    ``config.get("memory", {}).get("level", 3)`` so that the memory ablation
+    study configs (``configs/memory_ablation/m{0..3}_*.yaml``) are honoured.
     """
+    from agents.memory import MemoryLevel
+
     max_recent = defaults.get("memory_size", 10)
+    level = MemoryLevel(int(memory_level))
     if persistent_dir and defaults.get("memory_persistent", False):
         from pathlib import Path
 
         db_path = str(Path(persistent_dir) / "memory" / f"{agent_id}.db")
         return HierarchicalMemory(
             max_recent=max_recent,
+            level=level,
             persistent_db_path=db_path,
             embedding_model=defaults.get("embedding_model", "all-MiniLM-L6-v2"),
         )
-    return HierarchicalMemory(max_recent=max_recent)
+    return HierarchicalMemory(max_recent=max_recent, level=level)
 
 
 def generate_population(config: dict, policy, persistent_dir: str | None = None) -> list[Agent]:
@@ -76,6 +91,7 @@ def generate_population(config: dict, policy, persistent_dir: str | None = None)
     """
     simulation_cfg = config["simulation"]
     defaults = config["agent_defaults"]
+    memory_level = config.get("memory", {}).get("level", 3)
 
     spec = PopulationSpec(
         population_size=simulation_cfg["population_size"],
@@ -104,7 +120,7 @@ def generate_population(config: dict, policy, persistent_dir: str | None = None)
 
         state = AgentState(wealth=spec.initial_wealth + i * spec.wealth_step)
 
-        memory = _build_memory(defaults, f"agent_{i}", persistent_dir)
+        memory = _build_memory(defaults, f"agent_{i}", persistent_dir, memory_level=memory_level)
 
         agents.append(
             Agent(
@@ -145,6 +161,7 @@ def generate_empirical_population(
     simulation_cfg = config["simulation"]
     defaults = config["agent_defaults"]
     data_cfg = config.get("data", {})
+    memory_level = config.get("memory", {}).get("level", 3)
 
     n = simulation_cfg["population_size"]
     seed = config.get("project", {}).get("seed", 42)
@@ -269,7 +286,7 @@ def generate_empirical_population(
         )
 
         state = AgentState(wealth=wealth)
-        memory = _build_memory(defaults, f"agent_{i}", persistent_dir)
+        memory = _build_memory(defaults, f"agent_{i}", persistent_dir, memory_level=memory_level)
 
         agents.append(Agent(profile=profile, state=state, memory=memory, policy=policy))
 

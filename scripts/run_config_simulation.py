@@ -431,11 +431,25 @@ def build_policy(config: dict):
         from decision.llm_policy import LLMPolicy
 
         llm_cfg = config.get("llm", {})
+        ablation_cfg = config.get("ablation", {})
         experiment_id = _resolve_experiment_id(config)
 
         backend = _build_llm_backend(llm_cfg)
         prompt_logger = _build_prompt_logger(experiment_id)
-        graph_rag, sql_rag = _build_rag_components(config)
+
+        # ablation.mode=no_rag: strip RAG components so the ungrounded arm of
+        # memory-ablation experiments receives no Graph-RAG / SQL-RAG context.
+        ablation_mode = ablation_cfg.get("mode", "")
+        if ablation_mode == "no_rag":
+            graph_rag, sql_rag = None, None
+        else:
+            graph_rag, sql_rag = _build_rag_components(config)
+
+        # llm.ablation_level (0–5 AblationLevel scale) controls what grounding
+        # components appear in the state block (stress, trust, etc.).  This is
+        # independent of memory.level (M0–M3), which is propagated to agents
+        # via _build_memory() in population/generator.py (Bug B fix).
+        prompt_ablation_level = int(llm_cfg.get("ablation_level", 5))
 
         return LLMPolicy(
             backend=backend,
@@ -446,6 +460,7 @@ def build_policy(config: dict):
             perturbation_mode=config.get("perturbation", {}).get("mode"),
             graph_rag=graph_rag,
             sql_rag=sql_rag,
+            ablation_level=prompt_ablation_level,
         )
 
     if policy_type == "padded_ablation":
@@ -659,7 +674,7 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     # shadows the module-level logging.Logger used by status messages below.
     # On resume, append to events.jsonl so the rounds completed before the
     # checkpoint stay on disk. Only wipe on a fresh start.
-    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=(resume_exp_id is None))
+    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=(resume_exp_id is None), force=(resume_exp_id is None))
     from agents.collective_memory import CollectiveMemory
     from environment.social_env import SocialEnvironment
 

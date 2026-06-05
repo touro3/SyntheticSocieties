@@ -42,7 +42,7 @@ for frac in "${FRACTIONS[@]}"; do
         exp_id="bad_apple_n500_f${frac/./}_s${seed}"
         echo "── f=${frac} | seed=${seed} → ${exp_id}"
 
-        python scripts/run_full_pipeline.py \
+        venv/bin/python scripts/run_full_pipeline.py \
             --agents "$N_AGENTS" \
             --rounds "$N_ROUNDS" \
             --seeds "$seed" \
@@ -56,7 +56,7 @@ done
 
 echo ""
 echo "── Fitting sigmoid and computing f*..."
-python - <<'EOF'
+venv/bin/python - <<'EOF'
 import json, glob, numpy as np
 from pathlib import Path
 from scipy.optimize import curve_fit

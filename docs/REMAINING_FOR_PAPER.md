@@ -1,6 +1,6 @@
 # What Remains for Paper Completion
 > CS Bachelor's Capstone — Submission deadline: ~2026-06-19 (2 weeks)
-> Last updated: 2026-06-05 (session 4 — H8 + bad apple + figures done)
+> Last updated: 2026-06-05 (session 5 — T2-E done; T1-I done; R30 complete (both arms); README/CITATION.cff/hypotheses.md updated)
 
 **Context for future Claude Code sessions:** Multi-agent LLM simulation paper (BGF framework). Working dir: `/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties`. Paper: `docs/paper.md`. Active GPU jobs: `tmux: n500_condA` (mx_A_n500_s2, R7/15), `tmux: n500_condB` (mx_B_n500_s3, R7/15).
 
@@ -27,8 +27,8 @@ Week 2 (Jun 12–19):
 
 ### T0-C: N=500 Cascade Multi-Seed — ▶ RUNNING
 ```
-tmux: n500_condA  →  mx_A_n500_s2  (R7/15 as of 2026-06-05 ~21:00 CEST)
-tmux: n500_condB  →  mx_B_n500_s3  (R7/15 as of 2026-06-05 ~21:00 CEST)
+tmux: n500_condA  →  mx_A_n500_s2  (R8/15 as of 2026-06-05 ~21:38 CEST)
+tmux: n500_condB  →  mx_B_n500_s3  (R7/15 as of 2026-06-05 ~20:08, ~R8 now)
 ```
 T=15 per pre-reg deviation #7. Seeds s1 (A) / s2 (B) at R29 terminal (paper updated).
 
@@ -54,7 +54,7 @@ Update §8.1.5 cascade table with R15 terminal values for s2 and s3.
 | T1-A: H8 analysis | ✅ DONE — `analysis/tables/memory_ablation.json` |
 | T1-B–G: §8.5 update (status, M3 tables, verdict, fig caption, abstract) | ✅ DONE |
 | T1-H: Abstract + conclusion H8 narrative | ✅ DONE |
-| T1-I: Final self-consistency pass | ⬜ Do before submission |
+| T1-I: Final self-consistency pass | ✅ Done (2026-06-05 session 5) — 3 remaining PENDING markers all legitimately blocked (cross-cultural LLM, Prolific, cascade multi-seed). Re-run before final submission. |
 | T1-J: Test count verify | ✅ 1578 passed (matches paper) |
 
 **T1-I command (run before submission):**
@@ -72,7 +72,7 @@ grep -n "PENDING\|ACTIVE\|in progress\|currently running\|awaits\|16/24\|19/24\|
 | T2-B: Pre-reg deviation #9 (H8 final) | ✅ DONE — added to `docs/hypothesis_preregistration.md` |
 | T2-C: Verify paper numbers | ⬜ `compute_paper_numbers.py` — script reads experiments dir, output `analysis/paper_numbers.json` |
 | T2-D: Figure regeneration | ✅ Figs 1,15,16 regenerated; Fig 2 script errors (NoneType); Fig 16 → `cross_cultural_expanded.png` |
-| T2-E: Limitations §9 scan | ⬜ `grep -n "pending\|awaits\|future\|not yet" docs/paper.md \| grep -i "§9\|Limitation"` |
+| T2-E: Limitations §9 scan | ✅ DONE — Limitation 20 title updated; line 1209 "awaits gap-fill" fixed; Limitations 8/13/17/22 legitimately blocked |
 
 **T2-C: compute_paper_numbers.py** (no `--verify` flag, just run):
 ```bash
@@ -113,8 +113,9 @@ bash scripts/run_n500_gap_fill.sh --seeds 4 5 6 7 8 9 10 --rounds 15
 
 - `git status` → clean commit
 - `bash scripts/reproduce_paper.sh --dry-run` → must pass
-- README: add RLHF cascade + H8 falsification paragraphs
-- CITATION.cff: confirm title/year
+- ✅ README: RLHF cascade + H8 + bad apple scale reversal added; test count 1484→1578 fixed
+- ✅ CITATION.cff: updated with R30 complete + H8 falsified + 1578 tests
+- ✅ hypotheses.md: rewritten to match paper H1-H9 (was legacy H1-H8 draft)
 - Abstract spot-check: coop rates, B_RLHF, Gini, H8 verdict in abstract vs body
 
 ---
@@ -138,7 +139,7 @@ bash scripts/run_n500_gap_fill.sh --seeds 4 5 6 7 8 9 10 --rounds 15
 | Condition D (N=500, 10 seeds) | Gini=0.325 BCa [0.324,0.325] | §8.2 |
 | Cross-cultural gradient | ρ=+1.000 ESS, ρ=+0.886 HTG, r=+0.977 WVS | §8.3 |
 | Padded control N=50 | 3-seed B_RLHF=0.255 (>0.195 both arms) | §8.6 |
-| N=500 cascade R29 (s1/s2) | condA 93.8%, condB 95.6%, agg 0.513/0.543 | §8.1.5 |
+| N=500 cascade R30 T=30 COMPLETE (s1/s2) | condA 94.0% B_RLHF=0.607, condB 96.0% B_RLHF=0.627, agg 0.516/0.545 | §8.1.5 |
 | **H8 COMPLETE + FALSIFIED** | M0G(0.583)>M1G=M2G=M3G(0.367); M3U=0.450±0.000 | §8.5 |
 | **Bad apple N=500** | f*=0.041, k=5.2, R²=0.996; Gini scale-reversal | §6.4 |
 | 1,578 tests | 1578 passed (2026-06-05 run) | §3/README |
@@ -156,11 +157,11 @@ N=100 LLM terminal (10 seeds):
   BRM:  A=0.832, B=0.848 (Δ=+0.016, g≈+0.78, p=0.089)
   B_RLHF: ≈0.195 both arms
 
-N=500 cascade R29 terminal (1 seed per arm):
-  condA: coop=93.8%, Gini=0.9632, B_RLHF=0.605, agg=0.513
-  condB: coop=95.6%, Gini=0.9680, B_RLHF=0.623, agg=0.543
-  condB peak R27: coop=96.6%, B_RLHF=0.633 (95% of 2/3 ceiling)
-  Multi-seed (s2 condA, s3 condB): R7/15 running
+N=500 cascade R30 terminal (T=30 COMPLETE, 1 seed per arm, 2026-06-05):
+  condA: coop=94.0%, Gini=0.9653, B_RLHF=0.607, agg=0.516
+  condB: coop=96.0%, Gini=0.9695, B_RLHF=0.627, agg=0.545
+  condB peak R27/R28: coop=96.6%, B_RLHF=0.633 (95% of 2/3 ceiling)
+  Multi-seed (s2 condA, s3 condB): R8/15 running (R30 revealed ~24h/round at N=500)
 
 H8 v2 FINAL (N=20, T=10, terminal round, 3 seeds each):
   M0G: coop=0.583±0.085, Gini=0.218±0.037, B_RLHF=0.256±0.080

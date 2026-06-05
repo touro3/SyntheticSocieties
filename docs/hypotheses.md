@@ -1,103 +1,99 @@
-# BGF Experimental Hypotheses
+# BGF Experimental Hypotheses (H1–H9)
 
-This document formalizes the experimental hypotheses tested by the BGF simulation framework.
-
----
-
-## H1: Empirical Grounding Improves Realism
-
-**Claim**: LLM agents with ESS-derived personas produce more realistic wealth distributions than random or rule-based baselines.
-
-**Metric**: Jensen–Shannon divergence between simulated and empirical wealth distributions.
-
-**Comparison**: LLM policy vs. random, rule-based, and template baselines.
-
-**Expected outcome**: JSD(LLM, ESS) < JSD(baseline, ESS)
+Pre-registered hypotheses for the Behavioral Grounding Framework paper.
+Authoritative record: `docs/hypothesis_preregistration.md` (includes deviations #1–#9).
 
 ---
 
-## H2: Persona Conditioning Affects Cooperation
+## H1: ESS Grounding Improves Behavioural Realism
 
-**Claim**: ESS persona conditioning significantly affects agent cooperation rates compared to no-persona ablation.
+**Claim**: ΔBRM_composite > 0 — ESS grounding raises the composite Behavioural Realism Metric.
 
-**Metric**: Cooperation rate (cooperate actions / total actions).
+**Metric**: BRM_composite = weighted average of JSD, Gini gap, cooperation accuracy, temporal stability.
 
-**Comparison**: `ablation=rich_persona` vs. `ablation=no_persona` vs. `ablation=minimal_persona`.
-
-**Expected outcome**: Rich persona agents exhibit cooperation rates correlated with their trust_people attribute; no-persona agents show uniform cooperation.
+**Result**: Directional at N=100 (+0.016, within seed variance; Hedges' g ≈ +0.78, p = 0.089). Magnitude collapsed relative to pilot. Awaits N=500 multi-seed confirmation.
 
 ---
 
-## H3: Memory Improves Temporal Stability
+## H2: Grounding Reduces RLHF Cooperative Bias
 
-**Claim**: Access to interaction history stabilizes agent behavior over time.
+**Claim**: ΔB_RLHF < 0 within Mistral-7B — grounding reduces TV-distance from uniform action prior.
 
-**Metric**: Mean round-to-round JSD (temporal stability metric).
+**Metric**: B_RLHF = TV(π, π_uniform) = 0.5 · Σ|π(a) − 1/3|.
 
-**Comparison**: `ablation=no_memory` vs. full LLM with memory.
-
-**Expected outcome**: mean_jsd(no_memory) > mean_jsd(with_memory)
+**Result**: **Falsified at N=100** (cooperation A=0.455 vs B=0.461, MWU p = 0.91; B_RLHF(A) ≈ B_RLHF(B) ≈ 0.195). At N=500 (T=30 complete): both arms cascade to B_RLHF=0.607/0.627 — grounding does not suppress cascade. Exploratory finding: condB leads condA at every round R1–R30 (single seed, requires multi-seed confirmation).
 
 ---
 
-## H4: Network Topology Modulates Inequality
+## H3: Gini Falls Within Eurostat Range Under LLM Grounding
 
-**Claim**: Social network topology affects the rate and magnitude of wealth inequality emergence.
+**Claim**: Final-round Gini coefficient ∈ Eurostat European empirical range (~0.28–0.38).
 
-**Metric**: Gini coefficient trajectory over simulation rounds.
+**Metric**: Gini coefficient at terminal round.
 
-**Comparison**: Fully connected vs. random vs. small-world networks.
-
-**Expected outcome**: Small-world networks produce higher Gini than fully-connected due to clustering effects.
+**Result**: **Falsified at LLM scale** (N=100: Gini ≈ 0.715–0.718; N=500: Gini ≈ 0.965–0.970). Confirmed for rule-based ESS policy (Condition D, N=500, 10 seeds: Gini = 0.325 BCa [0.324, 0.325]).
 
 ---
 
-## H5: LLM Decisions Are Robust to Seed Variation
+## H4: Trust-Band Cooperation Rank-Orders with ESS Trust
 
-**Claim**: LLM-based simulations produce stable aggregate outcomes across different random seeds.
+**Claim**: BRM or cooperation rate rank-orders with ESS trust bands — higher trust → higher cooperation.
 
-**Metric**: Coefficient of variation (CV) of wealth mean across seeds.
+**Metric**: Rank ordering across 4 trust bands; Spearman ρ across seeds.
 
-**Comparison**: 5-seed sweep for LLM vs. template baselines.
-
-**Expected outcome**: CV(LLM) < 0.15 (low variation indicates robustness).
+**Result**: Directional (ρ = +0.800, p = 0.167 at group-level, n=4); significant at seed-level (continuous n=20, ρ = +0.781, p < 0.0001, post-hoc design — see Limitation 17).
 
 ---
 
-## H6: Temperature Controls Decision Diversity
+## H5: Cross-Cultural Trust Gradient Recovered via Grounding
 
-**Claim**: LLM sampling temperature controls the diversity of agent decisions without changing mean outcomes.
+**Claim**: Simulated cooperation rank-orders with ESS interpersonal trust across six cultural clusters.
 
-**Metric**: Shannon entropy of action distributions, mean wealth.
+**Metric**: Spearman ρ across 6 ESS cultural clusters.
 
-**Comparison**: Temperature = {0.1, 0.5, 0.7, 1.0}.
-
-**Expected outcome**: Higher temperature → higher entropy, similar mean wealth.
+**Result**: **Confirmed (rule-based proxy)** — Spearman ρ = +1.000 (exact p ≈ 0.003); Pearson r = +0.983; WVS Wave 7 replication r = +0.977. LLM-scale replication pending.
 
 ---
 
-## H7: Cross-Model Generalizability of RLHF Cooperative Bias
+## H6: Bad-Apple Effect Localises at Low Adversarial Fraction
 
-**Claim**: The RLHF cooperative bias (B_RLHF > 0 in Condition A) is a general property of instruction-tuned LLMs, not specific to Mistral-7B-Instruct-v0.3.
+**Claim**: Adversarial injection produces a phase transition; inflection point f* < 10% (below Nowak & May 1992 prediction).
 
-**Metric**: B_RLHF = TV(π, π_uniform) for each model × condition pair.
+**Metric**: Sigmoid inflection f* on Gini/cooperation vs adversarial fraction; R² > 0.85.
 
-**Comparison**: Mistral-7B-Instruct-v0.3, Qwen2.5-7B-Instruct, GPT-4o-mini — each tested in Condition A (ungrounded) and Condition B (ESS-grounded).
-
-**Expected outcome**: B_RLHF(A) > 0 for all models (bias present universally); B_RLHF(B) < B_RLHF(A) for the majority of models (grounding reduces bias in most families).
-
-**Result**: Partially confirmed. All three models exhibit B_RLHF > 0 in Condition A (bias is universal in kind). Grounding reduces B_RLHF for Mistral-7B (−17.6%) and Qwen2.5-7B (−30.0%) but increases it for GPT-4o-mini (+40.3%), identifying alignment methodology as a moderating variable. See Section 5.6, Table 3.
+**Result**: **Partially confirmed (rule-based scale only)**. N=20: f*=0.023, k=15.1, R²=0.97 (Gini increases). N=500 (2026-06-05): f*=0.041, k=5.2, R²=0.996 — **scale reversal**: Gini *decreases* at N=500 (cooperation suppression equalises outcomes). f* remains well below 10% at both scales. LLM-scale sweep pending.
 
 ---
 
-## H8: Trust-Gradient Recovery via Grounding Function
+## H7: RLHF Cooperative Bias Generalises Across LLM Families
 
-**Claim**: The grounding function Φ preserves ESS trust-to-cooperation gradients — sub-populations with higher ESS interpersonal trust produce higher simulated cooperation rates.
+**Claim**: B_RLHF(A) > 0 for all tested instruction-tuned LLMs; grounding reduces B_RLHF in the majority of families.
 
-**Metric**: Spearman rank correlation between ESS trust group mean (μ_trust) and simulated cooperation rate (mean_coop_rate) across four trust bands.
+**Metric**: B_RLHF per model × condition pair.
 
-**Comparison**: Low-Trust [0.2, 0.4), Moderate-Trust [0.4, 0.6), High-Trust [0.6, 0.8), Very-High-Trust [0.8, 1.0) sub-populations.
+**Result**: **Confirmed for existence** (all three tested models exhibit B_RLHF > 0 in Condition A). Grounding reduces B_RLHF for Mistral-7B (−17.6%) and Qwen2.5-7B (−30.0%) but increases it for GPT-4o-mini (+40.3%) — alignment methodology is a moderating variable. Full multi-seed cross-model panel requires re-execution at patched-code scale.
 
-**Expected outcome**: Spearman r > 0 and statistically significant (p < 0.10); rank order preserved: coop_rate(VH) > coop_rate(H) > coop_rate(M) > coop_rate(L).
+---
 
-**Result**: Confirmed. Spearman r ≥ 0.80 (p < 0.10, n = 4 groups) across 3 seeds. Rank order preserved in all seed conditions. Reproducible without GPU via `make trust-gradient`. See Section 5.5, Table 2.
+## H8: Memory Depth Monotonically Increases Cooperation Fidelity (M0→M3)
+
+**Claim**: Under ESS grounding, cooperation increases monotonically with memory depth: M0 < M1 < M2 < M3.
+
+**Metric**: Terminal-round cooperation rate across memory levels {M0, M1, M2, M3} × {grounded, ungrounded}.
+
+**Result**: **FALSIFIED for both arms** (v2 re-run, 24/24 cells, N=20, T=10, Mistral-7B-Instruct-v0.3, 2026-06-05).
+- **Grounded arm**: M0G(0.583) > M1G(0.367) = M2G(0.367) = M3G(0.367) — monotone decrease at M0→M1, flat thereafter.
+- **Ungrounded arm**: M0U(0.417) < M1U(0.633) = M2U(0.633) > M3U(0.450) — inverted-U, non-monotone.
+- M3G does NOT exceed M0G; full memory does not rescue hypothesis.
+- B_RLHF global minimum at M3G (0.072±0.034). M3U converges to 0.450±0.000 across all 3 seeds (RLHF attractor stabilisation).
+- Pre-registration deviation #9 logged in `docs/hypothesis_preregistration.md`.
+
+---
+
+## H9: Simulated Cooperation Matches Cross-Cultural Lab Benchmark
+
+**Claim**: Simulated cluster cooperation rank-orders with Herrmann, Thöni & Gächter (2008) PGG per-city contributions — an independent behavioural benchmark never ingested by BGF.
+
+**Metric**: Spearman ρ between simulated cooperation and PGG contributions across 6 city-cluster pairs.
+
+**Result**: **Confirmed at per-test α=0.05** — Spearman ρ = +0.886 (exact p = 0.033), Pearson r = +0.899 (p = 0.015). Does **not** survive Holm-Bonferroni family-wise correction (α/9 ≈ 0.0056). LLM-scale replication pending.

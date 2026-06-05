@@ -13,7 +13,7 @@ pinned: false
 # SyntheticSocieties — Behavioral Grounding Framework (BGF)
 
 [![BGF CI](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml/badge.svg)](https://github.com/touro3/SyntheticSocieties/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-1484%20passed-brightgreen.svg)](#test-suite)
+[![Tests](https://img.shields.io/badge/tests-1578%20passed-brightgreen.svg)](#test-suite)
 [![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen.svg)](#test-suite)
 [![Python](https://img.shields.io/badge/python-3.10%E2%80%933.12-blue.svg)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -42,7 +42,11 @@ Results from the pre-registered 10-seed confirmatory extension (N=100, T=30, Mis
 
 **Central finding — Φ/P_LLM dissociation:** The rule-based ESS policy (Condition D) achieves Gini = 0.325 squarely within the Eurostat range at zero inference cost. The LLM conditions (A vs B) are statistically indistinguishable on cooperation, Gini, and wealth (MWU p > 0.85 on all three). ESS grounding reaches the LLM prompt but does not produce a measurable behavioural shift at this scale.
 
-**Population-scale cooperation cascade (N=500, partial data):** At N=500, LLM cooperation reaches 91–96% by round 17+, B_RLHF amplifies to ~0.61 (approaching the 2/3 theoretical maximum), and Gini reaches 0.943–0.950 — near-maximum inequality caused by the cascade. The rule-based baseline at N=500 remains stable at Gini = 0.325.
+**Population-scale cooperation cascade (N=500, T=30 COMPLETE):** At N=500, LLM cooperation reaches 94.0%/96.0% (condA/condB) at R30 terminal (T=30 complete, 2026-06-05). B_RLHF amplifies to 0.607/0.627 — 91–94% of the 2/3 theoretical maximum — with condB peak of 0.633 at R27/R28. Gini reaches 0.9653/0.9695 at terminal, far outside the Eurostat range. Event-aggregate B_RLHF R1–R30: 0.516/0.545, a **2.6–2.8× amplification** over the N=100 baseline (0.195). condA has plateaued (6 consecutive rounds R25–R30: 93.6–94.0%); condB oscillates near attractor. The rule-based baseline at N=500 remains stable at Gini = 0.325.
+
+**Memory ablation — H8 FALSIFIED (N=20, T=10, 24/24 cells, Mistral-7B-Instruct-v0.3, 2026-06-05):** Contrary to the pre-registered prediction of monotone M0→M3 increase, the grounded arm shows a **monotone decrease**: M0G(0.583) > M1G(0.367) = M2G(0.367) = M3G(0.367). The ungrounded arm shows an inverted-U: M0U(0.417) < M1U(0.633) = M2U(0.633) > M3U(0.450±0.000). Full hierarchical memory does not rescue either arm. B_RLHF global minimum at M3G (0.072). M3U convergence to 0.450±0.000 across all 3 seeds demonstrates RLHF attractor stabilisation.
+
+**Bad apple phase transition (N=500, rule-based, 2026-06-05):** f*=0.041 (k=5.2, R²=0.996) at N=500 — still well below the 10–20% evolutionary game theory prediction. **Scale reversal**: at N=500 adversarial injection *decreases* Gini (0.246→0.180) rather than increasing it (N=20: 0.243→0.330). Mechanism: at large N, adversaries suppress cooperation → smaller public-goods pool → less wealth stratification.
 
 ### Cross-Cultural Validation
 
@@ -294,24 +298,24 @@ Phase transition tables in `analysis/tables/`.
 | ID | Hypothesis | Metric | Status |
 |----|-----------|--------|--------|
 | H1 | Empirical grounding improves realism | BRM(B) > BRM(A) | Directional (+0.016, within seed variance); awaits N=500 |
-| H2 | Grounding reduces RLHF bias within Mistral-7B | B_RLHF(B) < B_RLHF(A) | **Falsified at N=100** (MWU p = 0.91); N=500 partial data shows B_RLHF ≈ 0.61 for both |
+| H2 | Grounding reduces RLHF bias within Mistral-7B | B_RLHF(B) < B_RLHF(A) | **Falsified at N=100** (MWU p = 0.91); N=500 T=30 complete: B_RLHF=0.607/0.627 (condA/B) — both cascade, condB marginally higher (exploratory, 1 seed) |
 | H3 | Gini falls within Eurostat range under grounding | Gini(B) ∈ [0.28, 0.38] | Confirmed for rule-based (D); LLM scale Gini ≈ 0.72 (outside range) |
 | H4 | Network modularity higher under grounding | Q(B) > Q(A) | Directional (ΔQ = +0.005, p = 0.68); pilot contrast not reproduced at N=100 |
 | H5 | Cross-cultural trust gradient recovered | Spearman ρ > 0 (ESS clusters) | **Confirmed** — ρ = +1.000 (rule-based proxy; LLM-scale replication pending) |
 | H6 | Topology variation produces phase transitions | R² > 0.85 on sigmoid fit | Confirmed (rule-based sweeps) |
-| H7 | RLHF bias exists in instruction-tuned LLMs | B_RLHF > 0 | **Confirmed** — B_RLHF ≈ 0.195 at N=100, amplifies to ~0.61 at N=500 |
-| H8 | Grounding effect is content, not prompt length | Effect survives padded control | Pending (padded control implemented; GPU run needed) |
+| H7 | RLHF bias exists in instruction-tuned LLMs | B_RLHF > 0 | **Confirmed** — B_RLHF ≈ 0.195 at N=100, amplifies to 0.607/0.627 at N=500 terminal |
+| H8 | Memory depth monotonically increases cooperation fidelity (M0→M3) | coop(M3)>coop(M0) under grounding | **FALSIFIED both arms** (v2 24/24 cells, 2026-06-05) — grounded arm monotone decrease M0G(0.583)>M1G=M2G=M3G(0.367); ungrounded arm inverted-U. See §8.5. |
 | H9 | Simulated cooperation matches lab PGG benchmark | ρ vs Herrmann 2008 contributions | Confirmed per-test (ρ = +0.886, p = 0.033); not significant under family-wise correction |
 
 ---
 
 ## Test Suite
 
-**1,557 tests collected; 1,484 pass on the non-LLM subset**, with 3 known pre-existing failures isolated to `tests/test_token_budget.py` and `tests/test_quick_wins.py` (token-count assertions tied to a deprecated tokenizer surface). The 73-test LLM/slow/e2e subset is gated behind `-k "llm or slow or e2e"` and exercises the GPU path. Coverage on the **core science modules** (`agents/`, `decision/`, `environment/`, `metrics/`, `population/`, `simulation/`, `tracker/`, `utils/`, `bgf_logging/`) is **82%** across 7,313 statements (measured 2026-05-26 via `make coverage-fast`).
+**1,578 tests passing** across 130 test files (full suite run 2026-06-05). Coverage on the **core science modules** (`agents/`, `decision/`, `environment/`, `metrics/`, `population/`, `simulation/`, `tracker/`, `utils/`, `bgf_logging/`) is **82%** across 7,313 statements (measured 2026-05-26 via `make coverage-fast`).
 
 ```bash
-pytest tests/ -v                                       # Full suite (1,557 tests)
-pytest tests/ -v -k "not llm and not slow and not e2e" # Non-GPU subset (~72 s, 1,484 pass)
+pytest tests/ -v                                       # Full suite (1,578 tests)
+pytest tests/ -v -k "not llm and not slow and not e2e" # Non-GPU subset
 make coverage-fast                                     # Coverage on core modules (82%)
 make coverage                                          # Full coverage report (fails under 70%)
 pytest tests/test_behavioral_realism.py -v             # BRM and B_RLHF metrics

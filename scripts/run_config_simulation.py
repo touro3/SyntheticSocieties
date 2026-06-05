@@ -674,7 +674,9 @@ def run_simulation(config_path: str, overrides: list[str] | None = None, resume_
     # shadows the module-level logging.Logger used by status messages below.
     # On resume, append to events.jsonl so the rounds completed before the
     # checkpoint stay on disk. Only wipe on a fresh start.
-    event_logger = EventLogger(run_dir / "events.jsonl", overwrite=(resume_exp_id is None), force=(resume_exp_id is None))
+    event_logger = EventLogger(
+        run_dir / "events.jsonl", overwrite=(resume_exp_id is None), force=(resume_exp_id is None)
+    )
     from agents.collective_memory import CollectiveMemory
     from environment.social_env import SocialEnvironment
 

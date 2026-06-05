@@ -9,6 +9,7 @@ Usage:
     source venv/bin/activate
     python scripts/update_paper_h8.py [--suffix _v2] [--dry-run]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -78,7 +79,7 @@ def _extract_metrics(summary: dict) -> dict[str, float | None]:
             coop = counts.get("cooperate", 0) / total
             work = counts.get("work", 0) / total
             save = counts.get("save", 0) / total
-            b = 0.5 * (abs(coop - 1/3) + abs(work - 1/3) + abs(save - 1/3))
+            b = 0.5 * (abs(coop - 1 / 3) + abs(work - 1 / 3) + abs(save - 1 / 3))
     metrics["b_rlhf"] = float(b) if b is not None else None
 
     return metrics
@@ -147,12 +148,13 @@ def check_h8_monotonicity(table: dict) -> dict:
     if len(valid) < 2:
         return {"verdict": "INDETERMINATE", "fidelity_series": fids, "reason": "Insufficient persona_fidelity data"}
 
-    monotone = all(valid[i] <= valid[i+1] for i in range(len(valid)-1))
+    monotone = all(valid[i] <= valid[i + 1] for i in range(len(valid) - 1))
     return {
         "verdict": "SUPPORTED" if monotone else "FALSIFIED",
         "fidelity_series": fids,
-        "reason": "Persona fidelity M0→M3 is monotonically non-decreasing" if monotone
-                  else f"Monotonicity violated: {[_fmt(f) for f in fids]}",
+        "reason": "Persona fidelity M0→M3 is monotonically non-decreasing"
+        if monotone
+        else f"Monotonicity violated: {[_fmt(f) for f in fids]}",
     }
 
 
@@ -172,9 +174,11 @@ def build_paper_table7(table: dict) -> str:
             f"{_fmt(u['cooperation_rate'])} | {_fmt(u['b_rlhf'])} | {_fmt(u['persona_fidelity'])} |"
         )
     n = table[0]["grounded"]["n"]
-    lines.append(f"\n*Measured values from v2 LLM-policy runs (N=20, T=10, n={n} seeds per cell). "
-                 "Persona fidelity is the proportion of agent actions consistent with their ESS profile across all rounds. "
-                 "B_RLHF computed as full TV = 0.5×Σ|π(a)−1/3| over all event-level actions.*")
+    lines.append(
+        f"\n*Measured values from v2 LLM-policy runs (N=20, T=10, n={n} seeds per cell). "
+        "Persona fidelity is the proportion of agent actions consistent with their ESS profile across all rounds. "
+        "B_RLHF computed as full TV = 0.5×Σ|π(a)−1/3| over all event-level actions.*"
+    )
     return "\n".join(lines)
 
 
@@ -251,47 +255,63 @@ def update_paper(paper_path: Path, table: dict, h8_result: dict, dry_run: bool =
         print("WARNING: H8 hypothesis table row not found verbatim — inserting footnote instead.")
 
     # --- Update hypothesis table footnote ---
-    old_fn = ("**H8 invalidated (2026-06-03 run, §8.5.1); full 24-cell v2 re-run active 2026-06-04 22:45 "
-              "(`tmux: h8_memory_ablation`, `--skip-existing`); ETA ~10–14 GPU-h.**")
-    new_fn = (f"**H8 v2 run complete. Verdict: {verdict} (see §8.5 for full table). "
-              f"Grounded persona fidelity M0→M3: {fid_str}.**")
+    old_fn = (
+        "**H8 invalidated (2026-06-03 run, §8.5.1); full 24-cell v2 re-run active 2026-06-04 22:45 "
+        "(`tmux: h8_memory_ablation`, `--skip-existing`); ETA ~10–14 GPU-h.**"
+    )
+    new_fn = (
+        f"**H8 v2 run complete. Verdict: {verdict} (see §8.5 for full table). "
+        f"Grounded persona fidelity M0→M3: {fid_str}.**"
+    )
     if old_fn in text:
         text = text.replace(old_fn, new_fn)
         print("Updated hypothesis table footnote.")
 
     # --- Update Contribution 4 (memory ablation summary item) ---
-    old_c4 = ("The full 24-cell v2 re-run is **active as of 2026-06-04 22:45 CEST** "
-               "(`tmux: h8_memory_ablation`, `logs/h8_memory_ablation_v2_full.log`, ETA ~10–14 GPU-h). "
-               "Both bugs are patched in the codebase. Analysis command upon completion: "
-               "`python scripts/analyze_memory_ablation.py --suffix _v2`.")
-    new_c4 = (f"The v2 re-run is **complete**. H8 verdict: {verdict_phrase}. "
-              f"Grounded arm persona fidelity M0→M3: {fid_str}. "
-              f"Full results in `experiments/ablation_M{{0-3}}_{{grounded,ungrounded}}_s{{42,123,7}}_v2/`; "
-              f"table: `analysis/tables/memory_ablation.json`.")
+    old_c4 = (
+        "The full 24-cell v2 re-run is **active as of 2026-06-04 22:45 CEST** "
+        "(`tmux: h8_memory_ablation`, `logs/h8_memory_ablation_v2_full.log`, ETA ~10–14 GPU-h). "
+        "Both bugs are patched in the codebase. Analysis command upon completion: "
+        "`python scripts/analyze_memory_ablation.py --suffix _v2`."
+    )
+    new_c4 = (
+        f"The v2 re-run is **complete**. H8 verdict: {verdict_phrase}. "
+        f"Grounded arm persona fidelity M0→M3: {fid_str}. "
+        f"Full results in `experiments/ablation_M{{0-3}}_{{grounded,ungrounded}}_s{{42,123,7}}_v2/`; "
+        f"table: `analysis/tables/memory_ablation.json`."
+    )
     if old_c4 in text:
         text = text.replace(old_c4, new_c4)
         print("Updated Contribution 4 summary.")
 
     # --- Replace Table 7 predicted values ---
     # Find the table7 callout reader box
-    old_callout = ("> **⚠ Reader callout.** Table 7 shows *hypothesised* values (pre-registered prediction for H8), "
-                   "**not** measurements. The 2026-06-03 LLM-policy run is invalidated (§8.5.1). A bug-patched re-run "
-                   "is required before H8 can be tested. Do not cite Table 7 numbers as measurements.")
-    new_callout = (f"> **Table 7 (measured values, v2 LLM-policy run).** "
-                   f"H8 verdict: {verdict_phrase}. "
-                   f"Values sourced from `experiments/ablation_M{{0-3}}_{{grounded,ungrounded}}_s{{42,123,7}}_v2/summary.json` "
-                   f"(n=3 seeds per cell, N=20, T=10). See `analysis/tables/memory_ablation.json` for full output.")
+    old_callout = (
+        "> **⚠ Reader callout.** Table 7 shows *hypothesised* values (pre-registered prediction for H8), "
+        "**not** measurements. The 2026-06-03 LLM-policy run is invalidated (§8.5.1). A bug-patched re-run "
+        "is required before H8 can be tested. Do not cite Table 7 numbers as measurements."
+    )
+    new_callout = (
+        f"> **Table 7 (measured values, v2 LLM-policy run).** "
+        f"H8 verdict: {verdict_phrase}. "
+        f"Values sourced from `experiments/ablation_M{{0-3}}_{{grounded,ungrounded}}_s{{42,123,7}}_v2/summary.json` "
+        f"(n=3 seeds per cell, N=20, T=10). See `analysis/tables/memory_ablation.json` for full output."
+    )
     if old_callout in text:
         text = text.replace(old_callout, new_callout)
         print("Updated Table 7 callout.")
 
     # --- Update abstract H8 reference ---
-    old_abs_h8 = ("**H8 memory ablation: 2026-06-03 LLM-policy run of 24 cells completed but invalidated** "
-                  "— two implementation bugs caused all conditions to run identically (§8.5.1); "
-                  "the bug-patched v2 re-run was launched 2026-06-03 15:55 but interrupted after 1 cell (session idle); "
-                  "the remaining 23 cells remain pending and H8 is the open critical-path experiment.")
-    new_abs_h8 = (f"**H8 memory ablation v2 complete** — 24-cell LLM-policy run (N=20, T=10, n=3 seeds per cell). "
-                  f"H8 is {verdict_phrase}. Grounded persona fidelity M0→M3: {fid_str}.")
+    old_abs_h8 = (
+        "**H8 memory ablation: 2026-06-03 LLM-policy run of 24 cells completed but invalidated** "
+        "— two implementation bugs caused all conditions to run identically (§8.5.1); "
+        "the bug-patched v2 re-run was launched 2026-06-03 15:55 but interrupted after 1 cell (session idle); "
+        "the remaining 23 cells remain pending and H8 is the open critical-path experiment."
+    )
+    new_abs_h8 = (
+        f"**H8 memory ablation v2 complete** — 24-cell LLM-policy run (N=20, T=10, n=3 seeds per cell). "
+        f"H8 is {verdict_phrase}. Grounded persona fidelity M0→M3: {fid_str}."
+    )
     if old_abs_h8 in text:
         text = text.replace(old_abs_h8, new_abs_h8)
         print("Updated abstract H8 sentence.")
@@ -309,8 +329,7 @@ def main() -> None:
     parser.add_argument("--suffix", default="_v2")
     parser.add_argument("--exp-dir", default="experiments/")
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--check-only", action="store_true",
-                        help="Only check completion status, do not update paper.")
+    parser.add_argument("--check-only", action="store_true", help="Only check completion status, do not update paper.")
     args = parser.parse_args()
 
     exp_dir = REPO / args.exp_dir
@@ -335,10 +354,12 @@ def main() -> None:
     for level in MEMORY_LEVELS:
         for cond in CONDITIONS:
             t = table[level][cond]
-            print(f"  {LEVEL_LABELS[level]}/{cond}: "
-                  f"coop={_fmt(t['cooperation_rate'])} gini={_fmt(t['gini'])} "
-                  f"B_RLHF={_fmt(t['b_rlhf'])} fidelity={_fmt(t['persona_fidelity'])} "
-                  f"(n={t['n']})")
+            print(
+                f"  {LEVEL_LABELS[level]}/{cond}: "
+                f"coop={_fmt(t['cooperation_rate'])} gini={_fmt(t['gini'])} "
+                f"B_RLHF={_fmt(t['b_rlhf'])} fidelity={_fmt(t['persona_fidelity'])} "
+                f"(n={t['n']})"
+            )
     print()
 
     if args.check_only:

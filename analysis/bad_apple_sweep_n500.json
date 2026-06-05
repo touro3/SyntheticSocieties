@@ -1,0 +1,90 @@
+{
+  "n_agents": 500,
+  "n_rounds": 30,
+  "n_seeds": 3,
+  "per_fraction": [
+    {
+      "bad_fraction": 0.0,
+      "coop_rate_mean": 0.552,
+      "coop_rate_std": 0.043297,
+      "gini_mean": 0.246237,
+      "gini_std": 0.011024,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.05,
+      "coop_rate_mean": 0.480702,
+      "coop_rate_std": 0.027947,
+      "gini_mean": 0.250732,
+      "gini_std": 0.003411,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.1,
+      "coop_rate_mean": 0.42,
+      "coop_rate_std": 0.025142,
+      "gini_mean": 0.249898,
+      "gini_std": 0.003317,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.15,
+      "coop_rate_mean": 0.359215,
+      "coop_rate_std": 0.036164,
+      "gini_mean": 0.242615,
+      "gini_std": 0.002651,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.2,
+      "coop_rate_mean": 0.295,
+      "coop_rate_std": 0.012416,
+      "gini_mean": 0.234762,
+      "gini_std": 0.002426,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.25,
+      "coop_rate_mean": 0.244444,
+      "coop_rate_std": 0.023281,
+      "gini_mean": 0.22431,
+      "gini_std": 0.00077,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.3,
+      "coop_rate_mean": 0.210476,
+      "coop_rate_std": 0.015178,
+      "gini_mean": 0.209268,
+      "gini_std": 0.001624,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.35,
+      "coop_rate_mean": 0.138462,
+      "coop_rate_std": 0.025123,
+      "gini_mean": 0.193734,
+      "gini_std": 0.003817,
+      "n_seeds": 3
+    },
+    {
+      "bad_fraction": 0.4,
+      "coop_rate_mean": 0.134444,
+      "coop_rate_std": 0.016405,
+      "gini_mean": 0.180112,
+      "gini_std": 0.002189,
+      "n_seeds": 3
+    }
+  ],
+  "sigmoid_fit": {
+    "L": 1.007972,
+    "k": 5.247207,
+    "f_star": 0.04135,
+    "r_squared": 0.996197
+  },
+  "paper_claim": {
+    "f_star": 0.12,
+    "k": 18.2,
+    "r_squared": 0.94
+  }
+}

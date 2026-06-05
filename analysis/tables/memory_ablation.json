@@ -35,19 +35,104 @@
   },
   "level1_grounded": {
     "cooperation_rate": {
-      "mean": 0.24,
-      "std": 0.0,
-      "n": 1
+      "mean": 0.2967,
+      "std": 0.0575,
+      "n": 3
     },
     "wealth_gini": {
-      "mean": 0.2095,
-      "std": 0.0,
-      "n": 1
+      "mean": 0.1985,
+      "std": 0.0324,
+      "n": 3
     },
     "wealth_mean": {
-      "mean": 157.6875,
-      "std": 0.0,
-      "n": 1
+      "mean": 166.3292,
+      "std": 8.1542,
+      "n": 3
+    }
+  },
+  "level1_ungrounded": {
+    "cooperation_rate": {
+      "mean": 0.4883,
+      "std": 0.2351,
+      "n": 3
+    },
+    "wealth_gini": {
+      "mean": 0.3061,
+      "std": 0.0904,
+      "n": 3
+    },
+    "wealth_mean": {
+      "mean": 161.8725,
+      "std": 7.0247,
+      "n": 3
+    }
+  },
+  "level2_grounded": {
+    "cooperation_rate": {
+      "mean": 0.2967,
+      "std": 0.0575,
+      "n": 3
+    },
+    "wealth_gini": {
+      "mean": 0.1997,
+      "std": 0.034,
+      "n": 3
+    },
+    "wealth_mean": {
+      "mean": 166.5667,
+      "std": 8.2117,
+      "n": 3
+    }
+  },
+  "level2_ungrounded": {
+    "cooperation_rate": {
+      "mean": 0.4883,
+      "std": 0.2351,
+      "n": 3
+    },
+    "wealth_gini": {
+      "mean": 0.3061,
+      "std": 0.0904,
+      "n": 3
+    },
+    "wealth_mean": {
+      "mean": 161.8725,
+      "std": 7.0247,
+      "n": 3
+    }
+  },
+  "level3_grounded": {
+    "cooperation_rate": {
+      "mean": 0.2817,
+      "std": 0.0525,
+      "n": 3
+    },
+    "wealth_gini": {
+      "mean": 0.2217,
+      "std": 0.0583,
+      "n": 3
+    },
+    "wealth_mean": {
+      "mean": 156.4333,
+      "std": 6.5341,
+      "n": 3
+    }
+  },
+  "level3_ungrounded": {
+    "cooperation_rate": {
+      "mean": 0.3783,
+      "std": 0.0475,
+      "n": 3
+    },
+    "wealth_gini": {
+      "mean": 0.3536,
+      "std": 0.0347,
+      "n": 3
+    },
+    "wealth_mean": {
+      "mean": 155.8229,
+      "std": 7.4753,
+      "n": 3
     }
   }
 }

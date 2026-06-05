@@ -3,6 +3,11 @@
   "seed": 42,
   "fraction_BRM_B_gt_A": 1.0,
   "passed_90pct_threshold": true,
+  "equal_weight": {
+    "BRM_A": 0.6021221880517018,
+    "BRM_B": 0.8545000003566198,
+    "diff": 0.25237781230491796
+  },
   "diff_stats": {
     "mean": 0.2576256493594206,
     "std": 0.046353326643371884,
@@ -39,46 +44,5 @@
     "method": "exact LP-vertex enumeration (no sampling); Boyd & Vandenberghe 2004 \u00a74.2",
     "theorem": "docs/theorems.md Theorem 2",
     "audit_row": "E.5"
-  },
-  "certificate_n100_10seed": {
-    "vertex_deltas": {
-      "jsd": 0.0045,
-      "gini_gap": -0.0038,
-      "coop_gap": 0.0635,
-      "stability": -0.0001
-    },
-    "delta_vector": [
-      0.0045,
-      -0.0038,
-      0.0635,
-      -0.0001
-    ],
-    "min_delta": -0.0038,
-    "argmin_vertex": "gini_gap",
-    "verdict": "NOT ROBUST \u2014 min_j Delta_j = -0.0038 < 0; ordering B>A does NOT hold for all weight vectors",
-    "composite_brm_at_default_weights": {
-      "A": 0.8315,
-      "B": 0.8478,
-      "diff": 0.0163
-    },
-    "source": "experiments/mx_{A,B}_s{1..10} summary.json metrics.brm_components (N=100, T=30, 10 seeds, 2026-05-22/24)",
-    "note": "The pilot certificate (certificate key) used pre-patch values and showed all-positive Deltas (min=0.12). The N=100 10-seed confirmatory data shows gini_gap and stability slightly favour A, falsifying the weight-robust ordering claim."
-  },
-  "equal_weight_pilot": {
-    "BRM_A": 0.6021221880517018,
-    "BRM_B": 0.8545000003566198,
-    "diff": 0.25237781230491796
-  },
-  "equal_weight": {
-    "BRM_A": 0.8315,
-    "BRM_B": 0.8478,
-    "diff": 0.0163,
-    "source": "N=100 T=30 10-seed (mx_{A,B}_s{1..10}, 2026-05-22/24)",
-    "note": "Pilot equal_weight archived as equal_weight_pilot (A=0.602, B=0.855, diff=0.252)"
-  },
-  "diff_stats_n100_10seed": {
-    "mean": 0.0163,
-    "sd": 0.0233,
-    "note": "BRM_composite B-A across 10 seeds at N=100"
   }
 }

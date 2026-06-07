@@ -202,7 +202,11 @@ docs/REMAINING_FOR_PAPER.md
 docs/BGF_PROGRESS_CHECKLIST.md
 docs/figure_status.md
 analysis/reports/persona_fidelity_*
-artifacts/persona_fidelity/
+# Persona-fidelity runs are regenerable (scripts/run_persona_fidelity.py).
+# Keep ONE canonical run as the input fixture that the pipeline_*.sh scripts
+# glob via `ls -td ... | head -1`; ignore all other runs.
+artifacts/persona_fidelity/*
+!artifacts/persona_fidelity/persona_fidelity_1774125935/
 # NOTE: CITATION.cff is a PUBLISHED artifact — it must be tracked (GitHub
 # "Cite this repository" + README references). Do not add it here.
 

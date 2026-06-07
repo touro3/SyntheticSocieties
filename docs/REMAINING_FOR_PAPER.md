@@ -1,8 +1,8 @@
 # What Remains for Paper Completion
 > CS Bachelor's Capstone — Submission deadline: ~2026-06-19 (2 weeks)
-> Last updated: 2026-06-05 (session 5 — T2-E done; T1-I done; R30 complete (both arms); README/CITATION.cff/hypotheses.md updated)
+> Last updated: 2026-06-07 (session 6 — condA s2 + condB s3 T=15 COMPLETE; §8.1.5 updated with 2-seed multi-arm null result; H2 null confirmed at N=500)
 
-**Context for future Claude Code sessions:** Multi-agent LLM simulation paper (BGF framework). Working dir: `/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties`. Paper: `docs/paper.md`. Active GPU jobs: `tmux: n500_condA` (mx_A_n500_s2, R7/15), `tmux: n500_condB` (mx_B_n500_s3, R7/15).
+**Context for future Claude Code sessions:** Multi-agent LLM simulation paper (BGF framework). Working dir: `/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties`. Paper: `docs/paper.md`. Active GPU jobs: `tmux: n500_condA` (mx_A_n500_s3, R11/15), `tmux: n500_condB` (mx_B_n500_s4, R11/15).
 
 ---
 
@@ -12,7 +12,7 @@
 Week 1 (Jun 5–12):
   Day 1 (done) → H8 complete + paper updated; bad apple N=500 run + §6.4 updated; figs 1,15,16 regenerated
   Days 2–3  → Pre-reg deviation table final check; limitations §9 scan (T2-E)
-  Days 3–5  → n500 multi-seed results when s2/s3 finish; update §8.1.5 cascade table
+  Days 3–5  → ✅ s2/s3 DONE (2026-06-06); §8.1.5 updated; s3/s4 at R11/15 running → update §8.1.5 with 3-seed means when done
 
 Week 2 (Jun 12–19):
   Days 7–9  → Padded control N=100 if GPU available (T3-A)
@@ -25,25 +25,32 @@ Week 2 (Jun 12–19):
 
 ## TIER 0 — Currently Running
 
-### T0-C: N=500 Cascade Multi-Seed — ▶ RUNNING
+### T0-C: N=500 Cascade Multi-Seed — ▶ RUNNING (s3/s4)
 ```
-tmux: n500_condA  →  mx_A_n500_s2  (R8/15 as of 2026-06-05 ~21:38 CEST)
-tmux: n500_condB  →  mx_B_n500_s3  (R7/15 as of 2026-06-05 ~20:08, ~R8 now)
+DONE: mx_A_n500_s2 (R15 terminal: coop=88.8%, Gini=0.8338, BRM=0.7513, 2026-06-06)
+DONE: mx_B_n500_s3 (R15 terminal: coop=88.0%, Gini=0.8206, BRM=0.7776, 2026-06-06)
+RUNNING: tmux n500_condA → mx_A_n500_s3 (R11/15 as of 2026-06-07)
+RUNNING: tmux n500_condB → mx_B_n500_s4 (R11/15 as of 2026-06-07)
 ```
-T=15 per pre-reg deviation #7. Seeds s1 (A) / s2 (B) at R29 terminal (paper updated).
+KEY FINDING (2026-06-07): 2-seed multi-arm at R15 → condA mean 89.7%±1.3 pp, condB 89.8%±2.5 pp — H2 null consistent at N=500. T=30 condB>condA pattern not replicated.
 
-**When s2/s3 finish:**
+**When s3/s4 finish:**
 ```bash
 python3 -c "
 import json, os
-for tag, exp in [('condA s2','mx_A_n500_s2'),('condB s3','mx_B_n500_s3')]:
-    hb = f'experiments/{exp}/heartbeat.json'
-    if os.path.exists(hb):
-        d = json.load(open(hb))
-        print(f'{tag}: R{d.get(\"round_id\")}, coop={d.get(\"cooperation_rate\")}')
+for tag, exp in [('condA s3','mx_A_n500_s3'),('condB s4','mx_B_n500_s4')]:
+    if os.path.exists(f'experiments/{exp}/summary.json'):
+        s = json.load(open(f'experiments/{exp}/summary.json'))
+        m = s['metrics']
+        ad_last = None
+        with open(f'experiments/{exp}/round_metrics.jsonl') as f:
+            for l in f:
+                if l.strip(): ad_last = json.loads(l)
+        coop = ad_last['action_distribution']['cooperate'] if ad_last else '?'
+        print(f'{tag}: R15 coop={coop:.3f}, Gini={m[\"gini\"][\"final\"]:.4f}, BRM={m[\"brm\"]:.4f}')
 "
 ```
-Update §8.1.5 cascade table with R15 terminal values for s2 and s3.
+Update §8.1.5 cascade table with R15 terminal values for s3/s4; recompute 3-seed means.
 
 ---
 
@@ -100,9 +107,9 @@ source venv/bin/activate && python analysis/mediation_summary.py
 ```
 Fills §C.4 evidence audit gap.
 
-### T3-C: N=500 Multi-Seed Cascade — s2/s3 RUNNING; s4–s10 pending
-s2 (condA) and s3 (condB) at R7/15 now. When done, update §8.1.5.
-s4–s10 would convert cascade from exploratory to confirmatory; 20–30h GPU per seed.
+### T3-C: N=500 Multi-Seed Cascade — s3/s4 RUNNING; s5–s10 pending
+s2 (condA) and s3 (condB) DONE 2026-06-06 (R15). s3 (condA) and s4 (condB) at R11/15 now. When done, update §8.1.5 with 3-seed means.
+s5–s10 would convert cascade from exploratory to confirmatory; 20–30h GPU per seed.
 ```bash
 bash scripts/run_n500_gap_fill.sh --seeds 4 5 6 7 8 9 10 --rounds 15
 ```
@@ -158,10 +165,16 @@ N=100 LLM terminal (10 seeds):
   B_RLHF: ≈0.195 both arms
 
 N=500 cascade R30 terminal (T=30 COMPLETE, 1 seed per arm, 2026-06-05):
-  condA: coop=94.0%, Gini=0.9653, B_RLHF=0.607, agg=0.516
-  condB: coop=96.0%, Gini=0.9695, B_RLHF=0.627, agg=0.545
+  condA s1: coop=94.0%, Gini=0.9653, B_RLHF=0.607, agg=0.516
+  condB s2: coop=96.0%, Gini=0.9695, B_RLHF=0.627, agg=0.545
   condB peak R27/R28: coop=96.6%, B_RLHF=0.633 (95% of 2/3 ceiling)
-  Multi-seed (s2 condA, s3 condB): R8/15 running (R30 revealed ~24h/round at N=500)
+
+N=500 T=15 multi-seed (2026-06-06 COMPLETE for s2/s3):
+  condA s2: R15 coop=88.8%, Gini=0.8338, BRM=0.7513
+  condB s3: R15 coop=88.0%, Gini=0.8206, BRM=0.7776
+  2-seed means: condA 89.7%±1.3 pp / condB 89.8%±2.5 pp (Δ=+0.1 pp)
+  KEY: H2 null consistent at N=500 (condB>condA pattern not replicated)
+  condA s3 / condB s4: R11/15 running
 
 H8 v2 FINAL (N=20, T=10, terminal round, 3 seeds each):
   M0G: coop=0.583±0.085, Gini=0.218±0.037, B_RLHF=0.256±0.080
@@ -187,8 +200,8 @@ Condition D rule-based (N=500, 10 seeds):
 ## Critical Commands
 
 ```bash
-# n500 cascade progress
-python3 -c "import json,os; [print(t,json.load(open(f'experiments/{e}/heartbeat.json'))) for t,e in [('A-s2','mx_A_n500_s2'),('B-s3','mx_B_n500_s3')] if os.path.exists(f'experiments/{e}/heartbeat.json')]"
+# n500 cascade progress (s3/s4 now running)
+python3 -c "import json,os; [print(t,json.load(open(f'experiments/{e}/heartbeat.json'))) for t,e in [('A-s3','mx_A_n500_s3'),('B-s4','mx_B_n500_s4')] if os.path.exists(f'experiments/{e}/heartbeat.json')]"
 
 # Paper PENDING grep
 grep -n "PENDING\|ACTIVE\|currently running\|in progress\|16/24\|19/24" docs/paper.md

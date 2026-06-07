@@ -1,6 +1,6 @@
 # What Remains for Paper Completion
 > CS Bachelor's Capstone — Submission deadline: ~2026-06-19 (2 weeks)
-> Last updated: 2026-06-07 (session 6 — condA s2 + condB s3 T=15 COMPLETE; §8.1.5 updated with 2-seed multi-arm null result; H2 null confirmed at N=500)
+> Last updated: 2026-06-07 (session 7 — T2-E scan clean; reproduce_paper.sh PASSED; abstract spot-check ✓; s3/s4 running at R11→R12; ~6-8h until s3/s4 finish)
 
 **Context for future Claude Code sessions:** Multi-agent LLM simulation paper (BGF framework). Working dir: `/mnt/sdb1/workspace/lucastourinho/SyntheticSocieties`. Paper: `docs/paper.md`. Active GPU jobs: `tmux: n500_condA` (mx_A_n500_s3, R11/15), `tmux: n500_condB` (mx_B_n500_s4, R11/15).
 
@@ -118,12 +118,12 @@ bash scripts/run_n500_gap_fill.sh --seeds 4 5 6 7 8 9 10 --rounds 15
 
 ## TIER 4 — Final Polish (last 2–3 days)
 
-- `git status` → clean commit
-- `bash scripts/reproduce_paper.sh --dry-run` → must pass
+- `git status` → clean commit (13 fig/table updates from 2026-06-07 reproduce run — not yet committed)
+- ✅ `bash scripts/reproduce_paper.sh --dry-run` → **PASSED** (exit 0, 2026-06-07); forest plot: H7/H8/H9 all [verified]; Condition D Gini=0.325 [0.324,0.325] ✓; zenodo.json OK
 - ✅ README: RLHF cascade + H8 + bad apple scale reversal added; test count 1484→1578 fixed
 - ✅ CITATION.cff: updated with R30 complete + H8 falsified + 1578 tests
 - ✅ hypotheses.md: rewritten to match paper H1-H9 (was legacy H1-H8 draft)
-- Abstract spot-check: coop rates, B_RLHF, Gini, H8 verdict in abstract vs body
+- ✅ Abstract spot-check (2026-06-07): all key numbers consistent (N=100 coop/Gini/BRM ✓, N=500 cascade ✓, H8 verdict ✓, 1578 tests ✓)
 
 ---
 

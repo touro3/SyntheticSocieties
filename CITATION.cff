@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Behavioral Grounding Framework (BGF)"
+abstract: >
+  BGF is an open-source multi-agent economic simulation framework that grounds
+  LLM-based agents in empirical sociodemographic microdata from the European
+  Social Survey (ESS Round 11). It formalises an RLHF Cooperative Bias Index
+  (B_RLHF) and a Behavioral Realism Metric (BRM), and supplies a deterministic
+  rule-based ESS policy that reproduces Eurostat-range Gini and a perfect
+  cross-cultural cooperation gradient against three independent benchmarks
+  (ESS-11, WVS Wave 7, Herrmann-Thoeni-Gaechter 2008 PGG). The within-Mistral-7B
+  grounded vs ungrounded contrast is a null result under the pre-registered
+  10-seed N=100 confirmatory extension. At N=500 (T=30 complete, 2026-06-05),
+  a self-amplifying RLHF cooperation cascade drives both conditions to 94-96%
+  cooperation with B_RLHF 0.607/0.627 at terminal (2.6-2.8x the N=100 baseline);
+  multi-seed confirmation (2 seeds/arm T=15, 2026-06-07): condA 89.7+/-1.3 pp vs
+  condB 89.8+/-2.5 pp at R15 - cross-condition gap +0.1 pp (null, H2 consistent).
+  Memory ablation H8 (24/24 cells) is falsified for both arms: full hierarchical
+  memory suppresses rather than amplifies cooperation under grounding. Ships with
+  1,578 automated tests and one-command reproduction via scripts/reproduce_paper.sh.
+version: "1.0.0"
+date-released: "2026-05-26"
+license: MIT
+url: "https://github.com/touro3/SyntheticSocieties"
+repository-code: "https://github.com/touro3/SyntheticSocieties"
+authors:
+  - family-names: Tourinho
+    given-names: Lucas
+    affiliation: "Universidade Catolica Portuguesa"
+keywords:
+  - agent-based modeling
+  - large language models
+  - social simulation
+  - computational social science
+  - European Social Survey
+  - RLHF bias
+  - behavioral realism
+  - grounding
+  - retrieval-augmented generation
+  - reproducibility
+preferred-citation:
+  type: unpublished
+  title: >
+    Behavioral Grounding Framework: Empirically Anchored LLM-Based Agent
+    Simulations of Synthetic Societies
+  authors:
+    - family-names: Tourinho
+      given-names: Lucas
+  year: 2026
+  notes: "Undergraduate capstone thesis / preprint"

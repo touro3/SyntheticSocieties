@@ -190,14 +190,21 @@ debug_log.txt
 CEST.log
 
 # =========================
-# Paper
+# Paper / internal planning (NOT for public repo)
 # =========================
-paper/  
-CITATION.cff
+paper/
 MASTERS_ELEVATION_PLAN.md
 CLAUDE.md
 TOP_TIER_RESEARCH.md
 graphify-out/
+# Internal working docs and machine-generated run dumps
+docs/REMAINING_FOR_PAPER.md
+docs/BGF_PROGRESS_CHECKLIST.md
+docs/figure_status.md
+analysis/reports/persona_fidelity_*
+artifacts/persona_fidelity/
+# NOTE: CITATION.cff is a PUBLISHED artifact — it must be tracked (GitHub
+# "Cite this repository" + README references). Do not add it here.
 
 
 

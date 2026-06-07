@@ -373,7 +373,6 @@ def main() -> None:
     print("1. Run: python scripts/analyze_memory_ablation.py --suffix _v2")
     print("2. Check Figure 15 was regenerated")
     print("3. Verify Table 7 in paper matches analysis output")
-    print("4. Update docs/REMAINING_FOR_PAPER.md: mark T0-A, T1-A–E complete")
 
 
 if __name__ == "__main__":

@@ -1240,7 +1240,7 @@ The gap-fill sweep relaunched 2026-06-03 on two P100 GPUs (`tmux: n500_condA` an
 | s2   | B    | 30 | 80.8% | 88.8% | 91.6% | 0.8350 | 0.713 |
 | s3   | B    | 15 | 77.0% | 85.8% | 88.0% | 0.8206 | 0.778 |
 
-2-seed means at R15: condA = 89.7% ± 1.3 pp (Gini 0.825); condB = 89.8% ± 2.5 pp (Gini 0.828). Cross-condition gap: +0.1 pp (null). Inter-seed variance (1.3–2.5 pp SD) indicates meaningful stochasticity; the full sweep is needed for precise estimates.
+2-seed means at R15: condA = 89.7% ± 1.3 pp (Gini 0.825); condB = 89.8% ± 2.5 pp (Gini 0.828). Cross-condition gap: +0.1 pp (null). Inter-seed variance (1.3–2.5 pp SD) indicates meaningful stochasticity; the full sweep is needed for precise estimates. Per-seed trajectories: `analysis/figures/n500_cascade_multiseed.pdf` (generated 2026-06-07); raw data: `analysis/tables/n500_cascade_trajectory.json`.
 
 When the remaining T=15 seeds complete, they will:
 

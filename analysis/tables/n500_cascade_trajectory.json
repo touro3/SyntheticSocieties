@@ -1,0 +1,570 @@
+{
+  "condA": [
+    {
+      "seed": 1,
+      "T": 30,
+      "rounds": [
+        {
+          "round": 1,
+          "coop": 0.392,
+          "gini": 0.1469,
+          "mean_wealth": 110.21
+        },
+        {
+          "round": 2,
+          "coop": 0.606,
+          "gini": 0.1956,
+          "mean_wealth": 114.96
+        },
+        {
+          "round": 3,
+          "coop": 0.646,
+          "gini": 0.2507,
+          "mean_wealth": 119.53
+        },
+        {
+          "round": 4,
+          "coop": 0.696,
+          "gini": 0.3056,
+          "mean_wealth": 123.59
+        },
+        {
+          "round": 5,
+          "coop": 0.76,
+          "gini": 0.3629,
+          "mean_wealth": 127.53
+        },
+        {
+          "round": 6,
+          "coop": 0.786,
+          "gini": 0.4188,
+          "mean_wealth": 131.26
+        },
+        {
+          "round": 7,
+          "coop": 0.774,
+          "gini": 0.4724,
+          "mean_wealth": 135.07
+        },
+        {
+          "round": 8,
+          "coop": 0.814,
+          "gini": 0.5249,
+          "mean_wealth": 138.71
+        },
+        {
+          "round": 9,
+          "coop": 0.838,
+          "gini": 0.5747,
+          "mean_wealth": 142.17
+        },
+        {
+          "round": 10,
+          "coop": 0.856,
+          "gini": 0.622,
+          "mean_wealth": 145.53
+        },
+        {
+          "round": 11,
+          "coop": 0.864,
+          "gini": 0.667,
+          "mean_wealth": 148.81
+        },
+        {
+          "round": 12,
+          "coop": 0.872,
+          "gini": 0.7101,
+          "mean_wealth": 152.12
+        },
+        {
+          "round": 13,
+          "coop": 0.876,
+          "gini": 0.7494,
+          "mean_wealth": 155.21
+        },
+        {
+          "round": 14,
+          "coop": 0.9,
+          "gini": 0.7852,
+          "mean_wealth": 158.14
+        },
+        {
+          "round": 15,
+          "coop": 0.906,
+          "gini": 0.8163,
+          "mean_wealth": 160.87
+        },
+        {
+          "round": 16,
+          "coop": 0.908,
+          "gini": 0.844,
+          "mean_wealth": 163.47
+        },
+        {
+          "round": 17,
+          "coop": 0.908,
+          "gini": 0.8661,
+          "mean_wealth": 165.85
+        },
+        {
+          "round": 18,
+          "coop": 0.908,
+          "gini": 0.8844,
+          "mean_wealth": 168.01
+        },
+        {
+          "round": 19,
+          "coop": 0.912,
+          "gini": 0.8995,
+          "mean_wealth": 170.0
+        },
+        {
+          "round": 20,
+          "coop": 0.926,
+          "gini": 0.913,
+          "mean_wealth": 171.86
+        },
+        {
+          "round": 21,
+          "coop": 0.928,
+          "gini": 0.9231,
+          "mean_wealth": 173.45
+        },
+        {
+          "round": 22,
+          "coop": 0.92,
+          "gini": 0.9328,
+          "mean_wealth": 175.05
+        },
+        {
+          "round": 23,
+          "coop": 0.932,
+          "gini": 0.9403,
+          "mean_wealth": 176.44
+        },
+        {
+          "round": 24,
+          "coop": 0.926,
+          "gini": 0.9463,
+          "mean_wealth": 177.68
+        },
+        {
+          "round": 25,
+          "coop": 0.936,
+          "gini": 0.9506,
+          "mean_wealth": 178.75
+        },
+        {
+          "round": 26,
+          "coop": 0.938,
+          "gini": 0.9546,
+          "mean_wealth": 179.74
+        },
+        {
+          "round": 27,
+          "coop": 0.936,
+          "gini": 0.9578,
+          "mean_wealth": 180.72
+        },
+        {
+          "round": 28,
+          "coop": 0.938,
+          "gini": 0.9608,
+          "mean_wealth": 181.61
+        },
+        {
+          "round": 29,
+          "coop": 0.936,
+          "gini": 0.9632,
+          "mean_wealth": 182.43
+        },
+        {
+          "round": 30,
+          "coop": 0.94,
+          "gini": 0.9653,
+          "mean_wealth": 183.25
+        }
+      ]
+    },
+    {
+      "seed": 2,
+      "T": 15,
+      "rounds": [
+        {
+          "round": 1,
+          "coop": 0.416,
+          "gini": 0.1503,
+          "mean_wealth": 110.47
+        },
+        {
+          "round": 2,
+          "coop": 0.638,
+          "gini": 0.2025,
+          "mean_wealth": 115.12
+        },
+        {
+          "round": 3,
+          "coop": 0.688,
+          "gini": 0.2609,
+          "mean_wealth": 119.61
+        },
+        {
+          "round": 4,
+          "coop": 0.752,
+          "gini": 0.3184,
+          "mean_wealth": 123.64
+        },
+        {
+          "round": 5,
+          "coop": 0.812,
+          "gini": 0.377,
+          "mean_wealth": 127.43
+        },
+        {
+          "round": 6,
+          "coop": 0.82,
+          "gini": 0.4351,
+          "mean_wealth": 131.29
+        },
+        {
+          "round": 7,
+          "coop": 0.808,
+          "gini": 0.4911,
+          "mean_wealth": 135.22
+        },
+        {
+          "round": 8,
+          "coop": 0.838,
+          "gini": 0.543,
+          "mean_wealth": 138.89
+        },
+        {
+          "round": 9,
+          "coop": 0.848,
+          "gini": 0.5931,
+          "mean_wealth": 142.57
+        },
+        {
+          "round": 10,
+          "coop": 0.862,
+          "gini": 0.6415,
+          "mean_wealth": 146.15
+        },
+        {
+          "round": 11,
+          "coop": 0.862,
+          "gini": 0.6872,
+          "mean_wealth": 149.79
+        },
+        {
+          "round": 12,
+          "coop": 0.872,
+          "gini": 0.7301,
+          "mean_wealth": 153.29
+        },
+        {
+          "round": 13,
+          "coop": 0.876,
+          "gini": 0.7689,
+          "mean_wealth": 156.64
+        },
+        {
+          "round": 14,
+          "coop": 0.886,
+          "gini": 0.8037,
+          "mean_wealth": 159.84
+        },
+        {
+          "round": 15,
+          "coop": 0.888,
+          "gini": 0.8338,
+          "mean_wealth": 162.88
+        }
+      ]
+    }
+  ],
+  "condB": [
+    {
+      "seed": 2,
+      "T": 30,
+      "rounds": [
+        {
+          "round": 1,
+          "coop": 0.416,
+          "gini": 0.1503,
+          "mean_wealth": 110.47
+        },
+        {
+          "round": 2,
+          "coop": 0.636,
+          "gini": 0.2028,
+          "mean_wealth": 115.1
+        },
+        {
+          "round": 3,
+          "coop": 0.7,
+          "gini": 0.2621,
+          "mean_wealth": 119.55
+        },
+        {
+          "round": 4,
+          "coop": 0.762,
+          "gini": 0.3201,
+          "mean_wealth": 123.53
+        },
+        {
+          "round": 5,
+          "coop": 0.808,
+          "gini": 0.3788,
+          "mean_wealth": 127.34
+        },
+        {
+          "round": 6,
+          "coop": 0.84,
+          "gini": 0.436,
+          "mean_wealth": 131.05
+        },
+        {
+          "round": 7,
+          "coop": 0.818,
+          "gini": 0.4913,
+          "mean_wealth": 134.93
+        },
+        {
+          "round": 8,
+          "coop": 0.846,
+          "gini": 0.5432,
+          "mean_wealth": 138.56
+        },
+        {
+          "round": 9,
+          "coop": 0.864,
+          "gini": 0.5933,
+          "mean_wealth": 142.12
+        },
+        {
+          "round": 10,
+          "coop": 0.888,
+          "gini": 0.6411,
+          "mean_wealth": 145.56
+        },
+        {
+          "round": 11,
+          "coop": 0.896,
+          "gini": 0.6877,
+          "mean_wealth": 148.92
+        },
+        {
+          "round": 12,
+          "coop": 0.89,
+          "gini": 0.7306,
+          "mean_wealth": 152.26
+        },
+        {
+          "round": 13,
+          "coop": 0.914,
+          "gini": 0.7691,
+          "mean_wealth": 155.39
+        },
+        {
+          "round": 14,
+          "coop": 0.92,
+          "gini": 0.8042,
+          "mean_wealth": 158.4
+        },
+        {
+          "round": 15,
+          "coop": 0.916,
+          "gini": 0.835,
+          "mean_wealth": 161.29
+        },
+        {
+          "round": 16,
+          "coop": 0.93,
+          "gini": 0.8608,
+          "mean_wealth": 163.85
+        },
+        {
+          "round": 17,
+          "coop": 0.924,
+          "gini": 0.8816,
+          "mean_wealth": 166.25
+        },
+        {
+          "round": 18,
+          "coop": 0.944,
+          "gini": 0.8989,
+          "mean_wealth": 168.39
+        },
+        {
+          "round": 19,
+          "coop": 0.944,
+          "gini": 0.9123,
+          "mean_wealth": 170.28
+        },
+        {
+          "round": 20,
+          "coop": 0.942,
+          "gini": 0.9235,
+          "mean_wealth": 172.03
+        },
+        {
+          "round": 21,
+          "coop": 0.942,
+          "gini": 0.9328,
+          "mean_wealth": 173.6
+        },
+        {
+          "round": 22,
+          "coop": 0.942,
+          "gini": 0.941,
+          "mean_wealth": 175.17
+        },
+        {
+          "round": 23,
+          "coop": 0.956,
+          "gini": 0.9474,
+          "mean_wealth": 176.48
+        },
+        {
+          "round": 24,
+          "coop": 0.96,
+          "gini": 0.9529,
+          "mean_wealth": 177.69
+        },
+        {
+          "round": 25,
+          "coop": 0.952,
+          "gini": 0.9569,
+          "mean_wealth": 178.79
+        },
+        {
+          "round": 26,
+          "coop": 0.96,
+          "gini": 0.9605,
+          "mean_wealth": 179.72
+        },
+        {
+          "round": 27,
+          "coop": 0.964,
+          "gini": 0.9633,
+          "mean_wealth": 180.62
+        },
+        {
+          "round": 28,
+          "coop": 0.964,
+          "gini": 0.9659,
+          "mean_wealth": 181.51
+        },
+        {
+          "round": 29,
+          "coop": 0.954,
+          "gini": 0.968,
+          "mean_wealth": 182.32
+        },
+        {
+          "round": 30,
+          "coop": 0.96,
+          "gini": 0.9695,
+          "mean_wealth": 183.08
+        }
+      ]
+    },
+    {
+      "seed": 3,
+      "T": 15,
+      "rounds": [
+        {
+          "round": 1,
+          "coop": 0.416,
+          "gini": 0.1439,
+          "mean_wealth": 109.5
+        },
+        {
+          "round": 2,
+          "coop": 0.606,
+          "gini": 0.1925,
+          "mean_wealth": 114.02
+        },
+        {
+          "round": 3,
+          "coop": 0.65,
+          "gini": 0.2465,
+          "mean_wealth": 118.35
+        },
+        {
+          "round": 4,
+          "coop": 0.708,
+          "gini": 0.3049,
+          "mean_wealth": 122.47
+        },
+        {
+          "round": 5,
+          "coop": 0.77,
+          "gini": 0.3624,
+          "mean_wealth": 126.23
+        },
+        {
+          "round": 6,
+          "coop": 0.79,
+          "gini": 0.4194,
+          "mean_wealth": 129.91
+        },
+        {
+          "round": 7,
+          "coop": 0.768,
+          "gini": 0.4732,
+          "mean_wealth": 133.69
+        },
+        {
+          "round": 8,
+          "coop": 0.8,
+          "gini": 0.5257,
+          "mean_wealth": 137.31
+        },
+        {
+          "round": 9,
+          "coop": 0.84,
+          "gini": 0.5751,
+          "mean_wealth": 140.63
+        },
+        {
+          "round": 10,
+          "coop": 0.858,
+          "gini": 0.6233,
+          "mean_wealth": 143.9
+        },
+        {
+          "round": 11,
+          "coop": 0.86,
+          "gini": 0.6692,
+          "mean_wealth": 147.12
+        },
+        {
+          "round": 12,
+          "coop": 0.858,
+          "gini": 0.7125,
+          "mean_wealth": 150.29
+        },
+        {
+          "round": 13,
+          "coop": 0.874,
+          "gini": 0.7522,
+          "mean_wealth": 153.31
+        },
+        {
+          "round": 14,
+          "coop": 0.88,
+          "gini": 0.788,
+          "mean_wealth": 156.23
+        },
+        {
+          "round": 15,
+          "coop": 0.88,
+          "gini": 0.8206,
+          "mean_wealth": 159.09
+        }
+      ]
+    }
+  ]
+}

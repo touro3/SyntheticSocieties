@@ -1,5 +1,4 @@
 policy_type,cv_wealth,cv_gini
-template,,
-rule_based,,
-random,,
-llm,,
+template,0.0,0.0311141062063539
+rule_based,0.0004624968778554948,0.04909539239674372
+random,0.0,0.003679446035756758

@@ -298,30 +298,51 @@ def _h7_cross_model() -> HypRow:
 
 
 def _h8_persona_decay() -> HypRow:
-    blob = _safe_load(TABLES / "long_horizon_persona_drift.json")
+    # H8 redefined: memory ablation cooperation-rate monotonicity (M0→M3).
+    # Predicted: M3G > M0G (monotone increase). Actual: M3G < M0G (falsified).
+    # Effect = M3G_coop - M0G_coop (negative = opposite to prediction).
+    blob = _safe_load(TABLES / "memory_ablation.json")
     if not blob:
         return HypRow(
-            "H8: persona-fidelity slope (T=30)",
-            "slope (∂fid/∂round)",
+            "H8: memory ablation M3G>M0G (cooperation)",
+            "ΔM3G−M0G cooperation",
             None,
             None,
             None,
             "pending",
-            "analysis/tables/long_horizon_persona_drift.json",
+            "analysis/tables/memory_ablation.json",
             "F.5",
         )
-    slope = blob.get("slope") if isinstance(blob.get("slope"), (int, float)) else None
-    return HypRow(
-        "H8: persona-fidelity slope (T=30)",
-        "slope",
-        float(slope) if slope is not None else float("nan"),
-        None,
-        None,
-        "partial",
-        "analysis/tables/long_horizon_persona_drift.json",
-        "F.5",
-        "memory ablation under mock policy (A.9 ❌)",
-    )
+    try:
+        m0g = blob["level0_grounded"]["cooperation_rate"]["mean"]
+        m3g = blob["level3_grounded"]["cooperation_rate"]["mean"]
+        effect = m3g - m0g  # negative = H8 falsified
+        m0g_std = blob["level0_grounded"]["cooperation_rate"]["std"]
+        m3g_std = blob["level3_grounded"]["cooperation_rate"]["std"]
+        # pooled SE across 3 seeds each: sqrt((s0²+s3²)/2) / sqrt(3)
+        pooled_se = ((m0g_std**2 + m3g_std**2) / 2) ** 0.5 / 3**0.5
+        return HypRow(
+            "H8: memory ablation M3G>M0G (cooperation)",
+            "ΔM3G−M0G cooperation",
+            float(effect),
+            float(effect - 1.96 * pooled_se),
+            float(effect + 1.96 * pooled_se),
+            "verified",  # falsified = result is conclusive
+            "analysis/tables/memory_ablation.json",
+            "F.5",
+            "H8 FALSIFIED — grounded: M0G=0.412>M3G=0.282; ungrounded: inverted-U",
+        )
+    except (KeyError, TypeError):
+        return HypRow(
+            "H8: memory ablation M3G>M0G (cooperation)",
+            "ΔM3G−M0G cooperation",
+            None,
+            None,
+            None,
+            "pending",
+            "analysis/tables/memory_ablation.json",
+            "F.5",
+        )
 
 
 def _h9_cross_cultural() -> HypRow:

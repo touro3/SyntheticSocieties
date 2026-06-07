@@ -233,6 +233,117 @@ def _load_experiment(exp_dir: Path) -> Optional[dict]:
     return None
 
 
+# ── Experiment loaders for current mx_A/mx_B summary.json structure ──────────
+
+
+def _load_summary_metrics(exp_dir: Path) -> Optional[dict]:
+    """Read key metrics from summary.json (mx_A_s*/mx_B_s* structure)."""
+    summary_path = exp_dir / "summary.json"
+    if not summary_path.exists():
+        return None
+    try:
+        with open(summary_path) as f:
+            s = json.load(f)
+        m = s.get("metrics", {})
+        cr = m.get("cooperation_rate", {})
+        gini = m.get("gini", {})
+        brm = m.get("brm")
+        pf = m.get("persona_fidelity", {})
+
+        def _val(x):
+            if isinstance(x, dict):
+                return x.get("final", x.get("mean"))
+            return x
+
+        # terminal cooperation from round_metrics if available
+        rm_path = exp_dir / "round_metrics.jsonl"
+        terminal_coop = None
+        n_rounds = 0
+        if rm_path.exists():
+            rounds = []
+            with open(rm_path) as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            rounds.append(json.loads(line))
+                        except Exception:
+                            pass
+            if rounds:
+                n_rounds = len(rounds)
+                last = rounds[-1]
+                ad = last.get("action_distribution", {})
+                terminal_coop = ad.get("cooperate")
+
+        return {
+            "coop_mean": _val(cr),
+            "coop_terminal": terminal_coop,
+            "gini_final": _val(gini),
+            "brm": brm,
+            "pf_mean": _val(pf) if isinstance(pf, dict) else pf,
+            "n_rounds": n_rounds,
+            "n_agents": s.get("num_agents"),
+        }
+    except Exception:
+        return None
+
+
+def _pool_summary_seeds(seed_list: list[dict]) -> dict:
+    """Pool per-seed summary metrics into mean ± std."""
+    if not seed_list:
+        return {}
+
+    def _arr(key):
+        return [s[key] for s in seed_list if s.get(key) is not None]
+
+    def _st(vals):
+        if not vals:
+            return {"mean": None, "std": None, "n": 0}
+        arr = np.array(vals)
+        return {"mean": round(float(arr.mean()), 4), "std": round(float(arr.std()), 4), "n": len(vals)}
+
+    return {
+        "coop_mean": _st(_arr("coop_mean")),
+        "coop_terminal": _st(_arr("coop_terminal")),
+        "gini_final": _st(_arr("gini_final")),
+        "brm": _st(_arr("brm")),
+        "n_seeds": len(seed_list),
+    }
+
+
+def _load_n100_extension(experiments_dir: Path) -> dict:
+    """Load N=100 10-seed LLM extension (mx_A_s{1..10}, mx_B_s{1..10})."""
+    result = {}
+    for cond, prefix in [("condA", "mx_A_s"), ("condB", "mx_B_s")]:
+        seeds = []
+        for i in range(1, 11):
+            d = experiments_dir / f"{prefix}{i}"
+            m = _load_summary_metrics(d)
+            if m:
+                m["seed"] = i
+                seeds.append(m)
+        result[cond] = {
+            "per_seed": seeds,
+            "pooled": _pool_summary_seeds(seeds),
+            "n_found": len(seeds),
+        }
+    return result
+
+
+def _load_n500_cascade(experiments_dir: Path) -> dict:
+    """Load N=500 cascade seeds (mx_A_n500_s*, mx_B_n500_s*)."""
+    result = {}
+    for cond, prefix in [("condA", "mx_A_n500_s"), ("condB", "mx_B_n500_s")]:
+        seeds = []
+        for i in range(1, 11):
+            d = experiments_dir / f"{prefix}{i}"
+            m = _load_summary_metrics(d)
+            if m:
+                m["seed"] = i
+                seeds.append(m)
+        result[cond] = {"per_seed": seeds, "pooled": _pool_summary_seeds(seeds), "n_found": len(seeds)}
+    return result
+
+
 # ── Main aggregation ──────────────────────────────────────────────────────────
 
 
@@ -325,9 +436,58 @@ def compute_paper_numbers(experiments_dir: Path) -> dict:
                     "verdict": "within_range" if within else ("above_range" if val > bench["high"] else "below_range"),
                 }
 
+    # ── N=100 10-seed extension (primary confirmatory data) ───────────────────
+    n100_ext = _load_n100_extension(experiments_dir)
+    a10 = n100_ext.get("condA", {}).get("pooled", {})
+    b10 = n100_ext.get("condB", {}).get("pooled", {})
+
+    # ── N=500 cascade seeds ────────────────────────────────────────────────────
+    n500_cascade = _load_n500_cascade(experiments_dir)
+
+    # ── Paper-vs-actual verification (current paper claims §8.1) ─────────────
+    def _mean(d):
+        return d.get("mean") if d else None
+
+    paper_corrections = {
+        "n100_coop_condA": {
+            "paper_claims": "0.461±0.042 (MWU p=0.91)",
+            "actual_mean": _mean(a10.get("coop_mean")),
+            "actual_std": a10.get("coop_mean", {}).get("std"),
+            "n_seeds": a10.get("n_seeds"),
+        },
+        "n100_coop_condB": {
+            "paper_claims": "0.455±0.044",
+            "actual_mean": _mean(b10.get("coop_mean")),
+            "actual_std": b10.get("coop_mean", {}).get("std"),
+            "n_seeds": b10.get("n_seeds"),
+        },
+        "n100_gini_condA": {
+            "paper_claims": "0.718±0.032",
+            "actual_mean": _mean(a10.get("gini_final")),
+            "actual_std": a10.get("gini_final", {}).get("std"),
+        },
+        "n100_gini_condB": {
+            "paper_claims": "0.715±0.032",
+            "actual_mean": _mean(b10.get("gini_final")),
+            "actual_std": b10.get("gini_final", {}).get("std"),
+        },
+        "n100_brm_condA": {
+            "paper_claims": "0.832±0.022",
+            "actual_mean": _mean(a10.get("brm")),
+            "actual_std": a10.get("brm", {}).get("std"),
+        },
+        "n100_brm_condB": {
+            "paper_claims": "0.848±0.017",
+            "actual_mean": _mean(b10.get("brm")),
+            "actual_std": b10.get("brm", {}).get("std"),
+        },
+    }
+
     paper_numbers = {
         "_generated_by": "scripts/compute_paper_numbers.py",
-        "_note": "All values from actual LLM experiments. phase_c_comparison = 50 agents x 30 rounds.",
+        "_note": "Primary source: mx_A_s{1..10}/mx_B_s{1..10} summary.json (N=100 10-seed extension).",
+        "n100_llm_extension": n100_ext,
+        "n500_cascade": n500_cascade,
         "condition_a_ablated": condition_a,
         "condition_b_grounded": condition_b,
         "pure_llm_ess_persona": {
@@ -340,37 +500,7 @@ def compute_paper_numbers(experiments_dir: Path) -> dict:
         },
         "brlhf_reduction_pct": brlhf_reduction,
         "behavioral_ground_truth": bgt_results,
-        "paper_corrections": {
-            "coop_rate_condition_a": {
-                "paper_claims": "≈0.74",
-                "actual": condition_a.get("coop_rate_overall") if condition_a else None,
-            },
-            "coop_rate_condition_b": {
-                "paper_claims": "≈0.31–0.38",
-                "actual": condition_b.get("coop_rate_overall") if condition_b else None,
-            },
-            "brlhf_condition_a": {
-                "paper_claims": "≈0.52",
-                "actual": condition_a.get("brlhf") if condition_a else None,
-            },
-            "brlhf_condition_b": {
-                "paper_claims": "≈0.21",
-                "actual": condition_b.get("brlhf") if condition_b else None,
-            },
-            "gini_condition_a": {
-                "paper_claims": "≈0.08 (near-zero, egalitarian)",
-                "actual": condition_a.get("gini_final") if condition_a else None,
-                "note": "WRONG DIRECTION: actual Gini A escalates, not stays low",
-            },
-            "gini_condition_b": {
-                "paper_claims": "≈0.28–0.34",
-                "actual": condition_b.get("gini_final") if condition_b else None,
-            },
-            "brlhf_reduction_pct": {
-                "paper_claims": "≈60%",
-                "actual": f"{brlhf_reduction}%" if brlhf_reduction is not None else None,
-            },
-        },
+        "paper_corrections": paper_corrections,
     }
 
     return paper_numbers
@@ -378,47 +508,56 @@ def compute_paper_numbers(experiments_dir: Path) -> dict:
 
 def _print_summary(paper_numbers: dict) -> None:
     print("\n" + "=" * 70)
-    print("  BGF Paper Numbers — Authoritative Measurements")
+    print("  BGF Paper Numbers — Authoritative Measurements (N=100 10-seed)")
     print("=" * 70)
 
     corrections = paper_numbers.get("paper_corrections", {})
-    print("\n  PAPER vs ACTUAL (key discrepancies):")
-    print(f"  {'Metric':<35} {'Paper claims':>15} {'Actual':>12}")
-    print("  " + "-" * 64)
+    print(f"\n  {'Metric':<25} {'Paper claims':<28} {'Actual mean':>12} {'Actual std':>11} {'Match?':>7}")
+    print("  " + "-" * 85)
     for key, val in corrections.items():
         claim = str(val.get("paper_claims", "?"))
-        actual = str(val.get("actual", "?"))
-        note = val.get("note", "")
-        flag = "  ← WRONG DIRECTION" if note else ""
-        print(f"  {key:<35} {claim:>15} {actual:>12}{flag}")
+        am = val.get("actual_mean")
+        as_ = val.get("actual_std")
+        actual_str = f"{am:.4f}" if am is not None else "None"
+        std_str = f"±{as_:.4f}" if as_ is not None else ""
+        # Very rough match check: within 0.01
+        pc = val.get("paper_claims", "")
+        match = "?"
+        try:
+            import re
 
-    print()
-    a = paper_numbers.get("condition_a_ablated") or {}
-    b = paper_numbers.get("condition_b_grounded") or {}
-    if a and b:
-        print(f"  Phase C experiment: {a.get('n_agents')} agents × {a.get('n_rounds')} rounds")
-        print(
-            f"  Cond A: coop={a.get('coop_rate_overall'):.3f}, B_RLHF={a.get('brlhf'):.3f}, "
-            f"Gini_final={a.get('gini_final'):.3f}"
-        )
-        print(
-            f"  Cond B: coop={b.get('coop_rate_overall'):.3f}, B_RLHF={b.get('brlhf'):.3f}, "
-            f"Gini_final={b.get('gini_final'):.3f}"
-        )
+            nums = re.findall(r"\d+\.\d+", pc)
+            if nums and am is not None:
+                match = "✓" if abs(am - float(nums[0])) < 0.015 else "✗"
+        except Exception:
+            pass
+        print(f"  {key:<25} {claim:<28} {actual_str:>12} {std_str:>11} {match:>7}")
 
-    bgt = paper_numbers.get("behavioral_ground_truth", {})
-    if bgt:
-        print("\n  Behavioral Ground Truth (Condition B):")
-        for name, r in bgt.items():
-            status = "✓" if r["within_range"] else "✗"
-            print(
-                f"    {name:<15} {r['verdict']:<14} (value={r['value']:.3f}, "
-                f"range=[{r['range'][0]:.2f},{r['range'][1]:.2f}]) {status}"
-            )
+    # N=100 extension summary
+    n100 = paper_numbers.get("n100_llm_extension", {})
+    for cond in ["condA", "condB"]:
+        d = n100.get(cond, {})
+        n = d.get("n_found", 0)
+        p = d.get("pooled", {})
+        print(f"\n  {cond} N=100 ({n} seeds found):")
+        for k in ["coop_terminal", "gini_final", "brm"]:
+            v = p.get(k, {})
+            if v.get("mean") is not None:
+                print(f"    {k:<20}: {v['mean']:.4f} ± {v['std']:.4f} (n={v['n']})")
 
-    print()
-    reduction = paper_numbers.get("brlhf_reduction_pct")
-    print(f"  B_RLHF reduction (A → B): {reduction}%  (paper claims ≈60%)")
+    # N=500 cascade
+    n500 = paper_numbers.get("n500_cascade", {})
+    print(
+        f"\n  N=500 cascade seeds found: condA={n500.get('condA', {}).get('n_found', 0)}, condB={n500.get('condB', {}).get('n_found', 0)}"
+    )
+    for cond in ["condA", "condB"]:
+        for s in n500.get(cond, {}).get("per_seed", []):
+            coop = s.get("coop_terminal") or s.get("coop_mean")
+            gini = s.get("gini_final")
+            nr = s.get("n_rounds")
+            if coop:
+                print(f"    {cond} s{s['seed']} T={nr}: coop={coop:.3f}, Gini={gini:.4f}")
+
     print("=" * 70)
 
 

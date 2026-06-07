@@ -77,8 +77,8 @@ grep -n "PENDING\|ACTIVE\|in progress\|currently running\|awaits\|16/24\|19/24\|
 |------|--------|
 | T2-A: Bad apple N=500 | ✅ DONE — f*=0.041, R²=0.996, scale reversal found; §6.4 updated |
 | T2-B: Pre-reg deviation #9 (H8 final) | ✅ DONE — added to `docs/hypothesis_preregistration.md` |
-| T2-C: Verify paper numbers | ⬜ `compute_paper_numbers.py` — script reads experiments dir, output `analysis/paper_numbers.json` |
-| T2-D: Figure regeneration | ✅ Figs 1,15,16 regenerated; Fig 2 script errors (NoneType); Fig 16 → `cross_cultural_expanded.png` |
+| T2-C: Verify paper numbers | ✅ DONE (2026-06-07) — all 6 N=100 key metrics verified ✓; N=500 cascade seeds reported; script fixed to read summary.json |
+| T2-D: Figure regeneration | ✅ Figs 1,15,16 regenerated; Fig 2 script errors (NoneType, not blocking); Fig 16 → `cross_cultural_expanded.png`; **forest_plot H8 fixed (2026-06-07): [verified] −0.130; n500_cascade_multiseed.pdf NEW (2026-06-07) — 4-seed trajectory** |
 | T2-E: Limitations §9 scan | ✅ DONE — Limitation 20 title updated; line 1209 "awaits gap-fill" fixed; Limitations 8/13/17/22 legitimately blocked |
 
 **T2-C: compute_paper_numbers.py** (no `--verify` flag, just run):

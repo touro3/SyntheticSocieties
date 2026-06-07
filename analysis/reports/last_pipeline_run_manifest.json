@@ -1,38 +1,52 @@
 {
-  "generated_at_utc": "2026-06-03T00:45:07.292876+00:00",
+  "generated_at_utc": "2026-06-07T17:01:36.692716+00:00",
   "args": {
     "seeds": [
-      42
+      42,
+      123,
+      7
     ],
     "rounds": 10,
     "agents": 20,
-    "include_llm": true,
+    "include_llm": false,
     "include_perturbation": false,
-    "plots_only": false,
+    "plots_only": true,
     "analytics_scope": "run",
     "analytics_output_dir": "analysis/tables",
     "integrity_level": "basic",
     "skip_integrity_audit": false
   },
   "experiment_ids": [
-    "cmp_template_s42_condB",
-    "cmp_rule_s42_condB",
-    "cmp_random_s42_condB",
-    "cmp_rbe_s42_condB",
-    "cmp_llm_s42_condB"
+    "cmp_template_s42",
+    "cmp_rule_s42",
+    "cmp_random_s42",
+    "cmp_template_s123",
+    "cmp_rule_s123",
+    "cmp_random_s123",
+    "cmp_template_s7",
+    "cmp_rule_s7",
+    "cmp_random_s7"
   ],
   "summary_paths": [
-    "experiments/cmp_template_s42_condB/summary.json",
-    "experiments/cmp_rule_s42_condB/summary.json",
-    "experiments/cmp_random_s42_condB/summary.json",
-    "experiments/cmp_rbe_s42_condB/summary.json",
-    "experiments/cmp_llm_s42_condB/summary.json"
+    "experiments/cmp_template_s42/summary.json",
+    "experiments/cmp_rule_s42/summary.json",
+    "experiments/cmp_random_s42/summary.json",
+    "experiments/cmp_template_s123/summary.json",
+    "experiments/cmp_rule_s123/summary.json",
+    "experiments/cmp_random_s123/summary.json",
+    "experiments/cmp_template_s7/summary.json",
+    "experiments/cmp_rule_s7/summary.json",
+    "experiments/cmp_random_s7/summary.json"
   ],
   "analysis_outputs_modified_since_run_start": {
     "figures": [
       "analysis/figures/ablation_effect.png",
       "analysis/figures/action_area_llm.png",
+      "analysis/figures/action_area_random.png",
+      "analysis/figures/action_area_rule_based.png",
+      "analysis/figures/action_area_template.png",
       "analysis/figures/calibration_gap.png",
+      "analysis/figures/distribution_divergences.png",
       "analysis/figures/diversity_collapse.png",
       "analysis/figures/empirical_simulation_results.png",
       "analysis/figures/empirical_vs_synthetic.png",

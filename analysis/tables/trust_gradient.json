@@ -1,302 +1,53 @@
 {
   "group_results": {
     "Low-Trust": {
-      "coop_rate": 0.010266666666666667,
-      "gini": 0.024928551035723067,
-      "mean_wealth": 257.5554425962657,
-      "coop_rate_std": 0.001451436070471816,
-      "n_seeds": 5,
-      "ess_reference_trust": 0.267
+      "coop_rate": 0.0,
+      "gini": 0.0,
+      "mean_wealth": 0.0
     },
     "Moderate-Trust": {
-      "coop_rate": 0.012533333333333332,
-      "gini": 0.02577941637048724,
-      "mean_wealth": 257.2687759295991,
-      "coop_rate_std": 0.0014544949486180955,
-      "n_seeds": 5,
-      "ess_reference_trust": 0.467
+      "coop_rate": 0.0,
+      "gini": 0.0,
+      "mean_wealth": 0.0
     },
     "High-Trust": {
-      "coop_rate": 0.016266666666666665,
-      "gini": 0.027650416868374793,
-      "mean_wealth": 256.6287759295991,
-      "coop_rate_std": 0.0035175749222061117,
-      "n_seeds": 5,
-      "ess_reference_trust": 0.657
+      "coop_rate": 0.0,
+      "gini": 0.0,
+      "mean_wealth": 0.0
     },
     "Very-High-Trust": {
-      "coop_rate": 0.015533333333333333,
-      "gini": 0.026067520780569352,
-      "mean_wealth": 256.87210926293244,
-      "coop_rate_std": 0.0016138291249213606,
-      "n_seeds": 5,
-      "ess_reference_trust": 0.839
+      "coop_rate": 0.0,
+      "gini": 0.0,
+      "mean_wealth": 0.0
     }
   },
   "gradient": {
-    "Low-Trust": 0.010266666666666667,
-    "Moderate-Trust": 0.012533333333333332,
-    "High-Trust": 0.016266666666666665,
-    "Very-High-Trust": 0.015533333333333333
+    "Low-Trust": 0.0,
+    "Moderate-Trust": 0.0,
+    "High-Trust": 0.0,
+    "Very-High-Trust": 0.0
   },
   "correlation": {
-    "spearman_r": 0.7999999999999999,
-    "p_value": 0.20000000000000007,
+    "spearman_r": 0.0,
+    "p_value": 1.0,
+    "p_value_asymptotic": 1.0,
+    "p_value_exact": 1.0,
+    "kendall_tau": 0.0,
+    "kendall_p": 1.0,
+    "is_monotone": false,
     "n_groups": 4,
+    "min_achievable_p": 0.0833,
     "is_significant": false,
-    "interpretation": "Positive trend observed (r=0.800, p=0.200) but not statistically significant at p<0.10. More seeds or agents may be needed."
+    "interpretation": "No gradient recovery: Spearman \u03c1=0.000 (exact p=1.000), Kendall \u03c4=0.000, monotone=False."
   },
-  "all_runs": [
-    {
-      "group_name": "Low-Trust",
-      "band": "low",
-      "coop_rate": 0.009333333333333334,
-      "gini": 0.024180762523735133,
-      "mean_wealth": 256.9524727861964,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 42,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.267
-    },
-    {
-      "group_name": "Low-Trust",
-      "band": "low",
-      "coop_rate": 0.009333333333333334,
-      "gini": 0.02571854954712216,
-      "mean_wealth": 256.67996634206906,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 123,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.267
-    },
-    {
-      "group_name": "Low-Trust",
-      "band": "low",
-      "coop_rate": 0.008666666666666666,
-      "gini": 0.024870338275070347,
-      "mean_wealth": 257.68203645759235,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 7,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.267
-    },
-    {
-      "group_name": "Low-Trust",
-      "band": "low",
-      "coop_rate": 0.012333333333333333,
-      "gini": 0.026838787498941308,
-      "mean_wealth": 258.31275217026854,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 99,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.267
-    },
-    {
-      "group_name": "Low-Trust",
-      "band": "low",
-      "coop_rate": 0.011666666666666667,
-      "gini": 0.02303431733374639,
-      "mean_wealth": 258.14998522520233,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 200,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.267
-    },
-    {
-      "group_name": "Moderate-Trust",
-      "band": "moderate",
-      "coop_rate": 0.011,
-      "gini": 0.025859337947791827,
-      "mean_wealth": 256.23580611952974,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 42,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.467
-    },
-    {
-      "group_name": "Moderate-Trust",
-      "band": "moderate",
-      "coop_rate": 0.011,
-      "gini": 0.02737510494191664,
-      "mean_wealth": 256.76329967540244,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 123,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.467
-    },
-    {
-      "group_name": "Moderate-Trust",
-      "band": "moderate",
-      "coop_rate": 0.013666666666666667,
-      "gini": 0.02449407308987661,
-      "mean_wealth": 257.0653697909257,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 7,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.467
-    },
-    {
-      "group_name": "Moderate-Trust",
-      "band": "moderate",
-      "coop_rate": 0.014666666666666666,
-      "gini": 0.024899161736425368,
-      "mean_wealth": 258.2294188369352,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 99,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.467
-    },
-    {
-      "group_name": "Moderate-Trust",
-      "band": "moderate",
-      "coop_rate": 0.012333333333333333,
-      "gini": 0.026269404136425756,
-      "mean_wealth": 258.0499852252023,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 200,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.467
-    },
-    {
-      "group_name": "High-Trust",
-      "band": "high",
-      "coop_rate": 0.013,
-      "gini": 0.026704711874656395,
-      "mean_wealth": 256.4691394528631,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 42,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.657
-    },
-    {
-      "group_name": "High-Trust",
-      "band": "high",
-      "coop_rate": 0.015666666666666666,
-      "gini": 0.029656507668861076,
-      "mean_wealth": 254.99663300873576,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 123,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.657
-    },
-    {
-      "group_name": "High-Trust",
-      "band": "high",
-      "coop_rate": 0.014,
-      "gini": 0.024228578626492414,
-      "mean_wealth": 257.348703124259,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 7,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.657
-    },
-    {
-      "group_name": "High-Trust",
-      "band": "high",
-      "coop_rate": 0.023,
-      "gini": 0.030841356675433085,
-      "mean_wealth": 256.77941883693524,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 99,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.657
-    },
-    {
-      "group_name": "High-Trust",
-      "band": "high",
-      "coop_rate": 0.015666666666666666,
-      "gini": 0.026820929496431,
-      "mean_wealth": 257.5499852252023,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 200,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.657
-    },
-    {
-      "group_name": "Very-High-Trust",
-      "band": "very_high",
-      "coop_rate": 0.015333333333333332,
-      "gini": 0.028978270078877433,
-      "mean_wealth": 255.51913945286307,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 42,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.839
-    },
-    {
-      "group_name": "Very-High-Trust",
-      "band": "very_high",
-      "coop_rate": 0.014333333333333333,
-      "gini": 0.025165150589460783,
-      "mean_wealth": 256.5299663420691,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 123,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.839
-    },
-    {
-      "group_name": "Very-High-Trust",
-      "band": "very_high",
-      "coop_rate": 0.013666666666666667,
-      "gini": 0.02503633027933505,
-      "mean_wealth": 257.13203645759233,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 7,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.839
-    },
-    {
-      "group_name": "Very-High-Trust",
-      "band": "very_high",
-      "coop_rate": 0.016,
-      "gini": 0.023801319194973747,
-      "mean_wealth": 257.82941883693525,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 99,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.839
-    },
-    {
-      "group_name": "Very-High-Trust",
-      "band": "very_high",
-      "coop_rate": 0.018333333333333333,
-      "gini": 0.027356533760199753,
-      "mean_wealth": 257.3499852252023,
-      "n_agents": 150,
-      "n_rounds": 20,
-      "seed": 200,
-      "cohort_size": 150,
-      "ess_reference_trust": 0.839
-    }
-  ],
+  "all_runs": [],
   "config": {
-    "rounds": 20,
-    "agents": 150,
+    "rounds": 10,
+    "agents": 60,
     "seeds": [
       42,
       123,
-      7,
-      99,
-      200
+      7
     ],
     "policy": "rule_based"
   }

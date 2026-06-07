@@ -1,6 +1,362 @@
 {
   "_generated_by": "scripts/compute_paper_numbers.py",
-  "_note": "All values from actual LLM experiments. phase_c_comparison = 50 agents x 30 rounds.",
+  "_note": "Primary source: mx_A_s{1..10}/mx_B_s{1..10} summary.json (N=100 10-seed extension).",
+  "n100_llm_extension": {
+    "condA": {
+      "per_seed": [
+        {
+          "coop_mean": 0.4663333333333333,
+          "coop_terminal": 0.53,
+          "gini_final": 0.710702970163541,
+          "brm": 0.8110125562718556,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 1
+        },
+        {
+          "coop_mean": 0.5223333333333333,
+          "coop_terminal": 0.59,
+          "gini_final": 0.7849097119097119,
+          "brm": 0.8042612532504789,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 2
+        },
+        {
+          "coop_mean": 0.458,
+          "coop_terminal": 0.53,
+          "gini_final": 0.7146030633157157,
+          "brm": 0.8222927493587475,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 3
+        },
+        {
+          "coop_mean": 0.43566666666666665,
+          "coop_terminal": 0.49,
+          "gini_final": 0.680059602728109,
+          "brm": 0.855114118313323,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 4
+        },
+        {
+          "coop_mean": 0.47433333333333333,
+          "coop_terminal": 0.56,
+          "gini_final": 0.7241316128426529,
+          "brm": 0.8400823182052561,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 5
+        },
+        {
+          "coop_mean": 0.49366666666666664,
+          "coop_terminal": 0.6,
+          "gini_final": 0.7241295906512486,
+          "brm": 0.8042059341804048,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 6
+        },
+        {
+          "coop_mean": 0.454,
+          "coop_terminal": 0.52,
+          "gini_final": 0.725649728598522,
+          "brm": 0.8263306623814188,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 7
+        },
+        {
+          "coop_mean": 0.37733333333333335,
+          "coop_terminal": 0.46,
+          "gini_final": 0.6678532962039818,
+          "brm": 0.8631574289683664,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 8
+        },
+        {
+          "coop_mean": 0.38366666666666666,
+          "coop_terminal": 0.43,
+          "gini_final": 0.6777146170790749,
+          "brm": 0.8620697475229513,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 9
+        },
+        {
+          "coop_mean": 0.4856666666666667,
+          "coop_terminal": 0.54,
+          "gini_final": 0.7372148758992356,
+          "brm": 0.8269205672321728,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 10
+        }
+      ],
+      "pooled": {
+        "coop_mean": {
+          "mean": 0.4551,
+          "std": 0.0436,
+          "n": 10
+        },
+        "coop_terminal": {
+          "mean": 0.525,
+          "std": 0.0508,
+          "n": 10
+        },
+        "gini_final": {
+          "mean": 0.7147,
+          "std": 0.0324,
+          "n": 10
+        },
+        "brm": {
+          "mean": 0.8315,
+          "std": 0.0215,
+          "n": 10
+        },
+        "n_seeds": 10
+      },
+      "n_found": 10
+    },
+    "condB": {
+      "per_seed": [
+        {
+          "coop_mean": 0.4533333333333333,
+          "coop_terminal": 0.55,
+          "gini_final": 0.7016729256223002,
+          "brm": 0.8379123897328703,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 1
+        },
+        {
+          "coop_mean": 0.469,
+          "coop_terminal": 0.57,
+          "gini_final": 0.7107490400855982,
+          "brm": 0.8526547562343066,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 2
+        },
+        {
+          "coop_mean": 0.4736666666666667,
+          "coop_terminal": 0.56,
+          "gini_final": 0.7313009496596352,
+          "brm": 0.8361747832855357,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 3
+        },
+        {
+          "coop_mean": 0.39566666666666667,
+          "coop_terminal": 0.48,
+          "gini_final": 0.6691365355075032,
+          "brm": 0.883481097741807,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 4
+        },
+        {
+          "coop_mean": 0.514,
+          "coop_terminal": 0.68,
+          "gini_final": 0.7733330617186227,
+          "brm": 0.8376405120548118,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 5
+        },
+        {
+          "coop_mean": 0.46266666666666667,
+          "coop_terminal": 0.52,
+          "gini_final": 0.6993136772679001,
+          "brm": 0.8343719039556241,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 6
+        },
+        {
+          "coop_mean": 0.544,
+          "coop_terminal": 0.72,
+          "gini_final": 0.7793092297089541,
+          "brm": 0.825027767158562,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 7
+        },
+        {
+          "coop_mean": 0.427,
+          "coop_terminal": 0.49,
+          "gini_final": 0.7032310887850342,
+          "brm": 0.8559923861502483,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 8
+        },
+        {
+          "coop_mean": 0.415,
+          "coop_terminal": 0.47,
+          "gini_final": 0.7120637150959304,
+          "brm": 0.8661343633799228,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 9
+        },
+        {
+          "coop_mean": 0.45266666666666666,
+          "coop_terminal": 0.49,
+          "gini_final": 0.7043645554394053,
+          "brm": 0.8488487397862367,
+          "pf_mean": null,
+          "n_rounds": 30,
+          "n_agents": 100,
+          "seed": 10
+        }
+      ],
+      "pooled": {
+        "coop_mean": {
+          "mean": 0.4607,
+          "std": 0.0419,
+          "n": 10
+        },
+        "coop_terminal": {
+          "mean": 0.553,
+          "std": 0.081,
+          "n": 10
+        },
+        "gini_final": {
+          "mean": 0.7184,
+          "std": 0.0324,
+          "n": 10
+        },
+        "brm": {
+          "mean": 0.8478,
+          "std": 0.0165,
+          "n": 10
+        },
+        "n_seeds": 10
+      },
+      "n_found": 10
+    }
+  },
+  "n500_cascade": {
+    "condA": {
+      "per_seed": [
+        {
+          "coop_mean": 0.8496666666666667,
+          "coop_terminal": 0.94,
+          "gini_final": 0.9653097615665567,
+          "brm": 0.7040704348349132,
+          "pf_mean": 0.28986036628692163,
+          "n_rounds": 30,
+          "n_agents": 500,
+          "seed": 1
+        },
+        {
+          "coop_mean": 0.7910666666666667,
+          "coop_terminal": 0.888,
+          "gini_final": 0.8338305654979341,
+          "brm": 0.7512672285837796,
+          "pf_mean": 0.35147998801421876,
+          "n_rounds": 15,
+          "n_agents": 500,
+          "seed": 2
+        }
+      ],
+      "pooled": {
+        "coop_mean": {
+          "mean": 0.8204,
+          "std": 0.0293,
+          "n": 2
+        },
+        "coop_terminal": {
+          "mean": 0.914,
+          "std": 0.026,
+          "n": 2
+        },
+        "gini_final": {
+          "mean": 0.8996,
+          "std": 0.0657,
+          "n": 2
+        },
+        "brm": {
+          "mean": 0.7277,
+          "std": 0.0236,
+          "n": 2
+        },
+        "n_seeds": 2
+      },
+      "n_found": 2
+    },
+    "condB": {
+      "per_seed": [
+        {
+          "coop_mean": 0.879,
+          "coop_terminal": 0.96,
+          "gini_final": 0.969450027897389,
+          "brm": 0.7131351718118428,
+          "pf_mean": 0.266385220450705,
+          "n_rounds": 30,
+          "n_agents": 500,
+          "seed": 2
+        },
+        {
+          "coop_mean": 0.7705333333333333,
+          "coop_terminal": 0.88,
+          "gini_final": 0.8205964808178612,
+          "brm": 0.7775826262767749,
+          "pf_mean": 0.36701663409075685,
+          "n_rounds": 15,
+          "n_agents": 500,
+          "seed": 3
+        }
+      ],
+      "pooled": {
+        "coop_mean": {
+          "mean": 0.8248,
+          "std": 0.0542,
+          "n": 2
+        },
+        "coop_terminal": {
+          "mean": 0.92,
+          "std": 0.04,
+          "n": 2
+        },
+        "gini_final": {
+          "mean": 0.895,
+          "std": 0.0744,
+          "n": 2
+        },
+        "brm": {
+          "mean": 0.7454,
+          "std": 0.0322,
+          "n": 2
+        },
+        "n_seeds": 2
+      },
+      "n_found": 2
+    }
+  },
   "condition_a_ablated": null,
   "condition_b_grounded": null,
   "pure_llm_ess_persona": {
@@ -243,34 +599,37 @@
   "brlhf_reduction_pct": null,
   "behavioral_ground_truth": {},
   "paper_corrections": {
-    "coop_rate_condition_a": {
-      "paper_claims": "\u22480.74",
-      "actual": null
+    "n100_coop_condA": {
+      "paper_claims": "0.461\u00b10.042 (MWU p=0.91)",
+      "actual_mean": 0.4551,
+      "actual_std": 0.0436,
+      "n_seeds": 10
     },
-    "coop_rate_condition_b": {
-      "paper_claims": "\u22480.31\u20130.38",
-      "actual": null
+    "n100_coop_condB": {
+      "paper_claims": "0.455\u00b10.044",
+      "actual_mean": 0.4607,
+      "actual_std": 0.0419,
+      "n_seeds": 10
     },
-    "brlhf_condition_a": {
-      "paper_claims": "\u22480.52",
-      "actual": null
+    "n100_gini_condA": {
+      "paper_claims": "0.718\u00b10.032",
+      "actual_mean": 0.7147,
+      "actual_std": 0.0324
     },
-    "brlhf_condition_b": {
-      "paper_claims": "\u22480.21",
-      "actual": null
+    "n100_gini_condB": {
+      "paper_claims": "0.715\u00b10.032",
+      "actual_mean": 0.7184,
+      "actual_std": 0.0324
     },
-    "gini_condition_a": {
-      "paper_claims": "\u22480.08 (near-zero, egalitarian)",
-      "actual": null,
-      "note": "WRONG DIRECTION: actual Gini A escalates, not stays low"
+    "n100_brm_condA": {
+      "paper_claims": "0.832\u00b10.022",
+      "actual_mean": 0.8315,
+      "actual_std": 0.0215
     },
-    "gini_condition_b": {
-      "paper_claims": "\u22480.28\u20130.34",
-      "actual": null
-    },
-    "brlhf_reduction_pct": {
-      "paper_claims": "\u224860%",
-      "actual": null
+    "n100_brm_condB": {
+      "paper_claims": "0.848\u00b10.017",
+      "actual_mean": 0.8478,
+      "actual_std": 0.0165
     }
   }
 }

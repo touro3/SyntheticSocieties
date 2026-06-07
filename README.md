@@ -355,8 +355,8 @@ Test count history: 0 → 104 → 254 → 396 → 413 → 481 → 552 → 636 �
 | `docs/causal_model.md` | Causal DAG, confound table, mediation decomposition |
 | `docs/hypotheses.md` | Formalized experimental hypotheses H1–H8 |
 | `docs/evaluation_protocol.md` | Calibration vs evaluation split methodology |
-| `docs/MASTERS_ELEVATION_PLAN.md` | Research elevation roadmap (Phases 16–26) |
-| `docs/BGF_PROGRESS_CHECKLIST.md` | Phase completion tracker |
+| `docs/appendix_audit_trail.md` | Forensic audit trail (bug disclosures, withdrawn values) |
+| `docs/hypothesis_preregistration.md` | Pre-registered hypotheses + deviation log |
 
 ---
 

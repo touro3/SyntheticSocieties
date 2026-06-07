@@ -198,9 +198,10 @@ CLAUDE.md
 TOP_TIER_RESEARCH.md
 graphify-out/
 # Internal working docs and machine-generated run dumps
+# (figure_status.md and evidence_audit.md are KEPT — they are tested
+#  transparency artifacts; see tests/test_evidence_audit_links.py)
 docs/REMAINING_FOR_PAPER.md
 docs/BGF_PROGRESS_CHECKLIST.md
-docs/figure_status.md
 analysis/reports/persona_fidelity_*
 # Persona-fidelity runs are regenerable (scripts/run_persona_fidelity.py).
 # Keep ONE canonical run as the input fixture that the pipeline_*.sh scripts

@@ -1,0 +1,223 @@
+
+This chapter formalizes the Behavioral Grounding Framework (BGF): its formal specification, the fidelity metrics and their formal results, the system architecture, the decision policies and action space, the prompt-engineering and ablation design, the anti-drift engineering for long-horizon stability, the causal-identification strategy, the experimental conditions and hypothesis pre-registration, and the open-source software artifact.
+
+\subsecao{Formal Behavioral Grounding Framework}
+
+A BGF simulation instance is formally specified as the tuple:
+
+\begin{quote}\ttfamily\small\noindent
+BGF~=~(A,~E,~G,~P,~Φ,~T)
+\end{quote}
+
+where:
+
+\begin{itemize}
+\item \textbf{A = \{a₁, ..., a\_N\}} is a set of N agents. Each agent \texttt{aᵢ} has an immutable profile \texttt{πᵢ = Φ(xᵢ)} where \texttt{xᵢ} is a record sampled from the empirical distribution \texttt{D\_ESS}, and a mutable state \texttt{sᵢ(t) = (wealth, stress, satisfaction, trust\_map)} at time step \texttt{t}.
+\end{itemize}
+
+\begin{itemize}
+\item \textbf{E = (S, u)} is the economic environment with state space S and payoff function \texttt{u: Action × S → ℝ} defined by:
+\item \texttt{u(work, s) = (+8 wealth, +0.10 stress)}
+\item \texttt{u(save, s) = (+4 wealth, −0.05 stress)}
+\item \texttt{u(cooperate, s) = (−3 wealth from self, +12/N to every agent equally, −0.05 stress)}
+\end{itemize}
+
+  \textit{Cooperation payoff — LPGG formulation.} Each cooperator contributes cost c = 3 wealth. The total contribution is redistributed so that every agent (cooperators and non-cooperators alike) receives an equal per-capita return of +12/N, following the standard linear public goods game (LPGG). In standard LPGG notation, the equivalent multiplication factor is r = 4, giving a Marginal Per Capita Return MPCR = r/N = 4/N. The \textbf{social dilemma condition} (cooperation individually costly but collectively beneficial) is MPCR < 1 ⇒ 4/N < 1 ⇒ \textbf{N > 4}. Universal cooperation produces a net gain of 12 − 3 = +9 per agent at any N — always collectively optimal. At the primary experimental scales (N=100: MPCR = 0.04; N=500: MPCR = 0.008) cooperation is individually extremely costly (net return ≈ −2.88 and −2.976 respectively), so any observed cooperation is evidence of a non-rational bias rather than equilibrium play. The dilemma strengthens with N, which directly motivates the N-dependent cascade findings of Chapter 5.
+
+\begin{itemize}
+\item \textbf{G = (V, E\_G, θ)} is the social graph where \texttt{V = A}, \texttt{E\_G} are directed edges representing cooperation history, and \texttt{θ} are topology parameters (Watts–Strogatz rewiring probability \texttt{β}, mean degree \texttt{k}). The graph evolves dynamically: cooperation events add weighted edges.
+\end{itemize}
+
+\begin{itemize}
+\item \textbf{P: Profile × State × Memory × Context → Action} is the decision policy. For LLM-based policies: \texttt{P(π, s, m, c) = parse(LLM(prompt(π, s, m, c)))}, where \texttt{prompt()} constructs a token-budgeted message from agent state and RAG-retrieved context.
+\end{itemize}
+
+\begin{itemize}
+\item \textbf{Φ: D\_ESS → Profile} is the empirical grounding function that maps ESS Round 11 microdata records to agent profiles, preserving joint distributions of trust, risk tolerance, political orientation, income, education, and 10+ additional sociodemographic attributes.
+\end{itemize}
+
+\begin{itemize}
+\item \textbf{T} is the simulation horizon (number of rounds).
+\end{itemize}
+
+\textbf{Notation Summary.} \texttt{A} agent population; \texttt{E} economic environment \texttt{(S, u)}; \texttt{G} social graph \texttt{(V, E\_G, θ)}; \texttt{P} decision policy; \texttt{Φ} grounding function \texttt{D\_ESS → Profile}; \texttt{T} horizon; \texttt{D\_ESS} empirical ESS distribution; \texttt{D\_sim} simulated behavior distribution; \texttt{π\_A} ungrounded LLM policy (Condition A); \texttt{π\_B} ESS-grounded LLM policy (Condition B); \texttt{π\_uniform} uniform action prior (1/3 each); \texttt{B\_RLHF ∈ [0,1]} RLHF Bias Index \texttt{TV(π, π\_uniform)}; \texttt{BRM\_JSD ∈ [0,1]} \texttt{1 − JSD(D\_sim ‖ D\_ESS)}; \texttt{BRM\_composite} weighted composite; \texttt{JSD}, \texttt{TV} divergences; \texttt{w₁..w₄} BRM weights (sum = 1); \texttt{β} rewiring probability; \texttt{k} mean degree; \texttt{f*} critical adversarial fraction; \texttt{σ*} critical shock magnitude; \texttt{α̂} Pareto exponent; \texttt{Q} modularity; \texttt{r} assortativity.
+
+\subsecao{Fidelity Metrics and Formal Results}
+
+\subsubsecao{Behavioral Realism Metric (BRM)}
+
+The single-dimension BRM quantifies distributional fidelity using Jensen–Shannon Divergence:
+
+\begin{quote}\ttfamily\small\noindent
+BRM\_JSD(sim,~emp)~=~1~−~JSD(D\_sim~‖~D\_ESS)
+\end{quote}
+
+where \texttt{JSD(P ‖ Q) = ½ KL(P ‖ M) + ½ KL(Q ‖ M)}, \texttt{M = ½(P + Q)}, and KL is computed with \textbf{base-2 logarithm} (ensuring JSD ∈ [0, 1]). \texttt{BRM\_JSD ∈ [0, 1]}, equalling 1 when distributions are identical and approaching 0 for disjoint support. The implementation uses \texttt{base=2} explicitly in \texttt{metrics/distribution.py} and is verified by \texttt{tests/test\_metrics.py::test\_brm\_jsd\_bounds}.
+
+The composite BRM aggregates four sub-dimensions:
+
+\begin{quote}\ttfamily\small\noindent
+BRM\_composite~=~w₁~·~BRM\_JSD(wealth) \\~~~~~~~~~~~~~~+~w₂~·~(1~−~|Gini\_sim~−~Gini\_ESS|) \\~~~~~~~~~~~~~~+~w₃~·~(1~−~|coop\_sim~−~coop\_ESS|) \\~~~~~~~~~~~~~~+~w₄~·~(1~−~JSD\_temporal)
+\end{quote}
+
+with default weights \texttt{w₁ = 0.30}, \texttt{w₂ = 0.25}, \texttt{w₃ = 0.25}, \texttt{w₄ = 0.20} (sum = 1.0). Each component is independently bounded in \texttt{[0, 1]}, making the composite bounded as well.
+
+\subsubsecao{RLHF Bias Index}
+
+The RLHF Bias Index quantifies how far an LLM policy's observed action distribution deviates from the uniform (unbiased) prior:
+
+\begin{quote}\ttfamily\small\noindent
+B\_RLHF(π)~=~TV(π,~π\_uniform)~=~0.5~·~Σ\_\{a~∈~A\}~|π(a)~−~1/|A||
+\end{quote}
+
+where \texttt{π(a)} is the empirical frequency of action \texttt{a} and \texttt{π\_uniform(a) = 1/3} for the action space \texttt{A = \{work, save, cooperate\}}. \textbf{Properties:} \texttt{B\_RLHF ∈ [0, 2/3]}; it equals 0 when the policy is perfectly uniform, reaches its maximum \texttt{2/3 ≈ 0.667} under deterministic single-action play, and is invariant under relabeling. Under the equal-split assumption \texttt{π(work) = π(save) = (1 − p)/2}, it collapses to the closed form \texttt{|p − 1/3|}, the identity used for quick conversions between cooperation rate and \texttt{B\_RLHF}.
+
+\textbf{Choice of reference distribution.} \texttt{B\_RLHF} uses the uniform action prior as reference. This is the analytically tractable choice and bounds deviation from "no bias whatsoever," but it is not the empirically observed human distribution: laboratory public-goods cooperation rates of 40–60\% (Chaudhuri 2011) imply a natural TV of 0.07–0.27 even for an unbiased population. A human-calibrated index \texttt{B\_RLHF*(π) = TV(π, π\_human)} would require the human-subject experiment discussed in Chapter 7; the \textit{directional} claim \texttt{B\_RLHF(B) < B\_RLHF(A)} is invariant to this choice.
+
+\subsubsecao{Persona Decay}
+
+Expected cooperation rate is estimated from a logistic regression fitted on ESS Round 11 Austrian volunteering behavior (\texttt{volunteered}, n = 866 respondents with all features non-null). \textbf{Proxy validity caveat:} volunteering is the closest available behavioral proxy for altruistic cooperation in ESS, but it involves time rather than wealth, lacks strategic interdependence, and has no multiplier/redistribution structure; the model's AUC of 0.640 is only modestly above chance. Fidelity scores should be read as rough directional indicators rather than precise behavioral calibration, and bootstrap confidence intervals are reported throughout. The model was fitted with L2 regularization, validated by 10-fold stratified cross-validation (AUC = 0.640 ± 0.073, Brier = 0.144), with 1,000-bootstrap 95\% CIs stored in \texttt{data/cooperation\_model.json}.
+
+\textbf{Key empirical finding.} Contrary to the prior theoretical assumption (trust as primary driver), interpersonal-trust variables (\texttt{trust\_people}, \texttt{trust\_fairness}, \texttt{trust\_helpfulness}) have 95\% CIs overlapping zero and are not significant predictors of volunteering/cooperation in the Austrian sample. The significant positive predictors are \textbf{risk tolerance} (β = +0.165, 95\% CI [+0.065, +0.268]) and \textbf{social engagement} (social\_meeting\_freq β = +0.164 [+0.079, +0.247]; social\_activity β = +0.135 [+0.045, +0.232]). This finding motivates replacing the prior heuristic \texttt{0.2 + 0.6 · trust · (1−risk)} — which placed trust as primary and risk as a negative moderator — with the empirically grounded model. Per-round persona fidelity is \texttt{fidelity(t) = 1 − |coop\_rate(t, t+w) − E[coop | profile]|} over a sliding window \texttt{w}, with decay rate estimated via OLS of \texttt{fidelity(t)} on \texttt{t}.
+
+\subsubsecao{Central Claim}
+
+For any BGF instance with grounding function \texttt{Φ} derived from \texttt{D\_ESS}:
+
+\begin{quote}\ttfamily\small\noindent
+BRM(Condition~B)~>~BRM(Condition~A)~~~~~~~~[Hypothesis~H1] \\B\_RLHF(Condition~B)~<~B\_RLHF(Condition~A)~~[Hypothesis~H2]
+\end{quote}
+
+where Condition A is the ungrounded LLM baseline and Condition B the ESS-grounded configuration.
+
+\subsubsecao{Formal Results}
+
+The metrics above support four numbered results; full proofs appear in \texttt{docs/theorems.md}.
+
+\textbf{Proposition 1 (Properties of B\_RLHF).} On the finite action space \texttt{A}, \texttt{B\_RLHF(π) = TV(π, π\_uniform)} satisfies non-negativity, identity (\texttt{B\_RLHF = 0} iff \texttt{π = π\_uniform}), boundedness (\texttt{B\_RLHF ≤ 1 − 1/|A| = 2/3} for \texttt{|A| = 3}), and permutation invariance. \textit{Proof:} total variation is a metric (Gibbs \& Su 2002); the bound follows from concentrating all mass on a single action. \textit{Corollary:} \texttt{B\_RLHF = p − 1/3} under the equal-split assumption.
+
+\textbf{Proposition 2 (Data-processing bound on grounding error).} \textit{(A direct application of known results.)} For any profile \texttt{x}, grounding map \texttt{g}, and grounded-LLM policy \texttt{π\_LLM+G(· | g(x))},
+
+\begin{quote}\ttfamily\small\noindent
+KL(~π\_human(·~|~x)~‖~π\_LLM+G(·~|~g(x))~) \\~~≤~KL(~π\_human(·~|~g(x))~‖~π\_LLM+G(·~|~g(x))~)~+~δ\_g(x)
+\end{quote}
+
+with \texttt{δ\_g(x) = KL( π\_human(· | x) ‖ π\_human(· | g(x)) )} quantifying information loss through \texttt{g} (chain rule + data-processing inequality; Cover \& Thomas 2006). The bound is generally \textit{not} tight and \texttt{δ\_g(x)} is not directly estimable from BGF data — it is a conceptual decomposition of total error into an LLM-alignment term and an information-loss term, not an operational diagnostic.
+
+\textbf{Proposition 3 (Weight-robust ordering of BRM).} Writing \texttt{BRM\_composite(w; cond) = Σ\_j w\_j · c\_j(cond)} with \texttt{c\_j ∈ [0,1]} the four sub-component scores and \texttt{w ∈ Δ³}, and \texttt{Δ\_j = c\_j(B) − c\_j(A)}, linearity on the simplex gives \texttt{min\_\{w\} [BRM(B) − BRM(A)] = min\_j Δ\_j}. Hence \texttt{BRM(B) > BRM(A)} for \textbf{all} admissible \texttt{w} \textbf{iff} \texttt{min\_j Δ\_j > 0}.
+
+\textbf{Auditable certificate.} The four sub-component differences are reported for the N=100, T=30, 10-seed confirmatory extension (\texttt{analysis/tables/brm\_sensitivity.json}):
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lrrrr}
+\toprule
+j & Sub-component & Δ\_j (pilot, pre-patch) & Δ\_j (N=100 10-seed) & Direction \\
+\midrule
+1 & Wealth JSD & +0.225 & \textbf{+0.0045} & B > A \\
+2 & Gini gap & +0.285 & \textbf{−0.0038} & A > B \\
+3 & Cooperation accuracy & +0.380 & \textbf{+0.0635} & B > A \\
+4 & Temporal stability & +0.120 & \textbf{−0.0001} & A > B (negligible) \\
+— & \textbf{min\_j Δ\_j} & \textbf{+0.120 → ROBUST} & \textbf{−0.0038 → NOT ROBUST} & — \\
+— & BRM composite (default w) & B − A = +0.252 & B − A = \textbf{+0.0163} & B > A \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\textbf{Verdict (N=100 10-seed confirmatory data):} the weight-robust ordering \texttt{BRM(B) > BRM(A)} for \textit{all} \texttt{w ∈ Δ³} is \textbf{not certified} — the gini-gap component favours A by −0.0038. The composite under default weights still favours B (+0.0163 = 0.8478 vs 0.8315), consistent with the directional H1 finding, but the pilot's weight-robust certificate does not survive the confirmatory extension. This is scientifically coherent: the extension finds a near-null A vs B contrast, so ±0.004-scale ordering reversals are expected, and Proposition 3's demanding criterion (all four components favour B) is appropriately rejected when the grounding effect collapses to the null scale.
+
+\textbf{Design Observation (Causal identification).} Because the treatment T (grounding on/off) is researcher-assigned, no confounders exist between T and outcome Y: \texttt{E[Y | do(T)] = E[Y | T]} (Hernán \& Robins 2020 §2.5). This identifies the \textit{total effect} of grounding; mechanism decomposition is addressed by the 2×2 factorial (§3.7) and the V0–V4 ladder.
+
+\textbf{Conjecture (RLHF cooperation bias).} For any RLHF-aligned LLM \texttt{M} and any finite n-player symmetric social dilemma where cooperation is individually costly but collectively beneficial, \texttt{B\_RLHF(π\_M) > 0} with \texttt{π\_M(cooperate) > 1/|A|}. A model is \textit{RLHF-aligned} if trained with a reward model derived from human-preference rankings and optimized via PPO/DPO or equivalent; SFT- or CAI-only models are excluded. The conjecture is refuted by any such model exhibiting \texttt{π\_M(cooperate) ≤ 1/|A|}. The on-disk Mistral-7B artefact (N=20) records \texttt{π\_M(cooperate) ≈ 0.588} (A) and \texttt{≈ 0.351} (B), both \texttt{> 1/3}, supporting the existence claim for the one model family with audit-traceable evidence; the cross-family universality claim requires re-execution (see \texttt{docs/appendix\_audit\_trail.md}).
+
+\subsubsecao{Construct Validity and Metric Justification}
+
+Four construct-validity challenges bound the interpretation of all results.
+
+\begin{itemize}
+\item \textbf{C1 — Attitudes are not decisions.} BGF ingests attitudinal measures (ESS trust, risk tolerance, social activity) and evaluates behavioral outcomes (cooperation, inequality). These are related but distinct: trust–cooperation correlations in trust-game experiments are moderate (r ≈ 0.20–0.35), and BGF's own logistic regression yields a weak AUC of 0.640. The claim is therefore the weaker one that \textit{grounding shifts action distributions toward the empirically plausible range and reduces systematic RLHF bias}, not exact behavioral replication. A full ESS-item → behavioral-economics-paradigm mapping is in \texttt{docs/construct\_validity.md} §1, together with the cross-cultural behavioral hypothesis \textbf{H9} addressing within-instrument circularity.
+\item \textbf{C2 — Uniform prior as B\_RLHF reference.} Using \texttt{π\_uniform} overestimates \texttt{B\_RLHF} relative to a human-calibrated reference (real PGG cooperation of 40–60\% implies TV ≈ 0.07–0.27 even for unbiased populations). Reported values upper-bound rather than precisely measure the RLHF-induced distortion; the \textit{direction} of the grounding effect is unaffected.
+\item \textbf{C3 — BRM weight sensitivity.} Weights are set by expert judgment. By Proposition 3 the ordering is weight-robust iff all four \texttt{Δ\_j > 0}; for the N=100 10-seed extension this condition is \textbf{not met} (gini-gap Δ\_j = −0.0038). The composite under default weights still favours B by +0.0163; only the directional composite-weight result is claimed.
+\item \textbf{C4 — Payoff design dependence.} The LPGG parameterization (c = 3, return = 12/N, dilemma for N > 4) governs which action is individually rational. Results in Chapter 5 are conditional on this parameterization and may not generalize to other social-dilemma structures (prisoner's dilemma, stag hunt, assurance game); payoff sensitivity is a priority for future work.
+\end{itemize}
+
+\subsecao{BGF System Architecture}
+
+Each architectural component is a \textit{testable scientific commitment}, not a software convenience: every layer maps to a falsifiable claim with a corresponding ablation that can refute it (full mapping in \texttt{docs/architecture\_rationale.md}). The framework comprises seven core components.
+
+\begin{enumerate}
+\item \textbf{Empirical Grounding Layer.} Ingests ESS Round 11 microdata, extracting and normalizing 15+ socioeconomic attributes per individual (trust in people/institutions, risk tolerance, political orientation, life satisfaction, religiosity, competitiveness, social activity, and others). Continuous variables are normalized to \texttt{[0,1]} with Pydantic-validated bounds. \texttt{Φ} samples from empirical \textit{joint} distributions rather than marginals, preserving inter-attribute correlations (e.g., trust–social-activity covariation in ESS Round 11).
+\item \textbf{Agent Architecture.} Each agent encapsulates an immutable ESS-derived profile (\texttt{AgentProfile}, 15+ validated fields), a mutable economic state (\texttt{AgentState} with automatic clamping), hierarchical temporal memory (Component 3), and a pluggable policy conforming to a formal \texttt{PolicyProtocol} (PEP 544). Policies include \texttt{LLMPolicy}, \texttt{RuleBasedESSPolicy} (D), \texttt{GenerativeAgentsPolicy} (C), \texttt{RandomPolicy}, \texttt{TemplatePolicy}.
+\item \textbf{Hierarchical Temporal Memory with Reflection.} A four-tier system: a \textbf{pending buffer} (events batch-commit at threshold 5); a \textbf{recent window} (last 20 events, surfaced in prompts, with per-type temporal validity tags — cooperate TTL 15, work/save 10, observation 8, steal 20 rounds; expired beliefs archived, not deleted); an \textbf{archive} (up to 100 events for reflection and importance retrieval); and \textbf{reflections} (every 20 events distilled into a recency-weighted natural-language career summary; up to 3 retained). The memory ablation study (Chapter 5) tests M0 (none), M1 (window), M2 (window + archive count), M3 (full hierarchical, default).
+\item \textbf{Dual RAG System.} \textbf{SQL RAG} queries DuckDB over ESS microdata for peer-group statistics (SELECT-only, parameterized, injection-safe). \textbf{Graph RAG} maintains an incrementally-updated directed multigraph of cooperation events and provides each agent's social-position summary (degree/betweenness centrality, k-hop reachability, reciprocity), with cached centrality invalidated only on topology change.
+\item \textbf{Real-Time Narration Loop.} After each round the kernel converts collective actions into natural-language observations injected into each agent's memory (up to 5 neighbors, TTL 8 rounds), closing the perception–action loop without accumulating stale context.
+\item \textbf{Production-Hardened Inference Layer.} Exponential backoff with jitter (1s → 30s), temperature decay on retry (0.5 → 0.4 → 0.3), a four-level JSON-repair cascade (§3.5), and per-round LLM-quality tracking in \texttt{kernel.\_log\_round\_metrics()}.
+\item \textbf{Evaluation and Experiment Tracking.} 15+ evaluation dimensions (Gini, Lorenz, JSD, assortativity, modularity, persona fidelity, trust gradient, BRM); every run registers in a DuckDB-backed tracker (\texttt{tracker/experiment\_index.parquet}) enabling SQL analytics across the full run record.
+\end{enumerate}
+
+\subsecao{Decision Policies and Action Space}
+
+Each round, agents choose one of three actions: \textbf{Work} (+8 wealth, +0.10 stress; no target), \textbf{Save} (+4 wealth, −0.05 stress; no target), or \textbf{Cooperate} (−3 wealth from self; every agent receives +12/N equally under the LPGG formulation; −0.05 stress; requires a valid network-neighbor target). Action types are validated at construction via \texttt{Literal["work","save","cooperate"]}; amounts are bounded \texttt{[0,20]} and confidence \texttt{[0,1]}. Adversarial agents are hard-constrained to \texttt{steal} by \texttt{EconomyEngine.parse\_action()}, preventing LLM override.
+
+\subsecao{Prompt Engineering and Ablation Design}
+
+A \textbf{V0–V4 ablation ladder} isolates the contribution of each prompt component:
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lrrrr}
+\toprule
+Level & System Prompt & Stress Warning & Cooperation Hint & Balanced Phrasing \\
+\midrule
+V0 & Base & No & No & No \\
+V1 & Base & Yes (stress ≥ 0.7) & No & No \\
+V2 & Base & Yes & Yes & No \\
+V3 & Base & Yes & Yes & Trust surface \\
+V4 & Balanced & Yes & Yes & Yes \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+The \texttt{ConditionedLLMPolicy} (Condition B) uses a separate experimental prompt builder with explicit boolean toggles for memory, social context, population context, and balancing hints, plus a stress-aware fallback that prioritizes saving when \texttt{stress ≥ 0.75}.
+
+\textbf{Output parsing and anti-hallucination.} LLM outputs pass through a four-level fallback cascade: (1) \textbf{Direct JSON parse}; (2) \textbf{Regex JSON extraction} of embedded \texttt{"action\_type"} blocks; (3) \textbf{Keyword fallback} via scored word-boundary patterns; (4) \textbf{Field-level regex extraction} of individual fields when the outer JSON is irreparable. \textbf{JSON repair} between levels 1–2 strips markdown fences, removes trailing commas, normalizes embedded newlines, strips control characters, and balances braces. Between attempts temperature decays (0.5 → 0.4 → 0.3) with exponential backoff. If all four levels fail, a rule-based fallback selects an action from current wealth/stress, recorded in per-round quality stats. The kernel captures the parse-method distribution per round in \texttt{round\_metrics[i]["llm\_quality"]}, emitting a diagnostic entry whenever degraded parses occur — enabling post-hoc detection of inference degradation without interrupting the run.
+
+\subsecao{Anti-Drift and Long-Horizon Resilience}
+
+Long-horizon runs (T ≥ 30) face a structural drift hazard: accumulated memory, contextual noise, and inference failures gradually push decisions away from ESS-grounded priors. BGF implements four countermeasures. \textbf{Temporal belief expiry} assigns a per-type TTL to each memory entry; expired beliefs are archived (not deleted) and excluded from prompts, with negative experiences (steal: TTL 20) persisting longer than routine actions (mirroring negativity bias). \textbf{Recency-weighted reflections} apply exponential decay (half-life 10 events) so early-round hallucinations do not permanently skew the self-model. \textbf{Importance-scored retrieval} (\texttt{get\_important\_recent()}) combines recency (60\%) and importance (40\%), elevating social actions (+0.30), large wealth changes (+0.20), and reciprocated cooperation (+0.20) so high-importance events survive small windows. \textbf{Inference resilience} (the parse cascade, backoff, and temperature decay) ensures transient failures degrade gracefully to deterministic fallbacks rather than crashing or introducing undetected invalid states.
+
+\subsecao{Causal Identification Strategy}
+
+The central claim — that empirical grounding \textit{causes} more realistic behavior — faces a key confound: grounded prompts are longer than ungrounded ones, and length may alter LLM behavior independently of content. \textbf{Length-controlled ablation} (a "padded no-grounding" condition) matches the token count of grounded prompts with semantically empty filler containing no ESS terminology; effects persisting against this control are attributable to ESS \textit{content}, not length. \textbf{Factorial mediation decomposition} (2×2) splits the total effect into persona, RAG, and interaction components:
+
+\begin{quote}\ttfamily\small\noindent
+total\_effect~~~~~~~=~coop(full\_grounded)~−~coop(baseline) \\persona\_effect~~~~~=~coop(persona\_only)~−~coop(baseline) \\rag\_effect~~~~~~~~~=~coop(rag\_only)~−~coop(baseline) \\interaction\_effect~=~total\_effect~−~persona\_effect~−~rag\_effect
+\end{quote}
+
+The \textbf{V0–V4 ladder} attributes marginal effects to specific prompt features. This design is \textit{consistent with} a causal model but cannot achieve strict identification: LLM internals are opaque, ESS attributes are preserved jointly rather than individually randomized, and prompt choices are researcher degrees of freedom. Because the treatment is researcher-assigned, Pearl's backdoor criterion holds by construction (\texttt{E[Y | do(T=1)] = E[Y | T=1]}); the residual challenge is \textit{mechanism}, addressed by the factorial. \textbf{E-value sensitivity:} for the cooperation ratio B/A ≈ 1.35, \texttt{E ≈ 2.04}; for the Gini ratio A/B ≈ 2.1, \texttt{E ≈ 3.62} — with all design parameters fixed across conditions, no plausible confounder meets these thresholds. A \textbf{negative-control program} pre-registers two further sham-grounding controls — Condition S (scrambled-ESS, breaking the \texttt{Φ} mapping while preserving vocabulary and length) and Condition F (fabricated demographics) — whose predicted orderings under BGF theory versus length/form/Hawthorne alternatives are tabulated in \texttt{docs/causal\_model.md}.
+
+\subsecao{Experimental Conditions and Hypothesis Pre-Registration}
+
+Four conditions disentangle LLM reasoning from ESS grounding:
+
+\begin{itemize}
+\item \textbf{Condition A (Ablated Baseline):} LLM agents with environment rules and ablation level V4 but stripped of ESS persona conditioning, RAG context, and population grounding.
+\item \textbf{Condition B (BGF Grounded):} LLM agents conditioned on full, distinct ESS profiles with SQL-RAG population context, Graph-RAG social context, hierarchical memory with reflections, and experimental balanced prompts.
+\item \textbf{Condition C (Generative Agents):} Fictional-persona LLM policy (Park et al. 2023 proxy) with no ESS grounding or RAG — direct comparison against prior art.
+\item \textbf{Condition D (Rule-Based ESS):} Deterministic, non-LLM policy using ESS attributes directly via \texttt{RuleBasedESSPolicy}, with \texttt{p\_coop = clip(0.2 + 0.5·trust·(1−risk) + 0.15·social, 0.05, 0.90)} — isolating whether LLM reasoning adds value beyond the ESS data alone.
+\end{itemize}
+
+All eight primary hypotheses (H1–H8) plus the cross-cultural behavioral hypothesis \textbf{H9} (against Herrmann et al. 2008 and Henrich et al. 2010 PGG contribution rates) are formally pre-registered in \texttt{docs/hypothesis\_preregistration.md}. Reported p-values use the Benjamini–Hochberg FDR procedure at α = 0.05; metrics are reported as \texttt{value [95\% CI]} from bootstrap percentile intervals (2,000 resamples, fixed seed 42). Deviations from the pre-registered plan are logged in that document's deviation table. Effect sizes for n < 50 per arm use Hedges' g (bias-corrected) alongside Cohen's d.
+
+\subsecao{Software Artifact and Reproducibility}
+
+BGF is released as a research-grade open-source artifact, independently of the scientific results. At the time of writing it comprises \textasciitilde{}72,000 lines of Python across 371 modules in seven layers (population synthesis, agent core, decision policies, economic environment, simulation kernel, metrics, experiment tracking), with a \textbf{1,578-test suite across 130 test files} (unit, integration, property-based, and reproducibility-regression tests) and 236 experiment directories indexed via a DuckDB registry. Every architectural arrow is a typed PEP 544 protocol whose contract is tested in \texttt{tests/test\_*\_protocol.py}, so new policies or RAG backends plug in without modifying surrounding layers.
+
+Reproducibility is enforced through seven verified mechanisms: (1) \textbf{deterministic seeding} (\texttt{utils.io.set\_global\_seed()} pins \texttt{random}, \texttt{numpy}, \texttt{torch}, and \texttt{PYTHONHASHSEED}); (2) \textbf{SHA-256 prompt shuffling} of the in-prompt action order, guaranteeing cross-process stability; (3) \textbf{snapshotted configs} materialized before execution; (4) \textbf{checkpoint + resume} for interrupted GPU runs; (5) an \textbf{experiment registry} writing an auditable row per run; (6) \textbf{one-command reproduction} via \texttt{scripts/reproduce\_paper.sh}; and (7) a \textbf{cryptographic reproducibility witness} (\texttt{bgf\_logging/witness.py}) emitting a SHA-256 content hash over the snapshotted config, event log, resolved ESS input, and git revision (optionally Ed25519-signed), recomputed and compared by \texttt{scripts/verify\_witness.py} and guarded by \texttt{tests/test\_witness.py}. The inference path is itself production-hardened (four-level JSON repair, backoff with jitter, temperature decay, per-round quality tracking) and durably resumable across multi-day seed sweeps via an atomically-written \texttt{sweep\_state.json} checklist. The artifact is versioned on GitHub, archived with a persistent Zenodo DOI, dependency-pinned, and citable via \texttt{CITATION.cff}. A set of strictly opt-in extensions (disk-persistent semantic memory, an observational read-only trajectory bank, metric-regression detection, structured CLI output) leave the default execution path — including the M0–M3 ablation and the A/B contrast — byte-identical, a property guarded by regression tests.
+

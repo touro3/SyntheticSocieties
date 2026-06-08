@@ -1,0 +1,89 @@
+% !TeX program = xelatex
+% !TeX encoding = UTF-8
+% IMPORTANT: this template uses fontspec (Arial) and must be compiled with XeLaTeX,
+% not pdfLaTeX. On Overleaf: Menu -> Compiler -> XeLaTeX (the latexmkrc also forces it).
+
+\documentclass{configs/idp-model}
+\input{pacotes/pacotes}
+
+
+%PREENCHER TODOS OS CAMPOS ABAIXO
+\autor{Lucas Tourinho Mamede}
+
+
+% Utilizar um dos dois cursos abaixo
+\cienciadacomputacao
+%\engenhariadesoftware
+
+
+\titulo{Measuring Behavioral Fidelity and the Limits of Empirical Grounding in Large Language Model Synthetic Societies}
+\ano{2025}
+
+% Usar orientador ou orientadora
+\orientador{Me. Klayton Rodrigues de Castro}
+%\orientador{Me. Lucas Martins}
+
+% Para membros da banca, deve-se por o nome no primeiro parâmentro e se é examinador interno ou externo no segundo parâmetro
+\membrobancai{Me. Patrícia da Silva de Oliveira}{Examinadora interna}
+\membrobancaii{Me. Lucas Maurício Castro e Martins}{Examinador interno}
+
+\palavraschave{sociedades sintéticas, agentes LLM, fundamentação comportamental, fidelidade empírica, modelagem socioeconômica, viés de RLHF}
+\keywords{{synthetic societies, LLM Agents, behavioral grounding, empirical fidelity, socioeconomic modeling, RLHF bias}}
+
+\dataaprovacao{05/12/2025}
+
+
+
+\begin{document}
+
+% Não alterar
+\pagenumbering{roman}
+\capaprincipal
+\folharosto
+\folhaaprovacao
+
+% Opcional
+%\dedicatoria
+%\agradecimentos
+
+
+% Não alterar 
+% Resumo e abstract - alterar os arquivos na pasta "partes" NÃO ALTERAR O NOME DELES
+\abstract
+\resumo
+
+%List of Figures e Tables são optativos. Caso não esteja utilizando no seu projeto, comentar as linhas abaixo
+\listoffigures
+\listoftables
+
+\tableofcontents
+\pagenumbering{arabic}
+
+% Para as seções, o comando \secao deve ter a forma \secao{título}{arquivo .tex}
+
+% Os comandos \subsecao e \subsubsecao seguem a forma \comando{Título}, sem a necessidade de passar um arquivo .tex
+
+\secao{Introduction}{partes/introduction}
+\secao{Literature Review}{partes/literature-review}
+\secao{Methodology}{partes/methodology}
+\secao{Experimental Setup}{partes/experimental-setup}
+\secao{Results}{partes/results}
+\secao{Discussion}{partes/discussion}
+\secao{Conclusion}{partes/conclusion}
+
+% Referências como lista manual (numeração [n] casa com as citações do texto;
+% dispensa passo bibtex). A capa de referências do template é mantida.
+\capareferencias
+\input{partes/references}
+
+% Opcionais
+%\apendice{Título do apêndice A}{partes/apendicei}
+
+%\anexo{Título do Anexo A}{partes/anexoi}
+
+
+% Não alterar
+\capafinal
+
+ 
+\end{document}

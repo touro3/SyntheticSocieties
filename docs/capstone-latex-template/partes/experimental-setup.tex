@@ -1,0 +1,76 @@
+
+The experimental configuration is summarized in Table~\ref{tab:2} and detailed in the subsections that follow.
+
+
+\begin{table}[H]
+\centering
+\caption{Experimental configuration}
+\label{tab:2}
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lr}
+\toprule
+Parameter & Value \\
+\midrule
+Population size (primary LLM A/B) & 100 agents (10-seed confirmatory extension, §5.12) \\
+Simulation horizon (primary LLM A/B) & 30 rounds \\
+Population size (multi-seed LLM A/B replication) & 20 agents \\
+Simulation horizon (multi-seed replication) & 5 rounds, 3 seeds (42, 43, 44) \\
+Population size (Condition D rule-based, primary) & 500 agents, T=30, 10 seeds \\
+Network topology & Small-World (Watts–Strogatz, k=4, β=0.1) \\
+LLM backend & Mistral-7B-Instruct-v0.3 (batched inference, sub-batch=5) \\
+LLM temperature & 0.5 (initial); decays to 0.4 → 0.3 on retry \\
+Max retries on parse failure & 3 (exponential backoff: 2s → 4s → 8s) \\
+Memory window (recent) & 5 events in prompt (from recent tier) \\
+Memory archive & 100 events (compressed into reflections at threshold 20) \\
+Belief TTL (by type) & work/save: 10; cooperate: 15; steal: 20; observation: 8 rounds \\
+Token budget & 1,740 tokens (2,048 × 0.85 headroom) \\
+Hardware & Dual Xeon 44-Core, 2× NVIDIA Tesla P100 (16 GB each) \\
+Statistical tests & Pilot scale: effect-direction consistency + descriptive Cohen's d. 10-seed extension: formal MWU on cooperation (p=0.91), Gini (p=0.85), mean wealth (p=0.35) \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\subsecao{Data, Model, and Ethics}
+
+\textbf{ESS Round 11 microdata.} Distributed by the European Social Survey ERIC under a Data User Agreement requiring non-commercial scientific use, citation of the round, and respect for participant anonymity (no re-identification). Required citation: European Social Survey European Research Infrastructure (ESS ERIC) (2024), \textit{ESS Round 11 – 2023}. BGF stores only joint-distribution-sampled synthetic agents; no per-respondent record is retained in any committed artefact or published figure (see \texttt{data/ess\_clean.parquet} and \texttt{population/ess\_grounding.py}).
+
+\textbf{Mistral-7B-Instruct-v0.3.} Used under the Mistral AI Research License (open weights, non-commercial research). No fine-tuning, weight modification, or redistribution occurs — only 4-bit-quantized inference.
+
+\textbf{Human-subjects protocol.} The Prolific-recruited behavioral-realism evaluation (Future Work, Chapter 7) is a human-subjects study requiring ethics review; IRB status is to be confirmed by the institutional research office before launch (protocol: \texttt{docs/human\_subjects\_protocol.md}). No human data have been collected to date.
+
+\textbf{No personally identifying information.} ESS distributes anonymized survey records; BGF synthesizes agents from joint distributions rather than retaining or re-identifying records. No PII appears in any published figure, table, or release artefact.
+
+\subsecao{Statistical Power Analysis}
+
+Explicit power calculations justify each tier's sample size (following Cohen 1988; full \textit{a priori} analysis in \texttt{docs/evaluation\_protocol.md} §6). For the \textbf{primary A/B LLM contrast}, the 3-seed pilot's apparent effect (Δ ≈ 0.50, Cohen's d ≈ 12.5) projected ample power at n = 5; the executed 10-seed extension does \textbf{not} reproduce that magnitude (observed Δ = 0.006, d ≈ −0.12, MWU p = 0.91). The post-hoc MDE at n = 10 is |d| ≥ 1.3 at 80\% power; the observed effect falls more than an order of magnitude below this. The 10-seed extension thus served as a \textit{falsification test} of the pilot magnitude rather than a tightening of intervals around it. For \textbf{cross-cultural validation} (n = 6 clusters), the exact permutation test for ρ = +1.000 gives p ≈ 0.003 (distribution-free; clusters defined a priori per Inglehart \& Welzel 2010). For the \textbf{memory ablation} (3 seeds/cell), adjacent-tier contrasts have estimated power 50–70\%, so results are directional, not confirmatory (a planned n = 6 extension would reach 80\%+). The \textbf{cross-model tier} (N = 20, T = 10) is the weakest: aggregate-metric variance is dominated by small-population sampling noise, so cross-model results are qualitative directionality checks only.
+
+\subsecao{Advanced Stress Tests}
+
+Beyond the primary A/B comparison, three robustness experiments are conducted: (1) \textbf{adversarial injection ("Bad Apples")} — 5\% of agents hard-constrained to steal-only, measuring natural resilience via selective trust; (2) \textbf{exogenous macroeconomic shock} — a 50\% wealth reduction to all agents at round 15, testing crisis recovery and the role of ESS-derived risk preferences; (3) \textbf{topological variation} — fully-connected, small-world (β = 0.1), and random (Erdős–Rényi, p = 0.04) topologies at matched mean degree, testing topology-sensitivity of cooperation and inequality.
+
+\subsecao{Phase-Transition Sweeps}
+
+Three parameter sweeps characterize the system's phase diagram: a \textbf{bad-apple fraction sweep} (0\%–40\% adversarial in 2\% increments, 21 points); a \textbf{shock-magnitude sweep} (0\%–100\% wealth reduction in 10\% increments, 11 points); and a \textbf{rewiring-probability sweep} (β ∈ \{0.0, 0.1, …, 1.0\}, 11 points). Each sweep is fitted with a sigmoid via \texttt{scipy.optimize.curve\_fit}; a transition is confirmed when R² > 0.85 and |k| > 5, reporting the inflection point, steepness \texttt{k}, and goodness-of-fit.
+
+\subsecao{Cross-Model Validation Setup}
+
+To evaluate generalizability, the Condition A/B contrast is replicated across three LLM families at reduced scale (N = 20, T = 10) under API-cost and GPU constraints:
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lrrr}
+\toprule
+Model & Family & Backend & Scale \\
+\midrule
+Mistral-7B-Instruct-v0.3 & Open-weights (DPO) & Local GPU & N=20, T=10 \\
+Qwen2.5-7B-Instruct & Open-weights (RLHF) & Local GPU (bfloat16) & N=20, T=10 \\
+GPT-4o-mini & Proprietary API & OpenAI API & N=20, T=10 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+

@@ -1,0 +1,159 @@
+
+\subsecao{Limitations}
+
+A complete forensic audit trail — the infrastructure bugs disclosed in the 2026-05-23 audit (L-1 PromptLogger off-by-one, L-2 batched-path \texttt{rag\_context} drop, C-1 env-var batch-size override), the withdrawn pilot \texttt{B\_RLHF} values (mathematically impossible under the TV bound of Proposition 1), and the superseded Qwen2.5-7B / GPT-4o-mini cross-model rows — is preserved in \texttt{docs/appendix\_audit\_trail.md}; the text below reports only the patched-code reality. The principal validity limitations, ordered by impact, are as follows.
+
+\begin{enumerate}
+\item \textbf{ESS-to-behavior gap (attitudes are not decisions).} ESS measures self-reported attitudes, not observed economic choices. The cooperation baseline is a logistic regression fitted on ESS Round 11 \textit{volunteering} (the only behavioral variable), AUC = 0.640, Austrian-only (n = 866). Volunteering is not in-game cooperation; full resolution requires linking ESS responses to observed economic behavior in longitudinal panels.
+\item \textbf{Persona decay over time.} LLM agents drift from their initial persona (\textasciitilde{}−0.018/round, \textasciitilde{}12\% with significant drift by round 30); for T > 50 full LLM runs, decay is expected to dominate realism degradation despite TTL-based belief expiry and recency-weighted reflections.
+\item \textbf{Game-theoretic simplification.} The \texttt{\{work, save, cooperate\}} action space is a deliberate abstraction; generalizability to richer spaces (auctions, bargaining, repeated-contract games) is unvalidated.
+\item \textbf{Bad-apple hard constraint.} Adversaries are hard-constrained to steal, precluding adaptive strategic deception; the design measures society-level resilience to a fixed adversarial fraction, not agent-level adaptation.
+\item \textbf{Prompt-length confound (directional signal at N=50; cross-N confound open).} The padded control (Condition P) is complete at N=50, T=30 (3 seeds) and shows B\_RLHF = 0.255 > A/B = 0.195 — length appears to amplify bias, ESS content to moderate it. But Condition P ran at N=50 while the primary protocol is N=100, and B\_RLHF is N-dependent; a causal claim about prompt content requires the N=100 Condition P replication (Future Work).
+\item \textbf{Long-horizon claims rest on a rule-based proxy.} The T=100 persona-stability analysis uses \texttt{RuleBasedESSPolicy} (zero inference variance, no memory accumulation); transferring its 82.3\% fidelity to LLM Condition B requires long-horizon GPU runs not yet executed — the T=100 result is a \textit{lower bound} on what ESS grounding can achieve.
+\item \textbf{Cross-model scale and provenance.} Cross-model validation uses N=20, T=10, and the only on-disk artefact is Mistral-7B (2 A-runs + 2 B-runs); the historical Qwen2.5-7B / GPT-4o-mini rows have no on-disk source and are withdrawn. An audit-traceable multi-family panel requires re-execution under patched code.
+\item \textbf{Empirical-population NaN substitution.} \textasciitilde{}20\% of agents had a missing \texttt{income\_decile} substituted with the marginal mean, compressing that margin; the effect is symmetric across arms (and so does not explain the N=100 null) but conditions Condition D and the cross-cultural proxy on substituted populations. A multi-country ESS ingest with cleaner imputation is the proper fix.
+\item \textbf{Framework-level non-replication of the headline pilot magnitude.} The single-seed pilot's large grounding effect (96→58\% cooperation) does \textbf{not} survive the pre-registered 10-seed N=100 extension; three interpretations (single-seed artefact, genuinely small effect, or a pilot-only confounder removed by the patches) cannot be discriminated from current data. The architectural contributions stand independently of this magnitude question.
+\item \textbf{Inference transparency (H5 post-hoc, H9 family-wise).} The primary trust-gradient statistic (continuous seed-level ρ = 0.781, p < 0.0001) is post-hoc relative to the pre-registered group-level design (ρ = 0.800, p = 0.167); and H9 (per-test p = 0.033) passes α = 0.05 but \textbf{not} the Holm–Bonferroni family-wise α/9 ≈ 0.0056. Both are disclosed rather than silently replaced.
+\item \textbf{Cross-cultural circularity, largely mitigated by H9.} The ESS-trust and WVS rank correlations share an attitudinal substrate with the grounding inputs; the out-of-sample H9 test against Herrmann et al. (2008) per-city public-goods-game contributions (ρ = +0.886, p = 0.033) — a behavioral benchmark BGF never ingests — substantially mitigates this, with the cluster→city mapping the residual researcher degree of freedom.
+\item \textbf{N=500 cascade partly exploratory.} Terminal N=500 values (B\_RLHF ≈ 0.627, Gini ≈ 0.965–0.970) are single-seed gap-fill data and must not be cited as confirmed multi-seed statistics; the two-seed T=15 null on the condA–condB gap supersedes the single-seed condB > condA directional finding. Additional seeds are future work.
+\item \textbf{Token-budget RAG drops.} At tight budgets, individual prompts can silently drop RAG sections (\texttt{social\_context} then \texttt{population\_context}); the drop is logged and detectable post-hoc, but it is not symmetric across arms (Condition B prompts are longer) and could contribute to the N=100 convergence finding.
+\end{enumerate}
+
+Resolved items (tokenizer-based token counting, the withdrawn-and-replaced pilot B\_RLHF values, the seed-level trust-gradient design, and several engineering throughput issues such as per-instance sticky batch size) are documented in full in the project's limitations register and audit trail.
+
+\subsecao{Broader Impacts and Responsible Use}
+
+BGF is a research framework for measuring \textbf{whether} LLM-based synthetic societies behave realistically — it is explicitly \textbf{hypothesis-generating, not policy-evaluating}. \textbf{Intended uses:} calibrating LLM-agent simulations against empirical survey distributions; measuring the RLHF cooperative bias \texttt{B\_RLHF} of new instruction-tuned models; generating exploratory hypotheses about emergent macro-statistics for testing against real data; and reproducible benchmarking of alignment-tax effects. \textbf{Out-of-scope uses:} policy forecasting (no BGF-simulated intervention should be read as predicting a real-world effect), individual prediction (agent decisions are not models of any ESS respondent and must not inform clinical, employment, credit, or immigration decisions), cultural-cluster ranking outside the validated six-cluster Austrian-shipped set, and real-time decision systems (the framework is offline-batch-oriented). \textbf{Structural mitigations shipped:} every metric carries a fixed-seed bootstrap 95\% CI and a BH-FDR-corrected p-value within the H1–H9 family; every run emits a SHA-256 witness hash making outputs tamper-evident; the limitations register must be cited by downstream users; and null/falsified results (H2 at N=100, H8) are reported with the same prominence as positive findings. Downstream users should cite the framework, the pre-registration, and the limitations together — never a single headline number in isolation — and should independently replicate the relevant cells under their own seeds and verify the witness hashes before any decision-support use. The human-evaluation study remains pending IRB approval and has collected no data.
+
+\subsecao{Final Considerations}
+
+\textbf{The central scientific finding of this work is a dissociation.} Empirical-data ingestion does produce realistic synthetic societies — but at the rule-based layer, not yet at the LLM-decision layer. Two results survive every robustness check: (1) under the deterministic grounding proxy, simulated cooperation rank-orders ESS-11 mean interpersonal trust across six cultural clusters at Spearman ρ = +1.000 (exact permutation p ≈ 0.003), independently replicated against WVS Wave 7 (r = +0.977) and the Herrmann et al. (2008) public-goods benchmark (ρ = +0.886, p = 0.033); and (2) Condition D attains Gini = 0.325 ± 0.001 at N=500, T=30, 10 seeds, squarely inside the Eurostat European empirical band, at zero inference cost and with perfect cross-seed reproducibility. Both are positive existence proofs that an LLM-agent framework whose population layer is grounded in real survey microdata via \texttt{Φ: D\_ESS → Profile} can produce macro-level outputs matching real human populations. \textbf{The grounding function works.}
+
+\textbf{The LLM-decision layer, however, does not currently translate that grounding into a measurable behavioral contrast at primary scale.} The pre-registered 10-seed N=100 extension on Mistral-7B-Instruct-v0.3 finds the grounded and ungrounded arms statistically indistinguishable on cooperation (0.461 vs 0.455, MWU p = 0.91), Gini (0.718 vs 0.715, p = 0.85), and mean wealth (177.3 vs 174.6, p = 0.35); only the composite BRM shifts in the predicted direction by +0.016, within the within-condition SD. The same dissociation appears at the seed-42 cell level (byte-identical \texttt{events.jsonl} across arms, B\_RLHF = 0.2347 both). The mechanistic reading endorsed here — named as a substantive empirical claim about RLHF residual bias rather than a framework failure — is that \textbf{off-the-shelf instruction-tuned LLMs at this scale are too strongly anchored by their RLHF prior to be reshaped by inference-time grounding alone}: persona descriptions, RAG-injected statistics, and hierarchical memory all reach the prompt, but the action distribution barely moves. This dissociation is the central scientific finding, and the framework's two contributions — the formally specified \texttt{BGF = (A, E, G, P, Φ, T)} tuple with 1,578 automated tests and one-command reproduction, and the two complementary metrics \texttt{BRM ∈ [0,1]} and \texttt{B\_RLHF = TV(π, π\_uniform)} — stand independently of the LLM-grounding magnitude question, providing the apparatus to detect the dissociation in any other model.
+
+Two further empirical results complete the state of evidence. A \textbf{scale-dependent RLHF cascade} emerges at N=500: both conditions converge to ≥ 94\% cooperation with Gini ≥ 0.965 at R30, event-aggregate B\_RLHF 0.516–0.545 (2.6–2.8× the N=100 value), with the two-seed T=15 extension confirming a null cross-condition gap (condA 89.7\% vs condB 89.8\%) — the H2 null is consistent at N=500 as at N=100. And the \textbf{padded-prompt control} (N=50, 3 seeds) shows B\_RLHF = 0.255 > A/B = 0.195, a directional signal that ESS content moderates rather than inflates RLHF bias, pending the N=100 replication for causal closure. This monograph thus concludes the conceptual route defined in the project phase — theoretical review, conceptual formulation, validation strategy — by carrying it through to implementation and empirical execution, and reports the framework, the metrics, the two positive rule-based findings, the N=100 LLM-scale convergence, and the cascade and padded-control results as the current state of evidence.
+
+\subsecao{Contributions Summary}
+
+\begin{enumerate}
+\item \textbf{BGF Framework} — Formally specified \texttt{BGF = (A, E, G, P, Φ, T)} with type-safe \texttt{PolicyProtocol} (PEP 544), Pydantic-validated configs, 1,578 automated tests across 130 test files, deterministic seeding, \texttt{CITATION.cff}, and one-command reproduction.
+\item \textbf{RLHF Cooperative Bias index} — The first operationalization of the RLHF cooperative bias as a total-variation distance from the uniform action prior, \texttt{B\_RLHF = TV(π, π\_uniform)}, with a closed bound \texttt{B\_RLHF ∈ [0, 2/3]} for \texttt{|A| = 3} (Proposition 1). This applies a standard divergence to a new measurement target; it is not a new divergence. The within-Mistral grounding-bias-reduction prediction is \textit{not} confirmed at N=100 (B\_RLHF(A) ≈ B\_RLHF(B) ≈ 0.195); exploratory N=500 data reveals 0.623 for both arms (3.2× amplification), identifying RLHF bias as N-dependent.
+\item \textbf{Behavioral Realism Metric} — Composite BRM ∈ [0,1] over wealth-JSD, Gini-gap, cooperation accuracy, and temporal stability, with weight-robust ordering (Proposition 3) and an analytic certificate.
+\item \textbf{Memory Ablation Study (H8)} — Four-level (M0–M3) design with hierarchical memory; the bug-patched 24/24-cell v2 re-run \textbf{falsifies H8 for both arms} (grounded monotone decrease, ungrounded inverted-U).
+\item \textbf{Two Robust Rule-Based Empirical Findings} — Condition D Gini = 0.325 within the Eurostat range, and the cross-cultural cooperation gradient (ρ = +1.000, WVS r = +0.977, Herrmann ρ = +0.886).
+\item \textbf{The Φ/P\_LLM Dissociation} — The substantive finding that empirically effective rule-based grounding does not propagate through the Mistral-7B decision channel at N=100, with three independent confirmations (A-vs-B null, padded control, byte-identical state-block ablation).
+\item \textbf{Grounding Stress-Test Robustness} — Adversarial injection, macro shocks, and topology variation, with confirmed phase transitions (bad-apple R² up to 0.996; shock 0.88; topology 0.87) and power-law wealth tails (α̂ ≈ 2.1–2.4).
+\item \textbf{Construct-Validity Decomposition and Empirical Cooperation Baseline} — Explicit treatment of C1–C4, power analysis for every tier, and the ESS volunteering model (n = 866, AUC = 0.640) identifying risk tolerance and social engagement — not trust — as the significant behavioral predictors.
+\item \textbf{Reproducibility and Anti-Drift Engineering} — Deterministic seeding, SHA-256 prompt shuffling, snapshotted configs, checkpoint+resume, a DuckDB experiment registry, a cryptographic reproducibility witness, and production-hardened inference.
+\item \textbf{Pre-Registration and Cross-Model Benchmark Specification} — H1–H9 pre-registered with Holm–Bonferroni / BH-FDR correction, and a benchmark spec accepting per-model \texttt{B\_RLHF} submissions from arbitrary RLHF-aligned LLMs.
+\end{enumerate}
+
+\subsecao{Future Work and Open Experiments}
+
+Several experiments are scoped but await GPU time, external data, or ethics approval:
+
+\begin{itemize}
+\item \textbf{Human behavioral baseline (IRB-blocked).} An n = 30–50 Prolific study of humans playing the BGF game, enabling a properly calibrated \texttt{B\_RLHF(π, π\_human)} and the human-realism comparison. Infrastructure is shipped; the study is pending institutional IRB approval and has collected no data.
+\item \textbf{N=500 multi-seed cascade (in progress / GPU-bound).} Seeds s3–s10 of the N=500 cascade would convert the cascade from exploratory to confirmatory (≈ 20–30 h GPU per seed); the third seed per arm was executing at the time of writing (§5.13), and the remaining seeds are queued.
+\item \textbf{Padded-prompt control at primary scale (GPU-bound).} N=100, T=30, 3 seeds to close the prompt-length confound (AE1) for the N=100 BRM trend.
+\item \textbf{B\_RLHF(N) functional form (GPU-bound).} Systematic measurement of B\_RLHF across N ∈ \{100, 150, 200, 300, 500\} under matched conditions; the available five-point evidence suggests super-linear growth warranting parametric characterization.
+\item \textbf{Graph-RAG ablation at N=500 (GPU-bound).} Re-running the cascade with Graph-RAG disabled to test the positive-feedback mechanism hypothesized to amplify it.
+\item \textbf{Cross-family cross-model panel (GPU + API-bound).} Audit-traceable re-execution for Qwen2.5-7B and GPT-4o-mini to adjudicate whether DPO, RLHF, and proprietary-stack alignment respond identically, monotonically, or with sign-inversion (H7).
+\item \textbf{Cross-cultural LLM validation at full scale (GPU-bound).} The launcher-ready \texttt{pipeline\_cross\_cultural.sh --include-llm --n-seeds 10} to replicate the rule-based cross-cultural gradient through the LLM decision channel.
+\item \textbf{Multi-country ESS pooled refit (data-blocked).} Cluster-specific cooperation baselines once the multi-country ESS R11 release is ingested, removing the Austrian-calibration confound.
+\item \textbf{Methodological extensions.} Payoff-sensitivity analysis across social-dilemma tension; adaptive (LLM-strategic) adversaries; fine-tuning on synthetic ESS-behavior pairs to compare weight-based against inference-time grounding; larger-model validation (Llama-3.1-70B, Mistral-Large) to test whether the dissociation closes with capacity; and individual-level behavioral-heterogeneity reporting (per-agent fidelity distributions, Simpson's-paradox checks).
+\end{itemize}
+
+\# REFERENCES
+
+The numbered references [1]–[36] are cited by the Literature Review (Chapter 2) and follow the institutional ABNT-numeric style of the project phase; the author–year list that follows covers the methodological, results, discussion, and conclusion chapters.
+
+\#\# Numbered references (Chapter 2)
+
+[1] J. S. Park, J. O'Brien, C. J. Cai, M. R. Morris, P. Liang, and M. S. Bernstein, "Generative agents: Interactive simulacra of human behavior," in \textit{Proc. 36th Annual ACM Symposium on User Interface Software and Technology}, 2023, pp. 1–22.
+[2] J. M. Epstein and R. Axtell, \textit{Growing Artificial Societies: Social Science from the Bottom Up}. Brookings Institution Press, 1996.
+[3] N. Gilbert and K. Troitzsch, \textit{Simulation for the Social Scientist}. McGraw-Hill Education (UK), 2005.
+[4] E. Bonabeau, "Agent-based modeling: Methods and techniques for simulating human systems," \textit{Proc. National Academy of Sciences}, vol. 99, no. suppl\_3, pp. 7280–7287, 2002.
+[5] L. P. Argyle, E. C. Busby, N. Fulda, J. R. Gubler, C. Rytting, and D. Wingate, "Out of one, many: Using language models to simulate human samples," \textit{Political Analysis}, vol. 31, no. 3, pp. 337–351, 2023.
+[6] J. J. Horton, "Large language models as simulated economic agents: What can we learn from homo silicus?" National Bureau of Economic Research, Tech. Rep., 2023.
+[7] P. Törnberg, "Best practices for text annotation with large language models," \textit{arXiv:2402.05129}, 2024.
+[8] M. Wooldridge, \textit{An Introduction to Multiagent Systems}. John Wiley \& Sons, 2009.
+[9] A. S. Rao, M. P. Georgeff et al., "BDI agents: From theory to practice," in \textit{ICMAS}, vol. 95, 1995, pp. 312–319.
+[10] M. Wooldridge, \textit{Reasoning about Rational Agents}. The MIT Press, 2000.
+[11] M. E. Bratman, D. J. Israel, and M. E. Pollack, "Plans and resource-bounded practical reasoning," \textit{Computational Intelligence}, vol. 4, no. 3, pp. 349–355, 1988.
+[12] M. P. Georgeff and A. L. Lansky, "Reactive reasoning and planning," in \textit{AAAI}, vol. 87, 1987, pp. 677–682.
+[13] J. E. Laird, \textit{The Soar Cognitive Architecture}. MIT Press, 2019.
+[14] J. R. Anderson, \textit{How Can the Human Mind Occur in the Physical Universe?} Oxford University Press, 2009.
+[15] R. S. Sutton, A. G. Barto et al., \textit{Reinforcement Learning: An Introduction}. MIT Press Cambridge, 1998.
+[16] P. Hernandez-Leal, B. Kartal, and M. E. Taylor, "A survey and critique of multiagent deep reinforcement learning," \textit{Autonomous Agents and Multi-Agent Systems}, vol. 33, no. 6, pp. 750–797, 2019.
+[17] K. Zhang, Z. Yang, and T. Başar, "Multi-agent reinforcement learning: A selective overview of theories and algorithms," \textit{Handbook of Reinforcement Learning and Control}, pp. 321–384, 2021.
+[18] S. Russell and P. Norvig, \textit{Artificial Intelligence: A Modern Approach, Global Edition}, 4th ed. Pearson Education, 2021.
+[19] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin, "Attention is all you need," \textit{Advances in Neural Information Processing Systems}, vol. 30, 2017.
+[20] S. Bubeck, V. Chandrasekaran, R. Eldan, J. Gehrke, E. Horvitz, E. Kamar, P. Lee, Y. T. Lee, Y. Li, S. Lundberg et al., "Sparks of artificial general intelligence: Early experiments with GPT-4," \textit{arXiv:2303.12712}, 2023.
+[21] J. Wei, X. Wang, D. Schuurmans, M. Bosma, F. Xia, E. Chi, Q. V. Le, D. Zhou et al., "Chain-of-thought prompting elicits reasoning in large language models," \textit{Advances in Neural Information Processing Systems}, vol. 35, pp. 24824–24837, 2022.
+[22] P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. Küttler, M. Lewis, W.-t. Yih, T. Rocktäschel et al., "Retrieval-augmented generation for knowledge-intensive NLP tasks," \textit{Advances in Neural Information Processing Systems}, vol. 33, pp. 9459–9474, 2020.
+[23] S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. R. Narasimhan, and Y. Cao, "ReAct: Synergizing reasoning and acting in language models," in \textit{The Eleventh International Conference on Learning Representations}, 2022.
+[24] S. Yao, J. Zhao, D. Yu, N. Du, I. Shafran, K. Narasimhan, and Y. Cao, "ReAct: Synergizing reasoning and acting in language models," 2022, project website. [Online]. Available: https://react-lm.github.io/
+[25] R. J. Beckman, K. A. Baggerly, and M. D. McKay, "Creating synthetic baseline populations," \textit{Transportation Research Part A: Policy and Practice}, vol. 30, no. 6, pp. 415–429, 1996.
+[26] D. J. Watts and S. H. Strogatz, "Collective dynamics of 'small-world' networks," \textit{Nature}, vol. 393, pp. 440–442, 1998.
+[27] J. S. Park, C. Q. Zou, A. Shaw, B. M. Hill, C. J. Cai, M. R. Morris, R. Willer, P. Liang, and M. S. Bernstein, "Generative agent simulations of 1,000 people," \textit{arXiv:2411.10109}, 2024.
+[28] G. V. Aher, R. I. Arriaga, and A. T. Kalai, "Using large language models to simulate multiple humans and replicate human subject studies," in \textit{Proc. 40th International Conference on Machine Learning (ICML)}, 2023.
+[29] K. Li, T. Liu et al., "Measuring and controlling persona drift in language model dialogues," \textit{arXiv:2402.10962}, 2024.
+[30] J. Bisbee, J. D. Clinton, C. Dorff, B. Kenkel, and J. M. Larson, "Synthetic replacements for human survey data? The perils of large language models," \textit{Political Analysis}, vol. 32, 2024.
+[31] C. Gao, X. Lan, N. Li, Y. Yuan, J. Ding, Z. Zhou, F. Xu, and Y. Li, "Large language models empowered agent-based modeling and simulation: A survey and perspectives," \textit{arXiv:2312.11970}, 2024.
+[32] A. J. Collins, P. Sokolowski, and C. Banks, "Towards validation and verification of agent-based and complex social systems models," \textit{Journal of Defense Modeling and Simulation}, 2015.
+[33] D. J. C. MacKay, \textit{Information Theory, Inference, and Learning Algorithms}. Cambridge University Press, 2003.
+[34] M. Arjovsky, S. Chintala, and L. Bottou, "Wasserstein generative adversarial networks," in \textit{Proc. 34th International Conference on Machine Learning (ICML)}, 2017, pp. 214–223.
+[35] S. Manzan, "Wasserstein distance and the distributional analysis of economic data," working paper, 2021.
+[36] F. A. Cowell, \textit{Measuring Inequality}, 3rd ed. Oxford University Press, 2011.
+
+\#\# Author–year references (Chapters 3–7)
+
+\begin{itemize}
+\item Acemoglu, D. \& Robinson, J.A. (2012). \textit{Why Nations Fail}. Crown Publishers.
+\item Aher, G. et al. (2023). "Using Large Language Models to Simulate Multiple Humans and Replicate Human Subject Studies." \textit{ICML 2023}.
+\item Argyle, L.P. et al. (2023). "Out of One, Many: Using Language Models to Simulate Human Samples." \textit{Political Analysis}, 31(3).
+\item Axelrod, R. (1984). \textit{The Evolution of Cooperation}. Basic Books.
+\item Axelrod, R. (1997). \textit{The Complexity of Cooperation}. Princeton University Press.
+\item Barabási, A.-L. \& Albert, R. (1999). "Emergence of Scaling in Random Networks." \textit{Science}, 286(5439), 509–512.
+\item Berg, J., Dickhaut, J. \& McCabe, K. (1995). "Trust, Reciprocity, and Social History." \textit{Games and Economic Behavior}, 10(1), 122–142.
+\item Chaudhuri, A. (2011). "Sustaining cooperation in laboratory public goods experiments: a selective survey of the literature." \textit{Experimental Economics}, 14(1), 47–83.
+\item Clauset, A., Shalizi, C.R. \& Newman, M.E.J. (2009). "Power-Law Distributions in Empirical Data." \textit{SIAM Review}, 51(4), 661–703.
+\item Cohen, J. (1988). \textit{Statistical Power Analysis for the Behavioral Sciences} (2nd ed.). Lawrence Erlbaum Associates.
+\item Cover, T.M. \& Thomas, J.A. (2006). \textit{Elements of Information Theory} (2nd ed.). Wiley.
+\item Epstein, J.M. (2006). \textit{Generative Social Science}. Princeton University Press.
+\item Epstein, J.M. \& Axtell, R. (1996). \textit{Growing Artificial Societies: Social Science from the Bottom Up}. MIT Press.
+\item European Social Survey ERIC (2024). \textit{ESS Round 11 – 2023}. Data file edition.
+\item Falk, A. et al. (2018). "Global Evidence on Economic Preferences." \textit{Quarterly Journal of Economics}, 133(4), 1645–1692.
+\item Fehr, E. \& Gächter, S. (2000). "Cooperation and Punishment in Public Goods Experiments." \textit{American Economic Review}, 90(4), 980–994.
+\item Fontana, M., Pierri, F. \& Aiello, L.M. (2024). "Nicer Than Humans: How do Large Language Models Behave in the Prisoner's Dilemma?" \textit{arXiv:2406.13605}.
+\item Gao, C. et al. (2023). "S³: Social-Network Simulation System with Large Language Model-Empowered Agents." \textit{arXiv:2307.14984}.
+\item Gibbs, A.L. \& Su, F.E. (2002). "On Choosing and Bounding Probability Metrics." \textit{International Statistical Review}, 70(3), 419–435.
+\item Glaeser, E.L. et al. (2000). "Measuring Trust." \textit{Quarterly Journal of Economics}, 115(3), 811–846.
+\item Hedges, L.V. (1981). "Distribution Theory for Glass's Estimator of Effect Size and Related Estimators." \textit{Journal of Educational Statistics}, 6(2), 107–128.
+\item Henrich, J. et al. (2010). "Markets, Religion, Community Size, and the Evolution of Fairness and Punishment." \textit{Science}, 327(5972), 1480–1484.
+\item Hernán, M.A. \& Robins, J.M. (2020). \textit{Causal Inference: What If}. Chapman \& Hall/CRC.
+\item Herrmann, B., Thöni, C. \& Gächter, S. (2008). "Antisocial Punishment Across Societies." \textit{Science}, 319(5868), 1362–1367.
+\item Holland, J.H. (1992). \textit{Adaptation in Natural and Artificial Systems}. MIT Press.
+\item Horton, J.J. (2023). "Large Language Models as Simulated Economic Agents: What Can We Learn from Homo Silicus?" \textit{NBER Working Paper 31122}.
+\item Inglehart, R. \& Welzel, C. (2010). "Changing Mass Priorities: The Link between Modernization and Democracy." \textit{Perspectives on Politics}, 8(2), 551–567.
+\item Kauffman, S. (1993). \textit{The Origins of Order}. Oxford University Press.
+\item Lewis, P. et al. (2020). "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." \textit{NeurIPS 2020}.
+\item Li, G. et al. (2023). "CAMEL: Communicative Agents for 'Mind' Exploration of Large Language Model Society." \textit{NeurIPS 2023}. arXiv:2303.17760.
+\item Liu, X. et al. (2024). "AgentBench: Evaluating LLMs as Agents." \textit{ICLR 2024}. arXiv:2308.03688.
+\item Manning, J.P. et al. (2024). "Automated Social Science: Language Models as Scientist and Subjects." \textit{arXiv:2404.11794}.
+\item Mou, X. et al. (2024). "Individual and Collective Behavior Simulation of Large Language Model Agents." \textit{arXiv:2402.16871}.
+\item Münker, L., Schwager, I. \& Rettinger, A. (2025). "Don't Trust Generative Agents to Mimic Communication on Social Networks Unless You Benchmarked their Empirical Realism." \textit{arXiv:2506.21974}.
+\item Nowak, M.A. \& May, R.M. (1992). "Evolutionary Games and Spatial Chaos." \textit{Nature}, 359, 826–829.
+\item Ouyang, L. et al. (2022). "Training Language Models to Follow Instructions with Human Feedback." \textit{NeurIPS 2022}.
+\item Park, J.S. et al. (2023). "Generative Agents: Interactive Simulacra of Human Behavior." \textit{UIST 2023}.
+\item Piketty, T. (2014). \textit{Capital in the Twenty-First Century}. Harvard University Press.
+\item Rossetti, G. et al. (2024). "Y Social: An LLM-Powered Social Media Digital Twin." \textit{arXiv:2408.00818}.
+\item Schelling, T.C. (1971). "Dynamic Models of Segregation." \textit{Journal of Mathematical Sociology}, 1(2), 143–186.
+\item Sharma, M. et al. (2023). "Towards Understanding Sycophancy in Language Models." \textit{arXiv:2310.13548}.
+\item Tu, T. et al. (2024). "From Single Agent to Multi-Agent: Exploring the Landscape of LLM Agent Society." \textit{arXiv:2402.01659}.
+\item VanderWeele, T.J. \& Ding, P. (2017). "Sensitivity Analysis in Observational Research: Introducing the E-value." \textit{Annals of Internal Medicine}, 167(4), 268–274.
+\item Wang, L. et al. (2024). "A Survey on Large Language Model-based Autonomous Agents." \textit{Frontiers of Computer Science}, 18(6).
+\item Watts, D.J. \& Strogatz, S.H. (1998). "Collective Dynamics of 'Small-World' Networks." \textit{Nature}, 393, 440–442.
+\item Zheng, J. et al. (2024). "ChatGPT is a Knowledgeable but Inexperienced Solver." \textit{NAACL 2024}. arXiv:2303.16421.
+\end{itemize}

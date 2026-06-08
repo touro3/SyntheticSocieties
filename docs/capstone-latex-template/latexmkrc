@@ -1,0 +1,4 @@
+# Force XeLaTeX (template uses fontspec/Arial; pdfLaTeX cannot compile it).
+# Overleaf honors this file; $pdf_mode=5 selects xelatex.
+$pdf_mode = 5;
+$xelatex = 'xelatex -synctex=1 -interaction=nonstopmode -file-line-error %O %S';

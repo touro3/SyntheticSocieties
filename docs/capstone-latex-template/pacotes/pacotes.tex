@@ -1,0 +1,53 @@
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{float}
+\usepackage[percent]{overpic}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
+\usepackage{pifont}
+
+% ── Monograph additions (math + Unicode passthrough for XeLaTeX) ──
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{adjustbox}
+\usepackage{newunicodechar}
+
+% Map technical/math Unicode glyphs to LaTeX so they render even if the
+% body font lacks them. Accented Latin, dashes and § are left to the font.
+\newunicodechar{≈}{\ensuremath{\approx}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{±}{\ensuremath{\pm}}
+\newunicodechar{π}{\ensuremath{\pi}}
+\newunicodechar{→}{\ensuremath{\rightarrow}}
+\newunicodechar{Φ}{\ensuremath{\Phi}}
+\newunicodechar{×}{\ensuremath{\times}}
+\newunicodechar{·}{\ensuremath{\cdot}}
+\newunicodechar{β}{\ensuremath{\beta}}
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{ρ}{\ensuremath{\rho}}
+\newunicodechar{Δ}{\ensuremath{\Delta}}
+\newunicodechar{α}{\ensuremath{\alpha}}
+\newunicodechar{‖}{\ensuremath{\|}}
+\newunicodechar{≥}{\ensuremath{\geq}}
+\newunicodechar{≤}{\ensuremath{\leq}}
+\newunicodechar{δ}{\ensuremath{\delta}}
+\newunicodechar{μ}{\ensuremath{\mu}}
+\newunicodechar{θ}{\ensuremath{\theta}}
+\newunicodechar{σ}{\ensuremath{\sigma}}
+\newunicodechar{Σ}{\ensuremath{\Sigma}}
+\newunicodechar{τ}{\ensuremath{\tau}}
+\newunicodechar{≫}{\ensuremath{\gg}}
+\newunicodechar{⇒}{\ensuremath{\Rightarrow}}
+\newunicodechar{ℝ}{\ensuremath{\mathbb{R}}}
+\newunicodechar{½}{\ensuremath{\tfrac{1}{2}}}
+\newunicodechar{²}{\textsuperscript{2}}
+\newunicodechar{³}{\textsuperscript{3}}
+\newunicodechar{₁}{\textsubscript{1}}
+\newunicodechar{₂}{\textsubscript{2}}
+\newunicodechar{₃}{\textsubscript{3}}
+\newunicodechar{₄}{\textsubscript{4}}
+\newunicodechar{ᵢ}{\textsubscript{i}}
+\newunicodechar{…}{\ldots}
+\newunicodechar{†}{\textdagger}
+\newunicodechar{̂}{}% combining circumflex (U+0302) -> drop; base letter kept

@@ -14,6 +14,7 @@ repository — [`lucastourinho/SyntheticSocieties`](https://github.com/lucastour
 | If you want to …                                         | Read                                                                |
 | -------------------------------------------------------- | ------------------------------------------------------------------- |
 | Understand the scientific contribution                   | [the paper](paper.md)                                               |
+| Read the TCC monograph (IDP structure)                   | [the monograph](monograph.md)                                       |
 | Understand the architecture in 10 minutes                | the [ADR index](adr/README.md)                                      |
 | Reproduce a result locally                               | the [reproduction commands in CLAUDE.md](https://github.com/lucastourinho/SyntheticSocieties/blob/main/CLAUDE.md) |
 | Hit the API from a client                                | the [OpenAPI spec](api/openapi.yaml)                                |

@@ -4,21 +4,21 @@
 # their absence gracefully via a lazy import guarded by _TORCH_AVAILABLE.
 
 pyyaml==6.0.2
-numpy==1.26.4
-scipy==1.11.4
-pandas==2.2.2
-pyarrow==23.0.1
-duckdb==1.1.0
+numpy==2.2.6
+scipy==1.15.3
+pandas==2.3.3
+pyarrow==24.0.0
+duckdb==1.5.3
 pydantic==2.8.2
 networkx==3.3
-scikit-learn==1.5.2
+scikit-learn==1.7.2
 matplotlib==3.9.2
 pytest==9.0.3
 pytest-cov==7.1.0
 pytest-timeout==2.4.0
 hypothesis==6.153.0
 openai==1.51.0
-polars==1.8.2
+polars==1.41.2
 orjson==3.11.6
 flask==3.1.3
 flask-cors==6.0.0

@@ -46,15 +46,16 @@ jobs:
             pymdown-extensions>=10.7
 
       - name: Stage analysis assets into docs tree
-        # paper.md links figures via ../analysis/figures/... which renders fine
-        # on GitHub but resolves outside docs_dir and trips mkdocs --strict.
-        # Copy them under docs/ and drop the ../ prefix at build time only;
-        # source files stay unchanged so GitHub rendering keeps working.
+        # paper.md and monograph.md link figures via ../analysis/figures/...
+        # which renders fine on GitHub but resolves outside docs_dir and trips
+        # mkdocs --strict. Copy them under docs/ and drop the ../ prefix at
+        # build time only; source files stay unchanged so GitHub rendering keeps
+        # working.
         run: |
           mkdir -p docs/analysis
           cp -r analysis/figures docs/analysis/figures
           cp -r analysis/tables  docs/analysis/tables
-          sed -i 's|\.\./analysis/|analysis/|g' docs/paper.md
+          sed -i 's|\.\./analysis/|analysis/|g' docs/paper.md docs/monograph.md
 
       - name: Build site (strict)
         run: mkdocs build --strict --site-dir site

@@ -1,8 +1,8 @@
 site_name: Behavioral Grounding Framework
 site_description: BGF — LLM-based agent simulations grounded in empirical socio-economic data (European Social Survey Round 11).
-site_url: https://lucastourinho.github.io/SyntheticSocieties/
-repo_url: https://github.com/lucastourinho/SyntheticSocieties
-repo_name: lucastourinho/SyntheticSocieties
+site_url: https://touro3.github.io/SyntheticSocieties/
+repo_url: https://github.com/touro3/SyntheticSocieties
+repo_name: touro3/SyntheticSocieties
 edit_uri: edit/main/docs/
 
 theme:

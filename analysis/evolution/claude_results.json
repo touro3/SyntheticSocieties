@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-06-15T20:27:24.660509+00:00",
+    "models": [
+      "claude"
+    ],
+    "seeds": [
+      42
+    ],
+    "generations": 2,
+    "agents": 4,
+    "rounds_per_generation": 12,
+    "grounded": false,
+    "culture": null,
+    "dry_run": false,
+    "reference": "Vallinder & Hughes 2024 (arXiv:2412.10270)"
+  },
+  "per_model_summary": {
+    "claude": {
+      "mean_trajectory": [
+        1.0,
+        1.0
+      ],
+      "std_trajectory": [
+        0.0,
+        0.0
+      ],
+      "mean_final": 1.0,
+      "n_seeds": 1
+    }
+  },
+  "runs": [
+    {
+      "model": "claude",
+      "seed": 42,
+      "cooperation_trajectory": [
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 2,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 4,
+        "seed": 42
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 922,
+        "total_tokens": 4003,
+        "cached_hits": 74,
+        "estimated_cost_usd": 0.0231
+      },
+      "lineage_size": 8
+    }
+  ]
+}

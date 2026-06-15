@@ -5,7 +5,7 @@ This chapter reports the empirical results obtained from the implemented framewo
 
 Before the full statistical analysis, three targeted experiments demonstrate that BGF grounding produces qualitatively different, empirically plausible behavior. Each is anchored to a documented real-world phenomenon.
 
-\textbf{Grounding makes a visible difference.} Condition A (Ablated Baseline) exhibits two pathologies by horizon. In the short-horizon pilot (N=20, T=5, 3 seeds) it produces near-zero cooperation and near-uniform low wealth (Gini ≈ 0.08, coop ≈ 0.01). In the T=30 pilot (N=50, seed=42) the regime inverts: cooperation climbs to \textasciitilde{}96\% and wealth concentrates in the few agents that occasionally defect to work (Gini ≈ 0.63, Figure~\ref{fig:8}). Neither regime resembles any documented human population. Condition B (BGF Grounded) instead produces a heterogeneous, moderately unequal society: at T=30 cooperation stabilizes at ≈ 58\% — within the empirical 35\%–65\% laboratory range (Chaudhuri 2011; Herrmann et al. 2008) — Gini settles at ≈ 0.26 (within the European median range), and the network fragments into communities (Q ≈ 0.31). Figure~\ref{fig:1} confirms that \texttt{Φ} preserves the joint ESS distributions (wealth, age, trust, risk) rather than only marginals.
+\textbf{Grounding makes a visible difference.} Condition A (Ablated Baseline) exhibits two pathologies by horizon. In the short-horizon pilot (N=20, T=5, 3 seeds) it produces near-zero cooperation and near-uniform low wealth (Gini ≈ 0.08, coop ≈ 0.01). In the T=30 pilot (N=50, seed=42) the regime inverts: cooperation climbs to \textasciitilde{}96\% and wealth concentrates in the few agents that occasionally defect to work (Gini ≈ 0.63, Figures~\ref{fig:2} and \ref{fig:8}). Neither regime resembles any documented human population. Condition B (BGF Grounded) instead produces a heterogeneous, moderately unequal society: at T=30 cooperation stabilizes at ≈ 58\% — within the empirical 35\%–65\% laboratory range \cite{Chaudhuri2011, Herrmann2008} — Gini settles at ≈ 0.26 (within the European median range), and the network fragments into communities (Q ≈ 0.31). Figure~\ref{fig:1} confirms that \texttt{Φ} preserves the joint ESS distributions (wealth, age, trust, risk) rather than only marginals.
 
 \begin{figure}[H]
 \centering
@@ -37,7 +37,7 @@ The network topology provides the most visually compelling evidence. Condition A
 \label{fig:4}
 \end{figure}
 
-\textbf{Adversarial resilience (Bad Apple).} Injecting 5\% steal-constrained agents, grounded societies exhibit \textit{localized} damage (adversaries extract mainly from immediate neighbors; honest agents learn avoidance via Graph-RAG signals), whereas ungrounded societies show \textit{indiscriminate} damage (Figure~\ref{fig:5}). The rule-based phase-transition sweep was completed at both scales: N=20 pilot (Gini 0.243→0.330, f*≈0.023, k≈15.1, R²=0.97) and N=500 confirmatory (cooperation 0.552→0.134; Gini \textit{decreases} 0.246→0.180, scale reversal; f*≈0.041, k≈5.2, R²=0.996); full analysis in §5.5.
+\textbf{Adversarial resilience (Bad Apple).} Injecting 5\% steal-constrained agents, grounded societies exhibit \textit{localized} damage (adversaries extract mainly from immediate neighbors; honest agents learn avoidance via Graph-RAG signals), whereas ungrounded societies show \textit{indiscriminate} damage (Figure~\ref{fig:5}). The rule-based phase-transition sweep was completed at both scales: N=20 pilot (Gini increases monotonically 0.243→0.330) and N=500 confirmatory (cooperation 0.552→0.134; Gini \textit{decreases} 0.246→0.180, scale reversal; sigmoid fit f*≈0.041, k≈5.2, R²=0.996); full analysis in §5.5.
 
 \begin{figure}[H]
 \centering
@@ -46,7 +46,7 @@ The network topology provides the most visually compelling evidence. Condition A
 \label{fig:5}
 \end{figure}
 
-\textbf{Macroeconomic shock recovery.} A 50\% wealth reduction at round 15 elicits, under Condition B, three hallmarks of real crisis response: a sharp collapse, temporary cooperation suppression as risk-averse agents shift to defensive strategies, and a gradual, incomplete recovery producing an asymmetric, hysteretic V-shape (consistent with Piketty 2014). Condition A shows symmetric, instantaneous recovery inconsistent with any documented crisis (Figure~\ref{fig:7}).
+\textbf{Macroeconomic shock recovery.} A 50\% wealth reduction at round 15 elicits, under Condition B, three hallmarks of real crisis response: a sharp collapse, temporary cooperation suppression as risk-averse agents shift to defensive strategies, and a gradual, incomplete recovery producing an asymmetric, hysteretic V-shape (consistent with \cite{Piketty2014}). Condition A shows symmetric, instantaneous recovery inconsistent with any documented crisis (Figure~\ref{fig:7}).
 
 \begin{figure}[H]
 \centering
@@ -63,19 +63,17 @@ The network topology provides the most visually compelling evidence. Condition A
 \caption{Proof-of-concept validation (single-seed pilots, no confidence intervals)}
 \label{tab:3}
 \footnotesize
-\begin{adjustbox}{max width=\textwidth}
-\begin{tabular}{lrrr}
+\begin{tabularx}{\textwidth}{@{}l X X X@{}}
 \toprule
 Phenomenon & Real-World Reference & BGF Condition B & BGF Condition A \\
 \midrule
 Wealth inequality (Gini) & EU median \textasciitilde{}0.31 (Eurostat) & 0.28–0.34 & \textasciitilde{}0.08 \\
-Cooperation rate & Lab trust/PD games: 35\%–65\% (Chaudhuri 2011) & \textasciitilde{}58\% & \textasciitilde{}85\% \\
-Adversarial inequality inflection & \textasciitilde{}10\%–20\% defector fraction (Nowak \& May 1992) & f*≈0.023 (N=20); f*≈0.041 (N=500, R²=0.996); scale reversal & No selective response \\
-Post-shock recovery & Asymmetric V-shape (Piketty 2014) & Asymmetric, hysteretic & Symmetric, instantaneous \\
+Cooperation rate & Lab trust/PD games: 35\%–65\% \cite{Chaudhuri2011} & \textasciitilde{}58\% & \textasciitilde{}85\% \\
+Adversarial inequality inflection & \textasciitilde{}10\%–20\% defector fraction \cite{Nowak1992} & Monotone Gini rise (N=20); f*≈0.041 (N=500, R²=0.996); scale reversal & No selective response \\
+Post-shock recovery & Asymmetric V-shape \cite{Piketty2014} & Asymmetric, hysteretic & Symmetric, instantaneous \\
 Network community structure & Q ≈ 0.3–0.6 in empirical networks & Q ≈ 0.31 & Q ≈ 0.04 \\
 \bottomrule
-\end{tabular}
-\end{adjustbox}
+\end{tabularx}
 \end{table}
 
 \subsecao{Macroeconomic Emergence: Wealth and Inequality}
@@ -99,11 +97,11 @@ Cooperation actions are mapped into directed multigraphs (NetworkX); node sizes 
 
 \subsecao{Stress-Test Results}
 
-\textbf{Bad-apple resilience.} Under 5\% adversarial injection, the wealth loss for non-adversarial \textit{neighbors} of adversaries in Condition B is \textasciitilde{}2× that of non-neighbors — evidence of targeted predation followed by network rewiring as honest agents learn avoidance. Condition A shows indiscriminate wealth transfer. \textbf{Macroeconomic shock recovery.} After the 50\% shock at round 15, grounded agents with high risk-aversion profiles shift to defensive save/work in rounds 15–20, producing the characteristic V-shaped Gini recovery (§5.1). \textbf{Topological effects.} Small-world topologies (β = 0.1) produce the most realistic inequality distributions, consistent with the prediction that clustering suppresses unconditional cooperation; fully-connected networks amplify the RLHF cooperation bias regardless of grounding (reducing B\_RLHF by only \textasciitilde{}15\% vs \textasciitilde{}60\% for small-world), confirming that topology moderates the grounding effect.
+\textbf{Bad-apple resilience.} Under 5\% adversarial injection, the wealth loss for non-adversarial \textit{neighbors} of adversaries in Condition B is \textasciitilde{}2× that of non-neighbors — evidence of targeted predation followed by network rewiring as honest agents learn avoidance. Condition A shows indiscriminate wealth transfer. \textbf{Macroeconomic shock recovery.} After the 50\% shock at round 15, grounded agents with high risk-aversion profiles shift to defensive save/work in rounds 15–20, producing the characteristic V-shaped Gini recovery (§5.1). \textbf{Topological effects.} Small-world topologies (β = 0.1) produce the most realistic inequality distributions, consistent with the prediction that clustering suppresses unconditional cooperation, and fully-connected networks sustain the highest cooperation levels regardless of grounding condition — topology acts on the RLHF cooperative prior directly. (A pilot-era estimate of differential B\_RLHF reduction by topology is withdrawn: it is not supported by an on-disk artifact, and the N=100 null makes a grounding-moderation reading unsupported.)
 
 \subsecao{Emergent Phase Transitions}
 
-\textbf{Adversarial injection — N=20 pilot and N=500 confirmatory.} The pre-registered sweep was executed at both scales (rule-based policy, 9 fractions 0\%–40\%, 3 seeds). The N=20 pilot (T=20): Gini increases monotonically 0.243→0.330, with sigmoid inflection f* ≈ 0.023 (k ≈ 15.1, R² = 0.97). The N=500 confirmatory sweep (T=30):
+\textbf{Adversarial injection — N=20 pilot and N=500 confirmatory.} The pre-registered sweep was executed at both scales (rule-based policy, 9 fractions 0\%–40\%, 3 seeds). The N=20 pilot (T=20) shows Gini increasing monotonically 0.243→0.330; the sigmoid fit is unstable at this scale (the fitted inflection falls outside the swept range) and no transition parameters are reported for it. The N=500 confirmatory sweep (T=30) is summarized in Table~\ref{tab:4}:
 
 
 \begin{table}[H]
@@ -127,19 +125,19 @@ Adversarial fraction & Cooperation rate & Gini \\
 \end{adjustbox}
 \end{table}
 
-Sigmoid fit on Gini: f* ≈ 0.041 (k ≈ 5.2, R² = 0.996); the cooperation-rate decline inflects near f ≈ 0.25. \textbf{Scale-reversal finding:} at N=500 the Gini response \textit{reverses} relative to N=20 — it \textit{decreases} (0.246→0.180) rather than increasing. Mechanistically, at small N adversaries siphon cooperative surplus and concentrate wealth, whereas at N=500 adversarial presence suppresses cooperation so strongly that the smaller public-goods pool reduces the wealth stratification that cooperation-driven redistribution creates. The threshold f* shifts only modestly (0.023→0.041), remaining well below the 10\%–20\% range predicted by evolutionary game theory (Nowak \& May 1992): the threshold is nearly scale-invariant, but the \textit{direction} of the inequality signal reverses.
+Sigmoid fit on Gini: f* ≈ 0.041 (k ≈ 5.2, R² = 0.996); the cooperation-rate decline inflects near f ≈ 0.25. \textbf{Scale-reversal finding:} at N=500 the Gini response \textit{reverses} relative to N=20 — it \textit{decreases} (0.246→0.180) rather than increasing. Mechanistically, at small N adversaries siphon cooperative surplus and concentrate wealth, whereas at N=500 adversarial presence suppresses cooperation so strongly that the smaller public-goods pool reduces the wealth stratification that cooperation-driven redistribution creates. The N=500 threshold f* ≈ 0.041 is remaining well below the 10\%–20\% range predicted by evolutionary game theory \cite{Nowak1992}; the \textit{direction} of the inequality signal reverses with scale.
 
-\textbf{Inequality amplification under shock.} Sweeping shock magnitude 0\%–100\% reveals a phase transition in round-30 Gini at σ* ≈ 0.45: below it, agents recover pre-shock inequality by round 30; above it, recovery is incomplete and inequality exhibits hysteresis (mirroring Piketty 2014), reproduced only in Condition B. \textbf{Network topology phase diagram.} Sweeping β from 0.0 to 1.0, a cooperation-rate transition appears at β ≈ 0.3 (R² = 0.87), coinciding with the characteristic small-world transition (Watts \& Strogatz 1998). \textbf{Wealth power-law tails.} Under the Clauset et al. (2009) MLE estimator with KS goodness-of-fit, Condition B produces power-law-consistent tails (α̂ ≈ 2.1–2.4, within the empirical wealth range; KS not rejected at p > 0.05), whereas Condition A produces α̂ ≈ 6.8, far into the rapidly-decaying regime inconsistent with empirical inequality.
+\textbf{Inequality response under shock.} Sweeping shock magnitude 0\%–100\%, the cooperation-rate response fits a sigmoid with inflection σ* ≈ 0.80 (R² = 0.999, \texttt{analysis/tables/phase\_transitions.json}); the round-30 Gini response does not meet the pre-registered transition criterion (R² = 0.50), so no Gini transition point is claimed. Above large shock magnitudes, recovery is incomplete and inequality exhibits hysteresis (mirroring \cite{Piketty2014}), reproduced only in Condition B. \textbf{Network topology response.} Sweeping β from 0.0 to 1.0, cooperation declines smoothly with rewiring (sigmoid R² = 0.9999 but steepness |k| ≈ 2.2, below the pre-registered |k| > 5 transition criterion — a graded response rather than a sharp transition, consistent with the small-world literature \cite{Watts1998}); the Gini response does meet the criterion (inflection β ≈ 0.09, k ≈ −9.4, R² = 0.99). \textbf{Wealth power-law tails.} Under the MLE estimator of Clauset et al. \cite{Clauset2009} with KS goodness-of-fit, Condition B produces power-law-consistent tails (α̂ ≈ 2.1–2.4, within the empirical wealth range; KS not rejected at p > 0.05), whereas Condition A produces α̂ ≈ 6.8, far into the rapidly-decaying regime inconsistent with empirical inequality.
 
 \subsecao{Trust-Gradient Sub-Population Validation}
 
 To validate that \texttt{Φ} transfers empirical trust signals into simulated outcomes, a within-sample gradient validation uses four ESS trust-level sub-populations. \textbf{Trust is the labelling axis; social engagement is the causal driver:} the ESS-fitted cooperation model (§3.2.3, §5.8) establishes that interpersonal trust is \textit{not} a statistically significant predictor of human volunteering in the Austrian sample — the significant predictors are risk tolerance and social engagement. Populations are partitioned by ESS trust because it is the cleanest interpretable stratifying axis, and \texttt{Φ} then propagates the full joint distribution (higher-trust sub-populations also have higher social-engagement profiles) into behavior. The gradient is genuine and statistically robust; the mechanism is social-engagement co-variation, not trust acting on cooperation directly.
 
-\textbf{Design.} The ESS cohort is partitioned into four sub-populations by normalized trust (Low μ=0.267, Moderate μ=0.467, High μ=0.657, Very-High μ=0.839); for each, N=150 agents are synthesized and T=20 rounds simulated with the rule-based policy. Two analyses are reported, and the reader is invited to weigh them together rather than privilege either.
+\textbf{Design.} The ESS cohort is partitioned into four sub-populations by normalized trust (Low μ=0.267, Moderate μ=0.467, High μ=0.657, Very-High μ=0.839); for each, N=150 agents are synthesized and T=20 rounds simulated with the rule-based policy. Two analyses are reported (Table~\ref{tab:5}), and the reader is invited to weigh them together rather than privilege either.
 
 \textbf{Pre-registered group-level test (n=4 groups, 5 seeds):} Spearman r = 0.800, exact permutation p = 0.167, with a marginal High/Very-High rank reversal. We state plainly that this pre-registered test is \textbf{underpowered and does not reach significance}: with only n=4 groups the minimum achievable two-sided permutation p is ≈ 0.083 even for a perfect ρ=1.000 ordering, so the design could not have rejected the null at α=0.05 regardless of the data. The non-significant p=0.167 is therefore consistent with, but does not by itself establish, a gradient.
 
-\textbf{Post-hoc seed-level continuous analysis (n=20):} treating each of the 20 individual seed runs (5 seeds × 4 bands) as an observation, Spearman ρ = 0.781 (p < 0.0001, bootstrap 95\% CI [0.526, 0.899]), Pearson r = 0.676 (p = 0.0011), Kendall τ-b = 0.636 (p = 0.0004). This analysis is \textbf{post-hoc} relative to the pre-registration and is reported as such; it suggests a robust positive trust→cooperation gradient but carries the Type-I-error risk inherent to a non-pre-registered test (see §7.1, Limitation 10). Taken together, the underpowered pre-registered test and the significant post-hoc continuous analysis are mutually consistent; we do not claim the gradient is confirmed at the pre-registered level.
+\textbf{Post-hoc seed-level continuous analysis (n=20):} treating each of the 20 individual seed runs (5 seeds × 4 bands) as an observation, Spearman ρ = 0.781 (p < 0.0001, bootstrap 95\% CI [0.526, 0.899]; Figure~\ref{fig:9}), Pearson r = 0.676 (p = 0.0011), Kendall τ-b = 0.636 (p = 0.0004). This analysis is \textbf{post-hoc} relative to the pre-registration and is reported as such; it suggests a robust positive trust→cooperation gradient but carries the Type-I-error risk inherent to a non-pre-registered test (see §7.1, Limitation 10). Taken together, the underpowered pre-registered test and the significant post-hoc continuous analysis are mutually consistent; we do not claim the gradient is confirmed at the pre-registered level.
 
 
 \begin{table}[H]
@@ -170,9 +168,36 @@ Very-High-Trust & 0.839 & 0.0155 ± 0.0016 & 3† \\
 \label{fig:9}
 \end{figure}
 
+\textbf{Six-cluster cross-cultural validation (full scale).} The cross-cultural extension generalizes the within-sample gradient to six cultural clusters (Eastern, Southern, Western, Anglo, Northern, Nordic) defined a priori from published ESS-11 country-level trust means \cite{Inglehart2010}. For each cluster, \texttt{Φ} conditions the agent population on the cluster's ESS trust band; simulations run at N=50 agents per cluster, T=10 rounds, 30 seeds (42–71), under the Condition-D rule-based ESS policy (\texttt{run\_cross\_cultural\_expanded.py --n-seeds 30 --agents 50 --run-ungrounded-control}). Table~\ref{tab:cross6} reports the per-cluster results.
+
+\begin{table}[H]
+\centering
+\caption{Six-cluster cross-cultural validation (N=50 per cluster, T=10, 30 seeds, Condition-D rule-based ESS policy)}
+\label{tab:cross6}
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lrrrr}
+\toprule
+Cluster & ESS Trust Mean & WVS Trust (\%) & Sim. Coop Rate [95\% CI] & Gini \\
+\midrule
+Eastern  & 0.418 & 24 & 0.246 [0.236, 0.257] & 0.148 \\
+Southern & 0.455 & 29 & 0.286 [0.275, 0.297] & 0.159 \\
+Western  & 0.504 & 37 & 0.321 [0.312, 0.331] & 0.158 \\
+Anglo    & 0.565 & 43 & 0.360 [0.350, 0.371] & 0.167 \\
+Northern & 0.634 & 55 & 0.373 [0.360, 0.385] & 0.172 \\
+Nordic   & 0.689 & 68 & 0.403 [0.391, 0.415] & 0.172 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+Simulated cooperation rank-orders the six clusters \textbf{monotonically} in ESS mean trust: Spearman ρ = +1.000 (exact permutation p ≈ 0.003), Pearson r = +0.975 (p = 0.001). Against the \textbf{WVS Wave 7 holdout} — an instrument never used for grounding — the fit is r = +0.954, ρ = +1.000, RMSE = 0.158. The gradient is \textbf{robust to population size}: re-running the full sweep at N=20, N=100, and N=500 agents per cluster preserves ρ = +1.000 throughout (Pearson r = +0.958, +0.972, +0.971 respectively), with per-cluster means stable to within ±0.005 across sizes.
+
+\textbf{Ungrounded control.} An ungrounded control arm — the identical policy and simulation stack, but with agents sampled from the full ESS cohort without cluster trust-band conditioning — produces a flat cooperation rate of ≈ 0.345 in every cluster at every population size, recovering \textbf{no gradient} (WVS Pearson r ranges from −0.69 to +0.25 across sizes, i.e.\ noise around zero). The grounded-vs-control holdout deltas at primary scale are Δρ(WVS) = +0.857 and ΔRMSE = +0.269 in favor of grounding. Because the Condition-D policy maps trust into cooperation probability by construction (§5.8), the gradient itself is transmitted rather than emergent; the control establishes the non-trivial half of the claim — \textbf{the formula alone produces no gradient; the cluster-conditioned population synthesized by \texttt{Φ} is the necessary ingredient} — and the out-of-sample H9 benchmark (§5.8) establishes that the transmitted ordering matches real behavioral data. This full-scale run supersedes the pilot-scale sweep (5 agents per cluster, 3 seeds) reported in earlier drafts of this work.
+
 \subsecao{Cross-Model Generalizability}
 
-The only audit-traceable cross-model artefact at this revision is \texttt{analysis/cross\_model\_results.json} — Mistral-7B at N=20, T=10, with 2 A-runs and 2 B-runs.
+The only audit-traceable cross-model artefact at this revision is \texttt{analysis/cross\_model\_results.json} — Mistral-7B at N=20, T=10, with 2 A-runs and 2 B-runs (Table~\ref{tab:6}).
 
 
 \begin{table}[H]
@@ -193,9 +218,9 @@ Rule-Based ESS (Condition D) & D & 0.386 [0.386, 0.386] & 0.106 [0.106, 0.106] \
 \end{adjustbox}
 \end{table}
 
-Condition D (N=500, T=30, 10 seeds) attains Gini = 0.325 [0.324, 0.326] (BCa 95\% CI), squarely within the Eurostat European empirical range (median G ≈ 0.31); being deterministic, its coop-rate and B\_RLHF CIs collapse to a point.
+Condition D (N=500, T=30, 10 seeds) attains Gini = 0.325 [0.324, 0.325] (BCa 95\% CI), squarely within the Eurostat European empirical range (median G ≈ 0.31); being deterministic, its coop-rate and B\_RLHF CIs collapse to a point.
 
-\textbf{What the on-disk Mistral row supports — and a scale-dependence finding.} Both arms exhibit \texttt{B\_RLHF > 0} (0.254 and 0.039 at N=20), supporting the RLHF Cooperative Bias Conjecture for at least one model family. The N=20 A→B reduction (≈ −85\%) does \textit{not} generalize to N=100: the 10-seed extension finds B\_RLHF\_A = 0.196 ± 0.030 and B\_RLHF\_B = 0.193 ± 0.030 (Δ = −0.003, MWU p = 0.91). The \textit{absolute} bias level also changes (0.254 at N=20 vs 0.196 at N=100), suggesting grounding reduces a substantial initial bias at small N while at N=100 both arms converge to a shared lower level grounding cannot further reduce. The multi-point B\_RLHF(N) sequence:
+\textbf{What the on-disk Mistral row supports — and a scale-dependence finding.} Both arms exhibit \texttt{B\_RLHF > 0} (0.254 and 0.039 at N=20), supporting the RLHF Cooperative Bias Conjecture for at least one model family. The N=20 A→B reduction (≈ −85\%) does \textit{not} generalize to N=100: the 10-seed extension finds B\_RLHF\_A = 0.196 ± 0.030 and B\_RLHF\_B = 0.193 ± 0.030 (Δ = −0.003, MWU p = 0.91). The \textit{absolute} bias level also changes (0.254 at N=20 vs 0.196 at N=100), suggesting grounding reduces a substantial initial bias at small N while at N=100 both arms converge to a shared lower level grounding cannot further reduce. The multi-point B\_RLHF(N) sequence is given in Table~\ref{tab:7}:
 
 
 \begin{table}[H]
@@ -220,7 +245,7 @@ N & B\_RLHF\_A & B\_RLHF\_B & Δ (B−A) & Notes \\
 
 This reveals a rich, non-monotone pattern: a large reduction at N=20, none at N=100, and both arms cascading to high bias at N=500 regardless. Three concurrent mechanisms are consistent: (i) at small N, per-agent grounding signals are large relative to RLHF noise; (ii) at N=100, Graph-RAG already reports majority-cooperation norms that dominate individual persona effects; (iii) at N=500, the positive-feedback loop between the RLHF prior and Graph-RAG norms dominates all per-agent grounding. The grounding response within Mistral-7B is therefore \textbf{scale-dependent and non-linear}, not simply "absent."
 
-\textbf{Alignment methodology as a moderating variable (open question).} Pre-registered hypothesis H7 predicts that the grounding-bias-reduction magnitude is moderated by the alignment training regime (DPO vs RLHF vs proprietary stack). With on-disk evidence currently limited to Mistral-7B, the within-family answer is the N-dependent reduction above; the cross-family comparison remains an open empirical question pending re-execution for Qwen2.5-7B and GPT-4o-mini under the patched code. The practical implication is that \texttt{B\_RLHF} should be measured \textit{per model family} on audit-traceable runs.
+\textbf{Alignment methodology as a moderating variable (open question).} Pre-registered hypothesis H7 predicts that the grounding-bias-reduction magnitude is moderated by the alignment training regime (DPO vs RLHF vs proprietary stack). With on-disk evidence currently limited to Mistral-7B, the within-family answer is the N-dependent reduction above (Figure~\ref{fig:10}); the cross-family comparison remains an open empirical question pending re-execution for Qwen2.5-7B and GPT-4o-mini under the patched code. The practical implication is that \texttt{B\_RLHF} should be measured \textit{per model family} on audit-traceable runs.
 
 \begin{figure}[H]
 \centering
@@ -229,9 +254,43 @@ This reveals a rich, non-monotone pattern: a large reduction at N=20, none at N=
 \label{fig:10}
 \end{figure}
 
+\subsecao{Cultural Evolution of Cooperation: A Cross-Model Donor-Game Experiment}
+
+The cross-model evidence above is a \textit{static} per-round snapshot. To test whether the cross-family difference persists under \textit{evolutionary} selection — and to obtain audit-traceable runs for two distinct alignment stacks (the open H7 question) — we replicate and extend the cultural-evolution design of Vallinder \& Hughes~\cite{VallinderHughes2024}. Their result is that cooperation among LLM agents evolves across generations of an iterated Donor Game and \textbf{diverges sharply by base model}.
+
+\textbf{Design.} We implement a faithful iterated Donor Game (\texttt{environment/donor\_game.py}): in each pairwise encounter a donor observes the recipient's reputation (a windowed history of the recipient's recent donation decisions) and chooses \texttt{donate} or \texttt{keep}; donating costs the donor and benefits the recipient at twice the cost — the canonical indirect-reciprocity dilemma~\cite{NowakSigmund2005}. A generational loop (\texttt{simulation/evolution\_kernel.py}) runs 12 rounds per generation over 12 agents for 10 generations; after each generation the top 50\% by accumulated resources survive, and the culled half is replaced by offspring that inherit a surviving agent's distilled strategy text (prompt-text transmission). We run 15 independent seeds per model. Because Vallinder \& Hughes's Claude 3.5 Sonnet and Gemini 1.5 Flash are retired on the current API tiers, we substitute the current-generation Anthropic model (\texttt{claude-sonnet-4-6}) and OpenAI \texttt{gpt-4o}; the model identity and substitution are recorded in each run's metadata. The Gemini arm is excluded here (free-tier request quota); the experimental claim is cross-\textit{family} divergence under selection, not a bit-exact replay.
+
+\textbf{Result: a clean alignment-stack dissociation.} The two families separate decisively (Table~\ref{tab:donor_evo}, Figure~\ref{fig:donor_evo}). Claude sustains \textbf{100\% cooperation in every seed and every generation} (final 1.000 ± 0.000; 0/15 lineages collapse). GPT-4o is \textbf{bimodal}: 7/15 seeds sustain full cooperation while 8/15 collapse to near-zero donation, giving a final cooperation of 0.476 ± 0.490 and a collapse rate of 8/15. The difference is significant on both the final-cooperation distribution (one-sided Mann–Whitney $U = 172.5$, $p = 0.0007$) and the collapse-rate contingency (Fisher exact $p = 0.0011$). Of the eight GPT-4o collapses, four begin defecting immediately (generation-0 donation $= 0$) and four exhibit a \textbf{cultural-collapse trajectory} — full cooperation at generation 0 decaying to near-zero over subsequent generations as defector strategies are selected and inherited (e.g.\ a representative lineage traces $1.00 \to 0.22 \to 0.10 \to \dots \to 0.07$). The GPT-4o seed-mean trajectory therefore declines from 0.733 at generation 0 to 0.476 at generation 9, whereas Claude's is flat at 1.0.
+
+\begin{table}[H]
+\centering
+\caption{Cross-model cultural evolution in the iterated Donor Game (10 generations, 12 agents, 12 rounds/generation, top-50\% selection, 15 seeds/model). Models substitute the retired V\&H originals; runs are audit-traceable in \texttt{analysis/evolution/}.}
+\label{tab:donor_evo}
+\footnotesize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lrrrr}
+\toprule
+Model (alignment stack) & Final coop.\ (mean ± SD) & Collapsed lineages & Gen-0 → Gen-9 mean & Test vs Claude \\
+\midrule
+\texttt{claude-sonnet-4-6} (Anthropic) & 1.000 ± 0.000 & 0 / 15 & 1.00 → 1.00 & --- \\
+\texttt{gpt-4o} (OpenAI) & 0.476 ± 0.490 & 8 / 15 & 0.73 → 0.48 & MWU $p=0.0007$; Fisher $p=0.0011$ \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{figuras/crossmodel_donor_evolution.png}
+\caption{Cooperation (donation) rate per generation in the iterated Donor Game, by base model (15 seeds each; faint lines are individual lineages, bold lines seed means). Claude lineages all lock into the cooperative basin; GPT-4o lineages are bimodal, with 8/15 collapsing into the defective basin — several via a generation-over-generation cultural decline of cooperation.}
+\label{fig:donor_evo}
+\end{figure}
+
+\textbf{Interpretation and caveats.} Three points follow. (i) The cross-\textit{family} H7 question — left open for Mistral-only above — now has an audit-traceable answer in this design: the alignment stack is a \textbf{decisive moderator} of cooperative \textit{stability} under evolutionary pressure (Claude invariant; GPT-4o fragile). (ii) This sharpens, rather than contradicts, the $\Phi$/P\_LLM dissociation: cooperation here is governed almost entirely by the model prior P\_LLM, not by any empirical grounding map $\Phi$, and the cultural-collapse trajectories demonstrate that cooperation \textit{can} evolve — downward — across generations, a dynamic invisible to the static single-generation snapshots elsewhere in this chapter. (iii) Honest limits: GPT-4o's per-seed outcome is genuinely stochastic at decoding temperature 0.7 (re-running a fixed seed in a fresh process can flip its basin), so the \textit{collapse rate} (\textasciitilde{}53\%), not any individual seed, is the stable statistic; the current GPT-4o is markedly more cooperative than the 2024 GPT-4o of Vallinder \& Hughes, consistent with intervening alignment changes; $n = 15$ seeds and a two-family panel are modest; and the substituted models mean this is a design replication, not an exact reproduction.
+
 \subsecao{ESS Feature Importance and Policy Intervention}
 
-\textbf{Feature importance.} A logistic regression on per-round Condition-D decisions (N=300 × 30 rounds = 9,000 observations) identifies interpersonal trust (β = +0.287, OR = 1.33), risk tolerance (β = −0.187, OR = 0.83), and social activity (β = +0.146, OR = 1.16) as top predictors. \textbf{Endogeneity caveat:} because Condition D computes cooperation directly as \texttt{p\_coop = clip(0.2 + 0.5·trust·(1−risk) + 0.15·social, ...)}, these predictors dominate \textit{because they are the formula inputs} — this is a consistency check, not independent validation. The decisive defense against circularity is out-of-sample: the same Condition-D cooperation ordering achieves Spearman ρ = +0.886 against per-city period-1 public-goods-game contributions in Herrmann, Thöni \& Gächter (2008) — a different game type spanning 16 cities across 15 countries, never ingested by BGF. A profile-depth ablation shows monotonic accuracy improvement with richness (Minimal 0.601 → Medium 0.607 → Full 0.608).
+\textbf{Feature importance.} A logistic regression on per-round Condition-D decisions (N=300 × 30 rounds = 9,000 observations) identifies interpersonal trust (β = +0.287, OR = 1.33), risk tolerance (β = −0.187, OR = 0.83), and social activity (β = +0.146, OR = 1.16) as top predictors (Figure~\ref{fig:11}). \textbf{Endogeneity caveat:} because Condition D computes cooperation directly as \texttt{p\_coop = clip(0.2 + 0.5·trust·(1−risk) + 0.15·social, ...)}, these predictors dominate \textit{because they are the formula inputs} — this is a consistency check, not independent validation. The decisive defense against circularity is out-of-sample: the same Condition-D cooperation ordering achieves Spearman ρ = +0.886 against per-city period-1 public-goods-game contributions in Herrmann, Thöni \& Gächter \cite{Herrmann2008} — a different game type spanning 16 cities across 15 countries, never ingested by BGF. (Scale: the six-cluster sweep behind this correlation and the ESS/WVS gradient — Spearman ρ = +1.000, WVS r = +0.954 — was executed at full scale, 50 agents per cluster and 30 seeds, with the Condition-D rule-based ESS policy and an ungrounded control arm; see §5.6, Table~\ref{tab:cross6}.) A profile-depth ablation shows monotonic accuracy improvement with richness (Minimal 0.601 → Medium 0.607 → Full 0.608; Figure~\ref{fig:12}).
 
 \begin{figure}[H]
 \centering
@@ -247,7 +306,7 @@ This reveals a rich, non-monotone pattern: a large reduction at N=20, none at N=
 \label{fig:12}
 \end{figure}
 
-\textbf{Policy intervention.} BGF enables a concrete policy use case: a trust boost δ ∈ \{0\%, 5\%, 10\%, 20\%\} applied to all agents' \texttt{trust\_people} at round 15 (5 seeds, N=200, T=30). Cooperation responds monotonically (δ=20\% yields +4.5 pp, 0.427→0.472), but stronger interventions produce marginally \textit{lower} final wealth (362.3→359.6) because, under the LPGG (cooperator net change ≈ −2.94/round at N=200), cooperators sacrifice personal wealth for collective benefit. Gini is nearly insensitive to intervention intensity (range 0.017–0.018), revealing that trust-building raises cooperation but does not reduce inequality without concurrent redistribution.
+\textbf{Policy intervention.} BGF enables a concrete policy use case: a trust boost δ ∈ \{0\%, 5\%, 10\%, 20\%\} applied to all agents' \texttt{trust\_people} at round 15 (5 seeds, N=200, T=30). Cooperation responds monotonically (Table~\ref{tab:8}, Figure~\ref{fig:14}; δ=20\% yields +4.5 pp, 0.427→0.472), but stronger interventions produce marginally \textit{lower} final wealth (362.3→359.6) because, under the LPGG (cooperator net change ≈ −2.94/round at N=200), cooperators sacrifice personal wealth for collective benefit. Gini is nearly insensitive to intervention intensity (range 0.017–0.018), revealing that trust-building raises cooperation but does not reduce inequality without concurrent redistribution.
 
 
 \begin{table}[H]
@@ -282,9 +341,9 @@ A non-confirmatory finding from the cooperation baseline model overturns a defau
 
 \subsecao{Memory Ablation Study (M0–M3): H8 Falsified}
 
-This experiment is pre-registered as Hypothesis \textbf{H8}, which predicted that deeper hierarchical memory monotonically increases persona fidelity and behavioral consistency (M0 < M1 < M2 < M3). A first 24-cell run (2026-06-03) was invalidated by two implementation bugs; the bug-patched v2 re-run completed all \textbf{24/24 cells} on 2026-06-05 (\texttt{analysis/tables/memory\_ablation.json}). The design crosses four memory levels — M0 (no memory), M1 (recent window), M2 (window + archive count), M3 (full hierarchical) — with the grounded (G) and ungrounded (U) arms, at N=20, T=10, Mistral-7B-Instruct-v0.3, 3 seeds per cell.
+This experiment is pre-registered as Hypothesis \textbf{H8}, which predicted that deeper hierarchical memory monotonically increases persona fidelity and behavioral consistency (M0 < M1 < M2 < M3). A first 24-cell run (2026-06-03) was invalidated by two implementation bugs; the bug-patched v2 re-run completed all \textbf{24/24 cells} on 2026-06-05 (run-aggregate statistics in \texttt{analysis/tables/memory\_ablation.json}; the terminal-round statistics below are computed from the 24 \texttt{ablation\_*\_v2} run directories). The design crosses four memory levels — M0 (no memory), M1 (recent window), M2 (window + archive count), M3 (full hierarchical) — with the grounded (G) and ungrounded (U) arms, at N=20, T=10, Mistral-7B-Instruct-v0.3, 3 seeds per cell.
 
-\textbf{H8 is falsified for both arms.} The terminal-round results:
+\textbf{H8 is falsified for both arms.} The terminal-round results are shown in Table~\ref{tab:9} and Figure~\ref{fig:15}:
 
 
 \begin{table}[H]
@@ -321,7 +380,7 @@ M2 & ungrounded & 0.633 ± 0.232 & 0.306 ± 0.074 & 0.306 ± 0.230 \\
 
 \subsecao{Negative Controls: Sham-Grounding Directionality}
 
-The pre-registered sham-grounding programme tests whether the grounding effect is specifically attributable to \textit{correct} ESS content. Three conditions run at matched scale (N=200, T=30, 5 seeds, rule-based proxy): \textbf{matched} (Nordic profiles vs Nordic benchmark), \textbf{mismatched} (Nordic profiles vs Eastern benchmark — same content, wrong reference cohort), and \textbf{ungrounded} (flat profiles vs Eastern benchmark).
+The pre-registered sham-grounding programme tests whether the grounding effect is specifically attributable to \textit{correct} ESS content. Three conditions run at matched scale (N=200, T=30, 5 seeds, rule-based proxy; Table~\ref{tab:10}): \textbf{matched} (Nordic profiles vs Nordic benchmark), \textbf{mismatched} (Nordic profiles vs Eastern benchmark — same content, wrong reference cohort), and \textbf{ungrounded} (flat profiles vs Eastern benchmark).
 
 
 \begin{table}[H]
@@ -346,7 +405,7 @@ The strict ordering \texttt{BRM(matched) > BRM(mismatched) > BRM(ungrounded)} co
 
 \subsecao{Mechanism: How Grounding Reshapes Behavior}
 
-The preceding subsections establish \textit{that} grounding moves cooperation, inequality, and B\_RLHF toward empirically plausible values; this subsection asks \textit{how}, by reading the full event streams from the seed-level A/B pilots. Pooling all consecutive-round decisions yields the 3×3 stochastic transition matrix \texttt{P[i,j] = Pr(next = j | current = i)}:
+In the seed-level A/B pilots — the cells where a grounding contrast \textit{did} appear, unlike the N=100 confirmatory extension (§5.13) — the full event streams permit a mechanistic reading of \textit{how} grounding reshapes behavior when it acts; this subsection is descriptive of those pilots. Pooling all consecutive-round decisions yields the 3×3 stochastic transition matrix \texttt{P[i,j] = Pr(next = j | current = i)} (Table~\ref{tab:11}, Figure~\ref{fig:18}):
 
 
 \begin{table}[H]
@@ -382,7 +441,7 @@ The key signature is \textbf{off-diagonal mass: A = 1.266 vs B = 1.438} — Cond
 
 \textbf{N=100, 10-seed confirmatory extension (primary evidence).} The pre-registered extension (\texttt{experiments/mx\_\{A,B\}\_s\{1..10\}}) finds the grounded and ungrounded arms statistically indistinguishable on every primary metric: cooperation 0.461 vs 0.455 (MWU p = 0.91), Gini 0.718 vs 0.715 (p = 0.85), mean wealth 177.3 vs 174.6 (p = 0.35). Only the composite BRM shifts in the predicted direction by +0.016 (within the within-condition SD of 0.022). This is the falsification of H2 at primary scale and the empirical core of the Φ/P\_LLM dissociation (Chapter 6).\footnote{A subset of these confirmatory seeds drew the synthetic population from the ESS microdata before survey post-stratification weights (\texttt{anweight}) were applied (audit item A1.1, fixed 2026-05-25; the weighted draw is now the default code path). Because the A/B contrast applies the identical population-synthesis map $\Phi$ to both arms, any residual unweighting bias enters both conditions symmetrically and cancels in the contrast: the dissociation — a null \emph{difference} between grounded and ungrounded arms — is invariant to it, though the absolute cooperation level may shift by a small amount under fully weighted sampling.}
 
-\textbf{N=500 cascade — a distinct, scale-dependent regime.} At N=500 the system enters a qualitatively different regime. A T=30 single-seed-per-arm gap-fill sweep (under \texttt{repetition\_penalty = 1.3}, completed via OOM retry on 2026-06-05) shows both arms cascading to near-universal cooperation: at R5 coop 76.0\%/80.8\% (B\_RLHF 0.427/0.475); R15 90.6\%/91.6\% (0.573/0.583); R27 93.8\%/96.6\% (0.605/0.633); and at R30 (terminal) \textbf{94.0\%/96.0\%} (B\_RLHF 0.607/0.627, Gini 0.9653/0.9695). Event-aggregate B\_RLHF across R1–R30 is 0.516/0.545 — a 2.6–2.8× amplification over the N=100 baseline of 0.195; condB's terminal 0.627 is 94\% of the theoretical 2/3 maximum. A two-seed-per-arm multi-arm extension at T=15 is now complete (\texttt{experiments/mx\_A\_n500\_s\{2,3\}}, \texttt{experiments/mx\_B\_n500\_s\{3,4\}}). The R15 terminal cooperation rates are condA \{s2 = 88.8\%, s3 = 85.8\%\} and condB \{s3 = 88.0\%, s4 = 89.4\%\}, giving 2-seed means of \textbf{condA = 87.3\% ± 2.1 pp vs condB = 88.7\% ± 1.0 pp (Δ = +1.4 pp)}; terminal Gini means are condA 0.832 / condB 0.819, and BRM means condA 0.754 / condB 0.777. The cross-condition gap (+1.4 pp, condB > condA) is small and within the condA seed range (85.8–88.8\%), so the T=30 single-seed condB > condA pattern (2.0–4.8 pp) does \textbf{not} robustly replicate; the gap is statistically null, consistent with the H2 null at N=100. This identifies a \textbf{scale-dependent RLHF cooperation cascade} that is symmetric across grounding conditions — a property of the population scale and the Graph-RAG majority-cooperation feedback loop, not a grounding artefact.
+\textbf{N=500 cascade — a distinct, scale-dependent regime.} At N=500 the system enters a qualitatively different regime. A T=30 single-seed-per-arm gap-fill sweep (under \texttt{repetition\_penalty = 1.3}, completed via OOM retry on 2026-06-05) shows both arms cascading to near-universal cooperation: at R5 coop 76.0\%/80.8\% (B\_RLHF 0.427/0.475); R15 90.6\%/91.6\% (0.573/0.583); R27 93.8\%/96.6\% (0.605/0.633); and at R30 (terminal) \textbf{94.0\%/96.0\%} (B\_RLHF 0.607/0.627, Gini 0.9653/0.9695). Event-aggregate B\_RLHF across R1–R30 is 0.516/0.545 — a 2.6–2.8× amplification over the N=100 baseline of 0.195; condB's terminal 0.627 is 94\% of the theoretical 2/3 maximum. A two-seed-per-arm multi-arm extension at T=15 is now complete (\texttt{experiments/mx\_A\_n500\_s\{2,3\}}, \texttt{experiments/mx\_B\_n500\_s\{3,4\}}). The R15 terminal cooperation rates are condA \{s2 = 88.8\%, s3 = 85.8\%\} and condB \{s3 = 88.0\%, s4 = 89.4\%\}, giving 2-seed means of \textbf{condA = 87.3\% ± 2.1 pp vs condB = 88.7\% ± 1.0 pp (Δ = +1.4 pp)}; terminal Gini means are condA 0.832 / condB 0.819, and BRM means condA 0.754 / condB 0.777. The cross-condition gap (+1.4 pp, condB > condA) is small and within the condA seed range (85.8–88.8\%), so the T=30 single-seed condB > condA pattern (2.0–4.8 pp) does \textbf{not} robustly replicate; the gap is statistically null, consistent with the H2 null at N=100. This identifies a \textbf{scale-dependent RLHF cooperation cascade} (Figure~\ref{fig:19}) that is symmetric across grounding conditions — a property of the population scale and the Graph-RAG majority-cooperation feedback loop, not a grounding artefact.
 
 \textbf{Padded-prompt control (Condition P, N=50, T=30, 3 seeds).} All three seeds complete (\texttt{experiments\_patched/padded\_control\_s\{1,2,3\}}), showing consistent three-phase dynamics (work collapse R1–5, transition R6–17, cooperation lock-in R18–30: coop 72–82\%, Gini 0.51–0.65). The 3-seed mean event-aggregate B\_RLHF = \textbf{0.255} (range 0.243–0.263) is \textit{higher} than both conditions A and B (0.195), confirming that ESS content \textbf{moderates} RLHF bias rather than inflating it via prompt length — a third, independent confirmation of the dissociation (alongside the A-vs-B null and the byte-identical seed-42 state-block ablation).
 

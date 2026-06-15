@@ -57,7 +57,7 @@ class ModelConfig:
     """
 
     model_id: str
-    backend_type: Literal["huggingface", "openai"] = "huggingface"
+    backend_type: Literal["huggingface", "openai", "anthropic", "gemini"] = "huggingface"
     context_length: int = 4096
     dtype: str = "float16"
     quantization: str | None = None
@@ -84,8 +84,10 @@ class ModelConfig:
             self.model_id = env_model
         env_backend = os.environ.get("BGF_BACKEND_TYPE")
         if env_backend:
-            if env_backend not in ("huggingface", "openai"):
-                raise ValueError(f"BGF_BACKEND_TYPE must be 'huggingface' or 'openai'; got {env_backend!r}")
+            if env_backend not in ("huggingface", "openai", "anthropic", "gemini"):
+                raise ValueError(
+                    f"BGF_BACKEND_TYPE must be 'huggingface', 'openai', 'anthropic', or 'gemini'; got {env_backend!r}"
+                )
             self.backend_type = env_backend  # type: ignore[assignment]
         env_variant = os.environ.get("BGF_MODEL_VARIANT")
         if env_variant:
@@ -153,6 +155,50 @@ class ModelConfig:
             prompt_budget=8192,
         )
 
+    # ── Cross-model cultural-evolution arm (Vallinder & Hughes replication) ────
+    #
+    # V&H (2024) used Claude 3.5 Sonnet / GPT-4o / Gemini 1.5 Flash. Claude 3.5
+    # Sonnet and Gemini 1.5 Flash are retired on the current API tiers, so we
+    # substitute the current-generation equivalents (Sonnet 4.6 / Gemini 2.5
+    # Flash). Substitution is recorded in run metadata; the experimental claim
+    # is cross-model divergence + cooperation evolution, not bit-exact replay.
+
+    @classmethod
+    def claude_sonnet(cls) -> ModelConfig:
+        """Claude Sonnet (current) — stands in for V&H's Claude 3.5 Sonnet."""
+        return cls(
+            model_id="claude-sonnet-4-6",
+            backend_type="anthropic",
+            context_length=200000,
+            max_new_tokens=256,
+            temperature=0.7,
+            prompt_budget=8192,
+        )
+
+    @classmethod
+    def gpt4o(cls) -> ModelConfig:
+        """GPT-4o — cooperation-collapse model in V&H (2024)."""
+        return cls(
+            model_id="gpt-4o",
+            backend_type="openai",
+            context_length=128000,
+            max_new_tokens=256,
+            temperature=0.7,
+            prompt_budget=8192,
+        )
+
+    @classmethod
+    def gemini_flash(cls) -> ModelConfig:
+        """Gemini Flash (current) — stands in for V&H's Gemini 1.5 Flash."""
+        return cls(
+            model_id="gemini-2.5-flash",
+            backend_type="gemini",
+            context_length=1000000,
+            max_new_tokens=256,
+            temperature=0.7,
+            prompt_budget=8192,
+        )
+
 
 def get_backend(config: ModelConfig):
     """Instantiate the appropriate LLM backend for the given ModelConfig.
@@ -200,4 +246,29 @@ def get_backend(config: ModelConfig):
             min_delay=0.25,  # throttle
         )
 
-    raise ValueError(f"Unknown backend_type: {config.backend_type!r}. Valid values: 'huggingface', 'openai'.")
+    if config.backend_type == "anthropic":
+        from decision.anthropic_backend import AnthropicBackend
+
+        return AnthropicBackend(
+            model_id=config.model_id,
+            max_new_tokens=config.max_new_tokens,
+            temperature=config.temperature,
+            max_retries=2,
+            min_delay=0.25,
+        )
+
+    if config.backend_type == "gemini":
+        from decision.gemini_backend import GeminiBackend
+
+        return GeminiBackend(
+            model_id=config.model_id,
+            max_new_tokens=config.max_new_tokens,
+            temperature=config.temperature,
+            max_retries=2,
+            min_delay=0.25,
+        )
+
+    raise ValueError(
+        f"Unknown backend_type: {config.backend_type!r}. "
+        "Valid values: 'huggingface', 'openai', 'anthropic', 'gemini'."
+    )

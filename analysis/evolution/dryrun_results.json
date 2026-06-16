@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-06-15T20:08:21.304988+00:00",
+    "models": [
+      "mock"
+    ],
+    "seeds": [
+      42,
+      43
+    ],
+    "generations": 4,
+    "agents": 6,
+    "rounds_per_generation": 12,
+    "grounded": false,
+    "culture": null,
+    "dry_run": true,
+    "reference": "Vallinder & Hughes 2024 (arXiv:2412.10270)"
+  },
+  "per_model_summary": {
+    "mock": {
+      "mean_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "std_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_final": 1.0,
+      "n_seeds": 2
+    }
+  },
+  "runs": [
+    {
+      "model": "mock",
+      "seed": 42,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 4,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 6,
+        "seed": 42
+      },
+      "usage": null,
+      "lineage_size": 24
+    },
+    {
+      "model": "mock",
+      "seed": 43,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 4,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 6,
+        "seed": 43
+      },
+      "usage": null,
+      "lineage_size": 24
+    }
+  ]
+}

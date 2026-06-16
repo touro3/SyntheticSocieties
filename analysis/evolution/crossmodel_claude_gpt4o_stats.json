@@ -1,0 +1,128 @@
+{
+  "tag": "crossmodel_claude_gpt4o",
+  "metadata": {
+    "generated_at_utc": "2026-06-15T21:18:08.666153+00:00",
+    "models": [
+      "claude",
+      "gpt4o"
+    ],
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56
+    ],
+    "generations": 10,
+    "agents": 12,
+    "rounds_per_generation": 12,
+    "grounded": false,
+    "culture": null,
+    "dry_run": false,
+    "reference": "Vallinder & Hughes 2024 (arXiv:2412.10270)",
+    "failures": {}
+  },
+  "per_model": {
+    "claude": {
+      "n_seeds": 15,
+      "final_mean": 1.0,
+      "final_sd": 0.0,
+      "collapse_rate": 0.0,
+      "n_collapsed": 0,
+      "mean_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "finals": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "gpt4o": {
+      "n_seeds": 15,
+      "final_mean": 0.4764,
+      "final_sd": 0.4901,
+      "collapse_rate": 0.5333,
+      "n_collapsed": 8,
+      "mean_trajectory": [
+        0.7333,
+        0.525,
+        0.4894,
+        0.4861,
+        0.4833,
+        0.4815,
+        0.4787,
+        0.4787,
+        0.4764,
+        0.4764
+      ],
+      "finals": [
+        0.0,
+        1.0,
+        1.0,
+        0.0694,
+        0.0,
+        0.0,
+        1.0,
+        0.0347,
+        0.0,
+        0.0417,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        0.0
+      ]
+    }
+  },
+  "comparison": {
+    "models": [
+      "claude",
+      "gpt4o"
+    ],
+    "mwu_U": 172.5,
+    "mwu_p_a_gt_b": 0.0007,
+    "collapse_contingency": [
+      [
+        15,
+        0
+      ],
+      [
+        7,
+        8
+      ]
+    ],
+    "fisher_p": 0.0011
+  }
+}

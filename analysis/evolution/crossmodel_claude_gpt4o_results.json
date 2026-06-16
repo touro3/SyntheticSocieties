@@ -1,0 +1,1174 @@
+{
+  "metadata": {
+    "generated_at_utc": "2026-06-15T21:18:08.666153+00:00",
+    "models": [
+      "claude",
+      "gpt4o"
+    ],
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56
+    ],
+    "generations": 10,
+    "agents": 12,
+    "rounds_per_generation": 12,
+    "grounded": false,
+    "culture": null,
+    "dry_run": false,
+    "reference": "Vallinder & Hughes 2024 (arXiv:2412.10270)",
+    "failures": {}
+  },
+  "per_model_summary": {
+    "claude": {
+      "mean_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "std_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_final": 1.0,
+      "n_seeds": 15
+    },
+    "gpt4o": {
+      "mean_trajectory": [
+        0.7333,
+        0.525,
+        0.4894,
+        0.4861,
+        0.4833,
+        0.4815,
+        0.4787,
+        0.4787,
+        0.4764,
+        0.4764
+      ],
+      "std_trajectory": [
+        0.4422,
+        0.4519,
+        0.479,
+        0.4822,
+        0.484,
+        0.4857,
+        0.4881,
+        0.4883,
+        0.4902,
+        0.4901
+      ],
+      "mean_final": 0.4764,
+      "n_seeds": 15
+    }
+  },
+  "runs": [
+    {
+      "model": "claude",
+      "seed": 42,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 42
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 924,
+        "total_tokens": 4005,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0231
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 43,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 43
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 925,
+        "total_tokens": 4006,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0231
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 44,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 44
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 907,
+        "total_tokens": 3988,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0228
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 45,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 45
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 929,
+        "total_tokens": 4010,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0232
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 46,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 46
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 911,
+        "total_tokens": 3992,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0229
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 47,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 47
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 934,
+        "total_tokens": 4015,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0233
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 48,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 48
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 902,
+        "total_tokens": 3983,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0228
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 49,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 49
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 924,
+        "total_tokens": 4005,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0231
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 50,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 50
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 1014,
+        "total_tokens": 4095,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0245
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 51,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 51
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 904,
+        "total_tokens": 3985,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0228
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 52,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 52
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 926,
+        "total_tokens": 4007,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0231
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 53,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 53
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 982,
+        "total_tokens": 4063,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.024
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 54,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 54
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 914,
+        "total_tokens": 3995,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.023
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 55,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 55
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 934,
+        "total_tokens": 4015,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0233
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "claude",
+      "seed": 56,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 56
+      },
+      "usage": {
+        "prompt_tokens": 3081,
+        "completion_tokens": 943,
+        "total_tokens": 4024,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0234
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 42,
+      "cooperation_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cooperation": 0.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 42
+      },
+      "usage": {
+        "prompt_tokens": 2907,
+        "completion_tokens": 79,
+        "total_tokens": 2986,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0081
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 43,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 43
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 56,
+        "total_tokens": 3040,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.008
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 44,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 44
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 45,
+        "total_tokens": 3029,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 45,
+      "cooperation_trajectory": [
+        1.0,
+        0.22222222222222224,
+        0.09722222222222222,
+        0.16666666666666666,
+        0.10416666666666667,
+        0.10416666666666667,
+        0.08333333333333333,
+        0.09722222222222222,
+        0.041666666666666664,
+        0.06944444444444443
+      ],
+      "final_cooperation": 0.06944444444444443,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 45
+      },
+      "usage": {
+        "prompt_tokens": 45369,
+        "completion_tokens": 947,
+        "total_tokens": 46316,
+        "cached_hits": 1127,
+        "estimated_cost_usd": 0.1229
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 46,
+      "cooperation_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cooperation": 0.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 46
+      },
+      "usage": {
+        "prompt_tokens": 2907,
+        "completion_tokens": 62,
+        "total_tokens": 2969,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 47,
+      "cooperation_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cooperation": 0.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 47
+      },
+      "usage": {
+        "prompt_tokens": 2907,
+        "completion_tokens": 144,
+        "total_tokens": 3051,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0087
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 48,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 48
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 44,
+        "total_tokens": 3028,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 49,
+      "cooperation_trajectory": [
+        1.0,
+        0.2638888888888889,
+        0.027777777777777776,
+        0.041666666666666664,
+        0.041666666666666664,
+        0.03472222222222222,
+        0.027777777777777776,
+        0.027777777777777776,
+        0.027777777777777776,
+        0.03472222222222222
+      ],
+      "final_cooperation": 0.03472222222222222,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 49
+      },
+      "usage": {
+        "prompt_tokens": 40608,
+        "completion_tokens": 956,
+        "total_tokens": 41564,
+        "cached_hits": 1158,
+        "estimated_cost_usd": 0.1111
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 50,
+      "cooperation_trajectory": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cooperation": 0.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 50
+      },
+      "usage": {
+        "prompt_tokens": 2907,
+        "completion_tokens": 43,
+        "total_tokens": 2950,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0077
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 51,
+      "cooperation_trajectory": [
+        1.0,
+        0.23611111111111113,
+        0.11111111111111112,
+        0.041666666666666664,
+        0.05555555555555555,
+        0.05555555555555555,
+        0.05555555555555555,
+        0.05555555555555555,
+        0.07638888888888888,
+        0.041666666666666664
+      ],
+      "final_cooperation": 0.041666666666666664,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 51
+      },
+      "usage": {
+        "prompt_tokens": 41777,
+        "completion_tokens": 854,
+        "total_tokens": 42631,
+        "cached_hits": 1150,
+        "estimated_cost_usd": 0.113
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 52,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 52
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 44,
+        "total_tokens": 3028,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 53,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 53
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 44,
+        "total_tokens": 3028,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 54,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 54
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 44,
+        "total_tokens": 3028,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.0079
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 55,
+      "cooperation_trajectory": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "final_cooperation": 1.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 55
+      },
+      "usage": {
+        "prompt_tokens": 2984,
+        "completion_tokens": 56,
+        "total_tokens": 3040,
+        "cached_hits": 1418,
+        "estimated_cost_usd": 0.008
+      },
+      "lineage_size": 120
+    },
+    {
+      "model": "gpt4o",
+      "seed": 56,
+      "cooperation_trajectory": [
+        1.0,
+        0.1527777777777778,
+        0.10416666666666667,
+        0.041666666666666664,
+        0.04861111111111111,
+        0.027777777777777776,
+        0.013888888888888888,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "final_cooperation": 0.0,
+      "config": {
+        "n_generations": 10,
+        "rounds_per_generation": 12,
+        "survivor_fraction": 0.5,
+        "endowment": 10.0,
+        "donation": 2.0,
+        "multiplier": 2.0,
+        "reputation_window": 10,
+        "n_agents": 12,
+        "seed": 56
+      },
+      "usage": {
+        "prompt_tokens": 32598,
+        "completion_tokens": 649,
+        "total_tokens": 33247,
+        "cached_hits": 1213,
+        "estimated_cost_usd": 0.088
+      },
+      "lineage_size": 120
+    }
+  ]
+}

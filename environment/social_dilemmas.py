@@ -376,6 +376,66 @@ class UltimatumGame(SocialDilemma):
         )
 
 
+# ── Game 5: Donor Game (indirect reciprocity) ─────────────────────────────────
+
+
+class DonorGame(SocialDilemma):
+    """Iterated Donor Game for cultural-evolution experiments.
+
+    Faithful to Vallinder & Hughes (2024, arXiv:2412.10270): in each pairwise
+    encounter a *donor* observes the *recipient's* reputation (recent action
+    history) and chooses to ``donate`` or ``keep``. Donating costs the donor
+    ``cost`` and benefits the recipient ``benefit = MULTIPLIER * cost``
+    (default multiplier 2). Cooperation is individually costly but socially
+    optimal — the canonical indirect-reciprocity dilemma.
+
+    Nash equilibrium: always ``keep`` (defection dominates in the stage game).
+    Social optimum: always ``donate``.
+    RLHF prediction: over-donation relative to the human reputation-conditioned
+    baseline.
+
+    The pairwise matching, reputation ledger, and payoff bookkeeping live in
+    ``environment.donor_game``; this class supplies the action space and the
+    B_RLHF reference distributions so the donor game plugs into the same
+    cross-game validation machinery as the other dilemmas.
+    """
+
+    MULTIPLIER: float = 2.0  # recipient benefit = MULTIPLIER * donor cost
+
+    @property
+    def name(self) -> str:
+        return "Donor Game"
+
+    @property
+    def actions(self) -> list[str]:
+        return ["donate", "keep"]
+
+    @property
+    def nash_equilibrium(self) -> dict[str, float]:
+        return {"donate": 0.0, "keep": 1.0}
+
+    @property
+    def social_optimum(self) -> dict[str, float]:
+        return {"donate": 1.0, "keep": 0.0}
+
+    @property
+    def human_baseline(self) -> dict[str, float] | None:
+        # Wedekind & Milinski (2000): ~70% donation when recipient image
+        # (reputation) is observable — the indirect-reciprocity regime.
+        return {"donate": 0.70, "keep": 0.30}
+
+    @property
+    def cooperative_actions(self) -> list[str]:
+        return ["donate"]
+
+    def _notes(self) -> str:
+        return (
+            "Indirect reciprocity with reputation. Nash = 100% keep; "
+            "human ≈ 70% donate when reputation is visible. Recipient benefit = "
+            f"{self.MULTIPLIER:g}× donor cost. Substrate for cultural-evolution runs."
+        )
+
+
 # ── Cross-game B_RLHF runner ──────────────────────────────────────────────────
 
 
@@ -384,6 +444,7 @@ _GAME_REGISTRY: dict[str, SocialDilemma] = {
     "stag_hunt": StagHunt(),
     "public_goods": PublicGoodsGame(),
     "ultimatum": UltimatumGame(),
+    "donor_game": DonorGame(),
 }
 
 

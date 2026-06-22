@@ -27,7 +27,7 @@ seaborn==0.13.2
 tqdm==4.66.5
 rich==13.8.0
 
-pytest==9.0.3
+pytest==9.1.1
 
 jupyter==1.1.1
 jupyter_client==8.6.2

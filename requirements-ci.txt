@@ -13,10 +13,10 @@ pydantic==2.8.2
 networkx==3.3
 scikit-learn==1.5.2
 matplotlib==3.9.2
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==7.1.0
 pytest-timeout==2.4.0
-hypothesis==6.153.0
+hypothesis==6.155.7
 openai==1.51.0
 polars==1.8.2
 orjson==3.11.6
